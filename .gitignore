@@ -1,0 +1,12 @@
+wrangler.jsonc
+.wrangler/
+worker-configuration.d.ts
+node_modules/
+.svelte-kit/
+.pnpm-store/
+/docs/
+.vscode/
+.claude/
+.DS_Store
+.env.dev
+.env.prod

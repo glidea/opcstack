@@ -1,0 +1,19 @@
+{
+	"home.title": "Home",
+	"home.subtitle": "Welcome",
+	"lang.zh": "中文",
+	"lang.en": "English",
+	"docs.contents": "Contents",
+	"docs.onThisPage": "On this page",
+	"docs.noSections": "No sections",
+	"docs.previous": "Previous",
+	"docs.next": "Next",
+	"docs.updatedAt": "Updated",
+	"docs.theme": "Theme",
+	"docs.language": "Language",
+	"docs.theme.system": "System",
+	"docs.theme.light": "Light",
+	"docs.theme.dark": "Dark",
+	"docs.menu": "Menu",
+	"docs.logoAlt": "Documentation logo"
+}

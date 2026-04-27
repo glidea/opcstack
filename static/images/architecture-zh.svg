@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900">
+  <defs>
+    <style>
+      @media (prefers-color-scheme: dark) {
+        .title { fill: #e0e0e0; }
+        .label { fill: #d0d0d0; }
+        .small { fill: #a0a0a0; }
+        .box { fill: #2a2a2a; stroke: #666; }
+        .user { fill: #1e3a5f; stroke: #4a90e2; }
+        .cloudflare { fill: #4a3a1e; stroke: #e89a3c; }
+        .worker { fill: #3a1e4a; stroke: #a855f7; }
+        .service { fill: #1e4a2a; stroke: #4ade80; }
+        .arrow { stroke: #888; }
+        .arrow-bi { stroke: #888; }
+        .arrowhead { fill: #888; }
+      }
+      @media (prefers-color-scheme: light) {
+        .title { fill: #1a1a1a; }
+        .label { fill: #333; }
+        .small { fill: #666; }
+        .box { fill: #fff; stroke: #333; }
+        .user { fill: #e3f2fd; stroke: #1976d2; }
+        .cloudflare { fill: #fff3e0; stroke: #f57c00; }
+        .worker { fill: #f3e5f5; stroke: #7b1fa2; }
+        .service { fill: #e8f5e9; stroke: #388e3c; }
+        .arrow { stroke: #333; }
+        .arrow-bi { stroke: #333; }
+        .arrowhead { fill: #333; }
+      }
+      .title { font: bold 20px sans-serif; }
+      .label { font: 14px sans-serif; }
+      .small { font: 12px sans-serif; }
+      .box, .user, .cloudflare, .worker, .service { stroke-width: 2; }
+      .arrow, .arrow-bi { fill: none; stroke-width: 2; }
+      .arrow { marker-end: url(#arrowhead); }
+      .arrow-bi { marker-end: url(#arrowhead); marker-start: url(#arrowhead-start); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" class="arrowhead" />
+    </marker>
+    <marker id="arrowhead-start" markerWidth="10" markerHeight="10" refX="1" refY="3" orient="auto">
+      <polygon points="10 0, 0 3, 10 6" class="arrowhead" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="600" y="30" class="title" text-anchor="middle">OPC Stack 架构图</text>
+
+  <!-- User/Browser -->
+  <rect x="500" y="60" width="200" height="60" class="user" rx="5"/>
+  <text x="600" y="95" class="label" text-anchor="middle">用户 / 浏览器</text>
+
+  <!-- Arrow: User to Cloudflare -->
+  <path d="M 600 120 L 600 170" class="arrow"/>
+  <text x="620" y="150" class="small">HTTP Request</text>
+
+  <!-- Cloudflare Edge Network -->
+  <rect x="450" y="170" width="300" height="80" class="cloudflare" rx="5"/>
+  <text x="600" y="200" class="label" text-anchor="middle" font-weight="bold">Cloudflare 边缘网络</text>
+  <text x="600" y="225" class="small" text-anchor="middle">全球 CDN + DDoS 防护</text>
+
+  <!-- Arrow: Cloudflare to Worker -->
+  <path d="M 600 250 L 600 300" class="arrow"/>
+  <text x="620" y="280" class="small">路由到 Worker</text>
+
+  <!-- Worker Container -->
+  <rect x="350" y="300" width="500" height="280" class="worker" rx="5"/>
+  <text x="600" y="325" class="label" text-anchor="middle" font-weight="bold">Cloudflare Worker</text>
+
+  <!-- Worker Internal: Entry Point -->
+  <rect x="370" y="340" width="460" height="50" class="box" rx="3"/>
+  <text x="600" y="360" class="small" text-anchor="middle">src/index.ts (入口)</text>
+  <text x="600" y="378" class="small" text-anchor="middle">fetch / cron / queue 分发</text>
+
+  <!-- Worker Internal: Hono API -->
+  <rect x="380" y="410" width="200" height="150" class="box" rx="3"/>
+  <text x="480" y="430" class="label" text-anchor="middle" font-weight="bold">Hono API</text>
+  <text x="480" y="450" class="small" text-anchor="middle">/api/*</text>
+  <text x="480" y="475" class="small" text-anchor="middle">中间件链：</text>
+  <text x="480" y="495" class="small" text-anchor="middle">1. d1SessionMiddleware</text>
+  <text x="480" y="515" class="small" text-anchor="middle">2. authMiddleware</text>
+  <text x="480" y="535" class="small" text-anchor="middle">3. betaGateMiddleware</text>
+  <text x="480" y="555" class="small" text-anchor="middle">4. handler</text>
+
+  <!-- Worker Internal: SvelteKit -->
+  <rect x="620" y="410" width="200" height="150" class="box" rx="3"/>
+  <text x="720" y="430" class="label" text-anchor="middle" font-weight="bold">SvelteKit SSR</text>
+  <text x="720" y="450" class="small" text-anchor="middle">其他路径</text>
+  <text x="720" y="475" class="small" text-anchor="middle">src/web/routes/</text>
+
+  <!-- Arrows: Entry to Hono/SvelteKit -->
+  <path d="M 480 390 L 480 410" class="arrow"/>
+  <path d="M 720 390 L 720 410" class="arrow"/>
+
+  <!-- D1 Database -->
+  <rect x="80" y="650" width="180" height="100" class="service" rx="5"/>
+  <text x="170" y="675" class="label" text-anchor="middle" font-weight="bold">D1 数据库</text>
+  <text x="170" y="695" class="small" text-anchor="middle">主库 (Primary)</text>
+  <text x="170" y="715" class="small" text-anchor="middle">+</text>
+  <text x="170" y="735" class="small" text-anchor="middle">全球只读副本</text>
+
+  <!-- R2 Storage -->
+  <rect x="290" y="650" width="180" height="100" class="service" rx="5"/>
+  <text x="380" y="675" class="label" text-anchor="middle" font-weight="bold">R2 对象存储</text>
+  <text x="380" y="695" class="small" text-anchor="middle">public/*</text>
+  <text x="380" y="715" class="small" text-anchor="middle">private/&lt;userId&gt;/*</text>
+
+  <!-- KV Store -->
+  <rect x="500" y="650" width="180" height="100" class="service" rx="5"/>
+  <text x="590" y="675" class="label" text-anchor="middle" font-weight="bold">KV 键值存储</text>
+  <text x="590" y="695" class="small" text-anchor="middle">缓存 / 配置</text>
+
+  <!-- Queue -->
+  <rect x="710" y="650" width="180" height="100" class="service" rx="5"/>
+  <text x="800" y="675" class="label" text-anchor="middle" font-weight="bold">Queue 队列</text>
+  <text x="800" y="695" class="small" text-anchor="middle">异步任务</text>
+  <text x="800" y="715" class="small" text-anchor="middle">src/consumers/</text>
+
+  <!-- Email & Cron -->
+  <rect x="920" y="650" width="180" height="100" class="service" rx="5"/>
+  <text x="1010" y="675" class="label" text-anchor="middle" font-weight="bold">Email + Cron</text>
+  <text x="1010" y="695" class="small" text-anchor="middle">Email Routing</text>
+  <text x="1010" y="715" class="small" text-anchor="middle">定时任务</text>
+  <text x="1010" y="735" class="small" text-anchor="middle">src/jobs/</text>
+
+  <!-- Arrows: Worker to Services -->
+  <path d="M 380 580 L 170 650" class="arrow-bi"/>
+  <text x="260" y="610" class="small">读写 + bookmark</text>
+
+  <path d="M 450 580 L 380 650" class="arrow-bi"/>
+  <text x="400" y="610" class="small">文件上传/下载</text>
+
+  <path d="M 550 580 L 590 650" class="arrow-bi"/>
+  <text x="570" y="610" class="small">读写缓存</text>
+
+  <path d="M 650 580 L 800 650" class="arrow-bi"/>
+  <text x="740" y="610" class="small">发送消息</text>
+
+  <path d="M 750 580 L 1010 650" class="arrow-bi"/>
+  <text x="900" y="610" class="small">发邮件 / 触发</text>
+
+  <!-- Legend -->
+  <text x="100" y="800" class="label" font-weight="bold">请求流程：</text>
+  <text x="100" y="825" class="small">1. 用户发起 HTTP 请求</text>
+  <text x="100" y="845" class="small">2. Cloudflare 边缘网络接收并路由到 Worker</text>
+  <text x="100" y="865" class="small">3. Worker 根据路径分发：/api/* → Hono，其他 → SvelteKit</text>
+
+  <text x="650" y="800" class="label" font-weight="bold">数据流：</text>
+  <text x="650" y="825" class="small">4. Hono 中间件链处理认证、session、权限</text>
+  <text x="650" y="845" class="small">5. Worker 调用 D1/R2/KV/Queue 等服务</text>
+  <text x="650" y="865" class="small">6. 返回响应（带 bookmark 保证一致性）</text>
+
+</svg>

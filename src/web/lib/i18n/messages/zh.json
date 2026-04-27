@@ -1,0 +1,19 @@
+{
+	"home.title": "首页",
+	"home.subtitle": "欢迎使用",
+	"lang.zh": "中文",
+	"lang.en": "English",
+	"docs.contents": "目录",
+	"docs.onThisPage": "本页内容",
+	"docs.noSections": "暂无分节",
+	"docs.previous": "上一页",
+	"docs.next": "下一页",
+	"docs.updatedAt": "更新于",
+	"docs.theme": "主题",
+	"docs.language": "语言",
+	"docs.theme.system": "跟随系统",
+	"docs.theme.light": "浅色",
+	"docs.theme.dark": "深色",
+	"docs.menu": "菜单",
+	"docs.logoAlt": "文档 Logo"
+}

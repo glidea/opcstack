@@ -1,0 +1,53 @@
+import { Hono } from 'hono'
+import { adminSecretMiddleware, authMiddleware } from './middleware/auth'
+import { emailAuthMiddleware } from './middleware/email-auth'
+import { betaGateMiddleware } from './middleware/beta-gate'
+import { d1SessionMiddleware } from './middleware/d1-session'
+import {
+	bindBetaCodeHandler,
+	generateBetaCodesHandler,
+	listBetaCodesHandler
+} from './handler/beta'
+import { readR2ObjectHandler } from './handler/r2'
+import { authCore } from './auth'
+import type { AppDb } from '../db'
+
+export type ApiEnv = {
+	Bindings: Env
+	Variables: {
+		userId: string
+		db: AppDb
+	}
+}
+
+export const api: Hono<ApiEnv> = new Hono<ApiEnv>()
+api.use('/api/*', d1SessionMiddleware)
+api.use('/api/*', authMiddleware)
+api.use('/api/*', betaGateMiddleware)
+api.use('/api/auth/*', emailAuthMiddleware)
+
+api.get('/api/health', (ctx): Response => {
+	return ctx.json({})
+})
+
+api.all('/api/auth/*', async (ctx): Promise<Response> => {
+	const h = authCore(ctx.env, ctx.get('db')).handler
+	return h(ctx.req.raw)
+})
+
+api.post('/api/get_public_config', (ctx): Response => {
+	return ctx.json({
+		beta_code_enabled: String(ctx.env.BETA_CODE_ENABLED) === 'true',
+		google_auth_enabled: String(ctx.env.GOOGLE_AUTH_ENABLED) === 'true',
+		email_enabled: String(ctx.env.EMAIL_ENABLED) === 'true',
+		email_signup_enabled: String(ctx.env.EMAIL_SIGNUP_ENABLED) === 'true',
+		email_require_verification: String(ctx.env.EMAIL_REQUIRE_VERIFICATION) === 'true',
+		email_user_action_cooldown_seconds: Number(ctx.env.EMAIL_USER_ACTION_COOLDOWN_SECONDS)
+	})
+})
+
+api.get('/api/r2/*', readR2ObjectHandler)
+
+api.post('/api/bind_beta_code', bindBetaCodeHandler)
+api.post('/api/generate_beta_codes', adminSecretMiddleware, generateBetaCodesHandler)
+api.post('/api/list_beta_codes', adminSecretMiddleware, listBetaCodesHandler)
