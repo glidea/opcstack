@@ -49,5 +49,5 @@ api.post('/api/get_public_config', (ctx): Response => {
 api.get('/api/r2/*', readR2ObjectHandler)
 
 api.post('/api/bind_beta_code', bindBetaCodeHandler)
-api.post('/api/generate_beta_codes', adminSecretMiddleware, generateBetaCodesHandler)
-api.post('/api/list_beta_codes', adminSecretMiddleware, listBetaCodesHandler)
+api.post('/api/admin/generate_beta_codes', adminSecretMiddleware, generateBetaCodesHandler)
+api.post('/api/admin/list_beta_codes', adminSecretMiddleware, listBetaCodesHandler)

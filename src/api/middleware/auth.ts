@@ -8,8 +8,8 @@ function isAuthPublicPath(pathname: string): boolean {
 		pathname === '/api/health' ||
 		pathname === '/api/get_public_config' ||
 		pathname.startsWith('/api/r2/public/') ||
-		pathname === '/api/generate_beta_codes' ||
-		pathname === '/api/list_beta_codes'
+		pathname === '/api/admin/generate_beta_codes' ||
+		pathname === '/api/admin/list_beta_codes'
 	)
 }
 

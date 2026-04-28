@@ -208,7 +208,7 @@ describe('adminSecretMiddleware', () => {
 	]
 
 	runCases(cases, async (given) => {
-		const state = createContextState('/api/generate_beta_codes', given.authorization)
+		const state = createContextState('/api/admin/generate_beta_codes', given.authorization)
 		state.env['ADMIN_SECRET'] = given.adminSecret
 		const ctx = createContext(state)
 		const res = await adminSecretMiddleware(ctx, state.next)

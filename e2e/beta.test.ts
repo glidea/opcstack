@@ -99,7 +99,7 @@ describe('beta code api e2e', () => {
 		{
 			scenario: 'rejects admin api without ADMIN_SECRET',
 			given: 'no admin authorization header',
-			when: 'posting /api/generate_beta_codes',
+			when: 'posting /api/admin/generate_beta_codes',
 			then: 'returns unauthorized',
 			givenDetail: {},
 			whenDetail: {
@@ -134,7 +134,7 @@ describe('beta code api e2e', () => {
 			}
 		}
 
-		const res = await postJson('/api/generate_beta_codes', { count: 1 })
+		const res = await postJson('/api/admin/generate_beta_codes', { count: 1 })
 		const payload = (await res.json()) as { code: string }
 		return {
 			status: res.status,
@@ -178,7 +178,7 @@ describe('beta code api e2e', () => {
 
 	runCases(flowCases, async () => {
 		const generateRes = await postJson(
-			'/api/generate_beta_codes',
+			'/api/admin/generate_beta_codes',
 			{ count: 1 },
 			{
 				authorization: `Bearer ${adminSecret}`
@@ -191,7 +191,7 @@ describe('beta code api e2e', () => {
 		}
 
 		const listRes = await postJson(
-			'/api/list_beta_codes',
+			'/api/admin/list_beta_codes',
 			{},
 			{
 				authorization: `Bearer ${adminSecret}`
