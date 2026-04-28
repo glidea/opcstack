@@ -19,6 +19,80 @@
 			next: { slug: string; title: string } | null
 		}
 	} = $props()
+
+	let activeHeadingId = $state<string>('')
+
+	function updateActiveHeading(headings: HTMLElement[]): void {
+		if (headings.length === 0) {
+			activeHeadingId = ''
+			return
+		}
+
+		// Keep a small top offset for fixed header and spacing
+		const anchorTopOffsetPx = 112
+		let matchedHeadingId = ''
+		for (const heading of headings) {
+			if (heading.getBoundingClientRect().top <= anchorTopOffsetPx) {
+				matchedHeadingId = heading.id
+				continue
+			}
+			break
+		}
+
+		if (matchedHeadingId === '') {
+			activeHeadingId = headings[0]!.id
+			return
+		}
+
+		activeHeadingId = matchedHeadingId
+	}
+
+	function getHashHeadingId(): string {
+		return decodeURIComponent(window.location.hash.slice(1))
+	}
+
+	function updateActiveHeadingFromHash(headings: HTMLElement[]): boolean {
+		const hashHeadingId = getHashHeadingId()
+		if (hashHeadingId === '') {
+			return false
+		}
+
+		const matchedHeading = headings.find((heading) => heading.id === hashHeadingId)
+		if (!matchedHeading) {
+			return false
+		}
+
+		activeHeadingId = matchedHeading.id
+		return true
+	}
+
+	$effect(() => {
+		const headings: HTMLElement[] = data.headings
+			.map((heading) => document.getElementById(heading.id))
+			.filter((heading): heading is HTMLElement => heading !== null)
+
+		if (!updateActiveHeadingFromHash(headings)) {
+			updateActiveHeading(headings)
+		}
+
+		const onScroll = (): void => {
+			updateActiveHeading(headings)
+		}
+
+		const onHashChange = (): void => {
+			if (!updateActiveHeadingFromHash(headings)) {
+				updateActiveHeading(headings)
+			}
+		}
+
+		window.addEventListener('scroll', onScroll, { passive: true })
+		window.addEventListener('hashchange', onHashChange)
+
+		return (): void => {
+			window.removeEventListener('scroll', onScroll)
+			window.removeEventListener('hashchange', onHashChange)
+		}
+	})
 </script>
 
 <svelte:head>
@@ -91,11 +165,15 @@
 					<p class="px-2 text-sm text-muted-foreground">{$_('docs.noSections')}</p>
 				{:else}
 					{#each data.headings as heading}
+						{@const headingHash = `#${heading.id}`}
+						{@const isActive = activeHeadingId === heading.id}
 						<a
-							href={`#${heading.id}`}
+							href={headingHash}
+							aria-current={isActive ? 'location' : undefined}
 							class={[
 								'block rounded-md px-2 py-1 text-sm transition-colors hover:bg-muted',
-								heading.level === 3 ? 'ml-3 text-muted-foreground' : 'text-foreground/80'
+								heading.level === 3 ? 'ml-3 text-muted-foreground' : 'text-foreground/80',
+								isActive ? 'bg-muted font-medium text-foreground' : ''
 							]}
 						>
 							{heading.text}
