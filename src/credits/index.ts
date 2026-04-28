@@ -67,6 +67,13 @@ export interface DailyCheckinResult {
 	amount: number
 }
 
+export interface BindReferralResult {
+	inviterUserId: string
+	inviteeUserId: string
+	inviterBalance: number
+	inviteeBalance: number
+}
+
 export class CreditsError extends Error {
 	public readonly code: string
 
@@ -288,6 +295,185 @@ export async function dailyCheckin(input: {
 	}
 }
 
+export async function bindReferral(input: {
+	db: AppDb
+	inviteeUserId: string
+	referralCode: string
+	inviterAmount: number
+	inviteeAmount: number
+	nowMs?: number
+}): Promise<BindReferralResult> {
+	const code = input.referralCode.trim()
+	if (code === '') {
+		throw new CreditsError('INVALID_REFERRAL_CODE')
+	}
+	validateGrantAmount(input.inviterAmount)
+	validateGrantAmount(input.inviteeAmount)
+
+	const inviter = await input.db.query.user.findFirst({
+		columns: {
+			id: true,
+			creditBalance: true
+		},
+		where: eq(user.referralCode, code)
+	})
+	if (!inviter || inviter.id === input.inviteeUserId) {
+		throw new CreditsError('INVALID_REFERRAL_CODE')
+	}
+
+	const invitee = await input.db.query.user.findFirst({
+		columns: {
+			id: true,
+			creditBalance: true
+		},
+		where: eq(user.id, input.inviteeUserId)
+	})
+	if (!invitee) {
+		throw new CreditsError('CREDIT_USER_NOT_FOUND')
+	}
+
+	const nowMs = input.nowMs ?? Date.now()
+	const referralId = crypto.randomUUID()
+	const inviterEntryId = crypto.randomUUID()
+	const inviteeEntryId = crypto.randomUUID()
+	const inviterTransactionId = crypto.randomUUID()
+	const inviteeTransactionId = crypto.randomUUID()
+
+	const inviterRemaining = resolveEntryRemainingAmount(inviter.creditBalance, input.inviterAmount)
+	const inviteeRemaining = resolveEntryRemainingAmount(invitee.creditBalance, input.inviteeAmount)
+	const inviterBalance = inviter.creditBalance + input.inviterAmount
+	const inviteeBalance = invitee.creditBalance + input.inviteeAmount
+
+	try {
+		await input.db.batch([
+			input.db.run(sql`
+        INSERT INTO credit_referrals (id, inviter_user_id, invitee_user_id, created_at)
+        VALUES (${referralId}, ${inviter.id}, ${input.inviteeUserId}, ${nowMs})
+      `),
+			input.db.run(sql`
+        UPDATE "user"
+        SET credit_balance = ${inviterBalance}
+        WHERE id = ${inviter.id}
+          AND EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
+      `),
+			input.db.run(sql`
+        INSERT INTO credit_entries (
+          id,
+          user_id,
+          amount,
+          remaining_amount,
+          source_type,
+          source_id,
+          expires_at,
+          created_at
+        )
+        SELECT
+          ${inviterEntryId},
+          ${inviter.id},
+          ${input.inviterAmount},
+          ${inviterRemaining},
+          'referral_inviter',
+          ${`referral_inviter:${referralId}`},
+          NULL,
+          ${nowMs}
+        WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
+      `),
+			input.db.run(sql`
+        INSERT INTO credit_transactions (
+          id,
+          user_id,
+          type,
+          amount,
+          balance_after,
+          source_type,
+          source_id,
+          description,
+          expires_at,
+          created_at
+        )
+        SELECT
+          ${inviterTransactionId},
+          ${inviter.id},
+          'referral_inviter',
+          ${input.inviterAmount},
+          ${inviterBalance},
+          'referral_inviter',
+          ${`referral_inviter:${referralId}`},
+          'Referral inviter reward',
+          NULL,
+          ${nowMs}
+        WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
+      `),
+			input.db.run(sql`
+        UPDATE "user"
+        SET credit_balance = ${inviteeBalance}
+        WHERE id = ${input.inviteeUserId}
+          AND EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
+      `),
+			input.db.run(sql`
+        INSERT INTO credit_entries (
+          id,
+          user_id,
+          amount,
+          remaining_amount,
+          source_type,
+          source_id,
+          expires_at,
+          created_at
+        )
+        SELECT
+          ${inviteeEntryId},
+          ${input.inviteeUserId},
+          ${input.inviteeAmount},
+          ${inviteeRemaining},
+          'referral_invitee',
+          ${`referral_invitee:${referralId}`},
+          NULL,
+          ${nowMs}
+        WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
+      `),
+			input.db.run(sql`
+        INSERT INTO credit_transactions (
+          id,
+          user_id,
+          type,
+          amount,
+          balance_after,
+          source_type,
+          source_id,
+          description,
+          expires_at,
+          created_at
+        )
+        SELECT
+          ${inviteeTransactionId},
+          ${input.inviteeUserId},
+          'referral_invitee',
+          ${input.inviteeAmount},
+          ${inviteeBalance},
+          'referral_invitee',
+          ${`referral_invitee:${referralId}`},
+          'Referral invitee reward',
+          NULL,
+          ${nowMs}
+        WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
+      `)
+		])
+	} catch (error) {
+		if (isReferralAlreadyBoundError(error)) {
+			throw new CreditsError('REFERRAL_ALREADY_BOUND')
+		}
+		throw error
+	}
+
+	return {
+		inviterUserId: inviter.id,
+		inviteeUserId: input.inviteeUserId,
+		inviterBalance,
+		inviteeBalance
+	}
+}
+
 function validateGrantAmount(amount: number): void {
 	if (!Number.isInteger(amount) || amount <= 0) {
 		throw new CreditsError('INVALID_CREDIT_AMOUNT')
@@ -330,6 +516,21 @@ function resolveOffset(offset: number | undefined): number {
 		return 0
 	}
 	return offset
+}
+
+function resolveEntryRemainingAmount(currentBalance: number, amount: number): number {
+	const debtToRepay = currentBalance < 0 ? Math.min(-currentBalance, amount) : 0
+	return amount - debtToRepay
+}
+
+function isReferralAlreadyBoundError(error: unknown): boolean {
+	if (!(error instanceof Error)) {
+		return false
+	}
+	return (
+		error.message.includes('credit_referrals_invitee_user_id_unique') ||
+		error.message.includes('UNIQUE constraint failed: credit_referrals.invitee_user_id')
+	)
 }
 
 function formatUtcDate(timestampMs: number): string {

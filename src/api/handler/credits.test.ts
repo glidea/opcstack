@@ -1,12 +1,14 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
+	bindReferralHandler,
 	dailyCheckinHandler,
 	getCreditSummaryHandler,
 	listCreditTransactionsHandler,
 	type ListCreditTransactionsRequest
 } from './credits'
 import {
+	bindReferral,
 	CreditsError,
 	dailyCheckin,
 	getCreditSummary,
@@ -19,6 +21,7 @@ vi.mock('../../credits', async () => {
 	const actual = await vi.importActual<typeof import('../../credits')>('../../credits')
 	return {
 		...actual,
+		bindReferral: vi.fn(),
 		dailyCheckin: vi.fn(),
 		getCreditSummary: vi.fn(),
 		listCreditTransactions: vi.fn()
@@ -234,6 +237,166 @@ describe('dailyCheckinHandler', () => {
 			status: res.status,
 			code: payload.code ?? '',
 			checkedIn: payload.checked_in ?? false
+		}
+	})
+})
+
+describe('bindReferralHandler', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		enabled: string
+		body: { referral_code: string } | null
+		inviterAmount: string
+		inviteeAmount: string
+		errorCode: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: number
+		code: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'skip bind when referral is disabled',
+			given: 'referral switch is false',
+			when: 'calling bindReferralHandler',
+			then: 'returns empty response',
+			givenDetail: {
+				enabled: 'false',
+				body: { referral_code: 'ABCD1234' },
+				inviterAmount: '50',
+				inviteeAmount: '20',
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: ''
+			}
+		},
+		{
+			scenario: 'reject invalid request payload',
+			given: 'body parse failed',
+			when: 'calling bindReferralHandler',
+			then: 'returns invalid referral code',
+			givenDetail: {
+				enabled: 'true',
+				body: null,
+				inviterAmount: '50',
+				inviteeAmount: '20',
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_REFERRAL_CODE'
+			}
+		},
+		{
+			scenario: 'reject invalid referral reward config',
+			given: 'referral amount is zero',
+			when: 'calling bindReferralHandler',
+			then: 'returns invalid referral amount',
+			givenDetail: {
+				enabled: 'true',
+				body: { referral_code: 'ABCD1234' },
+				inviterAmount: '0',
+				inviteeAmount: '20',
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_REFERRAL_AMOUNT'
+			}
+		},
+		{
+			scenario: 'reject duplicated referral binding',
+			given: 'core bindReferral throws REFERRAL_ALREADY_BOUND',
+			when: 'calling bindReferralHandler',
+			then: 'returns conflict code',
+			givenDetail: {
+				enabled: 'true',
+				body: { referral_code: 'ABCD1234' },
+				inviterAmount: '50',
+				inviteeAmount: '20',
+				errorCode: 'REFERRAL_ALREADY_BOUND'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 409,
+				code: 'REFERRAL_ALREADY_BOUND'
+			}
+		},
+		{
+			scenario: 'reject invalid referral code from core',
+			given: 'core bindReferral throws INVALID_REFERRAL_CODE',
+			when: 'calling bindReferralHandler',
+			then: 'returns bad request code',
+			givenDetail: {
+				enabled: 'true',
+				body: { referral_code: 'ABCD1234' },
+				inviterAmount: '50',
+				inviteeAmount: '20',
+				errorCode: 'INVALID_REFERRAL_CODE'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_REFERRAL_CODE'
+			}
+		},
+		{
+			scenario: 'bind referral successfully',
+			given: 'core bindReferral succeeds',
+			when: 'calling bindReferralHandler',
+			then: 'returns empty response',
+			givenDetail: {
+				enabled: 'true',
+				body: { referral_code: 'ABCD1234' },
+				inviterAmount: '50',
+				inviteeAmount: '20',
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: ''
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		if (given.errorCode !== '') {
+			vi.mocked(bindReferral).mockRejectedValue(new CreditsError(given.errorCode))
+		} else {
+			vi.mocked(bindReferral).mockResolvedValue({
+				inviterUserId: 'u2',
+				inviteeUserId: 'u1',
+				inviterBalance: 100,
+				inviteeBalance: 50
+			})
+		}
+
+		const ctx = createJsonContext({
+			env: {
+				CREDITS_REFERRAL_ENABLED: given.enabled,
+				CREDITS_REFERRAL_INVITER_AMOUNT: given.inviterAmount,
+				CREDITS_REFERRAL_INVITEE_AMOUNT: given.inviteeAmount
+			},
+			userId: 'u1',
+			db: {},
+			body: given.body
+		})
+		const res = await bindReferralHandler(ctx)
+		const payload = (await res.json()) as { code?: string }
+		return {
+			status: res.status,
+			code: payload.code ?? ''
 		}
 	})
 })

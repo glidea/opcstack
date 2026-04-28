@@ -2,6 +2,7 @@ import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
 import {
+	bindReferral,
 	CreditsError,
 	dailyCheckin,
 	getCreditSummary,
@@ -9,6 +10,11 @@ import {
 	type CreditTransactionItem
 } from '../../credits'
 import { parse } from './utils'
+
+export const BindReferralRequestSchema = z.object({
+	referral_code: z.string().min(1)
+})
+export type BindReferralRequest = z.infer<typeof BindReferralRequestSchema>
 
 export const ListCreditTransactionsRequestSchema = z.object({
 	limit: z.number().int().min(1).max(100).optional(),
@@ -87,6 +93,45 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 	} catch (error) {
 		if (error instanceof CreditsError && error.code === 'DAILY_CHECKIN_ALREADY_DONE') {
 			return ctx.json({ code: error.code }, 409)
+		}
+		throw error
+	}
+}
+
+export async function bindReferralHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const env = ctx.env as unknown as Record<string, string | undefined>
+	if (env.CREDITS_REFERRAL_ENABLED !== 'true') {
+		return ctx.json({})
+	}
+
+	const req = await parse(ctx, BindReferralRequestSchema)
+	if (!req) {
+		return ctx.json({ code: 'INVALID_REFERRAL_CODE' }, 400)
+	}
+
+	const inviterAmount = toPositiveInt(env.CREDITS_REFERRAL_INVITER_AMOUNT)
+	const inviteeAmount = toPositiveInt(env.CREDITS_REFERRAL_INVITEE_AMOUNT)
+	if (inviterAmount <= 0 || inviteeAmount <= 0) {
+		return ctx.json({ code: 'INVALID_REFERRAL_AMOUNT' }, 400)
+	}
+
+	try {
+		await bindReferral({
+			db: ctx.get('db'),
+			inviteeUserId: ctx.get('userId'),
+			referralCode: req.referral_code,
+			inviterAmount,
+			inviteeAmount
+		})
+		return ctx.json({})
+	} catch (error) {
+		if (error instanceof CreditsError) {
+			if (error.code === 'INVALID_REFERRAL_CODE') {
+				return ctx.json({ code: error.code }, 400)
+			}
+			if (error.code === 'REFERRAL_ALREADY_BOUND') {
+				return ctx.json({ code: error.code }, 409)
+			}
 		}
 		throw error
 	}
