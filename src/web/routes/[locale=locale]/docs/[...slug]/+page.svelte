@@ -82,7 +82,7 @@
 	</div>
 
 	<aside class="hidden w-48 shrink-0 xl:block">
-		<div class="sticky top-[3.25rem] pl-6 pt-8">
+		<div class="sticky top-[3.25rem] max-h-[calc(100svh-4rem)] overflow-y-auto pl-6 pt-8">
 			<p class="px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
 				{$_('docs.onThisPage')}
 			</p>
