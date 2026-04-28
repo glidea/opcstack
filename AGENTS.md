@@ -71,6 +71,10 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `GOOGLE_AUTH_ENABLED`
 - `BETA_CODE_ENABLED`
 - `R2_ENABLED`
+- `CREDITS_SIGNUP_ENABLED` / `CREDITS_SIGNUP_AMOUNT`
+- `CREDITS_DAILY_CHECKIN_ENABLED` / `CREDITS_DAILY_CHECKIN_AMOUNT`
+- `CREDITS_REFERRAL_ENABLED` / `CREDITS_REFERRAL_INVITER_AMOUNT` / `CREDITS_REFERRAL_INVITEE_AMOUNT`
+- `CREDITS_HISTORY_RETENTION_DAYS`
 - `QUEUE_NAMES` semicolon separated
 - `CRONS` semicolon separated
 
@@ -128,8 +132,9 @@ await client.putImage({ dir, imageBase64, mimeType })
 4. Binding convention: `Q_<QUEUE_NAME_UPPER>`
 
 **Scheduled jobs**:
-1. Configure: `CRONS=*/5 * * * *`
+1. Configure: `CRONS=*/10 * * * *`
 2. Handler: `scheduledHandlers` in `src/jobs/index.ts`
+3. Credits job: run `expireCredits(now, 20)` and `cleanupCreditTransactions(retentionDays)` once per trigger
 
 ### 7. Frontend and Backend Feature Consistency
 

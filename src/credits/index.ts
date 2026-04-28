@@ -106,6 +106,15 @@ export interface DeductCreditsResult {
 	deductedAmount: number
 }
 
+export interface ExpireCreditsResult {
+	processedEntries: number
+	processedUsers: number
+}
+
+export interface CleanupCreditTransactionsResult {
+	deletedRows: number
+}
+
 export class CreditsError extends Error {
 	public readonly code: string
 
@@ -872,6 +881,141 @@ export async function runPaidActionWithCredits<T>(input: {
 	return result
 }
 
+export async function expireCredits(input: {
+	db: AppDb
+	nowMs?: number
+	limit?: number
+}): Promise<ExpireCreditsResult> {
+	const nowMs = input.nowMs ?? Date.now()
+	const limit = resolveExpireLimit(input.limit)
+
+	const expiredEntries = await input.db.all<{
+		id: string
+		user_id: string
+		remaining_amount: number
+	}>(sql`
+    SELECT id, user_id, remaining_amount
+    FROM credit_entries
+    WHERE expires_at IS NOT NULL
+      AND expires_at <= ${nowMs}
+      AND remaining_amount > 0
+    ORDER BY expires_at ASC, created_at ASC
+    LIMIT ${limit}
+  `)
+
+	if (expiredEntries.length === 0) {
+		return {
+			processedEntries: 0,
+			processedUsers: 0
+		}
+	}
+
+	const userExpiredMap = new Map<string, number>()
+	for (const row of expiredEntries) {
+		const currentValue = userExpiredMap.get(row.user_id) ?? 0
+		userExpiredMap.set(row.user_id, currentValue + row.remaining_amount)
+	}
+
+	const userIds = Array.from(userExpiredMap.keys())
+	const userRows = await input.db
+		.select({
+			id: user.id,
+			creditBalance: user.creditBalance
+		})
+		.from(user)
+		.where(sql`${user.id} IN (${sql.join(userIds.map((userId) => sql`${userId}`), sql`, `)})`)
+
+	const balanceMap = new Map<string, number>()
+	for (const row of userRows) {
+		balanceMap.set(row.id, row.creditBalance)
+	}
+
+	const statements: Array<ReturnType<AppDb['run']>> = []
+	for (const [userId, expiredAmount] of userExpiredMap) {
+		const currentBalance = balanceMap.get(userId)
+		if (currentBalance === undefined) {
+			continue
+		}
+
+		const nextBalance = currentBalance - expiredAmount
+		const sourceId = `expire:${nowMs}:${userId}`
+		statements.push(
+			input.db.run(sql`
+        UPDATE "user"
+        SET credit_balance = ${nextBalance}
+        WHERE id = ${userId}
+      `)
+		)
+		statements.push(
+			input.db.run(sql`
+        INSERT INTO credit_transactions (
+          id,
+          user_id,
+          type,
+          amount,
+          balance_after,
+          source_type,
+          source_id,
+          description,
+          expires_at,
+          created_at
+        )
+        VALUES (
+          ${crypto.randomUUID()},
+          ${userId},
+          'expired',
+          ${-expiredAmount},
+          ${nextBalance},
+          'expired',
+          ${sourceId},
+          'Credits expired',
+          NULL,
+          ${nowMs}
+        )
+      `)
+		)
+	}
+
+	for (const entry of expiredEntries) {
+		statements.push(
+			input.db.run(sql`
+        UPDATE credit_entries
+        SET remaining_amount = 0
+        WHERE id = ${entry.id}
+      `)
+		)
+	}
+
+	const [firstStatement, ...restStatements] = statements
+	if (firstStatement) {
+		await input.db.batch([firstStatement, ...restStatements])
+	}
+
+	return {
+		processedEntries: expiredEntries.length,
+		processedUsers: userExpiredMap.size
+	}
+}
+
+export async function cleanupCreditTransactions(input: {
+	db: AppDb
+	nowMs?: number
+	retentionDays?: number
+}): Promise<CleanupCreditTransactionsResult> {
+	const nowMs = input.nowMs ?? Date.now()
+	const retentionDays = resolveRetentionDays(input.retentionDays)
+	const cutoff = nowMs - retentionDays * 24 * 60 * 60 * 1000
+
+	const result = await input.db.run(sql`
+    DELETE FROM credit_transactions
+    WHERE created_at < ${cutoff}
+  `)
+
+	return {
+		deletedRows: readBatchChanges(result)
+	}
+}
+
 function validateGrantAmount(amount: number): void {
 	if (!Number.isInteger(amount) || amount <= 0) {
 		throw new CreditsError('INVALID_CREDIT_AMOUNT')
@@ -907,6 +1051,20 @@ function resolvePageLimit(limit: number | undefined): number {
 		return 20
 	}
 	return Math.min(limit, 100)
+}
+
+function resolveExpireLimit(limit: number | undefined): number {
+	if (!Number.isInteger(limit) || !limit || limit <= 0) {
+		return 20
+	}
+	return Math.min(limit, 200)
+}
+
+function resolveRetentionDays(retentionDays: number | undefined): number {
+	if (!Number.isInteger(retentionDays) || !retentionDays || retentionDays <= 0) {
+		return 90
+	}
+	return retentionDays
 }
 
 function resolveOffset(offset: number | undefined): number {

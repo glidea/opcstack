@@ -1,9 +1,11 @@
 import { describe, expect } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import {
+	cleanupCreditTransactions,
 	CreditsError,
 	deductCredits,
 	ensureEnoughCredits,
+	expireCredits,
 	grantCredits,
 	runPaidActionWithCredits,
 	type GrantCreditsInput
@@ -463,4 +465,210 @@ function createDeductMockDb(
 			return []
 		}
 	} as unknown as DeductMockDb
+}
+
+describe('expireCredits', () => {
+	type GivenDetail = {
+		expiredEntries: Array<{ id: string; user_id: string; remaining_amount: number }>
+		users: Array<{ id: string; creditBalance: number }>
+		limit?: number
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		processedEntries: number
+		processedUsers: number
+		batchCalled: boolean
+		statementCount: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'skip when no expired entries',
+			given: 'query returns empty expired list',
+			when: 'expireCredits is called',
+			then: 'no batch write happens',
+			givenDetail: {
+				expiredEntries: [],
+				users: []
+			},
+			whenDetail: {},
+			thenExpected: {
+				processedEntries: 0,
+				processedUsers: 0,
+				batchCalled: false,
+				statementCount: 0
+			}
+		},
+		{
+			scenario: 'process fixed number of expired entries and grouped users',
+			given: 'expired entries contain two users',
+			when: 'expireCredits is called',
+			then: 'returns processed counts and runs one batch',
+			givenDetail: {
+				expiredEntries: [
+					{ id: 'e1', user_id: 'u1', remaining_amount: 3 },
+					{ id: 'e2', user_id: 'u1', remaining_amount: 2 },
+					{ id: 'e3', user_id: 'u2', remaining_amount: 5 }
+				],
+				users: [
+					{ id: 'u1', creditBalance: 10 },
+					{ id: 'u2', creditBalance: 8 }
+				],
+				limit: 20
+			},
+			whenDetail: {},
+			thenExpected: {
+				processedEntries: 3,
+				processedUsers: 2,
+				batchCalled: true,
+				statementCount: 7
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const db = createExpireMockDb(given.expiredEntries, given.users)
+		const result = await expireCredits({
+			db,
+			nowMs: 1890000000000,
+			limit: given.limit
+		})
+
+		return {
+			processedEntries: result.processedEntries,
+			processedUsers: result.processedUsers,
+			batchCalled: db._expireState.batchCalled,
+			statementCount: db._expireState.statements.length
+		}
+	})
+})
+
+describe('cleanupCreditTransactions', () => {
+	type GivenDetail = {
+		changes: number
+		retentionDays?: number
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		deletedRows: number
+		called: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'delete old transactions with default retention',
+			given: 'run returns affected rows',
+			when: 'cleanupCreditTransactions is called',
+			then: 'returns deleted rows',
+			givenDetail: {
+				changes: 4
+			},
+			whenDetail: {},
+			thenExpected: {
+				deletedRows: 4,
+				called: true
+			}
+		},
+		{
+			scenario: 'support explicit retention days',
+			given: 'retention days is provided',
+			when: 'cleanupCreditTransactions is called',
+			then: 'still returns affected rows',
+			givenDetail: {
+				changes: 2,
+				retentionDays: 30
+			},
+			whenDetail: {},
+			thenExpected: {
+				deletedRows: 2,
+				called: true
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const db = createCleanupMockDb(given.changes)
+		const result = await cleanupCreditTransactions({
+			db,
+			nowMs: 1890000000000,
+			retentionDays: given.retentionDays
+		})
+		return {
+			deletedRows: result.deletedRows,
+			called: db._cleanupState.called
+		}
+	})
+})
+
+type ExpireMockState = {
+	batchCalled: boolean
+	statements: unknown[]
+}
+
+type ExpireMockDb = AppDb & {
+	_expireState: ExpireMockState
+}
+
+function createExpireMockDb(
+	expiredEntries: Array<{ id: string; user_id: string; remaining_amount: number }>,
+	users: Array<{ id: string; creditBalance: number }>
+): ExpireMockDb {
+	const state: ExpireMockState = {
+		batchCalled: false,
+		statements: []
+	}
+
+	return {
+		_expireState: state,
+		all: async (): Promise<Array<{ id: string; user_id: string; remaining_amount: number }>> => {
+			return expiredEntries
+		},
+		select: (): {
+			from: (_table: unknown) => {
+				where: (_condition: unknown) => Promise<Array<{ id: string; creditBalance: number }>>
+			}
+		} => {
+			return {
+				from: () => {
+					return {
+						where: async () => users
+					}
+				}
+			}
+		},
+		run: (payload: unknown): unknown => {
+			return payload
+		},
+		batch: async (statements: unknown[]): Promise<unknown[]> => {
+			state.batchCalled = true
+			state.statements = statements
+			return []
+		}
+	} as unknown as ExpireMockDb
+}
+
+type CleanupMockState = {
+	called: boolean
+}
+
+type CleanupMockDb = AppDb & {
+	_cleanupState: CleanupMockState
+}
+
+function createCleanupMockDb(changes: number): CleanupMockDb {
+	const state: CleanupMockState = {
+		called: false
+	}
+
+	return {
+		_cleanupState: state,
+		run: async (): Promise<{ meta: { changes: number } }> => {
+			state.called = true
+			return {
+				meta: {
+					changes
+				}
+			}
+		}
+	} as unknown as CleanupMockDb
 }

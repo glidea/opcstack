@@ -54,11 +54,11 @@ api.post('/api/get_public_config', (ctx): Response => {
 		email_signup_enabled: String(ctx.env.EMAIL_SIGNUP_ENABLED) === 'true',
 		email_require_verification: String(ctx.env.EMAIL_REQUIRE_VERIFICATION) === 'true',
 		email_user_action_cooldown_seconds: Number(ctx.env.EMAIL_USER_ACTION_COOLDOWN_SECONDS),
-		credits_signup_enabled: envMap.CREDITS_SIGNUP_ENABLED === 'true',
-		credits_signup_amount: Number(envMap.CREDITS_SIGNUP_AMOUNT ?? '0'),
-		credits_daily_checkin_enabled: envMap.CREDITS_DAILY_CHECKIN_ENABLED === 'true',
-		credits_daily_checkin_amount: Number(envMap.CREDITS_DAILY_CHECKIN_AMOUNT ?? '0'),
-		credits_referral_enabled: envMap.CREDITS_REFERRAL_ENABLED === 'true'
+		credits_signup_enabled: envMap['CREDITS_SIGNUP_ENABLED'] === 'true',
+		credits_signup_amount: Number(envMap['CREDITS_SIGNUP_AMOUNT'] ?? '0'),
+		credits_daily_checkin_enabled: envMap['CREDITS_DAILY_CHECKIN_ENABLED'] === 'true',
+		credits_daily_checkin_amount: Number(envMap['CREDITS_DAILY_CHECKIN_AMOUNT'] ?? '0'),
+		credits_referral_enabled: envMap['CREDITS_REFERRAL_ENABLED'] === 'true'
 	})
 })
 

@@ -26,7 +26,7 @@ export function authCore(env: Env, db: AppDb) {
               }
             }
           },
-          after: async (createdUser: Record<string, unknown>): Promise<void> => {
+	          after: async (createdUser: Record<string, unknown>): Promise<void> => {
             if (!readCreditsSignupEnabled(env)) {
               return
             }
@@ -36,7 +36,7 @@ export function authCore(env: Env, db: AppDb) {
               return
             }
 
-            const userId = String(createdUser.id ?? '')
+	            const userId = String(createdUser['id'] ?? '')
             if (userId === '') {
               return
             }
