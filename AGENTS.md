@@ -88,6 +88,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - D1 with Drizzle ORM
 - Get DB via `ctx.get('db')` request scoped
 - Modify schema by editing `src/db/schema.ts` then restart `pnpm dev` to auto generate and apply
+- D1 does not support full transactions; atomicity must be achieved using batch operations
 
 **D1 Read Replication**:
 - Automatically enabled in remote mode
