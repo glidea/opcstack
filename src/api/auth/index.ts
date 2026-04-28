@@ -3,6 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer } from 'better-auth/plugins'
 import type { AppDb } from '../../db'
 import { newEmailClients, type EmailClients } from '../../email'
+import { createReferralCode, grantCredits } from '../../credits'
 
 export function authCore(env: Env, db: AppDb) {
   return betterAuth({
@@ -11,6 +12,48 @@ export function authCore(env: Env, db: AppDb) {
     trustedOrigins: ['*'],
     database: drizzleAdapter(db, { provider: 'sqlite' }),
     plugins: [bearer()],
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (
+            userData: Record<string, unknown>
+          ): Promise<{ data: Record<string, unknown> }> => {
+            const referralCode = await createReferralCode(db)
+            return {
+              data: {
+                ...userData,
+                referralCode
+              }
+            }
+          },
+          after: async (createdUser: Record<string, unknown>): Promise<void> => {
+            if (!readCreditsSignupEnabled(env)) {
+              return
+            }
+
+            const signupAmount = readCreditsSignupAmount(env)
+            if (signupAmount <= 0) {
+              return
+            }
+
+            const userId = String(createdUser.id ?? '')
+            if (userId === '') {
+              return
+            }
+
+            await grantCredits({
+              db,
+              userId,
+              type: 'signup',
+              amount: signupAmount,
+              sourceType: 'signup',
+              sourceId: userId,
+              description: 'Signup reward'
+            })
+          }
+        }
+      }
+    },
     emailAndPassword: buildEmailAndPassword(env),
     emailVerification: buildEmailVerification(env),
     socialProviders: buildSocialProviders(env),
@@ -19,6 +62,25 @@ export function authCore(env: Env, db: AppDb) {
       updateAge: 27 * 24 * 60 * 60
     }
   })
+}
+
+function readCreditsSignupEnabled(env: Env): boolean {
+  const value = readOptionalEnv(env, 'CREDITS_SIGNUP_ENABLED')
+  return value === 'true'
+}
+
+function readCreditsSignupAmount(env: Env): number {
+  const raw = readOptionalEnv(env, 'CREDITS_SIGNUP_AMOUNT')
+  const parsed = Number(raw ?? '0')
+  if (!Number.isFinite(parsed)) {
+    return 0
+  }
+  return Math.max(0, Math.floor(parsed))
+}
+
+function readOptionalEnv(env: Env, key: string): string | undefined {
+  const envMap = env as unknown as Record<string, string | undefined>
+  return envMap[key]
 }
 
 function buildEmailAndPassword(env: Env): AuthEmailAndPasswordConfig {

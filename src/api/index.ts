@@ -36,13 +36,19 @@ api.all('/api/auth/*', async (ctx): Promise<Response> => {
 })
 
 api.post('/api/get_public_config', (ctx): Response => {
+	const envMap = ctx.env as unknown as Record<string, string | undefined>
 	return ctx.json({
 		beta_code_enabled: String(ctx.env.BETA_CODE_ENABLED) === 'true',
 		google_auth_enabled: String(ctx.env.GOOGLE_AUTH_ENABLED) === 'true',
 		email_enabled: String(ctx.env.EMAIL_ENABLED) === 'true',
 		email_signup_enabled: String(ctx.env.EMAIL_SIGNUP_ENABLED) === 'true',
 		email_require_verification: String(ctx.env.EMAIL_REQUIRE_VERIFICATION) === 'true',
-		email_user_action_cooldown_seconds: Number(ctx.env.EMAIL_USER_ACTION_COOLDOWN_SECONDS)
+		email_user_action_cooldown_seconds: Number(ctx.env.EMAIL_USER_ACTION_COOLDOWN_SECONDS),
+		credits_signup_enabled: envMap.CREDITS_SIGNUP_ENABLED === 'true',
+		credits_signup_amount: Number(envMap.CREDITS_SIGNUP_AMOUNT ?? '0'),
+		credits_daily_checkin_enabled: envMap.CREDITS_DAILY_CHECKIN_ENABLED === 'true',
+		credits_daily_checkin_amount: Number(envMap.CREDITS_DAILY_CHECKIN_AMOUNT ?? '0'),
+		credits_referral_enabled: envMap.CREDITS_REFERRAL_ENABLED === 'true'
 	})
 })
 

@@ -118,6 +118,25 @@ export async function grantCredits(input: GrantCreditsInput): Promise<GrantCredi
 	}
 }
 
+export async function createReferralCode(db: AppDb): Promise<string> {
+	const maxAttempts = 10
+	let attempt = 0
+	while (attempt < maxAttempts) {
+		const code = generateReferralCode()
+		const existing = await db.query.user.findFirst({
+			columns: {
+				id: true
+			},
+			where: eq(user.referralCode, code)
+		})
+		if (!existing) {
+			return code
+		}
+		attempt += 1
+	}
+	throw new CreditsError('REFERRAL_CODE_GENERATE_FAILED')
+}
+
 function validateGrantAmount(amount: number): void {
 	if (!Number.isInteger(amount) || amount <= 0) {
 		throw new CreditsError('INVALID_CREDIT_AMOUNT')
@@ -132,4 +151,9 @@ function isDuplicatedGrantError(error: unknown): boolean {
 		error.message.includes('credit_entries_source_type_source_id_unique') ||
 		error.message.includes('UNIQUE constraint failed: credit_entries.source_type, credit_entries.source_id')
 	)
+}
+
+function generateReferralCode(): string {
+	const raw = crypto.randomUUID().replaceAll('-', '').slice(0, 8)
+	return raw.toUpperCase()
 }
