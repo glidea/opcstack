@@ -63,6 +63,22 @@ describe('authMiddleware', () => {
 			}
 		},
 		{
+			scenario: 'skip auth for admin grant credits path',
+			given: 'admin grant credits endpoint',
+			when: 'running auth middleware',
+			then: 'calls next directly',
+			givenDetail: {
+				path: '/api/admin/grant_credits'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 0,
+				code: '',
+				nextCalled: true,
+				setUserId: ''
+			}
+		},
+		{
 			scenario: 'reject request without authorization header',
 			given: 'a protected path and no authorization header',
 			when: 'running auth middleware',

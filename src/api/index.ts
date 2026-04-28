@@ -12,9 +12,10 @@ import {
 	bindReferralHandler,
 	dailyCheckinHandler,
 	generateCreditCodesHandler,
+	grantCreditsHandler,
 	getCreditSummaryHandler,
 	listCreditCodesHandler,
-	listCreditTransactionsHandler
+	listCreditTransactionsHandler,
 	redeemCreditCodeHandler
 } from './handler/credits'
 import { readR2ObjectHandler } from './handler/r2'
@@ -72,4 +73,5 @@ api.post('/api/daily_checkin', dailyCheckinHandler)
 api.post('/api/bind_referral', bindReferralHandler)
 api.post('/api/admin/generate_credit_codes', adminSecretMiddleware, generateCreditCodesHandler)
 api.post('/api/admin/list_credit_codes', adminSecretMiddleware, listCreditCodesHandler)
+api.post('/api/admin/grant_credits', adminSecretMiddleware, grantCreditsHandler)
 api.post('/api/redeem_credit_code', redeemCreditCodeHandler)

@@ -11,7 +11,8 @@ function isAuthPublicPath(pathname: string): boolean {
 		pathname === '/api/admin/generate_beta_codes' ||
 		pathname === '/api/admin/list_beta_codes' ||
 		pathname === '/api/admin/generate_credit_codes' ||
-		pathname === '/api/admin/list_credit_codes'
+		pathname === '/api/admin/list_credit_codes' ||
+		pathname === '/api/admin/grant_credits'
 	)
 }
 

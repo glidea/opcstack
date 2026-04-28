@@ -4,6 +4,7 @@ import {
 	bindReferralHandler,
 	dailyCheckinHandler,
 	generateCreditCodesHandler,
+	grantCreditsHandler,
 	getCreditSummaryHandler,
 	listCreditCodesHandler,
 	listCreditTransactionsHandler,
@@ -15,6 +16,7 @@ import {
 	CreditsError,
 	dailyCheckin,
 	generateCreditCodes,
+	grantCredits,
 	getCreditSummary,
 	listCreditCodes,
 	listCreditTransactions,
@@ -30,6 +32,7 @@ vi.mock('../../credits', async () => {
 		bindReferral: vi.fn(),
 		dailyCheckin: vi.fn(),
 		generateCreditCodes: vi.fn(),
+		grantCredits: vi.fn(),
 		getCreditSummary: vi.fn(),
 		listCreditCodes: vi.fn(),
 		listCreditTransactions: vi.fn(),
@@ -662,6 +665,123 @@ describe('redeemCreditCodeHandler', () => {
 			status: res.status,
 			code: payload.code ?? '',
 			amount: payload.amount ?? 0
+		}
+	})
+})
+
+describe('grantCreditsHandler', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		body: unknown
+		duplicated: boolean
+		errorCode: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: number
+		code: string
+		balance: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'reject invalid admin grant request',
+			given: 'missing source_id field',
+			when: 'calling grantCreditsHandler',
+			then: 'returns invalid request',
+			givenDetail: {
+				body: { user_id: 'u1', amount: 10 },
+				duplicated: false,
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_REQUEST',
+				balance: 0
+			}
+		},
+		{
+			scenario: 'return duplicated code when source id already granted',
+			given: 'grantCredits returns duplicated true',
+			when: 'calling grantCreditsHandler',
+			then: 'returns conflict',
+			givenDetail: {
+				body: { user_id: 'u1', amount: 10, source_id: 'manual-1' },
+				duplicated: true,
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 409,
+				code: 'CREDIT_GRANT_DUPLICATED',
+				balance: 0
+			}
+		},
+		{
+			scenario: 'return user not found for invalid target user',
+			given: 'grantCredits throws CREDIT_USER_NOT_FOUND',
+			when: 'calling grantCreditsHandler',
+			then: 'returns 404',
+			givenDetail: {
+				body: { user_id: 'u1', amount: 10, source_id: 'manual-1' },
+				duplicated: false,
+				errorCode: 'CREDIT_USER_NOT_FOUND'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 404,
+				code: 'CREDIT_USER_NOT_FOUND',
+				balance: 0
+			}
+		},
+		{
+			scenario: 'grant credits successfully',
+			given: 'grantCredits succeeds',
+			when: 'calling grantCreditsHandler',
+			then: 'returns latest balance',
+			givenDetail: {
+				body: { user_id: 'u1', amount: 10, source_id: 'manual-1' },
+				duplicated: false,
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				balance: 120
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		if (given.errorCode !== '') {
+			vi.mocked(grantCredits).mockRejectedValue(new CreditsError(given.errorCode))
+		} else {
+			vi.mocked(grantCredits).mockResolvedValue({
+				balance: 120,
+				entryId: 'e1',
+				transactionId: 't1',
+				entryRemainingAmount: 10,
+				duplicated: given.duplicated
+			})
+		}
+
+		const ctx = createJsonContext({
+			env: {},
+			userId: 'admin',
+			db: {},
+			body: given.body
+		})
+		const res = await grantCreditsHandler(ctx)
+		const payload = (await res.json()) as { code?: string; balance?: number }
+		return {
+			status: res.status,
+			code: payload.code ?? '',
+			balance: payload.balance ?? 0
 		}
 	})
 })

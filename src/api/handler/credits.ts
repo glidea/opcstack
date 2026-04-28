@@ -6,6 +6,7 @@ import {
 	CreditsError,
 	dailyCheckin,
 	generateCreditCodes,
+	grantCredits,
 	getCreditSummary,
 	listCreditCodes,
 	listCreditTransactions,
@@ -42,6 +43,15 @@ export const RedeemCreditCodeRequestSchema = z.object({
 	code: z.string().min(1)
 })
 export type RedeemCreditCodeRequest = z.infer<typeof RedeemCreditCodeRequestSchema>
+
+export const AdminGrantCreditsRequestSchema = z.object({
+	user_id: z.string().min(1),
+	amount: z.number().int().min(1),
+	source_id: z.string().min(1),
+	description: z.string().min(1).optional(),
+	expires_at: z.number().int().nullable().optional()
+})
+export type AdminGrantCreditsRequest = z.infer<typeof AdminGrantCreditsRequestSchema>
 
 export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const env = ctx.env as unknown as Record<string, string | undefined>
@@ -231,6 +241,42 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 				return ctx.json({ code: error.code }, 409)
 			}
 			if (error.code === 'INVALID_CREDIT_CODE') {
+				return ctx.json({ code: error.code }, 400)
+			}
+		}
+		throw error
+	}
+}
+
+export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const req = await parse(ctx, AdminGrantCreditsRequestSchema)
+	if (!req) {
+		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+	}
+
+	try {
+		const result = await grantCredits({
+			db: ctx.get('db'),
+			userId: req.user_id,
+			type: 'manual_grant',
+			amount: req.amount,
+			sourceType: 'manual_grant',
+			sourceId: req.source_id,
+			description: req.description,
+			expiresAt: req.expires_at
+		})
+		if (result.duplicated) {
+			return ctx.json({ code: 'CREDIT_GRANT_DUPLICATED' }, 409)
+		}
+		return ctx.json({
+			balance: result.balance
+		})
+	} catch (error) {
+		if (error instanceof CreditsError) {
+			if (error.code === 'CREDIT_USER_NOT_FOUND') {
+				return ctx.json({ code: error.code }, 404)
+			}
+			if (error.code === 'INVALID_CREDIT_AMOUNT') {
 				return ctx.json({ code: error.code }, 400)
 			}
 		}
