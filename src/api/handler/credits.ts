@@ -5,8 +5,11 @@ import {
 	bindReferral,
 	CreditsError,
 	dailyCheckin,
+	generateCreditCodes,
 	getCreditSummary,
+	listCreditCodes,
 	listCreditTransactions,
+	redeemCreditCode,
 	type CreditTransactionItem
 } from '../../credits'
 import { parse } from './utils'
@@ -21,6 +24,24 @@ export const ListCreditTransactionsRequestSchema = z.object({
 	offset: z.number().int().min(0).optional()
 })
 export type ListCreditTransactionsRequest = z.infer<typeof ListCreditTransactionsRequestSchema>
+
+export const GenerateCreditCodesRequestSchema = z.object({
+	count: z.number().int().min(1).max(200).optional().default(1),
+	amount: z.number().int().min(1),
+	expires_at: z.number().int().nullable().optional()
+})
+export type GenerateCreditCodesRequest = z.infer<typeof GenerateCreditCodesRequestSchema>
+
+export const ListCreditCodesRequestSchema = z.object({
+	limit: z.number().int().min(1).max(100).optional(),
+	offset: z.number().int().min(0).optional()
+})
+export type ListCreditCodesRequest = z.infer<typeof ListCreditCodesRequestSchema>
+
+export const RedeemCreditCodeRequestSchema = z.object({
+	code: z.string().min(1)
+})
+export type RedeemCreditCodeRequest = z.infer<typeof RedeemCreditCodeRequestSchema>
 
 export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const env = ctx.env as unknown as Record<string, string | undefined>
@@ -131,6 +152,86 @@ export async function bindReferralHandler(ctx: Context<ApiEnv>): Promise<Respons
 			}
 			if (error.code === 'REFERRAL_ALREADY_BOUND') {
 				return ctx.json({ code: error.code }, 409)
+			}
+		}
+		throw error
+	}
+}
+
+export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const req = await parse(ctx, GenerateCreditCodesRequestSchema)
+	if (!req) {
+		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+	}
+
+	const rows = await generateCreditCodes({
+		db: ctx.get('db'),
+		count: req.count,
+		amount: req.amount,
+		expiresAt: req.expires_at
+	})
+	return ctx.json({
+		codes: rows.map((row) => {
+			return {
+				id: row.id,
+				code: row.code,
+				amount: row.amount,
+				expires_at: row.expiresAt,
+				created_at: row.createdAt
+			}
+		})
+	})
+}
+
+export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const req = await parse(ctx, ListCreditCodesRequestSchema)
+	if (!req) {
+		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+	}
+
+	const rows = await listCreditCodes({
+		db: ctx.get('db'),
+		limit: req.limit,
+		offset: req.offset
+	})
+	return ctx.json({
+		codes: rows.map((row) => {
+			return {
+				id: row.id,
+				code: row.code,
+				amount: row.amount,
+				expires_at: row.expiresAt,
+				used_by: row.usedBy,
+				used_at: row.usedAt,
+				created_at: row.createdAt
+			}
+		})
+	})
+}
+
+export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const req = await parse(ctx, RedeemCreditCodeRequestSchema)
+	if (!req) {
+		return ctx.json({ code: 'INVALID_CREDIT_CODE' }, 400)
+	}
+
+	try {
+		const result = await redeemCreditCode({
+			db: ctx.get('db'),
+			userId: ctx.get('userId'),
+			code: req.code
+		})
+		return ctx.json({
+			balance: result.balance,
+			amount: result.amount
+		})
+	} catch (error) {
+		if (error instanceof CreditsError) {
+			if (error.code === 'CREDIT_CODE_USED') {
+				return ctx.json({ code: error.code }, 409)
+			}
+			if (error.code === 'INVALID_CREDIT_CODE') {
+				return ctx.json({ code: error.code }, 400)
 			}
 		}
 		throw error

@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, lt, sql } from 'drizzle-orm'
 import type { AppDb } from '../db'
-import { creditEntry, creditReferral, creditTransaction } from '../db/schema'
+import { creditEntry, creditRedemptionCode, creditReferral, creditTransaction } from '../db/schema'
 import { user } from '../db/schema.auth'
 
 export type CreditTransactionType =
@@ -72,6 +72,29 @@ export interface BindReferralResult {
 	inviteeUserId: string
 	inviterBalance: number
 	inviteeBalance: number
+}
+
+export interface GenerateCreditCodesResultCode {
+	id: string
+	code: string
+	amount: number
+	expiresAt: number | null
+	createdAt: number
+}
+
+export interface ListCreditCodeItem {
+	id: string
+	code: string
+	amount: number
+	expiresAt: number | null
+	usedBy: string | null
+	usedAt: number | null
+	createdAt: number
+}
+
+export interface RedeemCreditCodeResult {
+	balance: number
+	amount: number
 }
 
 export class CreditsError extends Error {
@@ -474,6 +497,221 @@ export async function bindReferral(input: {
 	}
 }
 
+export async function generateCreditCodes(input: {
+	db: AppDb
+	count: number
+	amount: number
+	expiresAt?: number | null
+	nowMs?: number
+}): Promise<GenerateCreditCodesResultCode[]> {
+	if (!Number.isInteger(input.count) || input.count <= 0) {
+		throw new CreditsError('INVALID_GENERATE_COUNT')
+	}
+	validateGrantAmount(input.amount)
+
+	const nowMs = input.nowMs ?? Date.now()
+	const rows: Array<{
+		id: string
+		code: string
+		amount: number
+		expiresAt: number | null
+		createdAt: number
+	}> = []
+	let index = 0
+	while (index < input.count) {
+		rows.push({
+			id: crypto.randomUUID(),
+			code: generateCreditCode(),
+			amount: input.amount,
+			expiresAt: input.expiresAt ?? null,
+			createdAt: nowMs
+		})
+		index += 1
+	}
+
+	await input.db.insert(creditRedemptionCode).values(
+		rows.map((row) => {
+			return {
+				id: row.id,
+				code: row.code,
+				amount: row.amount,
+				expiresAt: row.expiresAt,
+				createdAt: row.createdAt
+			}
+		})
+	)
+
+	return rows.map((row) => {
+		return {
+			id: row.id,
+			code: row.code,
+			amount: row.amount,
+			expiresAt: row.expiresAt,
+			createdAt: row.createdAt
+		}
+	})
+}
+
+export async function listCreditCodes(input: {
+	db: AppDb
+	limit?: number
+	offset?: number
+}): Promise<ListCreditCodeItem[]> {
+	const limit = resolvePageLimit(input.limit)
+	const offset = resolveOffset(input.offset)
+	const rows = await input.db.query.creditRedemptionCode.findMany({
+		columns: {
+			id: true,
+			code: true,
+			amount: true,
+			expiresAt: true,
+			usedBy: true,
+			usedAt: true,
+			createdAt: true
+		},
+		orderBy: [desc(creditRedemptionCode.createdAt)],
+		limit,
+		offset
+	})
+
+	return rows.map((row) => {
+		return {
+			id: row.id,
+			code: row.code,
+			amount: row.amount,
+			expiresAt: row.expiresAt,
+			usedBy: row.usedBy,
+			usedAt: row.usedAt,
+			createdAt: row.createdAt
+		}
+	})
+}
+
+export async function redeemCreditCode(input: {
+	db: AppDb
+	userId: string
+	code: string
+	nowMs?: number
+}): Promise<RedeemCreditCodeResult> {
+	const normalizedCode = input.code.trim().toUpperCase()
+	if (normalizedCode === '') {
+		throw new CreditsError('INVALID_CREDIT_CODE')
+	}
+	const nowMs = input.nowMs ?? Date.now()
+
+	const userRow = await input.db.query.user.findFirst({
+		columns: {
+			id: true,
+			creditBalance: true
+		},
+		where: eq(user.id, input.userId)
+	})
+	if (!userRow) {
+		throw new CreditsError('CREDIT_USER_NOT_FOUND')
+	}
+
+	const codeRow = await input.db.query.creditRedemptionCode.findFirst({
+		columns: {
+			id: true,
+			amount: true,
+			expiresAt: true,
+			usedBy: true
+		},
+		where: eq(creditRedemptionCode.code, normalizedCode)
+	})
+	if (!codeRow) {
+		throw new CreditsError('INVALID_CREDIT_CODE')
+	}
+	if (codeRow.expiresAt !== null && codeRow.expiresAt <= nowMs) {
+		throw new CreditsError('INVALID_CREDIT_CODE')
+	}
+	if (codeRow.usedBy !== null) {
+		throw new CreditsError('CREDIT_CODE_USED')
+	}
+
+	const amount = codeRow.amount
+	const balance = userRow.creditBalance + amount
+	const remainingAmount = resolveEntryRemainingAmount(userRow.creditBalance, amount)
+	const entryId = crypto.randomUUID()
+	const transactionId = crypto.randomUUID()
+
+	const batchResults = await input.db.batch([
+		input.db.run(sql`
+      INSERT INTO credit_entries (
+        id,
+        user_id,
+        amount,
+        remaining_amount,
+        source_type,
+        source_id,
+        expires_at,
+        created_at
+      )
+      SELECT
+        ${entryId},
+        ${input.userId},
+        ${amount},
+        ${remainingAmount},
+        'redemption_code',
+        ${codeRow.id},
+        NULL,
+        ${nowMs}
+      FROM credit_redemption_codes
+      WHERE id = ${codeRow.id}
+        AND used_by IS NULL
+        AND (expires_at IS NULL OR expires_at > ${nowMs})
+    `),
+		input.db.run(sql`
+      UPDATE credit_redemption_codes
+      SET used_by = ${input.userId}, used_at = ${nowMs}
+      WHERE id = ${codeRow.id}
+        AND EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
+    `),
+		input.db.run(sql`
+      UPDATE "user"
+      SET credit_balance = ${balance}
+      WHERE id = ${input.userId}
+        AND EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
+    `),
+		input.db.run(sql`
+      INSERT INTO credit_transactions (
+        id,
+        user_id,
+        type,
+        amount,
+        balance_after,
+        source_type,
+        source_id,
+        description,
+        expires_at,
+        created_at
+      )
+      SELECT
+        ${transactionId},
+        ${input.userId},
+        'redemption_code',
+        ${amount},
+        ${balance},
+        'redemption_code',
+        ${codeRow.id},
+        'Redeem credit code',
+        NULL,
+        ${nowMs}
+      WHERE EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
+    `)
+	])
+
+	const changes = readBatchChanges(batchResults[0])
+	if (changes === 0) {
+		throw new CreditsError('CREDIT_CODE_USED')
+	}
+
+	return {
+		balance,
+		amount
+	}
+}
+
 function validateGrantAmount(amount: number): void {
 	if (!Number.isInteger(amount) || amount <= 0) {
 		throw new CreditsError('INVALID_CREDIT_AMOUNT')
@@ -539,4 +777,13 @@ function formatUtcDate(timestampMs: number): string {
 	const month = String(date.getUTCMonth() + 1).padStart(2, '0')
 	const day = String(date.getUTCDate()).padStart(2, '0')
 	return `${year}-${month}-${day}`
+}
+
+function generateCreditCode(): string {
+	return crypto.randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()
+}
+
+function readBatchChanges(result: unknown): number {
+	const row = result as { meta?: { changes?: number } }
+	return Number(row.meta?.changes ?? 0)
 }

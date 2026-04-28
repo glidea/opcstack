@@ -11,8 +11,11 @@ import {
 import {
 	bindReferralHandler,
 	dailyCheckinHandler,
+	generateCreditCodesHandler,
 	getCreditSummaryHandler,
+	listCreditCodesHandler,
 	listCreditTransactionsHandler
+	redeemCreditCodeHandler
 } from './handler/credits'
 import { readR2ObjectHandler } from './handler/r2'
 import { authCore } from './auth'
@@ -67,3 +70,6 @@ api.post('/api/get_credit_summary', getCreditSummaryHandler)
 api.post('/api/list_credit_transactions', listCreditTransactionsHandler)
 api.post('/api/daily_checkin', dailyCheckinHandler)
 api.post('/api/bind_referral', bindReferralHandler)
+api.post('/api/admin/generate_credit_codes', adminSecretMiddleware, generateCreditCodesHandler)
+api.post('/api/admin/list_credit_codes', adminSecretMiddleware, listCreditCodesHandler)
+api.post('/api/redeem_credit_code', redeemCreditCodeHandler)

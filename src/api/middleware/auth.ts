@@ -9,7 +9,9 @@ function isAuthPublicPath(pathname: string): boolean {
 		pathname === '/api/get_public_config' ||
 		pathname.startsWith('/api/r2/public/') ||
 		pathname === '/api/admin/generate_beta_codes' ||
-		pathname === '/api/admin/list_beta_codes'
+		pathname === '/api/admin/list_beta_codes' ||
+		pathname === '/api/admin/generate_credit_codes' ||
+		pathname === '/api/admin/list_credit_codes'
 	)
 }
 

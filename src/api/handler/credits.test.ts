@@ -3,16 +3,22 @@ import { runCases, type TestCase } from '../../testing/bdd'
 import {
 	bindReferralHandler,
 	dailyCheckinHandler,
+	generateCreditCodesHandler,
 	getCreditSummaryHandler,
+	listCreditCodesHandler,
 	listCreditTransactionsHandler,
+	redeemCreditCodeHandler,
 	type ListCreditTransactionsRequest
 } from './credits'
 import {
 	bindReferral,
 	CreditsError,
 	dailyCheckin,
+	generateCreditCodes,
 	getCreditSummary,
-	listCreditTransactions
+	listCreditCodes,
+	listCreditTransactions,
+	redeemCreditCode
 } from '../../credits'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
@@ -23,8 +29,11 @@ vi.mock('../../credits', async () => {
 		...actual,
 		bindReferral: vi.fn(),
 		dailyCheckin: vi.fn(),
+		generateCreditCodes: vi.fn(),
 		getCreditSummary: vi.fn(),
-		listCreditTransactions: vi.fn()
+		listCreditCodes: vi.fn(),
+		listCreditTransactions: vi.fn(),
+		redeemCreditCode: vi.fn()
 	}
 })
 
@@ -397,6 +406,262 @@ describe('bindReferralHandler', () => {
 		return {
 			status: res.status,
 			code: payload.code ?? ''
+		}
+	})
+})
+
+describe('generateCreditCodesHandler', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		body: unknown
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: number
+		code: string
+		codeCount: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'reject invalid generate request',
+			given: 'request body has invalid amount',
+			when: 'calling generateCreditCodesHandler',
+			then: 'returns invalid request',
+			givenDetail: {
+				body: { count: 1, amount: 0 }
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_REQUEST',
+				codeCount: 0
+			}
+		},
+		{
+			scenario: 'generate code list successfully',
+			given: 'request body is valid',
+			when: 'calling generateCreditCodesHandler',
+			then: 'returns generated code list',
+			givenDetail: {
+				body: { count: 2, amount: 100 }
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				codeCount: 2
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		vi.mocked(generateCreditCodes).mockResolvedValue([
+			{ id: 'c1', code: 'AAAA1111', amount: 100, expiresAt: null, createdAt: 123 },
+			{ id: 'c2', code: 'BBBB2222', amount: 100, expiresAt: null, createdAt: 123 }
+		])
+
+		const ctx = createJsonContext({
+			env: {},
+			userId: 'u1',
+			db: {},
+			body: given.body
+		})
+		const res = await generateCreditCodesHandler(ctx)
+		const payload = (await res.json()) as { code?: string; codes?: unknown[] }
+		return {
+			status: res.status,
+			code: payload.code ?? '',
+			codeCount: payload.codes?.length ?? 0
+		}
+	})
+})
+
+describe('listCreditCodesHandler', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		body: unknown
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: number
+		code: string
+		codeCount: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'reject invalid list request',
+			given: 'limit is invalid',
+			when: 'calling listCreditCodesHandler',
+			then: 'returns invalid request',
+			givenDetail: {
+				body: { limit: 0 }
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_REQUEST',
+				codeCount: 0
+			}
+		},
+		{
+			scenario: 'list code rows successfully',
+			given: 'request body is valid',
+			when: 'calling listCreditCodesHandler',
+			then: 'returns mapped list',
+			givenDetail: {
+				body: { limit: 10, offset: 0 }
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				codeCount: 1
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		vi.mocked(listCreditCodes).mockResolvedValue([
+			{
+				id: 'c1',
+				code: 'AAAA1111',
+				amount: 100,
+				expiresAt: null,
+				usedBy: null,
+				usedAt: null,
+				createdAt: 123
+			}
+		])
+
+		const ctx = createJsonContext({
+			env: {},
+			userId: 'u1',
+			db: {},
+			body: given.body
+		})
+		const res = await listCreditCodesHandler(ctx)
+		const payload = (await res.json()) as { code?: string; codes?: unknown[] }
+		return {
+			status: res.status,
+			code: payload.code ?? '',
+			codeCount: payload.codes?.length ?? 0
+		}
+	})
+})
+
+describe('redeemCreditCodeHandler', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		body: unknown
+		errorCode: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: number
+		code: string
+		amount: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'reject invalid redeem request',
+			given: 'body parse failed',
+			when: 'calling redeemCreditCodeHandler',
+			then: 'returns invalid credit code',
+			givenDetail: {
+				body: null,
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_CREDIT_CODE',
+				amount: 0
+			}
+		},
+		{
+			scenario: 'return conflict when code already used',
+			given: 'core redeem throws CREDIT_CODE_USED',
+			when: 'calling redeemCreditCodeHandler',
+			then: 'returns 409',
+			givenDetail: {
+				body: { code: 'AAAA1111' },
+				errorCode: 'CREDIT_CODE_USED'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 409,
+				code: 'CREDIT_CODE_USED',
+				amount: 0
+			}
+		},
+		{
+			scenario: 'return invalid when code is expired or missing',
+			given: 'core redeem throws INVALID_CREDIT_CODE',
+			when: 'calling redeemCreditCodeHandler',
+			then: 'returns 400',
+			givenDetail: {
+				body: { code: 'AAAA1111' },
+				errorCode: 'INVALID_CREDIT_CODE'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_CREDIT_CODE',
+				amount: 0
+			}
+		},
+		{
+			scenario: 'redeem code successfully',
+			given: 'core redeem succeeds',
+			when: 'calling redeemCreditCodeHandler',
+			then: 'returns balance and amount',
+			givenDetail: {
+				body: { code: 'AAAA1111' },
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				amount: 100
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		if (given.errorCode !== '') {
+			vi.mocked(redeemCreditCode).mockRejectedValue(new CreditsError(given.errorCode))
+		} else {
+			vi.mocked(redeemCreditCode).mockResolvedValue({
+				balance: 300,
+				amount: 100
+			})
+		}
+
+		const ctx = createJsonContext({
+			env: {},
+			userId: 'u1',
+			db: {},
+			body: given.body
+		})
+		const res = await redeemCreditCodeHandler(ctx)
+		const payload = (await res.json()) as { code?: string; amount?: number }
+		return {
+			status: res.status,
+			code: payload.code ?? '',
+			amount: payload.amount ?? 0
 		}
 	})
 })
