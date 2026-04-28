@@ -57,6 +57,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 
 **开箱即用的核心功能**
 - ✅ 认证系统（邮箱 + Google + 内测码）
+- ✅ 积分系统（注册赠送 + 签到 + 邀请 + 兑换码 + 过期）
 - ✅ AI 能力（Chat + Image）
 - ✅ 文档系统（Git-based CMS）
 - ✅ 国际化（中英文）
@@ -94,6 +95,9 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 - Google GenAI SDK（Image）
 - 迭代中...
 
+**业务能力**
+- 积分系统（余额、明细、注册赠送、每日签到、邀请奖励、兑换码、后台补发、过期清理）
+
 ---
 
 ## 快速开始
@@ -125,7 +129,35 @@ vim .env.dev # 配置
 pnpm dev
 ```
 
-### 3. 后续同步模板更新
+### 3. 积分系统配置
+
+积分系统默认使用 D1 存储，通过环境变量控制开关和额度：
+
+```bash
+CREDITS_SIGNUP_ENABLED=true
+CREDITS_SIGNUP_AMOUNT=100
+CREDITS_DAILY_CHECKIN_ENABLED=true
+CREDITS_DAILY_CHECKIN_AMOUNT=10
+CREDITS_REFERRAL_ENABLED=true
+CREDITS_REFERRAL_INVITER_AMOUNT=50
+CREDITS_REFERRAL_INVITEE_AMOUNT=20
+CREDITS_HISTORY_RETENTION_DAYS=90
+CRONS=*/10 * * * *
+```
+
+核心接口：
+- `POST /api/get_credit_summary`
+- `POST /api/list_credit_transactions`
+- `POST /api/daily_checkin`
+- `POST /api/bind_referral`
+- `POST /api/redeem_credit_code`
+- `POST /api/admin/generate_credit_codes`
+- `POST /api/admin/list_credit_codes`
+- `POST /api/admin/grant_credits`
+
+详细说明见 `/docs/guides/credits`。
+
+### 4. 后续同步模板更新
 
 ```bash
 git fetch upstream --tags
@@ -145,13 +177,13 @@ git merge upstream/main
 - [x] Queues 消息队列
 - [x] Cron 定时任务
 - [x] AI 能力（Chat + Image）
+- [x] 积分系统（注册赠送、签到、邀请、兑换码、后台补发、过期）
 - [x] 文档系统
 - [x] 国际化
 - [x] 测试框架
 
 ### 计划中 🚧
 - [ ] 落地页
-- [ ] 积分系统（充值，签到，邀请）
 - [ ] 支付系统（Creem, Paypal 等个人资质友好渠道）
 - [ ] 管理后台
 - [ ] 指标监控告警
