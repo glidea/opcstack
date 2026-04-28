@@ -9,6 +9,7 @@ import {
 	listBetaCodesHandler
 } from './handler/beta'
 import {
+	dailyCheckinHandler,
 	getCreditSummaryHandler,
 	listCreditTransactionsHandler
 } from './handler/credits'
@@ -63,3 +64,4 @@ api.post('/api/admin/generate_beta_codes', adminSecretMiddleware, generateBetaCo
 api.post('/api/admin/list_beta_codes', adminSecretMiddleware, listBetaCodesHandler)
 api.post('/api/get_credit_summary', getCreditSummaryHandler)
 api.post('/api/list_credit_transactions', listCreditTransactionsHandler)
+api.post('/api/daily_checkin', dailyCheckinHandler)

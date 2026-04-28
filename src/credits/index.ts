@@ -61,6 +61,12 @@ export interface CreditTransactionItem {
 	createdAt: number
 }
 
+export interface DailyCheckinResult {
+	balance: number
+	checkedIn: boolean
+	amount: number
+}
+
 export class CreditsError extends Error {
 	public readonly code: string
 
@@ -254,6 +260,34 @@ export async function listCreditTransactions(
 	})
 }
 
+export async function dailyCheckin(input: {
+	db: AppDb
+	userId: string
+	amount: number
+	nowMs?: number
+}): Promise<DailyCheckinResult> {
+	validateGrantAmount(input.amount)
+	const nowMs = input.nowMs ?? Date.now()
+	const sourceId = `${input.userId}:${formatUtcDate(nowMs)}`
+	const result = await grantCredits({
+		db: input.db,
+		userId: input.userId,
+		type: 'daily_checkin',
+		amount: input.amount,
+		sourceType: 'daily_checkin',
+		sourceId,
+		description: 'Daily check-in reward'
+	})
+	if (result.duplicated) {
+		throw new CreditsError('DAILY_CHECKIN_ALREADY_DONE')
+	}
+	return {
+		balance: result.balance,
+		checkedIn: true,
+		amount: input.amount
+	}
+}
+
 function validateGrantAmount(amount: number): void {
 	if (!Number.isInteger(amount) || amount <= 0) {
 		throw new CreditsError('INVALID_CREDIT_AMOUNT')
@@ -296,4 +330,12 @@ function resolveOffset(offset: number | undefined): number {
 		return 0
 	}
 	return offset
+}
+
+function formatUtcDate(timestampMs: number): string {
+	const date = new Date(timestampMs)
+	const year = date.getUTCFullYear()
+	const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+	const day = String(date.getUTCDate()).padStart(2, '0')
+	return `${year}-${month}-${day}`
 }

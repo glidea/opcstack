@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiEnv } from '..'
 import {
 	CreditsError,
+	dailyCheckin,
 	getCreditSummary,
 	listCreditTransactions,
 	type CreditTransactionItem
@@ -59,6 +60,36 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 	return ctx.json({
 		transactions: rows.map(toApiTransaction)
 	})
+}
+
+export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const env = ctx.env as unknown as Record<string, string | undefined>
+	if (env.CREDITS_DAILY_CHECKIN_ENABLED !== 'true') {
+		return ctx.json({})
+	}
+
+	const amount = toPositiveInt(env.CREDITS_DAILY_CHECKIN_AMOUNT)
+	if (amount <= 0) {
+		return ctx.json({ code: 'INVALID_DAILY_CHECKIN_AMOUNT' }, 400)
+	}
+
+	try {
+		const result = await dailyCheckin({
+			db: ctx.get('db'),
+			userId: ctx.get('userId'),
+			amount
+		})
+		return ctx.json({
+			balance: result.balance,
+			checked_in: result.checkedIn,
+			amount: result.amount
+		})
+	} catch (error) {
+		if (error instanceof CreditsError && error.code === 'DAILY_CHECKIN_ALREADY_DONE') {
+			return ctx.json({ code: error.code }, 409)
+		}
+		throw error
+	}
 }
 
 function toPositiveInt(raw: string | undefined): number {

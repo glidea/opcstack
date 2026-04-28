@@ -1,11 +1,17 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
+	dailyCheckinHandler,
 	getCreditSummaryHandler,
 	listCreditTransactionsHandler,
 	type ListCreditTransactionsRequest
 } from './credits'
-import { CreditsError, getCreditSummary, listCreditTransactions } from '../../credits'
+import {
+	CreditsError,
+	dailyCheckin,
+	getCreditSummary,
+	listCreditTransactions
+} from '../../credits'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 
@@ -13,6 +19,7 @@ vi.mock('../../credits', async () => {
 	const actual = await vi.importActual<typeof import('../../credits')>('../../credits')
 	return {
 		...actual,
+		dailyCheckin: vi.fn(),
 		getCreditSummary: vi.fn(),
 		listCreditTransactions: vi.fn()
 	}
@@ -109,6 +116,124 @@ describe('getCreditSummaryHandler', () => {
 			code: payload.code ?? '',
 			dailyCheckedIn: payload.daily_checked_in ?? false,
 			invitedCount: payload.invited_count ?? 0
+		}
+	})
+})
+
+describe('dailyCheckinHandler', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		enabled: string
+		amount: string
+		errorCode: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: number
+		code: string
+		checkedIn: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'skip checkin when feature is disabled',
+			given: 'daily checkin switch is false',
+			when: 'calling dailyCheckinHandler',
+			then: 'returns empty object',
+			givenDetail: {
+				enabled: 'false',
+				amount: '10',
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				checkedIn: false
+			}
+		},
+		{
+			scenario: 'reject invalid daily checkin amount',
+			given: 'daily checkin amount is zero',
+			when: 'calling dailyCheckinHandler',
+			then: 'returns invalid amount',
+			givenDetail: {
+				enabled: 'true',
+				amount: '0',
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_DAILY_CHECKIN_AMOUNT',
+				checkedIn: false
+			}
+		},
+		{
+			scenario: 'return duplicated code when user checked in already',
+			given: 'dailyCheckin core throws DAILY_CHECKIN_ALREADY_DONE',
+			when: 'calling dailyCheckinHandler',
+			then: 'returns 409 duplicated error',
+			givenDetail: {
+				enabled: 'true',
+				amount: '10',
+				errorCode: 'DAILY_CHECKIN_ALREADY_DONE'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 409,
+				code: 'DAILY_CHECKIN_ALREADY_DONE',
+				checkedIn: false
+			}
+		},
+		{
+			scenario: 'checkin success returns checked_in true',
+			given: 'daily checkin feature enabled and core call succeeds',
+			when: 'calling dailyCheckinHandler',
+			then: 'returns balance and checked_in',
+			givenDetail: {
+				enabled: 'true',
+				amount: '10',
+				errorCode: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				checkedIn: true
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		if (given.errorCode !== '') {
+			vi.mocked(dailyCheckin).mockRejectedValue(new CreditsError(given.errorCode))
+		} else {
+			vi.mocked(dailyCheckin).mockResolvedValue({
+				balance: 100,
+				checkedIn: true,
+				amount: 10
+			})
+		}
+
+		const ctx = createJsonContext({
+			env: {
+				CREDITS_DAILY_CHECKIN_ENABLED: given.enabled,
+				CREDITS_DAILY_CHECKIN_AMOUNT: given.amount
+			},
+			userId: 'u1',
+			db: {},
+			body: {}
+		})
+		const res = await dailyCheckinHandler(ctx)
+		const payload = (await res.json()) as { code?: string; checked_in?: boolean }
+		return {
+			status: res.status,
+			code: payload.code ?? '',
+			checkedIn: payload.checked_in ?? false
 		}
 	})
 })
