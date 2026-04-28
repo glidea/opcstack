@@ -97,6 +97,15 @@ export interface RedeemCreditCodeResult {
 	amount: number
 }
 
+export interface EnsureEnoughCreditsResult {
+	balance: number
+}
+
+export interface DeductCreditsResult {
+	balance: number
+	deductedAmount: number
+}
+
 export class CreditsError extends Error {
 	public readonly code: string
 
@@ -710,6 +719,157 @@ export async function redeemCreditCode(input: {
 		balance,
 		amount
 	}
+}
+
+export async function ensureEnoughCredits(input: {
+	db: AppDb
+	userId: string
+	amount: number
+}): Promise<EnsureEnoughCreditsResult> {
+	validateGrantAmount(input.amount)
+	const userRow = await input.db.query.user.findFirst({
+		columns: {
+			id: true,
+			creditBalance: true
+		},
+		where: eq(user.id, input.userId)
+	})
+	if (!userRow) {
+		throw new CreditsError('CREDIT_USER_NOT_FOUND')
+	}
+	if (userRow.creditBalance < input.amount) {
+		throw new CreditsError('INSUFFICIENT_CREDITS')
+	}
+	return {
+		balance: userRow.creditBalance
+	}
+}
+
+export async function deductCredits(input: {
+	db: AppDb
+	userId: string
+	amount: number
+	sourceType: string
+	sourceId: string
+	description?: string
+	nowMs?: number
+}): Promise<DeductCreditsResult> {
+	validateGrantAmount(input.amount)
+
+	const userRow = await input.db.query.user.findFirst({
+		columns: {
+			id: true,
+			creditBalance: true
+		},
+		where: eq(user.id, input.userId)
+	})
+	if (!userRow) {
+		throw new CreditsError('CREDIT_USER_NOT_FOUND')
+	}
+
+	const nowMs = input.nowMs ?? Date.now()
+	const nextBalance = userRow.creditBalance - input.amount
+
+	const entries = await input.db.all<{
+		id: string
+		remaining_amount: number
+	}>(sql`
+    SELECT id, remaining_amount
+    FROM credit_entries
+    WHERE user_id = ${input.userId}
+      AND remaining_amount > 0
+    ORDER BY
+      CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END ASC,
+      expires_at ASC,
+      created_at ASC
+  `)
+
+	const updateStatements: Array<ReturnType<AppDb['run']>> = []
+	let remaining = input.amount
+	for (const entry of entries) {
+		if (remaining <= 0) {
+			break
+		}
+		const used = Math.min(entry.remaining_amount, remaining)
+		const nextRemaining = entry.remaining_amount - used
+		updateStatements.push(
+			input.db.run(sql`
+        UPDATE credit_entries
+        SET remaining_amount = ${nextRemaining}
+        WHERE id = ${entry.id}
+      `)
+		)
+		remaining -= used
+	}
+
+	const transactionId = crypto.randomUUID()
+	const statements: [ReturnType<AppDb['run']>, ...Array<ReturnType<AppDb['run']>>] = [
+		input.db.run(sql`
+      UPDATE "user"
+      SET credit_balance = ${nextBalance}
+      WHERE id = ${input.userId}
+    `),
+		...updateStatements,
+		input.db.run(sql`
+      INSERT INTO credit_transactions (
+        id,
+        user_id,
+        type,
+        amount,
+        balance_after,
+        source_type,
+        source_id,
+        description,
+        expires_at,
+        created_at
+      )
+      VALUES (
+        ${transactionId},
+        ${input.userId},
+        'consume',
+        ${-input.amount},
+        ${nextBalance},
+        ${input.sourceType},
+        ${input.sourceId},
+        ${input.description ?? null},
+        NULL,
+        ${nowMs}
+      )
+    `)
+	]
+
+	await input.db.batch(statements)
+	return {
+		balance: nextBalance,
+		deductedAmount: input.amount
+	}
+}
+
+export async function runPaidActionWithCredits<T>(input: {
+	db: AppDb
+	userId: string
+	amount: number
+	sourceType: string
+	sourceId: string
+	description?: string
+	execute: () => Promise<T>
+}): Promise<T> {
+	await ensureEnoughCredits({
+		db: input.db,
+		userId: input.userId,
+		amount: input.amount
+	})
+
+	const result = await input.execute()
+	await deductCredits({
+		db: input.db,
+		userId: input.userId,
+		amount: input.amount,
+		sourceType: input.sourceType,
+		sourceId: input.sourceId,
+		description: input.description
+	})
+	return result
 }
 
 function validateGrantAmount(amount: number): void {

@@ -1,6 +1,13 @@
 import { describe, expect } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { CreditsError, grantCredits, type GrantCreditsInput } from './index'
+import {
+	CreditsError,
+	deductCredits,
+	ensureEnoughCredits,
+	grantCredits,
+	runPaidActionWithCredits,
+	type GrantCreditsInput
+} from './index'
 import type { AppDb } from '../db'
 
 describe('grantCredits', () => {
@@ -248,4 +255,212 @@ function createMockDb(given: {
 	} as unknown as MockDb
 
 	return db
+}
+
+describe('ensureEnoughCredits', () => {
+	type GivenDetail = {
+		userBalance: number | null
+		amount: number
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		errorCode: string
+		balance: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'allow request when balance is enough',
+			given: 'user has balance 100 and request amount 60',
+			when: 'ensureEnoughCredits is called',
+			then: 'returns current balance',
+			givenDetail: {
+				userBalance: 100,
+				amount: 60
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				balance: 100
+			}
+		},
+		{
+			scenario: 'reject request when balance is insufficient',
+			given: 'user has balance 10 and request amount 60',
+			when: 'ensureEnoughCredits is called',
+			then: 'returns insufficient credits',
+			givenDetail: {
+				userBalance: 10,
+				amount: 60
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: 'INSUFFICIENT_CREDITS',
+				balance: 0
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const db = createDeductMockDb(given.userBalance)
+		try {
+			const result = await ensureEnoughCredits({
+				db,
+				userId: 'u1',
+				amount: given.amount
+			})
+			return {
+				errorCode: '',
+				balance: result.balance
+			}
+		} catch (error) {
+			return {
+				errorCode: error instanceof CreditsError ? error.code : 'UNKNOWN',
+				balance: 0
+			}
+		}
+	})
+})
+
+describe('deductCredits and runPaidActionWithCredits', () => {
+	type GivenDetail = {
+		initialBalance: number
+		entries: Array<{ id: string; remaining_amount: number }>
+		amount: number
+		executeThrows: boolean
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		errorCode: string
+		nextBalance: number
+		batchCalled: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'deduct allows balance to become negative',
+			given: 'user has low balance and deduction is larger',
+			when: 'deductCredits is called',
+			then: 'returns negative balance and still writes batch',
+			givenDetail: {
+				initialBalance: 5,
+				entries: [{ id: 'e1', remaining_amount: 5 }],
+				amount: 20,
+				executeThrows: false
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				nextBalance: -15,
+				batchCalled: true
+			}
+		},
+		{
+			scenario: 'business failure path does not deduct credits',
+			given: 'ensure passes but business throws error',
+			when: 'runPaidActionWithCredits is called',
+			then: 'returns business error and no batch write',
+			givenDetail: {
+				initialBalance: 100,
+				entries: [{ id: 'e1', remaining_amount: 100 }],
+				amount: 20,
+				executeThrows: true
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: 'BUSINESS_FAILED',
+				nextBalance: 0,
+				batchCalled: false
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const db = createDeductMockDb(given.initialBalance, given.entries)
+
+		if (!given.executeThrows) {
+			const result = await deductCredits({
+				db,
+				userId: 'u1',
+				amount: given.amount,
+				sourceType: 'consume',
+				sourceId: 'job-1',
+				description: 'consume test'
+			})
+			return {
+				errorCode: '',
+				nextBalance: result.balance,
+				batchCalled: db._deductState.batchCalled
+			}
+		}
+
+		try {
+			await runPaidActionWithCredits({
+				db,
+				userId: 'u1',
+				amount: given.amount,
+				sourceType: 'consume',
+				sourceId: 'job-2',
+				description: 'paid action test',
+				execute: async (): Promise<void> => {
+					throw new CreditsError('BUSINESS_FAILED')
+				}
+			})
+			return {
+				errorCode: '',
+				nextBalance: 0,
+				batchCalled: db._deductState.batchCalled
+			}
+		} catch (error) {
+			return {
+				errorCode: error instanceof CreditsError ? error.code : 'UNKNOWN',
+				nextBalance: 0,
+				batchCalled: db._deductState.batchCalled
+			}
+		}
+	})
+})
+
+type DeductMockState = {
+	batchCalled: boolean
+}
+
+type DeductMockDb = AppDb & {
+	_deductState: DeductMockState
+}
+
+function createDeductMockDb(
+	userBalance: number | null,
+	entries: Array<{ id: string; remaining_amount: number }> = []
+): DeductMockDb {
+	const state: DeductMockState = {
+		batchCalled: false
+	}
+
+	return {
+		_deductState: state,
+		query: {
+			user: {
+				findFirst: async (): Promise<{ id: string; creditBalance: number } | undefined> => {
+					if (userBalance === null) {
+						return undefined
+					}
+					return {
+						id: 'u1',
+						creditBalance: userBalance
+					}
+				}
+			}
+		},
+		all: async (): Promise<Array<{ id: string; remaining_amount: number }>> => {
+			return entries
+		},
+		run: (payload: unknown): unknown => {
+			return payload
+		},
+		batch: async (): Promise<unknown[]> => {
+			state.batchCalled = true
+			return []
+		}
+	} as unknown as DeductMockDb
 }
