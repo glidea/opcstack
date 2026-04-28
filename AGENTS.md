@@ -89,6 +89,10 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Get DB via `ctx.get('db')` request scoped
 - Modify schema by editing `src/db/schema.ts` then restart `pnpm dev` to auto generate and apply
 - D1 does not support full transactions; atomicity must be achieved using batch operations
+- For conditional writes such as redeem codes, daily check-in, idempotent grants, use `env.DB.batch()` with SQL-level conditions
+- Prefer `INSERT ... SELECT ... WHERE` for "insert only if condition matches"
+- Use `WHERE EXISTS (SELECT 1 FROM ...)` on later statements in the same batch to make them run only when the first conditional insert succeeded
+- Do not split these flows into `SELECT` then independent `UPDATE` or `INSERT`; concurrent requests can pass the same check
 
 **D1 Read Replication**:
 - Automatically enabled in remote mode
