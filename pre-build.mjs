@@ -636,6 +636,11 @@ async function main() {
 		process.exit(1)
 	}
 
+	// Local dev serves web assets from Vite, so no Wrangler assets binding is needed.
+	if (!isRemote) {
+		delete config.assets
+	}
+
 	if (queueNames.length > 0) {
 		config.queues = {
 			producers: queueNames.map((queueName) => {

@@ -4,7 +4,7 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
-		"dev": "node pre-build.mjs && wrangler types && (wrangler dev --port 8787 & vite dev --port 5173 --strictPort)",
+		"dev": "pnpm exec svelte-kit sync && node pre-build.mjs && wrangler types && (wrangler dev --port 8787 & vite dev --port 5173 --strictPort)",
 		"deploycf": "node pre-build.mjs --remote && wrangler types && vite build && wrangler deploy",
 		"test": "pnpm exec tsc --noEmit -p tsconfig.tsc.json && pnpm exec svelte-check --tsconfig ./tsconfig.json && vitest",
 		"test:e2e": "vitest --config vitest.e2e.config.ts",
