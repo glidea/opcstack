@@ -236,6 +236,10 @@
 		@apply bg-transparent p-0 text-inherit;
 	}
 
+	.docs-content .mermaid {
+		@apply mt-5 overflow-x-auto rounded-lg border border-border/70 bg-muted/40 p-4;
+	}
+
 	.docs-content img {
 		@apply mt-5 block max-w-full rounded-lg border border-border/70;
 	}

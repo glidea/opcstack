@@ -29,11 +29,76 @@ function rehypeLazyImages(): (tree: Root) => void {
 	}
 }
 
+function getClassNames(node: Element): string[] {
+	const className = node.properties['className']
+	if (Array.isArray(className)) {
+		return className.filter((item): item is string => typeof item === 'string')
+	}
+	if (typeof className === 'string') {
+		return className.split(/\s+/).filter((item) => item !== '')
+	}
+	return []
+}
+
+function getMermaidCodeFromPre(node: Element): string | null {
+	const codeNode = node.children[0]
+	if (!codeNode || codeNode.type !== 'element' || codeNode.tagName !== 'code') {
+		return null
+	}
+	const codeElement = codeNode as Element
+	const classNames = getClassNames(codeElement)
+	const isMermaid = classNames.includes('language-mermaid') || classNames.includes('lang-mermaid')
+	if (!isMermaid) {
+		return null
+	}
+
+	let code = ''
+	for (const child of codeElement.children) {
+		if (child.type === 'text') {
+			code += child.value
+		}
+	}
+	return code
+}
+
+function replaceMermaidCodeBlocks(node: Root | Element): void {
+	if (!('children' in node)) {
+		return
+	}
+
+	for (let index = 0; index < node.children.length; index += 1) {
+		const child = node.children[index]
+		if (child?.type !== 'element') {
+			continue
+		}
+
+		const mermaidCode = child.tagName === 'pre' ? getMermaidCodeFromPre(child) : null
+		if (mermaidCode !== null) {
+			node.children[index] = {
+				type: 'element',
+				tagName: 'div',
+				properties: { className: ['mermaid'] },
+				children: [{ type: 'text', value: mermaidCode }]
+			}
+			continue
+		}
+
+		replaceMermaidCodeBlocks(child)
+	}
+}
+
+function rehypeMermaid(): (tree: Root) => void {
+	return (tree: Root) => {
+		replaceMermaidCodeBlocks(tree)
+	}
+}
+
 const markdownProcessor = unified()
 	.use(remarkParse)
 	.use(remarkGfm)
 	.use(remarkRehype)
 	.use(rehypeSlug)
+	.use(rehypeMermaid)
 	.use(rehypeShiki, {
 		themes: {
 			light: 'github-light',

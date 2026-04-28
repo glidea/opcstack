@@ -55,6 +55,7 @@
 		"better-auth": "^1.6.0",
 		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.12",
+		"mermaid": "^11.14.0",
 		"openai": "^6.34.0",
 		"rehype-shiki": "^0.0.9",
 		"rehype-stringify": "^10.0.1",

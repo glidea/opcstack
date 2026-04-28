@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left'
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right'
+	import { tick } from 'svelte'
 	import { _ } from '$web/i18n'
 
 	let {
@@ -21,6 +22,30 @@
 	} = $props()
 
 	let activeHeadingId = $state<string>('')
+	let mermaidLoaded = false
+
+	async function renderMermaidDiagrams(): Promise<void> {
+		const mermaidNodes = document.querySelectorAll<HTMLElement>('.docs-content .mermaid')
+		if (mermaidNodes.length === 0) {
+			return
+		}
+
+		const mermaidModule = await import('mermaid')
+		const mermaid = mermaidModule.default
+		if (!mermaidLoaded) {
+			mermaid.initialize({
+				startOnLoad: false,
+				theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default'
+			})
+			mermaidLoaded = true
+		}
+
+		for (const node of mermaidNodes) {
+			node.removeAttribute('data-processed')
+		}
+
+		await mermaid.run({ nodes: mermaidNodes })
+	}
 
 	function updateActiveHeading(headings: HTMLElement[]): void {
 		if (headings.length === 0) {
@@ -92,6 +117,14 @@
 			window.removeEventListener('scroll', onScroll)
 			window.removeEventListener('hashchange', onHashChange)
 		}
+	})
+
+	$effect(() => {
+		data.contentHtml
+		void (async (): Promise<void> => {
+			await tick()
+			await renderMermaidDiagrams()
+		})()
 	})
 </script>
 

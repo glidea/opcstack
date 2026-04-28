@@ -27,7 +27,19 @@ If it can be automated, automate it. Avoid manual steps.
 
 ## Overview
 
-![Architecture](/images/architecture-en.svg)
+```mermaid
+flowchart TB
+  A[User] --> B[Cloudflare Edge]
+  B --> C[Worker src/index.ts]
+  C -->|/api/*| D[Hono API src/api]
+  C -->|other path| E[SvelteKit SSR src/web]
+  D --> F[(D1)]
+  D --> G[(R2)]
+  D --> H[(KV)]
+  D --> I[(Queues)]
+  J[Cron Trigger] --> C
+  K[Queue Consumer] --> C
+```
 
 The diagram shows the full request flow:
 1. User sends HTTP request to Cloudflare edge

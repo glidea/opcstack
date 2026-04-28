@@ -27,7 +27,19 @@ Workers、D1、R2、KV、Queues、Cron 一套打通，免费额度可跑通完�
 
 ## 整体架构
 
-![架构图](/images/architecture-zh.svg)
+```mermaid
+flowchart TB
+  A[用户] --> B[Cloudflare Edge]
+  B --> C[Worker src/index.ts]
+  C -->|/api/*| D[Hono API src/api]
+  C -->|其他路径| E[SvelteKit SSR src/web]
+  D --> F[(D1)]
+  D --> G[(R2)]
+  D --> H[(KV)]
+  D --> I[(Queues)]
+  J[Cron Trigger] --> C
+  K[Queue Consumer] --> C
+```
 
 上图展示了完整的请求流程：
 1. 用户发起 HTTP 请求 → Cloudflare 边缘网络

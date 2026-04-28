@@ -158,6 +158,10 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Use relative paths like `![Description](/images/xxx.svg)`
 - SVG is recommended
 
+**Mermaid diagrams**:
+- Use fenced code blocks with `mermaid`
+- Mermaid is rendered client-side in docs pages
+
 **Directory organization**:
 - You can use subdirectories like `guides/` and `reference/`
 - File paths map directly to URL paths for example `guides/auth.md` → `/docs/guides/auth`
