@@ -5,6 +5,8 @@ export const user = sqliteTable('user', {
 	id: text('id').primaryKey(),
 	name: text('name').notNull(),
 	email: text('email').notNull().unique(),
+	referralCode: text('referral_code').unique(),
+	creditBalance: integer('credit_balance').notNull().default(0),
 	emailVerified: integer('email_verified', { mode: 'boolean' }).default(false).notNull(),
 	image: text('image'),
 	createdAt: integer('created_at', { mode: 'timestamp_ms' })
