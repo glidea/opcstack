@@ -8,6 +8,10 @@ import {
 	generateBetaCodesHandler,
 	listBetaCodesHandler
 } from './handler/beta'
+import {
+	getCreditSummaryHandler,
+	listCreditTransactionsHandler
+} from './handler/credits'
 import { readR2ObjectHandler } from './handler/r2'
 import { authCore } from './auth'
 import type { AppDb } from '../db'
@@ -57,3 +61,5 @@ api.get('/api/r2/*', readR2ObjectHandler)
 api.post('/api/bind_beta_code', bindBetaCodeHandler)
 api.post('/api/admin/generate_beta_codes', adminSecretMiddleware, generateBetaCodesHandler)
 api.post('/api/admin/list_beta_codes', adminSecretMiddleware, listBetaCodesHandler)
+api.post('/api/get_credit_summary', getCreditSummaryHandler)
+api.post('/api/list_credit_transactions', listCreditTransactionsHandler)

@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm'
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm'
 import type { AppDb } from '../db'
-import { creditEntry, creditTransaction } from '../db/schema'
+import { creditEntry, creditReferral, creditTransaction } from '../db/schema'
 import { user } from '../db/schema.auth'
 
 export type CreditTransactionType =
@@ -31,6 +31,34 @@ export interface GrantCreditsResult {
 	transactionId: string
 	entryRemainingAmount: number
 	duplicated: boolean
+}
+
+export interface CreditSummary {
+	balance: number
+	dailyCheckedIn: boolean
+	dailyCheckinAmount: number
+	referralEnabled: boolean
+	referralCode: string
+	invitedCount: number
+}
+
+export interface ListCreditTransactionsInput {
+	db: AppDb
+	userId: string
+	limit?: number
+	offset?: number
+}
+
+export interface CreditTransactionItem {
+	id: string
+	type: string
+	amount: number
+	balanceAfter: number
+	sourceType: string | null
+	sourceId: string | null
+	description: string | null
+	expiresAt: number | null
+	createdAt: number
 }
 
 export class CreditsError extends Error {
@@ -137,6 +165,95 @@ export async function createReferralCode(db: AppDb): Promise<string> {
 	throw new CreditsError('REFERRAL_CODE_GENERATE_FAILED')
 }
 
+export async function getCreditSummary(input: {
+	db: AppDb
+	userId: string
+	nowMs?: number
+	dailyCheckinAmount: number
+	referralEnabled: boolean
+}): Promise<CreditSummary> {
+	const userRow = await input.db.query.user.findFirst({
+		columns: {
+			creditBalance: true,
+			referralCode: true
+		},
+		where: eq(user.id, input.userId)
+	})
+	if (!userRow) {
+		throw new CreditsError('CREDIT_USER_NOT_FOUND')
+	}
+
+	const nowMs = input.nowMs ?? Date.now()
+	const dayRange = getUtcDayRange(nowMs)
+	const checkedInRow = await input.db.query.creditTransaction.findFirst({
+		columns: {
+			id: true
+		},
+		where: and(
+			eq(creditTransaction.userId, input.userId),
+			eq(creditTransaction.type, 'daily_checkin'),
+			gte(creditTransaction.createdAt, dayRange.dayStartMs),
+			lt(creditTransaction.createdAt, dayRange.dayEndMs)
+		)
+	})
+
+	const invitedCountRows = await input.db
+		.select({
+			count: sql<number>`count(*)`
+		})
+		.from(creditReferral)
+		.where(eq(creditReferral.inviterUserId, input.userId))
+	const invitedCount = Number(invitedCountRows[0]?.count ?? 0)
+
+	return {
+		balance: userRow.creditBalance,
+		dailyCheckedIn: Boolean(checkedInRow),
+		dailyCheckinAmount: input.dailyCheckinAmount,
+		referralEnabled: input.referralEnabled,
+		referralCode: userRow.referralCode ?? '',
+		invitedCount
+	}
+}
+
+export async function listCreditTransactions(
+	input: ListCreditTransactionsInput
+): Promise<CreditTransactionItem[]> {
+	const limit = resolvePageLimit(input.limit)
+	const offset = resolveOffset(input.offset)
+
+	const rows = await input.db.query.creditTransaction.findMany({
+		columns: {
+			id: true,
+			type: true,
+			amount: true,
+			balanceAfter: true,
+			sourceType: true,
+			sourceId: true,
+			description: true,
+			expiresAt: true,
+			createdAt: true
+		},
+		where: eq(creditTransaction.userId, input.userId),
+		orderBy: [desc(creditTransaction.createdAt)],
+		limit,
+		offset
+	})
+
+	return rows.map((row) => {
+		return {
+			id: row.id,
+			type: row.type,
+			amount: row.amount,
+			balanceAfter: row.balanceAfter,
+			sourceType: row.sourceType,
+			sourceId: row.sourceId,
+			description: row.description,
+			expiresAt: row.expiresAt,
+			createdAt: row.createdAt
+		}
+	})
+}
+
 function validateGrantAmount(amount: number): void {
 	if (!Number.isInteger(amount) || amount <= 0) {
 		throw new CreditsError('INVALID_CREDIT_AMOUNT')
@@ -156,4 +273,27 @@ function isDuplicatedGrantError(error: unknown): boolean {
 function generateReferralCode(): string {
 	const raw = crypto.randomUUID().replaceAll('-', '').slice(0, 8)
 	return raw.toUpperCase()
+}
+
+function getUtcDayRange(nowMs: number): { dayStartMs: number; dayEndMs: number } {
+	const date = new Date(nowMs)
+	const dayStartMs = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+	return {
+		dayStartMs,
+		dayEndMs: dayStartMs + 24 * 60 * 60 * 1000
+	}
+}
+
+function resolvePageLimit(limit: number | undefined): number {
+	if (!Number.isInteger(limit) || !limit || limit <= 0) {
+		return 20
+	}
+	return Math.min(limit, 100)
+}
+
+function resolveOffset(offset: number | undefined): number {
+	if (!Number.isInteger(offset) || !offset || offset < 0) {
+		return 0
+	}
+	return offset
 }
