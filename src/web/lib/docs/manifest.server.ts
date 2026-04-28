@@ -1,5 +1,6 @@
+import { dev } from '$app/environment'
 import { defaultLocale, supportedLocales, type SystemLocale } from '$web/i18n/locales'
-import { buildDocsManifest, getLocaleManifest, type DocGroup } from './docs'
+import { buildDocsManifest, getLocaleManifest, type DocGroup, type DocsManifest } from './docs'
 
 export interface DocNavItem {
 	slug: string
@@ -25,9 +26,17 @@ const rawDocModules = import.meta.glob('/public-docs/**/*.md', {
 	import: 'default'
 }) as Record<string, string>
 
-const manifestPromise = buildDocsManifest(rawDocModules)
+let manifestPromise: Promise<DocsManifest> | null = null
 
-export async function getDocsManifest() {
+export async function getDocsManifest(): Promise<DocsManifest> {
+	if (dev) {
+		return buildDocsManifest(rawDocModules)
+	}
+
+	if (!manifestPromise) {
+		manifestPromise = buildDocsManifest(rawDocModules)
+	}
+
 	return manifestPromise
 }
 

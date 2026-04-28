@@ -3,6 +3,7 @@ import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import rehypeSlug from 'rehype-slug'
+import rehypeShiki from '@shikijs/rehype'
 import rehypeStringify from 'rehype-stringify'
 import type { Root, Element } from 'hast'
 
@@ -33,6 +34,20 @@ const markdownProcessor = unified()
 	.use(remarkGfm)
 	.use(remarkRehype)
 	.use(rehypeSlug)
+	.use(rehypeShiki, {
+		themes: {
+			light: 'github-light',
+			dark: 'github-dark'
+		},
+		langs: ['typescript', 'javascript', 'bash', 'json', 'jsonc', 'yaml', 'svelte', 'go', 'sql'],
+		langAlias: {
+			ts: 'typescript',
+			js: 'javascript',
+			shell: 'bash',
+			sh: 'bash',
+			yml: 'yaml'
+		}
+	})
 	.use(rehypeLazyImages)
 	.use(rehypeStringify)
 

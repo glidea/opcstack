@@ -215,16 +215,9 @@
 		@apply mt-5 overflow-x-auto rounded-lg border border-border/70 p-4 text-sm leading-6;
 	}
 
-	.docs-content pre.shiki {
-		background-color: var(--shiki-light-bg) !important;
-	}
-
-	.docs-content pre.shiki span {
-		color: var(--shiki-light) !important;
-	}
-
 	:is(.dark) .docs-content pre.shiki {
 		background-color: var(--shiki-dark-bg) !important;
+		color: var(--shiki-dark) !important;
 	}
 
 	:is(.dark) .docs-content pre.shiki span {
