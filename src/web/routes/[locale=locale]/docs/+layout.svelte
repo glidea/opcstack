@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$web/ui/sidebar'
 	import AppHeader from '$web/components/AppHeader.svelte'
+	import { page } from '$app/state'
 
 	let {
 		data,
@@ -12,6 +13,8 @@
 		}
 		children: import('svelte').Snippet
 	} = $props()
+
+	const currentPath = $derived(page.url.pathname)
 </script>
 
 <div class="docs-shell">
@@ -29,13 +32,16 @@
 							<Sidebar.GroupContent>
 								<Sidebar.Menu class="gap-0.5">
 									{#each group.docs as doc}
+										{@const docPath = `/${data.locale}/docs/${doc.slug}`}
 										<Sidebar.MenuItem>
 											<Sidebar.MenuButton
+												isActive={currentPath === docPath}
 												class="h-9 px-2.5"
 											>
 												{#snippet child({ props })}
 													<a
-														href={`/${data.locale}/docs/${doc.slug}`}
+														href={docPath}
+														aria-current={currentPath === docPath ? 'page' : undefined}
 														{...props}
 													>
 														{doc.title}
