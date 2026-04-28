@@ -130,13 +130,15 @@ await db.delete(posts)
 
 ## Batch operations
 
-D1 does not support transactions but batch insert can still improve efficiency:
+D1 does not support full transactions.
+Use batch operations when you need atomic execution across multiple statements.
+Batch insert can still improve efficiency:
 
 ```typescript
-// Batch insert
-await db.insert(posts).values([
-  { id: nanoid(), userId, title: 'Post 1', createdAt: new Date() },
-  { id: nanoid(), userId, title: 'Post 2', createdAt: new Date() }
+// Execute multiple statements atomically
+await db.batch([
+  db.insert(posts).values({ id: nanoid(), userId, title: 'Post 1', createdAt: new Date() }),
+  db.insert(posts).values({ id: nanoid(), userId, title: 'Post 2', createdAt: new Date() })
 ])
 ```
 

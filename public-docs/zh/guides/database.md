@@ -130,13 +130,15 @@ await db.delete(posts)
 
 ## 批量操作
 
-D1 不支持事务，但可以使用批量操作提高性能：
+D1 不支持完整事务。
+需要多条语句原子执行时请使用 batch 操作。
+批量插入也可以提高性能：
 
 ```typescript
-// 批量插入
-await db.insert(posts).values([
-  { id: nanoid(), userId, title: 'Post 1', createdAt: new Date() },
-  { id: nanoid(), userId, title: 'Post 2', createdAt: new Date() }
+// Execute multiple statements atomically
+await db.batch([
+  db.insert(posts).values({ id: nanoid(), userId, title: 'Post 1', createdAt: new Date() }),
+  db.insert(posts).values({ id: nanoid(), userId, title: 'Post 2', createdAt: new Date() })
 ])
 ```
 
