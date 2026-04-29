@@ -192,7 +192,8 @@ await client.putImage({ dir, imageBase64, mimeType })
 
 - Chat: `src/ai/chat/openai/`
 - Image: `src/ai/image/gemini/`
-- Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*`
+- TTS: `src/ai/tts/gemini/`
+- Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `TTS_GEMINI_*`
 
 ---
 
