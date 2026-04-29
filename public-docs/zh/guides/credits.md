@@ -95,8 +95,34 @@ POST /api/list_credit_transactions
 
 ```json
 {
-  "limit": 20,
-  "offset": 0
+  "page": 1,
+  "page_size": 20,
+  "type": "signup",
+  "source_type": "signup",
+  "source_id": "user_id",
+  "created_at_start": 1767139200000,
+  "created_at_end": 1767225600000
+}
+```
+
+返回：
+
+```json
+{
+  "items": [
+    {
+      "id": "tx_1",
+      "type": "signup",
+      "amount": 100,
+      "balance_after": 100,
+      "source_type": "signup",
+      "source_id": "user_id",
+      "description": "Signup reward",
+      "expires_at": null,
+      "created_at": 1767139200000
+    }
+  ],
+  "total": 1
 }
 ```
 
@@ -162,6 +188,42 @@ POST /api/admin/generate_credit_codes
 
 ```http
 POST /api/admin/list_credit_codes
+```
+
+请求：
+
+```json
+{
+  "page": 1,
+  "page_size": 20,
+  "code": "FREE100",
+  "used_by": "user_id",
+  "used": false,
+  "amount": 100,
+  "created_at_start": 1767139200000,
+  "created_at_end": 1767225600000,
+  "expires_at_start": 1767139200000,
+  "expires_at_end": 1769817600000
+}
+```
+
+返回：
+
+```json
+{
+  "items": [
+    {
+      "id": "code_1",
+      "code": "FREE100",
+      "amount": 100,
+      "expires_at": null,
+      "used_by": null,
+      "used_at": null,
+      "created_at": 1767139200000
+    }
+  ],
+  "total": 1
+}
 ```
 
 该接口需要 `ADMIN_SECRET`。
@@ -248,4 +310,3 @@ set credit_entries.remaining_amount = 0
 ```
 
 `credit_entries` 不删除，因为它承担发放来源幂等约束。历史 `credit_transactions` 会按 `CREDITS_HISTORY_RETENTION_DAYS` 定期清理。
-

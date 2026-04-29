@@ -80,8 +80,12 @@ POST /api/list_notifications
 
 ```json
 {
-  "limit": 50,
-  "offset": 0
+  "page": 1,
+  "page_size": 20,
+  "type": "system",
+  "read": false,
+  "created_at_start": 1767139200000,
+  "created_at_end": 1767225600000
 }
 ```
 
@@ -89,7 +93,7 @@ POST /api/list_notifications
 
 ```json
 {
-  "notifications": [
+  "items": [
     {
       "id": "notification_id",
       "type": "system",
@@ -98,7 +102,8 @@ POST /api/list_notifications
       "read": false,
       "created_at": 1767139200000
     }
-  ]
+  ],
+  "total": 1
 }
 ```
 

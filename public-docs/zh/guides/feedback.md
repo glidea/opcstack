@@ -72,8 +72,12 @@ POST /api/admin/list_feedbacks
 
 ```json
 {
-  "limit": 50,
-  "offset": 0
+  "page": 1,
+  "page_size": 20,
+  "user_id": "user_id",
+  "type": "bug",
+  "created_at_start": 1767139200000,
+  "created_at_end": 1767225600000
 }
 ```
 
@@ -81,7 +85,7 @@ POST /api/admin/list_feedbacks
 
 ```json
 {
-  "feedbacks": [
+  "items": [
     {
       "id": "feedback_id",
       "user_id": "user_id",
@@ -89,6 +93,7 @@ POST /api/admin/list_feedbacks
       "content": "The upload button does not respond",
       "created_at": 1767139200000
     }
-  ]
+  ],
+  "total": 1
 }
 ```
