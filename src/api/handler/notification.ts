@@ -1,10 +1,10 @@
-import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
 import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
 import type { NewNotification, NewNotificationRead } from '../../db/schema'
 import { notification, notificationRead } from '../../db/schema'
-import { parse } from './utils'
+import { PageRequestSchema, parse } from './utils'
 
 export const CreateNotificationRequestSchema = z.object({
 	type: z.string().min(1).optional().default('system'),
@@ -14,9 +14,11 @@ export const CreateNotificationRequestSchema = z.object({
 })
 export type CreateNotificationRequest = z.infer<typeof CreateNotificationRequestSchema>
 
-export const ListNotificationsRequestSchema = z.object({
-	limit: z.number().int().min(1).max(100).optional(),
-	offset: z.number().int().min(0).optional()
+export const ListNotificationsRequestSchema = PageRequestSchema.extend({
+	type: z.string().min(1).optional(),
+	read: z.boolean().optional(),
+	created_at_start: z.number().int().optional(),
+	created_at_end: z.number().int().optional()
 })
 export type ListNotificationsRequest = z.infer<typeof ListNotificationsRequestSchema>
 
@@ -35,7 +37,8 @@ export interface ListNotificationsResponseItem {
 }
 
 export interface ListNotificationsResponse {
-	notifications: ListNotificationsResponseItem[]
+	items: ListNotificationsResponseItem[]
+	total: number
 }
 
 export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
@@ -64,15 +67,51 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 	}
 
 	const userId = ctx.get('userId')
-	const rows = await ctx.get('db').query.notification.findMany({
-		where: or(isNull(notification.targetUserId), eq(notification.targetUserId, userId)),
+	const visibleWhere = or(isNull(notification.targetUserId), eq(notification.targetUserId, userId))
+	const conditions: SQL[] = []
+	if (visibleWhere) {
+		conditions.push(visibleWhere)
+	}
+	if (req.type) {
+		conditions.push(eq(notification.type, req.type))
+	}
+	if (req.created_at_start !== undefined) {
+		conditions.push(gte(notification.createdAt, req.created_at_start))
+	}
+	if (req.created_at_end !== undefined) {
+		conditions.push(lte(notification.createdAt, req.created_at_end))
+	}
+	if (req.read === true) {
+		conditions.push(sql`exists (
+			select 1 from ${notificationRead}
+			where ${notificationRead.notificationId} = ${notification.id}
+				and ${notificationRead.userId} = ${userId}
+		)`)
+	}
+	if (req.read === false) {
+		conditions.push(sql`not exists (
+			select 1 from ${notificationRead}
+			where ${notificationRead.notificationId} = ${notification.id}
+				and ${notificationRead.userId} = ${userId}
+		)`)
+	}
+
+	const db = ctx.get('db')
+	const where = conditions.length > 0 ? and(...conditions) : undefined
+	const offset = (req.page - 1) * req.page_size
+	const totalRows = await db
+		.select({ total: sql<number>`count(*)` })
+		.from(notification)
+		.where(where)
+	const rows = await db.query.notification.findMany({
+		where,
 		orderBy: [desc(notification.createdAt)],
-		limit: req.limit ?? 50,
-		offset: req.offset ?? 0
+		limit: req.page_size,
+		offset
 	})
 
 	if (rows.length === 0) {
-		return ctx.json({ notifications: [] } as ListNotificationsResponse)
+		return ctx.json({ items: [], total: Number(totalRows[0]?.total ?? 0) } as ListNotificationsResponse)
 	}
 
 	const ids = rows.map((row) => {
@@ -91,7 +130,7 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 	)
 
 	return ctx.json({
-		notifications: rows.map((row) => {
+		items: rows.map((row) => {
 			return {
 				id: row.id,
 				type: row.type,
@@ -100,7 +139,8 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 				read: readIds.has(row.id),
 				created_at: row.createdAt
 			}
-		})
+		}),
+		total: Number(totalRows[0]?.total ?? 0)
 	} as ListNotificationsResponse)
 }
 

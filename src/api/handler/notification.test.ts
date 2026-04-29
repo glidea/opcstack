@@ -11,6 +11,7 @@ import {
 
 type MockDb = {
 	insert: ReturnType<typeof vi.fn>
+	select: ReturnType<typeof vi.fn>
 	query: {
 		notification: {
 			findMany: ReturnType<typeof vi.fn>
@@ -106,7 +107,8 @@ describe('listNotificationsHandler', () => {
 	type ThenExpected = {
 		status: number
 		code: string
-		notifications: ListNotificationsResponse['notifications']
+		items: ListNotificationsResponse['items']
+		total: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -116,14 +118,15 @@ describe('listNotificationsHandler', () => {
 			when: 'listing notifications',
 			then: 'returns invalid request',
 			givenDetail: {
-				body: { limit: 0 },
+				body: { page_size: 0 },
 				readRows: []
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_REQUEST',
-				notifications: []
+				items: [],
+				total: 0
 			}
 		},
 		{
@@ -139,7 +142,7 @@ describe('listNotificationsHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				notifications: [
+				items: [
 					{
 						id: 'n1',
 						type: 'system',
@@ -148,7 +151,8 @@ describe('listNotificationsHandler', () => {
 						read: true,
 						created_at: 123
 					}
-				]
+				],
+				total: 1
 			}
 		}
 	]
@@ -174,11 +178,12 @@ describe('listNotificationsHandler', () => {
 		})
 
 		const res = await listNotificationsHandler(ctx)
-		const payload = (await res.json()) as { code?: string } & ListNotificationsResponse
+		const payload = (await res.json()) as { code?: string } & Partial<ListNotificationsResponse>
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			notifications: payload.notifications ?? []
+			items: payload.items ?? [],
+			total: payload.total ?? 0
 		}
 	})
 })
@@ -260,6 +265,17 @@ describe('readNotificationHandler', () => {
 function createMockDb(): MockDb {
 	return {
 		insert: vi.fn(),
+		select: vi.fn(() => {
+			return {
+				from: () => {
+					return {
+						where: async () => {
+							return [{ total: 1 }]
+						}
+					}
+				}
+			}
+		}),
 		query: {
 			notification: {
 				findMany: vi.fn()

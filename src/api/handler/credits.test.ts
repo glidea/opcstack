@@ -503,7 +503,7 @@ describe('listCreditCodesHandler', () => {
 			when: 'calling listCreditCodesHandler',
 			then: 'returns invalid request',
 			givenDetail: {
-				body: { limit: 0 }
+				body: { page_size: 0 }
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -518,7 +518,7 @@ describe('listCreditCodesHandler', () => {
 			when: 'calling listCreditCodesHandler',
 			then: 'returns mapped list',
 			givenDetail: {
-				body: { limit: 10, offset: 0 }
+				body: { page: 1, page_size: 10 }
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -530,17 +530,20 @@ describe('listCreditCodesHandler', () => {
 	]
 
 	runCases(cases, async (given) => {
-		vi.mocked(creditServiceMocks.listCodes).mockResolvedValue([
-			{
-				id: 'c1',
-				code: 'AAAA1111',
-				amount: 100,
-				expiresAt: null,
-				usedBy: null,
-				usedAt: null,
-				createdAt: 123
-			}
-		])
+		vi.mocked(creditServiceMocks.listCodes).mockResolvedValue({
+			codes: [
+				{
+					id: 'c1',
+					code: 'AAAA1111',
+					amount: 100,
+					expiresAt: null,
+					usedBy: null,
+					usedAt: null,
+					createdAt: 123
+				}
+			],
+			total: 1
+		})
 
 		const ctx = createJsonContext({
 			env: {},
@@ -549,11 +552,11 @@ describe('listCreditCodesHandler', () => {
 			body: given.body
 		})
 		const res = await listCreditCodesHandler(ctx)
-		const payload = (await res.json()) as { code?: string; codes?: unknown[] }
+		const payload = (await res.json()) as { code?: string; items?: unknown[] }
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			codeCount: payload.codes?.length ?? 0
+			codeCount: payload.items?.length ?? 0
 		}
 	})
 })
@@ -824,8 +827,8 @@ describe('listCreditTransactionsHandler', () => {
 			then: 'returns mapped response list',
 			givenDetail: {
 				body: {
-					limit: 20,
-					offset: 0
+					page: 1,
+					page_size: 20
 				}
 			},
 			whenDetail: {},
@@ -839,19 +842,22 @@ describe('listCreditTransactionsHandler', () => {
 	]
 
 	runCases(cases, async (given) => {
-		vi.mocked(creditServiceMocks.listTransactions).mockResolvedValue([
-			{
-				id: 't1',
-				type: 'signup',
-				amount: 100,
-				balanceAfter: 99,
-				sourceType: 'signup',
-				sourceId: 'u1',
-				description: 'desc',
-				expiresAt: null,
-				createdAt: 123
-			}
-		])
+		vi.mocked(creditServiceMocks.listTransactions).mockResolvedValue({
+			transactions: [
+				{
+					id: 't1',
+					type: 'signup',
+					amount: 100,
+					balanceAfter: 99,
+					sourceType: 'signup',
+					sourceId: 'u1',
+					description: 'desc',
+					expiresAt: null,
+					createdAt: 123
+				}
+			],
+			total: 1
+		})
 		const ctx = createJsonContext({
 			env: {},
 			userId: 'u1',
@@ -861,13 +867,13 @@ describe('listCreditTransactionsHandler', () => {
 		const res = await listCreditTransactionsHandler(ctx)
 		const payload = (await res.json()) as {
 			code?: string
-			transactions?: Array<{ balance_after: number }>
+			items?: Array<{ balance_after: number }>
 		}
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			transactionCount: payload.transactions?.length ?? 0,
-			firstBalanceAfter: payload.transactions?.[0]?.balance_after ?? 0
+			transactionCount: payload.items?.length ?? 0,
+			firstBalanceAfter: payload.items?.[0]?.balance_after ?? 0
 		}
 	})
 })

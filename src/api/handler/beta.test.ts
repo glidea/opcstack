@@ -17,6 +17,7 @@ type UUID = `${string}-${string}-${string}-${string}-${string}`
 type MockDb = {
 	update: ReturnType<typeof vi.fn>
 	insert: ReturnType<typeof vi.fn>
+	select: ReturnType<typeof vi.fn>
 	query: {
 		betaCode: {
 			findFirst: ReturnType<typeof vi.fn>
@@ -302,7 +303,8 @@ describe('listBetaCodesHandler', () => {
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: number
-		codes: ListBetaCodesResponse['codes']
+		items: ListBetaCodesResponse['items']
+		total: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -325,7 +327,7 @@ describe('listBetaCodesHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 200,
-				codes: [
+				items: [
 					{
 						id: 'i1',
 						code: 'ABCDEFGH',
@@ -333,7 +335,8 @@ describe('listBetaCodesHandler', () => {
 						used_at: 123,
 						created_at: 456
 					}
-				]
+				],
+				total: 1
 			}
 		}
 	]
@@ -352,10 +355,11 @@ describe('listBetaCodesHandler', () => {
 		})
 
 		const res = await listBetaCodesHandler(ctx)
-		const payload = (await res.json()) as ListBetaCodesResponse
+	const payload = (await res.json()) as ListBetaCodesResponse
 		return {
 			status: res.status,
-			codes: payload.codes
+			items: payload.items,
+			total: payload.total
 		}
 	})
 })
@@ -364,6 +368,17 @@ function createMockDb(): MockDb {
 	return {
 		update: vi.fn(),
 		insert: vi.fn(),
+		select: vi.fn(() => {
+			return {
+				from: () => {
+					return {
+						where: async () => {
+							return [{ total: 1 }]
+						}
+					}
+				}
+			}
+		}),
 		query: {
 			betaCode: {
 				findFirst: vi.fn(),

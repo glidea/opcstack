@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, isNotNull, isNull, lt, lte, sql, type SQL } from 'drizzle-orm'
 import type { AppDb } from '../db'
 import { creditEntry, creditRedemptionCode, creditReferral, creditTransaction } from '../db/schema'
 import { user } from '../db/schema.auth'
@@ -52,6 +52,11 @@ export interface ListCreditTransactionsInput {
 	userId: string
 	limit?: number
 	offset?: number
+	type?: string
+	sourceType?: string
+	sourceId?: string
+	createdAtStart?: number
+	createdAtEnd?: number
 }
 
 export interface CreditTransactionItem {
@@ -64,6 +69,11 @@ export interface CreditTransactionItem {
 	description: string | null
 	expiresAt: number | null
 	createdAt: number
+}
+
+export interface ListCreditTransactionsResult {
+	transactions: CreditTransactionItem[]
+	total: number
 }
 
 export interface DailyCheckinInput {
@@ -90,6 +100,14 @@ export interface GenerateCreditCodesInput {
 export interface ListCreditCodesInput {
 	limit?: number
 	offset?: number
+	code?: string
+	usedBy?: string
+	used?: boolean
+	amount?: number
+	createdAtStart?: number
+	createdAtEnd?: number
+	expiresAtStart?: number
+	expiresAtEnd?: number
 }
 
 export interface RedeemCreditCodeInput {
@@ -160,6 +178,11 @@ export interface ListCreditCodeItem {
 	usedBy: string | null
 	usedAt: number | null
 	createdAt: number
+}
+
+export interface ListCreditCodesResult {
+	codes: ListCreditCodeItem[]
+	total: number
 }
 
 export interface RedeemCreditCodeResult {
@@ -340,10 +363,31 @@ export class CreditsService {
 	}
 }
 
-	async listTransactions(input: ListCreditTransactionsInput): Promise<CreditTransactionItem[]> {
+	async listTransactions(input: ListCreditTransactionsInput): Promise<ListCreditTransactionsResult> {
 	const limit = resolvePageLimit(input.limit)
 	const offset = resolveOffset(input.offset)
+	const conditions: SQL[] = [eq(creditTransaction.userId, input.userId)]
+	if (input.type) {
+		conditions.push(eq(creditTransaction.type, input.type))
+	}
+	if (input.sourceType) {
+		conditions.push(eq(creditTransaction.sourceType, input.sourceType))
+	}
+	if (input.sourceId) {
+		conditions.push(eq(creditTransaction.sourceId, input.sourceId))
+	}
+	if (input.createdAtStart !== undefined) {
+		conditions.push(gte(creditTransaction.createdAt, input.createdAtStart))
+	}
+	if (input.createdAtEnd !== undefined) {
+		conditions.push(lte(creditTransaction.createdAt, input.createdAtEnd))
+	}
 
+	const where = and(...conditions)
+	const totalRows = await this.db
+		.select({ total: sql<number>`count(*)` })
+		.from(creditTransaction)
+		.where(where)
 	const rows = await this.db.query.creditTransaction.findMany({
 		columns: {
 			id: true,
@@ -356,25 +400,28 @@ export class CreditsService {
 			expiresAt: true,
 			createdAt: true
 		},
-		where: eq(creditTransaction.userId, input.userId),
+		where,
 		orderBy: [desc(creditTransaction.createdAt)],
 		limit,
 		offset
 	})
 
-	return rows.map((row) => {
-		return {
-			id: row.id,
-			type: row.type,
-			amount: row.amount,
-			balanceAfter: row.balanceAfter,
-			sourceType: row.sourceType,
-			sourceId: row.sourceId,
-			description: row.description,
-			expiresAt: row.expiresAt,
-			createdAt: row.createdAt
-		}
-	})
+	return {
+		transactions: rows.map((row) => {
+			return {
+				id: row.id,
+				type: row.type,
+				amount: row.amount,
+				balanceAfter: row.balanceAfter,
+				sourceType: row.sourceType,
+				sourceId: row.sourceId,
+				description: row.description,
+				expiresAt: row.expiresAt,
+				createdAt: row.createdAt
+			}
+		}),
+		total: Number(totalRows[0]?.total ?? 0)
+	}
 }
 
 	async dailyCheckin(input: DailyCheckinInput): Promise<DailyCheckinResult> {
@@ -620,9 +667,43 @@ export class CreditsService {
 	})
 }
 
-	async listCodes(input: ListCreditCodesInput): Promise<ListCreditCodeItem[]> {
+	async listCodes(input: ListCreditCodesInput): Promise<ListCreditCodesResult> {
 	const limit = resolvePageLimit(input.limit)
 	const offset = resolveOffset(input.offset)
+	const conditions: SQL[] = []
+	if (input.code) {
+		conditions.push(eq(creditRedemptionCode.code, input.code))
+	}
+	if (input.usedBy) {
+		conditions.push(eq(creditRedemptionCode.usedBy, input.usedBy))
+	}
+	if (input.used === true) {
+		conditions.push(isNotNull(creditRedemptionCode.usedBy))
+	}
+	if (input.used === false) {
+		conditions.push(isNull(creditRedemptionCode.usedBy))
+	}
+	if (input.amount !== undefined) {
+		conditions.push(eq(creditRedemptionCode.amount, input.amount))
+	}
+	if (input.createdAtStart !== undefined) {
+		conditions.push(gte(creditRedemptionCode.createdAt, input.createdAtStart))
+	}
+	if (input.createdAtEnd !== undefined) {
+		conditions.push(lte(creditRedemptionCode.createdAt, input.createdAtEnd))
+	}
+	if (input.expiresAtStart !== undefined) {
+		conditions.push(gte(creditRedemptionCode.expiresAt, input.expiresAtStart))
+	}
+	if (input.expiresAtEnd !== undefined) {
+		conditions.push(lte(creditRedemptionCode.expiresAt, input.expiresAtEnd))
+	}
+
+	const where = conditions.length > 0 ? and(...conditions) : undefined
+	const totalRows = await this.db
+		.select({ total: sql<number>`count(*)` })
+		.from(creditRedemptionCode)
+		.where(where)
 	const rows = await this.db.query.creditRedemptionCode.findMany({
 		columns: {
 			id: true,
@@ -633,22 +714,26 @@ export class CreditsService {
 			usedAt: true,
 			createdAt: true
 		},
+		where,
 		orderBy: [desc(creditRedemptionCode.createdAt)],
 		limit,
 		offset
 	})
 
-	return rows.map((row) => {
-		return {
-			id: row.id,
-			code: row.code,
-			amount: row.amount,
-			expiresAt: row.expiresAt,
-			usedBy: row.usedBy,
-			usedAt: row.usedAt,
-			createdAt: row.createdAt
-		}
-	})
+	return {
+		codes: rows.map((row) => {
+			return {
+				id: row.id,
+				code: row.code,
+				amount: row.amount,
+				expiresAt: row.expiresAt,
+				usedBy: row.usedBy,
+				usedAt: row.usedAt,
+				createdAt: row.createdAt
+			}
+		}),
+		total: Number(totalRows[0]?.total ?? 0)
+	}
 }
 
 	async redeemCode(input: RedeemCreditCodeInput): Promise<RedeemCreditCodeResult> {

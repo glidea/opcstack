@@ -2,16 +2,19 @@ import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
 import { CreditsError, CreditsService, type CreditTransactionItem } from '../../credits'
-import { parse } from './utils'
+import { PageRequestSchema, parse } from './utils'
 
 export const BindReferralRequestSchema = z.object({
 	referral_code: z.string().min(1)
 })
 export type BindReferralRequest = z.infer<typeof BindReferralRequestSchema>
 
-export const ListCreditTransactionsRequestSchema = z.object({
-	limit: z.number().int().min(1).max(100).optional(),
-	offset: z.number().int().min(0).optional()
+export const ListCreditTransactionsRequestSchema = PageRequestSchema.extend({
+	type: z.string().min(1).optional(),
+	source_type: z.string().min(1).optional(),
+	source_id: z.string().min(1).optional(),
+	created_at_start: z.number().int().optional(),
+	created_at_end: z.number().int().optional()
 })
 export type ListCreditTransactionsRequest = z.infer<typeof ListCreditTransactionsRequestSchema>
 
@@ -22,9 +25,15 @@ export const GenerateCreditCodesRequestSchema = z.object({
 })
 export type GenerateCreditCodesRequest = z.infer<typeof GenerateCreditCodesRequestSchema>
 
-export const ListCreditCodesRequestSchema = z.object({
-	limit: z.number().int().min(1).max(100).optional(),
-	offset: z.number().int().min(0).optional()
+export const ListCreditCodesRequestSchema = PageRequestSchema.extend({
+	code: z.string().min(1).optional(),
+	used_by: z.string().min(1).optional(),
+	used: z.boolean().optional(),
+	amount: z.number().int().min(1).optional(),
+	created_at_start: z.number().int().optional(),
+	created_at_end: z.number().int().optional(),
+	expires_at_start: z.number().int().optional(),
+	expires_at_end: z.number().int().optional()
 })
 export type ListCreditCodesRequest = z.infer<typeof ListCreditCodesRequestSchema>
 
@@ -77,14 +86,20 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 	}
 
 	const credits = new CreditsService(ctx.get('db'))
-	const rows = await credits.listTransactions({
+	const result = await credits.listTransactions({
 		userId: ctx.get('userId'),
-		limit: req.limit,
-		offset: req.offset
+		limit: req.page_size,
+		offset: (req.page - 1) * req.page_size,
+		type: req.type,
+		sourceType: req.source_type,
+		sourceId: req.source_id,
+		createdAtStart: req.created_at_start,
+		createdAtEnd: req.created_at_end
 	})
 
 	return ctx.json({
-		transactions: rows.map(toApiTransaction)
+		items: result.transactions.map(toApiTransaction),
+		total: result.total
 	})
 }
 
@@ -189,12 +204,20 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 	}
 
 	const credits = new CreditsService(ctx.get('db'))
-	const rows = await credits.listCodes({
-		limit: req.limit,
-		offset: req.offset
+	const result = await credits.listCodes({
+		limit: req.page_size,
+		offset: (req.page - 1) * req.page_size,
+		code: req.code,
+		usedBy: req.used_by,
+		used: req.used,
+		amount: req.amount,
+		createdAtStart: req.created_at_start,
+		createdAtEnd: req.created_at_end,
+		expiresAtStart: req.expires_at_start,
+		expiresAtEnd: req.expires_at_end
 	})
 	return ctx.json({
-		codes: rows.map((row) => {
+		items: result.codes.map((row) => {
 			return {
 				id: row.id,
 				code: row.code,
@@ -204,7 +227,8 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 				used_at: row.usedAt,
 				created_at: row.createdAt
 			}
-		})
+		}),
+		total: result.total
 	})
 }
 

@@ -143,7 +143,16 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Frontend dynamically shows or hides features based on config
 - Fields include `beta_code_enabled` `google_auth_enabled` `email_enabled` and more
 
-### 8. Feedback and Notifications
+### 8. List API Contract
+
+- List request uses `page` and `page_size`
+- `page` starts from 1 and defaults to 1
+- `page_size` defaults to 20 and maxes at 100
+- List response uses top-level `items` and `total`
+- Do not return `page` or `page_size` because they are request parameters
+- Business filters stay flat in request JSON
+
+### 9. Feedback and Notifications
 
 **Feedback**:
 - `POST /api/submit_feedback`: authenticated user submits `{ type, content }`
@@ -156,7 +165,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 - `POST /api/read_notification`: authenticated user marks one notification as read
 - `notifications.target_user_id = null` means global announcement
 
-### 9. Documentation System
+### 10. Documentation System
 
 - Location: `public-docs/en/` and `public-docs/zh/`
 - Route: `/docs/[...slug]` with runtime Markdown parsing
@@ -188,7 +197,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 - You can use subdirectories like `guides/` and `reference/`
 - File paths map directly to URL paths for example `guides/auth.md` → `/docs/guides/auth`
 
-### 10. AI Capabilities
+### 11. AI Capabilities
 
 - Chat: `src/ai/chat/openai/`
 - Image: `src/ai/image/gemini/`

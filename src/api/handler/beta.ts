@@ -1,9 +1,9 @@
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, gte, isNotNull, isNull, lte, sql, type SQL } from 'drizzle-orm'
 import type { Context } from 'hono'
 import { z } from 'zod'
 import type { NewBetaCode } from '../../db/schema'
 import { betaCode } from '../../db/schema'
-import { parse } from './utils'
+import { PageRequestSchema, parse } from './utils'
 import type { ApiEnv } from '..'
 
 export const BindBetaCodeRequestSchema = z.object({
@@ -15,6 +15,15 @@ export const GenerateBetaCodesRequestSchema = z.object({
 	count: z.number().int().min(1).optional().default(1)
 })
 export type GenerateBetaCodesRequest = z.infer<typeof GenerateBetaCodesRequestSchema>
+
+export const ListBetaCodesRequestSchema = PageRequestSchema.extend({
+	code: z.string().min(1).optional(),
+	used_by: z.string().min(1).optional(),
+	used: z.boolean().optional(),
+	created_at_start: z.number().int().optional(),
+	created_at_end: z.number().int().optional()
+})
+export type ListBetaCodesRequest = z.infer<typeof ListBetaCodesRequestSchema>
 
 export interface GenerateBetaCodesResponseCode {
 	id: string
@@ -34,7 +43,8 @@ export interface ListBetaCodesResponseCode {
 }
 
 export interface ListBetaCodesResponse {
-	codes: ListBetaCodesResponseCode[]
+	items: ListBetaCodesResponseCode[]
+	total: number
 }
 
 export async function bindBetaCodeHandler(ctx: Context<ApiEnv>): Promise<Response> {
@@ -106,7 +116,38 @@ export async function generateBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Re
 }
 
 export async function listBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const req = await parse(ctx, ListBetaCodesRequestSchema)
+	if (!req) {
+		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+	}
+
 	const db = ctx.get('db')
+	const conditions: SQL[] = []
+	if (req.code) {
+		conditions.push(eq(betaCode.code, req.code))
+	}
+	if (req.used_by) {
+		conditions.push(eq(betaCode.usedBy, req.used_by))
+	}
+	if (req.used === true) {
+		conditions.push(isNotNull(betaCode.usedBy))
+	}
+	if (req.used === false) {
+		conditions.push(isNull(betaCode.usedBy))
+	}
+	if (req.created_at_start !== undefined) {
+		conditions.push(gte(betaCode.createdAt, req.created_at_start))
+	}
+	if (req.created_at_end !== undefined) {
+		conditions.push(lte(betaCode.createdAt, req.created_at_end))
+	}
+
+	const where = conditions.length > 0 ? and(...conditions) : undefined
+	const offset = (req.page - 1) * req.page_size
+	const totalRows = await db
+		.select({ total: sql<number>`count(*)` })
+		.from(betaCode)
+		.where(where)
 	const rows = await db.query.betaCode.findMany({
 		columns: {
 			id: true,
@@ -115,10 +156,13 @@ export async function listBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Respon
 			usedAt: true,
 			createdAt: true
 		},
-		orderBy: [desc(betaCode.createdAt)]
+		where,
+		orderBy: [desc(betaCode.createdAt)],
+		limit: req.page_size,
+		offset
 	})
 
-	const codes: ListBetaCodesResponseCode[] = rows.map((row) => {
+	const items: ListBetaCodesResponseCode[] = rows.map((row) => {
 		return {
 			id: row.id,
 			code: row.code,
@@ -127,7 +171,7 @@ export async function listBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Respon
 			created_at: row.createdAt
 		}
 	})
-	return ctx.json({ codes } as ListBetaCodesResponse)
+	return ctx.json({ items, total: Number(totalRows[0]?.total ?? 0) } as ListBetaCodesResponse)
 }
 
 function createBetaCode(): string {

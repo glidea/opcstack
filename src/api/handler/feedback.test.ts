@@ -10,6 +10,7 @@ import {
 
 type MockDb = {
 	insert: ReturnType<typeof vi.fn>
+	select: ReturnType<typeof vi.fn>
 	query: {
 		feedback: {
 			findMany: ReturnType<typeof vi.fn>
@@ -101,7 +102,8 @@ describe('listFeedbacksHandler', () => {
 	type ThenExpected = {
 		status: number
 		code: string
-		feedbacks: ListFeedbacksResponse['feedbacks']
+		items: ListFeedbacksResponse['items']
+		total: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -111,13 +113,14 @@ describe('listFeedbacksHandler', () => {
 			when: 'listing feedbacks',
 			then: 'returns invalid request',
 			givenDetail: {
-				body: { limit: 0 }
+				body: { page_size: 0 }
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_REQUEST',
-				feedbacks: []
+				items: [],
+				total: 0
 			}
 		},
 		{
@@ -132,7 +135,7 @@ describe('listFeedbacksHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				feedbacks: [
+				items: [
 					{
 						id: 'f1',
 						user_id: 'u1',
@@ -140,7 +143,8 @@ describe('listFeedbacksHandler', () => {
 						content: 'broken',
 						created_at: 123
 					}
-				]
+				],
+				total: 1
 			}
 		}
 	]
@@ -164,11 +168,12 @@ describe('listFeedbacksHandler', () => {
 		})
 
 		const res = await listFeedbacksHandler(ctx)
-		const payload = (await res.json()) as { code?: string } & ListFeedbacksResponse
+		const payload = (await res.json()) as { code?: string } & Partial<ListFeedbacksResponse>
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			feedbacks: payload.feedbacks ?? []
+			items: payload.items ?? [],
+			total: payload.total ?? 0
 		}
 	})
 })
@@ -176,6 +181,17 @@ describe('listFeedbacksHandler', () => {
 function createMockDb(): MockDb {
 	return {
 		insert: vi.fn(),
+		select: vi.fn(() => {
+			return {
+				from: () => {
+					return {
+						where: async () => {
+							return [{ total: 1 }]
+						}
+					}
+				}
+			}
+		}),
 		query: {
 			feedback: {
 				findMany: vi.fn()
