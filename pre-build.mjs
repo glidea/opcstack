@@ -2,6 +2,8 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
+const SVELTE_WORKER_PATH = '.svelte-kit/cloudflare/_worker.js'
+
 function run(command, options = {}) {
 	console.log(`> ${command}`)
 	execSync(command, { stdio: 'inherit', ...options })
@@ -338,6 +340,15 @@ function validateEmailConfig(env) {
 	}
 }
 
+function ensureSvelteWorkerBuild() {
+	if (existsSync(SVELTE_WORKER_PATH)) {
+		return
+	}
+
+	console.log(`\nMissing ${SVELTE_WORKER_PATH}, building Svelte worker once...`)
+	run('pnpm exec vite build')
+}
+
 function parseQueueNames(rawValue) {
 	if (!rawValue) {
 		return []
@@ -636,10 +647,7 @@ async function main() {
 		process.exit(1)
 	}
 
-	// Local dev serves web assets from Vite, so no Wrangler assets binding is needed.
-	if (!isRemote) {
-		delete config.assets
-	}
+	ensureSvelteWorkerBuild()
 
 	if (queueNames.length > 0) {
 		config.queues = {
