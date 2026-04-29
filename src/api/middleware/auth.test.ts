@@ -79,6 +79,22 @@ describe('authMiddleware', () => {
 			}
 		},
 		{
+			scenario: 'skip auth for admin notification path',
+			given: 'admin notification endpoint with admin secret middleware',
+			when: 'running auth middleware',
+			then: 'calls next directly',
+			givenDetail: {
+				path: '/api/admin/create_notification'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 0,
+				code: '',
+				nextCalled: true,
+				setUserId: ''
+			}
+		},
+		{
 			scenario: 'reject request without authorization header',
 			given: 'a protected path and no authorization header',
 			when: 'running auth middleware',

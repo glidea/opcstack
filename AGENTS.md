@@ -143,7 +143,20 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Frontend dynamically shows or hides features based on config
 - Fields include `beta_code_enabled` `google_auth_enabled` `email_enabled` and more
 
-### 8. Documentation System
+### 8. Feedback and Notifications
+
+**Feedback**:
+- `POST /api/submit_feedback`: authenticated user submits `{ type, content }`
+- `POST /api/admin/list_feedbacks`: admin lists user feedback
+- `feedback.type` is a free string controlled by frontend product usage
+
+**Notifications**:
+- `POST /api/admin/create_notification`: admin creates announcement or targeted notification
+- `POST /api/list_notifications`: authenticated user lists visible notifications with read state
+- `POST /api/read_notification`: authenticated user marks one notification as read
+- `notifications.target_user_id = null` means global announcement
+
+### 9. Documentation System
 
 - Location: `public-docs/en/` and `public-docs/zh/`
 - Route: `/docs/[...slug]` with runtime Markdown parsing
@@ -175,7 +188,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 - You can use subdirectories like `guides/` and `reference/`
 - File paths map directly to URL paths for example `guides/auth.md` → `/docs/guides/auth`
 
-### 9. AI Capabilities
+### 10. AI Capabilities
 
 - Chat: `src/ai/chat/openai/`
 - Image: `src/ai/image/gemini/`

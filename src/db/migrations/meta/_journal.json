@@ -15,6 +15,13 @@
       "when": 1777388028330,
       "tag": "0001_misty_galactus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777429211820,
+      "tag": "0002_flashy_tempest",
+      "breakpoints": true
     }
   ]
 }

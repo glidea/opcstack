@@ -7,6 +7,7 @@ const envContent = readFileSync(envFile, 'utf-8')
 const appDomain = readEnv(envContent, 'APP_DOMAIN') ?? 'localhost'
 const appBaseUrl = resolveAppBaseUrl(appDomain, isRemote)
 const adminSecret = readEnv(envContent, 'ADMIN_SECRET') ?? 'admin-secret'
+const betterAuthSecret = readEnv(envContent, 'BETTER_AUTH_SECRET') ?? ''
 const betaEnabled = readEnv(envContent, 'BETA_CODE_ENABLED') ?? 'true'
 const googleEnabled = readEnv(envContent, 'GOOGLE_AUTH_ENABLED') ?? 'true'
 const r2Enabled = readEnv(envContent, 'R2_ENABLED') ?? 'false'
@@ -27,6 +28,7 @@ export default defineConfig({
 		env: {
 			APP_BASE_URL: appBaseUrl,
 			E2E_ADMIN_SECRET: adminSecret,
+			E2E_BETTER_AUTH_SECRET: betterAuthSecret,
 			E2E_BETA_CODE_ENABLED: betaEnabled,
 			E2E_GOOGLE_AUTH_ENABLED: googleEnabled,
 			E2E_R2_ENABLED: r2Enabled,

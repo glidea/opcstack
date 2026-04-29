@@ -18,6 +18,12 @@ import {
 	listCreditTransactionsHandler,
 	redeemCreditCodeHandler
 } from './handler/credits'
+import { listFeedbacksHandler, submitFeedbackHandler } from './handler/feedback'
+import {
+	createNotificationHandler,
+	listNotificationsHandler,
+	readNotificationHandler
+} from './handler/notification'
 import { readR2ObjectHandler } from './handler/r2'
 import { authCore } from './auth'
 import type { AppDb } from '../db'
@@ -75,3 +81,8 @@ api.post('/api/admin/generate_credit_codes', adminSecretMiddleware, generateCred
 api.post('/api/admin/list_credit_codes', adminSecretMiddleware, listCreditCodesHandler)
 api.post('/api/admin/grant_credits', adminSecretMiddleware, grantCreditsHandler)
 api.post('/api/redeem_credit_code', redeemCreditCodeHandler)
+api.post('/api/submit_feedback', submitFeedbackHandler)
+api.post('/api/admin/list_feedbacks', adminSecretMiddleware, listFeedbacksHandler)
+api.post('/api/admin/create_notification', adminSecretMiddleware, createNotificationHandler)
+api.post('/api/list_notifications', listNotificationsHandler)
+api.post('/api/read_notification', readNotificationHandler)

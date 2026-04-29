@@ -58,6 +58,8 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 **开箱即用的核心功能**
 - ✅ 认证系统（邮箱 + Google + 内测码）
 - ✅ 积分系统（注册赠送 + 签到 + 邀请 + 兑换码 + 过期）
+- ✅ 用户反馈收集
+- ✅ 系统公告通知
 - ✅ AI 能力（Chat + Image）
 - ✅ 文档系统（Git-based CMS）
 - ✅ 国际化（中英文）
@@ -97,6 +99,8 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 
 **业务能力**
 - 积分系统（余额、明细、注册赠送、每日签到、邀请奖励、兑换码、后台补发、过期清理）
+- 用户反馈收集
+- 系统公告通知
 
 ---
 
@@ -157,7 +161,24 @@ CRONS=*/10 * * * *
 
 详细说明见 `/docs/guides/credits`。
 
-### 4. 后续同步模板更新
+### 4. 用户反馈和系统公告
+
+用户反馈和系统公告默认使用 D1 存储。
+
+用户反馈接口：
+- `POST /api/submit_feedback`
+- `POST /api/admin/list_feedbacks`
+
+系统公告接口：
+- `POST /api/admin/create_notification`
+- `POST /api/list_notifications`
+- `POST /api/read_notification`
+
+后台接口需要 `Authorization: Bearer <ADMIN_SECRET>`。
+
+详细说明见 `/docs/guides/feedback` 和 `/docs/guides/notifications`。
+
+### 5. 后续同步模板更新
 
 ```bash
 git fetch upstream --tags
@@ -178,6 +199,8 @@ git merge upstream/main
 - [x] Cron 定时任务
 - [x] AI 能力（Chat + Image）
 - [x] 积分系统（注册赠送、签到、邀请、兑换码、后台补发、过期）
+- [x] 用户反馈收集
+- [x] 系统公告通知
 - [x] 文档系统
 - [x] 国际化
 - [x] 测试框架
@@ -187,6 +210,5 @@ git merge upstream/main
 - [ ] 支付系统（Creem, Paypal 等个人资质友好渠道）
 - [ ] 管理后台
 - [ ] 指标监控告警
-- [ ] 用户反馈收集
-- [ ] 通知系统
+- [ ] 用户私信通知
 - [ ] 更多 AI 能力集成
