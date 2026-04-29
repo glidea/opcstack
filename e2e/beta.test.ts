@@ -18,7 +18,7 @@ interface GenerateBetaCodesResponse {
 }
 
 interface ListBetaCodesResponse {
-	codes: Array<{
+	items: Array<{
 		id: string
 		code: string
 		used_by: string | null
@@ -206,7 +206,7 @@ describe('beta code api e2e', () => {
 		return {
 			generateStatus: generateRes.status,
 			listStatus: listRes.status,
-			listContainsGeneratedCode: listPayload.codes.some((item) => item.id === targetBetaCode.id),
+			listContainsGeneratedCode: listPayload.items.some((item) => item.id === targetBetaCode.id),
 			bindWithoutAuthStatus: bindWithoutAuthRes.status,
 			bindWithoutAuthCode: bindWithoutAuthPayload.code
 		}

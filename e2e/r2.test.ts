@@ -95,14 +95,14 @@ describe('r2 api e2e', () => {
 			scenario: 'rejects invalid r2 key prefix without bearer token',
 			given: 'an r2 route path without public or private prefix',
 			when: 'requesting the path',
-			then: 'returns unauthorized from auth middleware',
+			then: 'returns not found because only public and private prefixes exist',
 			givenDetail: {},
 			whenDetail: {
 				action: 'read_invalid_prefix'
 			},
 			thenExpected: {
-				status: 401,
-				code: 'UNAUTHORIZED'
+				status: 404,
+				code: ''
 			}
 		},
 		{
@@ -168,10 +168,9 @@ describe('r2 api e2e', () => {
 
 		if (when.action === 'read_invalid_prefix') {
 			const invalidRes = await fetch(`${appBaseUrl}/api/r2/e2e/missing.txt`)
-			const payload = (await invalidRes.json()) as { code: string }
 			return {
 				status: invalidRes.status,
-				code: payload.code
+				code: ''
 			}
 		}
 

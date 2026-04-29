@@ -12,7 +12,7 @@ type E2EEnv = {
 }
 
 interface FeedbackListResponse {
-	feedbacks: Array<{
+	items: Array<{
 		id: string
 		user_id: string
 		type: string
@@ -153,7 +153,7 @@ describe('feedback api e2e', () => {
 				}
 			)
 			const listPayload = (await listRes.json()) as FeedbackListResponse
-			const feedback = listPayload.feedbacks.find((item) => {
+			const feedback = listPayload.items.find((item) => {
 				return item.content === content
 			})
 

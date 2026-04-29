@@ -70,8 +70,7 @@ publicApi.post('/get_public_config', (ctx): Response => {
 publicApi.get('/r2/public/*', readR2ObjectHandler)
 
 const authOnlyApi: Hono<ApiEnv> = new Hono<ApiEnv>()
-authOnlyApi.use('*', authMiddleware)
-authOnlyApi.post('/bind_beta_code', bindBetaCodeHandler)
+authOnlyApi.post('/bind_beta_code', authMiddleware, bindBetaCodeHandler)
 
 const adminApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 adminApi.use('/admin/*', adminSecretMiddleware)
@@ -84,17 +83,20 @@ adminApi.post('/admin/list_feedbacks', listFeedbacksHandler)
 adminApi.post('/admin/create_notification', createNotificationHandler)
 
 const userApi: Hono<ApiEnv> = new Hono<ApiEnv>()
-userApi.use('*', authMiddleware)
-userApi.use('*', betaGateMiddleware)
-userApi.get('/r2/private/*', readR2ObjectHandler)
-userApi.post('/get_credit_summary', getCreditSummaryHandler)
-userApi.post('/list_credit_transactions', listCreditTransactionsHandler)
-userApi.post('/daily_checkin', dailyCheckinHandler)
-userApi.post('/bind_referral', bindReferralHandler)
-userApi.post('/redeem_credit_code', redeemCreditCodeHandler)
-userApi.post('/submit_feedback', submitFeedbackHandler)
-userApi.post('/list_notifications', listNotificationsHandler)
-userApi.post('/read_notification', readNotificationHandler)
+userApi.get('/r2/private/*', authMiddleware, betaGateMiddleware, readR2ObjectHandler)
+userApi.post('/get_credit_summary', authMiddleware, betaGateMiddleware, getCreditSummaryHandler)
+userApi.post(
+	'/list_credit_transactions',
+	authMiddleware,
+	betaGateMiddleware,
+	listCreditTransactionsHandler
+)
+userApi.post('/daily_checkin', authMiddleware, betaGateMiddleware, dailyCheckinHandler)
+userApi.post('/bind_referral', authMiddleware, betaGateMiddleware, bindReferralHandler)
+userApi.post('/redeem_credit_code', authMiddleware, betaGateMiddleware, redeemCreditCodeHandler)
+userApi.post('/submit_feedback', authMiddleware, betaGateMiddleware, submitFeedbackHandler)
+userApi.post('/list_notifications', authMiddleware, betaGateMiddleware, listNotificationsHandler)
+userApi.post('/read_notification', authMiddleware, betaGateMiddleware, readNotificationHandler)
 
 api.route('/api', publicApi)
 api.route('/api', authOnlyApi)

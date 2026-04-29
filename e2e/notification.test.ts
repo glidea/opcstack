@@ -12,7 +12,7 @@ type E2EEnv = {
 }
 
 interface NotificationListResponse {
-	notifications: Array<{
+	items: Array<{
 		id: string
 		type: string
 		title: string
@@ -182,7 +182,7 @@ describe('notification api e2e', () => {
 				}
 			)
 			const firstListPayload = (await firstListRes.json()) as NotificationListResponse
-			const firstNotification = firstListPayload.notifications.find((item) => {
+			const firstNotification = firstListPayload.items.find((item) => {
 				return item.title === title && item.content === content
 			})
 			if (!firstNotification) {
@@ -214,7 +214,7 @@ describe('notification api e2e', () => {
 				}
 			)
 			const secondListPayload = (await secondListRes.json()) as NotificationListResponse
-			const secondNotification = secondListPayload.notifications.find((item) => {
+			const secondNotification = secondListPayload.items.find((item) => {
 				return item.id === firstNotification.id
 			})
 
