@@ -3,9 +3,11 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer } from 'better-auth/plugins'
 import type { AppDb } from '../../db'
 import { newEmailClients, type EmailClients } from '../../email'
-import { createReferralCode, grantCredits } from '../../credits'
+import { CreditsService } from '../../credits'
 
 export function authCore(env: Env, db: AppDb) {
+  const credits = new CreditsService(db)
+
   return betterAuth({
     baseURL: env.APP_BASE_URL,
     secret: env.BETTER_AUTH_SECRET,
@@ -18,7 +20,7 @@ export function authCore(env: Env, db: AppDb) {
           before: async (
             userData: Record<string, unknown>
           ): Promise<{ data: Record<string, unknown> }> => {
-            const referralCode = await createReferralCode(db)
+            const referralCode = await credits.createReferralCode()
             return {
               data: {
                 ...userData,
@@ -41,8 +43,7 @@ export function authCore(env: Env, db: AppDb) {
               return
             }
 
-            await grantCredits({
-              db,
+            await credits.grant({
               userId,
               type: 'signup',
               amount: signupAmount,

@@ -1,4 +1,4 @@
-import { cleanupCreditTransactions, expireCredits } from '../credits'
+import { CreditsService } from '../credits'
 import { getDb } from '../db'
 
 export type ScheduledJobHandler = (
@@ -26,14 +26,13 @@ export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 		const nowMs = controller.scheduledTime
 		const envMap = env as unknown as Record<string, string | undefined>
 		const retentionDays = parseRetentionDays(envMap['CREDITS_HISTORY_RETENTION_DAYS'])
+		const credits = new CreditsService(db)
 
-		await expireCredits({
-			db,
+		await credits.expire({
 			nowMs,
 			limit: 20
 		})
-		await cleanupCreditTransactions({
-			db,
+		await credits.cleanupTransactions({
 			nowMs,
 			retentionDays
 		})

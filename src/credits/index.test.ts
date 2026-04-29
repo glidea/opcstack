@@ -1,18 +1,9 @@
 import { describe, expect } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import {
-	cleanupCreditTransactions,
-	CreditsError,
-	deductCredits,
-	ensureEnoughCredits,
-	expireCredits,
-	grantCredits,
-	runPaidActionWithCredits,
-	type GrantCreditsInput
-} from './index'
+import { CreditsError, CreditsService, type GrantCreditsInput } from './index'
 import type { AppDb } from '../db'
 
-describe('grantCredits', () => {
+describe('CreditsService.grant', () => {
 	type GivenDetail = {
 		userBalance: number | null
 		amount: number
@@ -32,7 +23,7 @@ describe('grantCredits', () => {
 		{
 			scenario: 'grant credits for normal positive balance user',
 			given: 'user has non-negative balance and positive grant amount',
-			when: 'grantCredits is called',
+			when: 'CreditsService.grant is called',
 			then: 'balance grows and entry remaining amount equals grant amount',
 			givenDetail: {
 				userBalance: 10,
@@ -52,7 +43,7 @@ describe('grantCredits', () => {
 		{
 			scenario: 'repay debt first when user balance is negative',
 			given: 'user has negative balance and grant amount is smaller than debt',
-			when: 'grantCredits is called',
+			when: 'CreditsService.grant is called',
 			then: 'entry remaining amount becomes zero',
 			givenDetail: {
 				userBalance: -20,
@@ -72,7 +63,7 @@ describe('grantCredits', () => {
 		{
 			scenario: 'keep remaining amount after debt repayment',
 			given: 'user has negative balance and grant amount is larger than debt',
-			when: 'grantCredits is called',
+			when: 'CreditsService.grant is called',
 			then: 'entry remaining amount is leftover after debt repayment',
 			givenDetail: {
 				userBalance: -8,
@@ -92,7 +83,7 @@ describe('grantCredits', () => {
 		{
 			scenario: 'return duplicated when same source is granted again',
 			given: 'batch insert hits credit entry unique constraint',
-			when: 'grantCredits is called',
+			when: 'CreditsService.grant is called',
 			then: 'returns duplicated result and keeps original balance',
 			givenDetail: {
 				userBalance: 10,
@@ -113,7 +104,7 @@ describe('grantCredits', () => {
 		{
 			scenario: 'reject invalid non-positive amount',
 			given: 'grant amount is zero',
-			when: 'grantCredits is called',
+			when: 'CreditsService.grant is called',
 			then: 'returns invalid amount error',
 			givenDetail: {
 				userBalance: 10,
@@ -133,7 +124,7 @@ describe('grantCredits', () => {
 		{
 			scenario: 'reject missing user',
 			given: 'user does not exist',
-			when: 'grantCredits is called',
+			when: 'CreditsService.grant is called',
 			then: 'returns user not found error',
 			givenDetail: {
 				userBalance: null,
@@ -154,9 +145,9 @@ describe('grantCredits', () => {
 
 	runCases(cases, async (given) => {
 		const db = createMockDb(given)
+		const credits = new CreditsService(db)
 
 		const input: GrantCreditsInput = {
-			db,
 			userId: 'u1',
 			type: 'signup',
 			amount: given.amount,
@@ -168,7 +159,7 @@ describe('grantCredits', () => {
 		}
 
 		try {
-			const result = await grantCredits(input)
+			const result = await credits.grant(input)
 			const batchItems = db._state.batchItems
 			const entryInsert = batchItems[1] as { payload?: { remainingAmount?: number } }
 			return {
@@ -259,7 +250,7 @@ function createMockDb(given: {
 	return db
 }
 
-describe('ensureEnoughCredits', () => {
+describe('CreditsService.ensureEnough', () => {
 	type GivenDetail = {
 		userBalance: number | null
 		amount: number
@@ -274,7 +265,7 @@ describe('ensureEnoughCredits', () => {
 		{
 			scenario: 'allow request when balance is enough',
 			given: 'user has balance 100 and request amount 60',
-			when: 'ensureEnoughCredits is called',
+			when: 'CreditsService.ensureEnough is called',
 			then: 'returns current balance',
 			givenDetail: {
 				userBalance: 100,
@@ -289,7 +280,7 @@ describe('ensureEnoughCredits', () => {
 		{
 			scenario: 'reject request when balance is insufficient',
 			given: 'user has balance 10 and request amount 60',
-			when: 'ensureEnoughCredits is called',
+			when: 'CreditsService.ensureEnough is called',
 			then: 'returns insufficient credits',
 			givenDetail: {
 				userBalance: 10,
@@ -305,9 +296,9 @@ describe('ensureEnoughCredits', () => {
 
 	runCases(cases, async (given) => {
 		const db = createDeductMockDb(given.userBalance)
+		const credits = new CreditsService(db)
 		try {
-			const result = await ensureEnoughCredits({
-				db,
+			const result = await credits.ensureEnough({
 				userId: 'u1',
 				amount: given.amount
 			})
@@ -324,7 +315,7 @@ describe('ensureEnoughCredits', () => {
 	})
 })
 
-describe('deductCredits and runPaidActionWithCredits', () => {
+describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 	type GivenDetail = {
 		initialBalance: number
 		entries: Array<{ id: string; remaining_amount: number }>
@@ -342,7 +333,7 @@ describe('deductCredits and runPaidActionWithCredits', () => {
 		{
 			scenario: 'deduct allows balance to become negative',
 			given: 'user has low balance and deduction is larger',
-			when: 'deductCredits is called',
+			when: 'CreditsService.deduct is called',
 			then: 'returns negative balance and still writes batch',
 			givenDetail: {
 				initialBalance: 5,
@@ -360,7 +351,7 @@ describe('deductCredits and runPaidActionWithCredits', () => {
 		{
 			scenario: 'business failure path does not deduct credits',
 			given: 'ensure passes but business throws error',
-			when: 'runPaidActionWithCredits is called',
+			when: 'CreditsService.runPaidAction is called',
 			then: 'returns business error and no batch write',
 			givenDetail: {
 				initialBalance: 100,
@@ -379,10 +370,10 @@ describe('deductCredits and runPaidActionWithCredits', () => {
 
 	runCases(cases, async (given) => {
 		const db = createDeductMockDb(given.initialBalance, given.entries)
+		const credits = new CreditsService(db)
 
 		if (!given.executeThrows) {
-			const result = await deductCredits({
-				db,
+			const result = await credits.deduct({
 				userId: 'u1',
 				amount: given.amount,
 				sourceType: 'consume',
@@ -397,8 +388,7 @@ describe('deductCredits and runPaidActionWithCredits', () => {
 		}
 
 		try {
-			await runPaidActionWithCredits({
-				db,
+			await credits.runPaidAction({
 				userId: 'u1',
 				amount: given.amount,
 				sourceType: 'consume',
@@ -467,7 +457,7 @@ function createDeductMockDb(
 	} as unknown as DeductMockDb
 }
 
-describe('expireCredits', () => {
+describe('CreditsService.expire', () => {
 	type GivenDetail = {
 		expiredEntries: Array<{ id: string; user_id: string; remaining_amount: number }>
 		users: Array<{ id: string; creditBalance: number }>
@@ -485,7 +475,7 @@ describe('expireCredits', () => {
 		{
 			scenario: 'skip when no expired entries',
 			given: 'query returns empty expired list',
-			when: 'expireCredits is called',
+			when: 'CreditsService.expire is called',
 			then: 'no batch write happens',
 			givenDetail: {
 				expiredEntries: [],
@@ -502,7 +492,7 @@ describe('expireCredits', () => {
 		{
 			scenario: 'process fixed number of expired entries and grouped users',
 			given: 'expired entries contain two users',
-			when: 'expireCredits is called',
+			when: 'CreditsService.expire is called',
 			then: 'returns processed counts and runs one batch',
 			givenDetail: {
 				expiredEntries: [
@@ -528,8 +518,8 @@ describe('expireCredits', () => {
 
 	runCases(cases, async (given) => {
 		const db = createExpireMockDb(given.expiredEntries, given.users)
-		const result = await expireCredits({
-			db,
+		const credits = new CreditsService(db)
+		const result = await credits.expire({
 			nowMs: 1890000000000,
 			limit: given.limit
 		})
@@ -543,7 +533,7 @@ describe('expireCredits', () => {
 	})
 })
 
-describe('cleanupCreditTransactions', () => {
+describe('CreditsService.cleanupTransactions', () => {
 	type GivenDetail = {
 		changes: number
 		retentionDays?: number
@@ -558,7 +548,7 @@ describe('cleanupCreditTransactions', () => {
 		{
 			scenario: 'delete old transactions with default retention',
 			given: 'run returns affected rows',
-			when: 'cleanupCreditTransactions is called',
+			when: 'CreditsService.cleanupTransactions is called',
 			then: 'returns deleted rows',
 			givenDetail: {
 				changes: 4
@@ -572,7 +562,7 @@ describe('cleanupCreditTransactions', () => {
 		{
 			scenario: 'support explicit retention days',
 			given: 'retention days is provided',
-			when: 'cleanupCreditTransactions is called',
+			when: 'CreditsService.cleanupTransactions is called',
 			then: 'still returns affected rows',
 			givenDetail: {
 				changes: 2,
@@ -588,8 +578,8 @@ describe('cleanupCreditTransactions', () => {
 
 	runCases(cases, async (given) => {
 		const db = createCleanupMockDb(given.changes)
-		const result = await cleanupCreditTransactions({
-			db,
+		const credits = new CreditsService(db)
+		const result = await credits.cleanupTransactions({
 			nowMs: 1890000000000,
 			retentionDays: given.retentionDays
 		})

@@ -1,12 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { handleScheduled } from './index'
-import { cleanupCreditTransactions, expireCredits } from '../credits'
 import { getDb } from '../db'
+
+const creditsMock = vi.hoisted(() => {
+	return {
+		expire: vi.fn(),
+		cleanupTransactions: vi.fn()
+	}
+})
 
 vi.mock('../credits', () => {
 	return {
-		cleanupCreditTransactions: vi.fn(),
-		expireCredits: vi.fn()
+		CreditsService: vi.fn().mockImplementation(function CreditsService() {
+			return creditsMock
+		})
 	}
 })
 
@@ -20,8 +27,8 @@ describe('handleScheduled', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>)
-		vi.mocked(expireCredits).mockResolvedValue({ processedEntries: 0, processedUsers: 0 })
-		vi.mocked(cleanupCreditTransactions).mockResolvedValue({ deletedRows: 0 })
+		vi.mocked(creditsMock.expire).mockResolvedValue({ processedEntries: 0, processedUsers: 0 })
+		vi.mocked(creditsMock.cleanupTransactions).mockResolvedValue({ deletedRows: 0 })
 	})
 
 	it('skip when cron is not registered', async () => {
@@ -32,8 +39,8 @@ describe('handleScheduled', () => {
 		)
 
 		expect(getDb).not.toHaveBeenCalled()
-		expect(expireCredits).not.toHaveBeenCalled()
-		expect(cleanupCreditTransactions).not.toHaveBeenCalled()
+		expect(creditsMock.expire).not.toHaveBeenCalled()
+		expect(creditsMock.cleanupTransactions).not.toHaveBeenCalled()
 	})
 
 	it('run expire and cleanup on 10-minute cron', async () => {
@@ -49,13 +56,11 @@ describe('handleScheduled', () => {
 		)
 
 		expect(getDb).toHaveBeenCalledWith(env.DB)
-		expect(expireCredits).toHaveBeenCalledWith({
-			db: vi.mocked(getDb).mock.results[0]?.value,
+		expect(creditsMock.expire).toHaveBeenCalledWith({
 			nowMs: 1890000000000,
 			limit: 20
 		})
-		expect(cleanupCreditTransactions).toHaveBeenCalledWith({
-			db: vi.mocked(getDb).mock.results[0]?.value,
+		expect(creditsMock.cleanupTransactions).toHaveBeenCalledWith({
 			nowMs: 1890000000000,
 			retentionDays: 30
 		})
@@ -73,8 +78,7 @@ describe('handleScheduled', () => {
 			{} as ExecutionContext
 		)
 
-		expect(cleanupCreditTransactions).toHaveBeenCalledWith({
-			db: vi.mocked(getDb).mock.results[0]?.value,
+		expect(creditsMock.cleanupTransactions).toHaveBeenCalledWith({
 			nowMs: 1890000000000,
 			retentionDays: 90
 		})

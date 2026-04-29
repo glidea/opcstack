@@ -1,18 +1,7 @@
 import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
-import {
-	bindReferral,
-	CreditsError,
-	dailyCheckin,
-	generateCreditCodes,
-	grantCredits,
-	getCreditSummary,
-	listCreditCodes,
-	listCreditTransactions,
-	redeemCreditCode,
-	type CreditTransactionItem
-} from '../../credits'
+import { CreditsError, CreditsService, type CreditTransactionItem } from '../../credits'
 import { parse } from './utils'
 
 export const BindReferralRequestSchema = z.object({
@@ -59,8 +48,8 @@ export type AdminGrantCreditsRequest = z.infer<typeof AdminGrantCreditsRequestSc
 	const dailyCheckinAmount = toPositiveInt(env['CREDITS_DAILY_CHECKIN_AMOUNT'])
 
 	try {
-		const summary = await getCreditSummary({
-			db: ctx.get('db'),
+		const credits = new CreditsService(ctx.get('db'))
+		const summary = await credits.getSummary({
 			userId: ctx.get('userId'),
 			dailyCheckinAmount,
 			referralEnabled
@@ -87,8 +76,8 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const rows = await listCreditTransactions({
-		db: ctx.get('db'),
+	const credits = new CreditsService(ctx.get('db'))
+	const rows = await credits.listTransactions({
 		userId: ctx.get('userId'),
 		limit: req.limit,
 		offset: req.offset
@@ -111,8 +100,8 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 	}
 
 	try {
-		const result = await dailyCheckin({
-			db: ctx.get('db'),
+		const credits = new CreditsService(ctx.get('db'))
+		const result = await credits.dailyCheckin({
 			userId: ctx.get('userId'),
 			amount
 		})
@@ -147,8 +136,8 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 	}
 
 	try {
-		await bindReferral({
-			db: ctx.get('db'),
+		const credits = new CreditsService(ctx.get('db'))
+		await credits.bindReferral({
 			inviteeUserId: ctx.get('userId'),
 			referralCode: req.referral_code,
 			inviterAmount,
@@ -174,8 +163,8 @@ export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const rows = await generateCreditCodes({
-		db: ctx.get('db'),
+	const credits = new CreditsService(ctx.get('db'))
+	const rows = await credits.generateCodes({
 		count: req.count,
 		amount: req.amount,
 		expiresAt: req.expires_at
@@ -199,8 +188,8 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const rows = await listCreditCodes({
-		db: ctx.get('db'),
+	const credits = new CreditsService(ctx.get('db'))
+	const rows = await credits.listCodes({
 		limit: req.limit,
 		offset: req.offset
 	})
@@ -226,8 +215,8 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 	}
 
 	try {
-		const result = await redeemCreditCode({
-			db: ctx.get('db'),
+		const credits = new CreditsService(ctx.get('db'))
+		const result = await credits.redeemCode({
 			userId: ctx.get('userId'),
 			code: req.code
 		})
@@ -255,8 +244,8 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 	}
 
 	try {
-		const result = await grantCredits({
-			db: ctx.get('db'),
+		const credits = new CreditsService(ctx.get('db'))
+		const result = await credits.grant({
 			userId: req.user_id,
 			type: 'manual_grant',
 			amount: req.amount,

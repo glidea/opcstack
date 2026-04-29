@@ -11,17 +11,20 @@ import {
 	redeemCreditCodeHandler,
 	type ListCreditTransactionsRequest
 } from './credits'
-import {
-	bindReferral,
-	CreditsError,
-	dailyCheckin,
-	generateCreditCodes,
-	grantCredits,
-	getCreditSummary,
-	listCreditCodes,
-	listCreditTransactions,
-	redeemCreditCode
-} from '../../credits'
+import { CreditsError } from '../../credits'
+
+const creditServiceMocks = vi.hoisted(() => {
+	return {
+		bindReferral: vi.fn(),
+		dailyCheckin: vi.fn(),
+		generateCodes: vi.fn(),
+		grant: vi.fn(),
+		getSummary: vi.fn(),
+		listCodes: vi.fn(),
+		listTransactions: vi.fn(),
+		redeemCode: vi.fn()
+	}
+})
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 
@@ -29,14 +32,9 @@ vi.mock('../../credits', async () => {
 	const actual = await vi.importActual<typeof import('../../credits')>('../../credits')
 	return {
 		...actual,
-		bindReferral: vi.fn(),
-		dailyCheckin: vi.fn(),
-		generateCreditCodes: vi.fn(),
-		grantCredits: vi.fn(),
-		getCreditSummary: vi.fn(),
-		listCreditCodes: vi.fn(),
-		listCreditTransactions: vi.fn(),
-		redeemCreditCode: vi.fn()
+		CreditsService: vi.fn().mockImplementation(function CreditsService() {
+			return creditServiceMocks
+		})
 	}
 })
 
@@ -99,9 +97,9 @@ describe('getCreditSummaryHandler', () => {
 
 	runCases(cases, async (given) => {
 		if (given.summaryErrorCode !== '') {
-			vi.mocked(getCreditSummary).mockRejectedValue(new CreditsError(given.summaryErrorCode))
+			vi.mocked(creditServiceMocks.getSummary).mockRejectedValue(new CreditsError(given.summaryErrorCode))
 		} else {
-			vi.mocked(getCreditSummary).mockResolvedValue({
+			vi.mocked(creditServiceMocks.getSummary).mockResolvedValue({
 				balance: 120,
 				dailyCheckedIn: true,
 				dailyCheckinAmount: 10,
@@ -225,9 +223,9 @@ describe('dailyCheckinHandler', () => {
 
 	runCases(cases, async (given) => {
 		if (given.errorCode !== '') {
-			vi.mocked(dailyCheckin).mockRejectedValue(new CreditsError(given.errorCode))
+			vi.mocked(creditServiceMocks.dailyCheckin).mockRejectedValue(new CreditsError(given.errorCode))
 		} else {
-			vi.mocked(dailyCheckin).mockResolvedValue({
+			vi.mocked(creditServiceMocks.dailyCheckin).mockResolvedValue({
 				balance: 100,
 				checkedIn: true,
 				amount: 10
@@ -384,9 +382,9 @@ describe('bindReferralHandler', () => {
 
 	runCases(cases, async (given) => {
 		if (given.errorCode !== '') {
-			vi.mocked(bindReferral).mockRejectedValue(new CreditsError(given.errorCode))
+			vi.mocked(creditServiceMocks.bindReferral).mockRejectedValue(new CreditsError(given.errorCode))
 		} else {
-			vi.mocked(bindReferral).mockResolvedValue({
+			vi.mocked(creditServiceMocks.bindReferral).mockResolvedValue({
 				inviterUserId: 'u2',
 				inviteeUserId: 'u1',
 				inviterBalance: 100,
@@ -462,7 +460,7 @@ describe('generateCreditCodesHandler', () => {
 	]
 
 	runCases(cases, async (given) => {
-		vi.mocked(generateCreditCodes).mockResolvedValue([
+		vi.mocked(creditServiceMocks.generateCodes).mockResolvedValue([
 			{ id: 'c1', code: 'AAAA1111', amount: 100, expiresAt: null, createdAt: 123 },
 			{ id: 'c2', code: 'BBBB2222', amount: 100, expiresAt: null, createdAt: 123 }
 		])
@@ -532,7 +530,7 @@ describe('listCreditCodesHandler', () => {
 	]
 
 	runCases(cases, async (given) => {
-		vi.mocked(listCreditCodes).mockResolvedValue([
+		vi.mocked(creditServiceMocks.listCodes).mockResolvedValue([
 			{
 				id: 'c1',
 				code: 'AAAA1111',
@@ -645,9 +643,9 @@ describe('redeemCreditCodeHandler', () => {
 
 	runCases(cases, async (given) => {
 		if (given.errorCode !== '') {
-			vi.mocked(redeemCreditCode).mockRejectedValue(new CreditsError(given.errorCode))
+			vi.mocked(creditServiceMocks.redeemCode).mockRejectedValue(new CreditsError(given.errorCode))
 		} else {
-			vi.mocked(redeemCreditCode).mockResolvedValue({
+			vi.mocked(creditServiceMocks.redeemCode).mockResolvedValue({
 				balance: 300,
 				amount: 100
 			})
@@ -706,7 +704,7 @@ describe('grantCreditsHandler', () => {
 		},
 		{
 			scenario: 'return duplicated code when source id already granted',
-			given: 'grantCredits returns duplicated true',
+			given: 'CreditsService.grant returns duplicated true',
 			when: 'calling grantCreditsHandler',
 			then: 'returns conflict',
 			givenDetail: {
@@ -723,7 +721,7 @@ describe('grantCreditsHandler', () => {
 		},
 		{
 			scenario: 'return user not found for invalid target user',
-			given: 'grantCredits throws CREDIT_USER_NOT_FOUND',
+			given: 'CreditsService.grant throws CREDIT_USER_NOT_FOUND',
 			when: 'calling grantCreditsHandler',
 			then: 'returns 404',
 			givenDetail: {
@@ -740,7 +738,7 @@ describe('grantCreditsHandler', () => {
 		},
 		{
 			scenario: 'grant credits successfully',
-			given: 'grantCredits succeeds',
+			given: 'CreditsService.grant succeeds',
 			when: 'calling grantCreditsHandler',
 			then: 'returns latest balance',
 			givenDetail: {
@@ -759,9 +757,9 @@ describe('grantCreditsHandler', () => {
 
 	runCases(cases, async (given) => {
 		if (given.errorCode !== '') {
-			vi.mocked(grantCredits).mockRejectedValue(new CreditsError(given.errorCode))
+			vi.mocked(creditServiceMocks.grant).mockRejectedValue(new CreditsError(given.errorCode))
 		} else {
-			vi.mocked(grantCredits).mockResolvedValue({
+			vi.mocked(creditServiceMocks.grant).mockResolvedValue({
 				balance: 120,
 				entryId: 'e1',
 				transactionId: 't1',
@@ -841,7 +839,7 @@ describe('listCreditTransactionsHandler', () => {
 	]
 
 	runCases(cases, async (given) => {
-		vi.mocked(listCreditTransactions).mockResolvedValue([
+		vi.mocked(creditServiceMocks.listTransactions).mockResolvedValue([
 			{
 				id: 't1',
 				type: 'signup',

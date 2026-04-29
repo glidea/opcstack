@@ -14,7 +14,6 @@ export type CreditTransactionType =
 	| 'expired'
 
 export interface GrantCreditsInput {
-	db: AppDb
 	userId: string
 	type: CreditTransactionType
 	amount: number
@@ -33,6 +32,13 @@ export interface GrantCreditsResult {
 	duplicated: boolean
 }
 
+export interface GetCreditSummaryInput {
+	userId: string
+	nowMs?: number
+	dailyCheckinAmount: number
+	referralEnabled: boolean
+}
+
 export interface CreditSummary {
 	balance: number
 	dailyCheckedIn: boolean
@@ -43,7 +49,6 @@ export interface CreditSummary {
 }
 
 export interface ListCreditTransactionsInput {
-	db: AppDb
 	userId: string
 	limit?: number
 	offset?: number
@@ -59,6 +64,71 @@ export interface CreditTransactionItem {
 	description: string | null
 	expiresAt: number | null
 	createdAt: number
+}
+
+export interface DailyCheckinInput {
+	userId: string
+	amount: number
+	nowMs?: number
+}
+
+export interface BindReferralInput {
+	inviteeUserId: string
+	referralCode: string
+	inviterAmount: number
+	inviteeAmount: number
+	nowMs?: number
+}
+
+export interface GenerateCreditCodesInput {
+	count: number
+	amount: number
+	expiresAt?: number | null
+	nowMs?: number
+}
+
+export interface ListCreditCodesInput {
+	limit?: number
+	offset?: number
+}
+
+export interface RedeemCreditCodeInput {
+	userId: string
+	code: string
+	nowMs?: number
+}
+
+export interface EnsureEnoughCreditsInput {
+	userId: string
+	amount: number
+}
+
+export interface DeductCreditsInput {
+	userId: string
+	amount: number
+	sourceType: string
+	sourceId: string
+	description?: string
+	nowMs?: number
+}
+
+export interface RunPaidActionInput<T> {
+	userId: string
+	amount: number
+	sourceType: string
+	sourceId: string
+	description?: string
+	execute: () => Promise<T>
+}
+
+export interface ExpireCreditsInput {
+	nowMs?: number
+	limit?: number
+}
+
+export interface CleanupCreditTransactionsInput {
+	nowMs?: number
+	retentionDays?: number
 }
 
 export interface DailyCheckinResult {
@@ -124,10 +194,17 @@ export class CreditsError extends Error {
 	}
 }
 
-export async function grantCredits(input: GrantCreditsInput): Promise<GrantCreditsResult> {
+export class CreditsService {
+	private readonly db: AppDb
+
+	constructor(db: AppDb) {
+		this.db = db
+	}
+
+	async grant(input: GrantCreditsInput): Promise<GrantCreditsResult> {
 	validateGrantAmount(input.amount)
 
-	const userRow = await input.db.query.user.findFirst({
+	const userRow = await this.db.query.user.findFirst({
 		columns: {
 			id: true,
 			creditBalance: true
@@ -148,14 +225,14 @@ export async function grantCredits(input: GrantCreditsInput): Promise<GrantCredi
 	const transactionId = crypto.randomUUID()
 
 	try {
-		await input.db.batch([
-			input.db
+		await this.db.batch([
+			this.db
 				.update(user)
 				.set({
 					creditBalance: nextBalance
 				})
 				.where(eq(user.id, input.userId)),
-			input.db.insert(creditEntry).values({
+			this.db.insert(creditEntry).values({
 				id: entryId,
 				userId: input.userId,
 				amount: input.amount,
@@ -165,7 +242,7 @@ export async function grantCredits(input: GrantCreditsInput): Promise<GrantCredi
 				expiresAt: input.expiresAt ?? null,
 				createdAt: nowMs
 			}),
-			input.db.insert(creditTransaction).values({
+			this.db.insert(creditTransaction).values({
 				id: transactionId,
 				userId: input.userId,
 				type: input.type,
@@ -200,12 +277,12 @@ export async function grantCredits(input: GrantCreditsInput): Promise<GrantCredi
 	}
 }
 
-export async function createReferralCode(db: AppDb): Promise<string> {
+	async createReferralCode(): Promise<string> {
 	const maxAttempts = 10
 	let attempt = 0
 	while (attempt < maxAttempts) {
 		const code = generateReferralCode()
-		const existing = await db.query.user.findFirst({
+		const existing = await this.db.query.user.findFirst({
 			columns: {
 				id: true
 			},
@@ -219,14 +296,8 @@ export async function createReferralCode(db: AppDb): Promise<string> {
 	throw new CreditsError('REFERRAL_CODE_GENERATE_FAILED')
 }
 
-export async function getCreditSummary(input: {
-	db: AppDb
-	userId: string
-	nowMs?: number
-	dailyCheckinAmount: number
-	referralEnabled: boolean
-}): Promise<CreditSummary> {
-	const userRow = await input.db.query.user.findFirst({
+	async getSummary(input: GetCreditSummaryInput): Promise<CreditSummary> {
+	const userRow = await this.db.query.user.findFirst({
 		columns: {
 			creditBalance: true,
 			referralCode: true
@@ -239,7 +310,7 @@ export async function getCreditSummary(input: {
 
 	const nowMs = input.nowMs ?? Date.now()
 	const dayRange = getUtcDayRange(nowMs)
-	const checkedInRow = await input.db.query.creditTransaction.findFirst({
+	const checkedInRow = await this.db.query.creditTransaction.findFirst({
 		columns: {
 			id: true
 		},
@@ -251,7 +322,7 @@ export async function getCreditSummary(input: {
 		)
 	})
 
-	const invitedCountRows = await input.db
+	const invitedCountRows = await this.db
 		.select({
 			count: sql<number>`count(*)`
 		})
@@ -269,13 +340,11 @@ export async function getCreditSummary(input: {
 	}
 }
 
-export async function listCreditTransactions(
-	input: ListCreditTransactionsInput
-): Promise<CreditTransactionItem[]> {
+	async listTransactions(input: ListCreditTransactionsInput): Promise<CreditTransactionItem[]> {
 	const limit = resolvePageLimit(input.limit)
 	const offset = resolveOffset(input.offset)
 
-	const rows = await input.db.query.creditTransaction.findMany({
+	const rows = await this.db.query.creditTransaction.findMany({
 		columns: {
 			id: true,
 			type: true,
@@ -308,17 +377,11 @@ export async function listCreditTransactions(
 	})
 }
 
-export async function dailyCheckin(input: {
-	db: AppDb
-	userId: string
-	amount: number
-	nowMs?: number
-}): Promise<DailyCheckinResult> {
+	async dailyCheckin(input: DailyCheckinInput): Promise<DailyCheckinResult> {
 	validateGrantAmount(input.amount)
 	const nowMs = input.nowMs ?? Date.now()
 	const sourceId = `${input.userId}:${formatUtcDate(nowMs)}`
-	const result = await grantCredits({
-		db: input.db,
+	const result = await this.grant({
 		userId: input.userId,
 		type: 'daily_checkin',
 		amount: input.amount,
@@ -336,14 +399,7 @@ export async function dailyCheckin(input: {
 	}
 }
 
-export async function bindReferral(input: {
-	db: AppDb
-	inviteeUserId: string
-	referralCode: string
-	inviterAmount: number
-	inviteeAmount: number
-	nowMs?: number
-}): Promise<BindReferralResult> {
+	async bindReferral(input: BindReferralInput): Promise<BindReferralResult> {
 	const code = input.referralCode.trim()
 	if (code === '') {
 		throw new CreditsError('INVALID_REFERRAL_CODE')
@@ -351,7 +407,7 @@ export async function bindReferral(input: {
 	validateGrantAmount(input.inviterAmount)
 	validateGrantAmount(input.inviteeAmount)
 
-	const inviter = await input.db.query.user.findFirst({
+	const inviter = await this.db.query.user.findFirst({
 		columns: {
 			id: true,
 			creditBalance: true
@@ -362,7 +418,7 @@ export async function bindReferral(input: {
 		throw new CreditsError('INVALID_REFERRAL_CODE')
 	}
 
-	const invitee = await input.db.query.user.findFirst({
+	const invitee = await this.db.query.user.findFirst({
 		columns: {
 			id: true,
 			creditBalance: true
@@ -386,18 +442,18 @@ export async function bindReferral(input: {
 	const inviteeBalance = invitee.creditBalance + input.inviteeAmount
 
 	try {
-		await input.db.batch([
-			input.db.run(sql`
+		await this.db.batch([
+			this.db.run(sql`
         INSERT INTO credit_referrals (id, inviter_user_id, invitee_user_id, created_at)
         VALUES (${referralId}, ${inviter.id}, ${input.inviteeUserId}, ${nowMs})
       `),
-			input.db.run(sql`
+			this.db.run(sql`
         UPDATE "user"
         SET credit_balance = ${inviterBalance}
         WHERE id = ${inviter.id}
           AND EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			input.db.run(sql`
+			this.db.run(sql`
         INSERT INTO credit_entries (
           id,
           user_id,
@@ -419,7 +475,7 @@ export async function bindReferral(input: {
           ${nowMs}
         WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			input.db.run(sql`
+			this.db.run(sql`
         INSERT INTO credit_transactions (
           id,
           user_id,
@@ -445,13 +501,13 @@ export async function bindReferral(input: {
           ${nowMs}
         WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			input.db.run(sql`
+			this.db.run(sql`
         UPDATE "user"
         SET credit_balance = ${inviteeBalance}
         WHERE id = ${input.inviteeUserId}
           AND EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			input.db.run(sql`
+			this.db.run(sql`
         INSERT INTO credit_entries (
           id,
           user_id,
@@ -473,7 +529,7 @@ export async function bindReferral(input: {
           ${nowMs}
         WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			input.db.run(sql`
+			this.db.run(sql`
         INSERT INTO credit_transactions (
           id,
           user_id,
@@ -515,13 +571,7 @@ export async function bindReferral(input: {
 	}
 }
 
-export async function generateCreditCodes(input: {
-	db: AppDb
-	count: number
-	amount: number
-	expiresAt?: number | null
-	nowMs?: number
-}): Promise<GenerateCreditCodesResultCode[]> {
+	async generateCodes(input: GenerateCreditCodesInput): Promise<GenerateCreditCodesResultCode[]> {
 	if (!Number.isInteger(input.count) || input.count <= 0) {
 		throw new CreditsError('INVALID_GENERATE_COUNT')
 	}
@@ -547,7 +597,7 @@ export async function generateCreditCodes(input: {
 		index += 1
 	}
 
-	await input.db.insert(creditRedemptionCode).values(
+	await this.db.insert(creditRedemptionCode).values(
 		rows.map((row) => {
 			return {
 				id: row.id,
@@ -570,14 +620,10 @@ export async function generateCreditCodes(input: {
 	})
 }
 
-export async function listCreditCodes(input: {
-	db: AppDb
-	limit?: number
-	offset?: number
-}): Promise<ListCreditCodeItem[]> {
+	async listCodes(input: ListCreditCodesInput): Promise<ListCreditCodeItem[]> {
 	const limit = resolvePageLimit(input.limit)
 	const offset = resolveOffset(input.offset)
-	const rows = await input.db.query.creditRedemptionCode.findMany({
+	const rows = await this.db.query.creditRedemptionCode.findMany({
 		columns: {
 			id: true,
 			code: true,
@@ -605,19 +651,14 @@ export async function listCreditCodes(input: {
 	})
 }
 
-export async function redeemCreditCode(input: {
-	db: AppDb
-	userId: string
-	code: string
-	nowMs?: number
-}): Promise<RedeemCreditCodeResult> {
+	async redeemCode(input: RedeemCreditCodeInput): Promise<RedeemCreditCodeResult> {
 	const normalizedCode = input.code.trim().toUpperCase()
 	if (normalizedCode === '') {
 		throw new CreditsError('INVALID_CREDIT_CODE')
 	}
 	const nowMs = input.nowMs ?? Date.now()
 
-	const userRow = await input.db.query.user.findFirst({
+	const userRow = await this.db.query.user.findFirst({
 		columns: {
 			id: true,
 			creditBalance: true
@@ -628,7 +669,7 @@ export async function redeemCreditCode(input: {
 		throw new CreditsError('CREDIT_USER_NOT_FOUND')
 	}
 
-	const codeRow = await input.db.query.creditRedemptionCode.findFirst({
+	const codeRow = await this.db.query.creditRedemptionCode.findFirst({
 		columns: {
 			id: true,
 			amount: true,
@@ -653,8 +694,8 @@ export async function redeemCreditCode(input: {
 	const entryId = crypto.randomUUID()
 	const transactionId = crypto.randomUUID()
 
-	const batchResults = await input.db.batch([
-		input.db.run(sql`
+	const batchResults = await this.db.batch([
+		this.db.run(sql`
       INSERT INTO credit_entries (
         id,
         user_id,
@@ -679,19 +720,19 @@ export async function redeemCreditCode(input: {
         AND used_by IS NULL
         AND (expires_at IS NULL OR expires_at > ${nowMs})
     `),
-		input.db.run(sql`
+		this.db.run(sql`
       UPDATE credit_redemption_codes
       SET used_by = ${input.userId}, used_at = ${nowMs}
       WHERE id = ${codeRow.id}
         AND EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
     `),
-		input.db.run(sql`
+		this.db.run(sql`
       UPDATE "user"
       SET credit_balance = ${balance}
       WHERE id = ${input.userId}
         AND EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
     `),
-		input.db.run(sql`
+		this.db.run(sql`
       INSERT INTO credit_transactions (
         id,
         user_id,
@@ -730,13 +771,9 @@ export async function redeemCreditCode(input: {
 	}
 }
 
-export async function ensureEnoughCredits(input: {
-	db: AppDb
-	userId: string
-	amount: number
-}): Promise<EnsureEnoughCreditsResult> {
+	async ensureEnough(input: EnsureEnoughCreditsInput): Promise<EnsureEnoughCreditsResult> {
 	validateGrantAmount(input.amount)
-	const userRow = await input.db.query.user.findFirst({
+	const userRow = await this.db.query.user.findFirst({
 		columns: {
 			id: true,
 			creditBalance: true
@@ -754,18 +791,10 @@ export async function ensureEnoughCredits(input: {
 	}
 }
 
-export async function deductCredits(input: {
-	db: AppDb
-	userId: string
-	amount: number
-	sourceType: string
-	sourceId: string
-	description?: string
-	nowMs?: number
-}): Promise<DeductCreditsResult> {
+	async deduct(input: DeductCreditsInput): Promise<DeductCreditsResult> {
 	validateGrantAmount(input.amount)
 
-	const userRow = await input.db.query.user.findFirst({
+	const userRow = await this.db.query.user.findFirst({
 		columns: {
 			id: true,
 			creditBalance: true
@@ -779,7 +808,7 @@ export async function deductCredits(input: {
 	const nowMs = input.nowMs ?? Date.now()
 	const nextBalance = userRow.creditBalance - input.amount
 
-	const entries = await input.db.all<{
+	const entries = await this.db.all<{
 		id: string
 		remaining_amount: number
 	}>(sql`
@@ -802,7 +831,7 @@ export async function deductCredits(input: {
 		const used = Math.min(entry.remaining_amount, remaining)
 		const nextRemaining = entry.remaining_amount - used
 		updateStatements.push(
-			input.db.run(sql`
+			this.db.run(sql`
         UPDATE credit_entries
         SET remaining_amount = ${nextRemaining}
         WHERE id = ${entry.id}
@@ -813,13 +842,13 @@ export async function deductCredits(input: {
 
 	const transactionId = crypto.randomUUID()
 	const statements: [ReturnType<AppDb['run']>, ...Array<ReturnType<AppDb['run']>>] = [
-		input.db.run(sql`
+		this.db.run(sql`
       UPDATE "user"
       SET credit_balance = ${nextBalance}
       WHERE id = ${input.userId}
     `),
 		...updateStatements,
-		input.db.run(sql`
+		this.db.run(sql`
       INSERT INTO credit_transactions (
         id,
         user_id,
@@ -847,31 +876,21 @@ export async function deductCredits(input: {
     `)
 	]
 
-	await input.db.batch(statements)
+	await this.db.batch(statements)
 	return {
 		balance: nextBalance,
 		deductedAmount: input.amount
 	}
 }
 
-export async function runPaidActionWithCredits<T>(input: {
-	db: AppDb
-	userId: string
-	amount: number
-	sourceType: string
-	sourceId: string
-	description?: string
-	execute: () => Promise<T>
-}): Promise<T> {
-	await ensureEnoughCredits({
-		db: input.db,
+	async runPaidAction<T>(input: RunPaidActionInput<T>): Promise<T> {
+	await this.ensureEnough({
 		userId: input.userId,
 		amount: input.amount
 	})
 
 	const result = await input.execute()
-	await deductCredits({
-		db: input.db,
+	await this.deduct({
 		userId: input.userId,
 		amount: input.amount,
 		sourceType: input.sourceType,
@@ -881,15 +900,11 @@ export async function runPaidActionWithCredits<T>(input: {
 	return result
 }
 
-export async function expireCredits(input: {
-	db: AppDb
-	nowMs?: number
-	limit?: number
-}): Promise<ExpireCreditsResult> {
+	async expire(input: ExpireCreditsInput): Promise<ExpireCreditsResult> {
 	const nowMs = input.nowMs ?? Date.now()
 	const limit = resolveExpireLimit(input.limit)
 
-	const expiredEntries = await input.db.all<{
+	const expiredEntries = await this.db.all<{
 		id: string
 		user_id: string
 		remaining_amount: number
@@ -917,7 +932,7 @@ export async function expireCredits(input: {
 	}
 
 	const userIds = Array.from(userExpiredMap.keys())
-	const userRows = await input.db
+	const userRows = await this.db
 		.select({
 			id: user.id,
 			creditBalance: user.creditBalance
@@ -940,14 +955,14 @@ export async function expireCredits(input: {
 		const nextBalance = currentBalance - expiredAmount
 		const sourceId = `expire:${nowMs}:${userId}`
 		statements.push(
-			input.db.run(sql`
+			this.db.run(sql`
         UPDATE "user"
         SET credit_balance = ${nextBalance}
         WHERE id = ${userId}
       `)
 		)
 		statements.push(
-			input.db.run(sql`
+			this.db.run(sql`
         INSERT INTO credit_transactions (
           id,
           user_id,
@@ -978,7 +993,7 @@ export async function expireCredits(input: {
 
 	for (const entry of expiredEntries) {
 		statements.push(
-			input.db.run(sql`
+			this.db.run(sql`
         UPDATE credit_entries
         SET remaining_amount = 0
         WHERE id = ${entry.id}
@@ -988,7 +1003,7 @@ export async function expireCredits(input: {
 
 	const [firstStatement, ...restStatements] = statements
 	if (firstStatement) {
-		await input.db.batch([firstStatement, ...restStatements])
+		await this.db.batch([firstStatement, ...restStatements])
 	}
 
 	return {
@@ -997,16 +1012,12 @@ export async function expireCredits(input: {
 	}
 }
 
-export async function cleanupCreditTransactions(input: {
-	db: AppDb
-	nowMs?: number
-	retentionDays?: number
-}): Promise<CleanupCreditTransactionsResult> {
+	async cleanupTransactions(input: CleanupCreditTransactionsInput): Promise<CleanupCreditTransactionsResult> {
 	const nowMs = input.nowMs ?? Date.now()
 	const retentionDays = resolveRetentionDays(input.retentionDays)
 	const cutoff = nowMs - retentionDays * 24 * 60 * 60 * 1000
 
-	const result = await input.db.run(sql`
+	const result = await this.db.run(sql`
     DELETE FROM credit_transactions
     WHERE created_at < ${cutoff}
   `)
@@ -1014,6 +1025,8 @@ export async function cleanupCreditTransactions(input: {
 	return {
 		deletedRows: readBatchChanges(result)
 	}
+}
+
 }
 
 function validateGrantAmount(amount: number): void {
