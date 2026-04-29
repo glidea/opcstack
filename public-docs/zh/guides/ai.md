@@ -1,89 +1,96 @@
 ---
 title: AI 集成
-description: OpenAI 和 Gemini 集成
+description: Chat Image TTS 集成
 group: 指南
 order: 5
 ---
 
 # AI 集成
 
-OPC Stack 集成了 OpenAI 和 Gemini，支持聊天和图片生成。
+OPC Stack 集成了 OpenAI 和 Gemini，支持 Chat Image 和结构化脚本 TTS。
 
 ## OpenAI Chat
 
 ### 配置
 
 ```bash
-OPENAI_API_KEY=sk-xxx
-OPENAI_BASE_URL=https://api.openai.com/v1  # 可选
+CHAT_OPENAI_API_KEY=sk-xxx
+CHAT_OPENAI_BASE_URL=https://api.openai.com/v1
+CHAT_OPENAI_MODEL=gpt-5.4-mini
 ```
 
 ### 使用
 
 ```typescript
-import { createChatClient } from '@/ai/chat/openai'
+import { newAIClients } from '../../../src/ai/chat'
 
-const client = createChatClient({
-  apiKey: env.OPENAI_API_KEY,
-  baseURL: env.OPENAI_BASE_URL
-})
-
-const response = await client.chat({
-  model: 'gpt-4',
-  messages: [
-    { role: 'system', content: 'You are a helpful assistant.' },
-    { role: 'user', content: 'Hello!' }
-  ]
-})
-
-console.log(response.choices[0].message.content)
+const clients = newAIClients(env)
+const text = await clients.simple.generateText('用三句话解释 D1 read replication')
+console.log(text)
 ```
-
-### 流式响应
-
-```typescript
-const stream = await client.chatStream({
-  model: 'gpt-4',
-  messages: [
-    { role: 'user', content: 'Tell me a story' }
-  ]
-})
-
-for await (const chunk of stream) {
-  const content = chunk.choices[0]?.delta?.content
-  if (content) {
-    console.log(content)
-  }
-}
-```
-
-### API 示例
-
-参考 `src/api/handler/ai.ts` 中的实现。
 
 ## Gemini Image
 
 ### 配置
 
 ```bash
-GEMINI_API_KEY=xxx
+IMAGE_GEMINI_API_KEY=xxx
+IMAGE_GEMINI_BASE_URL=https://generativelanguage.googleapis.com
+IMAGE_GEMINI_MODEL=gemini-3.1-flash-image-preview
 ```
 
 ### 使用
 
 ```typescript
-import { createImageClient } from '@/ai/image/gemini'
+import { newAIImageClients } from '../../../src/ai/image'
 
-const client = createImageClient({
-  apiKey: env.GEMINI_API_KEY
+const clients = newAIImageClients(env)
+const images = await clients.simple.generate({
+  prompt: 'sunset over the ocean',
+  numberOfImages: 1
+})
+console.log(images[0]?.mimeType)
+```
+
+## Gemini TTS
+
+### 配置
+
+```bash
+TTS_GEMINI_API_KEY=xxx
+TTS_GEMINI_BASE_URL=https://generativelanguage.googleapis.com
+TTS_GEMINI_MODEL=gemini-3.1-flash-tts-preview
+```
+
+### 使用
+
+```typescript
+import { newAITTSClients } from '../../../src/ai/tts'
+
+const clients = newAITTSClients(env)
+const audio = await clients.simple.generateSpeech({
+  instruction: '中文技术访谈风格 自然 节奏稳定',
+  speakers: [
+    {
+      name: '老周',
+      voiceName: 'Charon',
+      profile: '资深 Go 后端工程师',
+      speechStyle: '沉稳 语速中等 发音清晰'
+    },
+    {
+      name: '小林',
+      voiceName: 'Puck',
+      profile: 'Prometheus PaaS 平台开发',
+      speechStyle: '自然 追问时更轻快'
+    }
+  ],
+  lines: [
+    { speakerName: '老周', text: '今天聊租户边界' },
+    { speakerName: '小林', text: '重点是写入链路隔离' }
+  ]
 })
 
-const response = await client.generate({
-  prompt: 'A beautiful sunset over the ocean',
-  model: 'imagen-3.0-generate-001'
-})
-
-console.log(response.images[0].url)
+console.log(audio.mimeType)
 ```
 
 ## 常见问题
@@ -94,8 +101,8 @@ console.log(response.images[0].url)
 
 **Q: 如何降低成本？**
 
-使用 AI Gateway 缓存重复请求，选择更便宜的模型（如 gpt-3.5-turbo）。
+使用 AI Gateway 缓存重复请求，优先选择更低成本模型。
 
-**Q: 如何实现打字机效果？**
+**Q: Gemini TTS 支持自定义音色吗？**
 
-使用流式响应，前端逐字显示。
+不支持上传音色克隆。当前使用 `prebuiltVoiceConfig.voiceName` 选择预置音色。

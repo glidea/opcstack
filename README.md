@@ -60,7 +60,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 - ✅ 积分系统（注册赠送 + 签到 + 邀请 + 兑换码 + 过期）
 - ✅ 用户反馈收集
 - ✅ 系统公告通知
-- ✅ AI 能力（Chat + Image）
+- ✅ AI 能力（Chat + Image + TTS）
 - ✅ 文档系统（Git-based CMS）
 - ✅ 国际化（中英文）
 - ✅ 测试框架（BDD style + 单元测试 + E2E）
@@ -93,9 +93,9 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 - Resend Email Sending（邮件发送）
 
 **AI 能力**
-- OpenAI SDK（Chat, Image）
-- Google GenAI SDK（Image）
-- 迭代中...
+- OpenAI SDK（Chat）
+- OpenAI SDK（Image）
+- Google GenAI SDK（Image + TTS）
 
 **业务能力**
 - 积分系统（余额、明细、注册赠送、每日签到、邀请奖励、兑换码、后台补发、过期清理）
@@ -197,7 +197,7 @@ git merge upstream/main
 - [x] KV 键值存储
 - [x] Queues 消息队列
 - [x] Cron 定时任务
-- [x] AI 能力（Chat + Image）
+- [x] AI 能力（Chat + Image + TTS）
 - [x] 积分系统（注册赠送、签到、邀请、兑换码、后台补发、过期）
 - [x] 用户反馈收集
 - [x] 系统公告通知

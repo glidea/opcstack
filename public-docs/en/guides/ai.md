@@ -1,89 +1,96 @@
 ---
 title: AI Integration
-description: OpenAI and Gemini integration
+description: Chat Image TTS integration
 group: Guides
 order: 5
 ---
 
 # AI Integration
 
-OPC Stack integrates OpenAI and Gemini for chat and image generation.
+OPC Stack integrates OpenAI and Gemini for Chat Image and structured script TTS.
 
 ## OpenAI Chat
 
 ### Configuration
 
 ```bash
-OPENAI_API_KEY=sk-xxx
-OPENAI_BASE_URL=https://api.openai.com/v1  # optional
+CHAT_OPENAI_API_KEY=sk-xxx
+CHAT_OPENAI_BASE_URL=https://api.openai.com/v1
+CHAT_OPENAI_MODEL=gpt-5.4-mini
 ```
 
 ### Usage
 
 ```typescript
-import { createChatClient } from '@/ai/chat/openai'
+import { newAIClients } from '../../../src/ai/chat'
 
-const client = createChatClient({
-  apiKey: env.OPENAI_API_KEY,
-  baseURL: env.OPENAI_BASE_URL
-})
-
-const response = await client.chat({
-  model: 'gpt-4',
-  messages: [
-    { role: 'system', content: 'You are a helpful assistant.' },
-    { role: 'user', content: 'Hello!' }
-  ]
-})
-
-console.log(response.choices[0].message.content)
+const clients = newAIClients(env)
+const text = await clients.simple.generateText('Explain D1 read replication in three lines')
+console.log(text)
 ```
-
-### Streaming response
-
-```typescript
-const stream = await client.chatStream({
-  model: 'gpt-4',
-  messages: [
-    { role: 'user', content: 'Tell me a story' }
-  ]
-})
-
-for await (const chunk of stream) {
-  const content = chunk.choices[0]?.delta?.content
-  if (content) {
-    console.log(content)
-  }
-}
-```
-
-### API example
-
-See `src/api/handler/ai.ts` implementation.
 
 ## Gemini Image
 
 ### Configuration
 
 ```bash
-GEMINI_API_KEY=xxx
+IMAGE_GEMINI_API_KEY=xxx
+IMAGE_GEMINI_BASE_URL=https://generativelanguage.googleapis.com
+IMAGE_GEMINI_MODEL=gemini-3.1-flash-image-preview
 ```
 
 ### Usage
 
 ```typescript
-import { createImageClient } from '@/ai/image/gemini'
+import { newAIImageClients } from '../../../src/ai/image'
 
-const client = createImageClient({
-  apiKey: env.GEMINI_API_KEY
+const clients = newAIImageClients(env)
+const images = await clients.simple.generate({
+  prompt: 'sunset over the ocean',
+  numberOfImages: 1
+})
+console.log(images[0]?.mimeType)
+```
+
+## Gemini TTS
+
+### Configuration
+
+```bash
+TTS_GEMINI_API_KEY=xxx
+TTS_GEMINI_BASE_URL=https://generativelanguage.googleapis.com
+TTS_GEMINI_MODEL=gemini-3.1-flash-tts-preview
+```
+
+### Usage
+
+```typescript
+import { newAITTSClients } from '../../../src/ai/tts'
+
+const clients = newAITTSClients(env)
+const audio = await clients.simple.generateSpeech({
+  instruction: 'Chinese tech interview style natural stable pace',
+  speakers: [
+    {
+      name: 'Host',
+      voiceName: 'Charon',
+      profile: 'Senior Go backend engineer',
+      speechStyle: 'calm medium pace clear articulation'
+    },
+    {
+      name: 'Guest',
+      voiceName: 'Puck',
+      profile: 'Prometheus PaaS engineer',
+      speechStyle: 'natural more energetic in follow-up questions'
+    }
+  ],
+  lines: [
+    { speakerName: 'Host', text: 'Today we discuss tenant boundaries' },
+    { speakerName: 'Guest', text: 'Write path isolation is the core issue' }
+  ]
 })
 
-const response = await client.generate({
-  prompt: 'A beautiful sunset over the ocean',
-  model: 'imagen-3.0-generate-001'
-})
-
-console.log(response.images[0].url)
+console.log(audio.mimeType)
 ```
 
 ## FAQ
@@ -94,8 +101,8 @@ Check API key and account balance.
 
 **Q: How to reduce cost**
 
-Use AI Gateway cache for repeated requests and choose cheaper models such as `gpt-3.5-turbo`.
+Use AI Gateway cache for repeated requests and choose cheaper models.
 
-**Q: How to build typing effect**
+**Q: Does Gemini TTS support custom voice cloning**
 
-Use streaming response and render tokens incrementally in frontend.
+No. Use `prebuiltVoiceConfig.voiceName` to select a built-in voice.

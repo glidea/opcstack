@@ -105,6 +105,7 @@ src/
   ai/
     chat/openai/        # Chat 客户端
     image/gemini/       # Image 客户端
+    tts/gemini/         # TTS 客户端
   r2/
     index.ts            # R2 工具函数
   testing/

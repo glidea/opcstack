@@ -105,6 +105,7 @@ src/
   ai/
     chat/openai/        # Chat client
     image/gemini/       # Image client
+    tts/gemini/         # TTS client
   r2/
     index.ts            # R2 helpers
   testing/
