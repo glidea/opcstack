@@ -25,25 +25,6 @@ describe('betaGateMiddleware', () => {
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'skip beta code gate for public path',
-			given: 'a public path and beta code feature enabled',
-			when: 'running beta code gate middleware',
-			then: 'calls next without querying database',
-			givenDetail: {
-				path: '/api/get_public_config',
-				betaCodeEnabled: 'true',
-				userId: 'u1',
-				hasBeta: false
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 0,
-				code: '',
-				nextCalled: true,
-				dbCalled: false
-			}
-		},
-		{
 			scenario: 'skip beta code gate when beta code feature is disabled',
 			given: 'a protected path and beta code feature disabled',
 			when: 'running beta code gate middleware',

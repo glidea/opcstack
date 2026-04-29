@@ -38,20 +38,20 @@ export type ApiEnv = {
 
 export const api: Hono<ApiEnv> = new Hono<ApiEnv>()
 api.use('/api/*', d1SessionMiddleware)
-api.use('/api/*', authMiddleware)
-api.use('/api/*', betaGateMiddleware)
-api.use('/api/auth/*', emailAuthMiddleware)
 
-api.get('/api/health', (ctx): Response => {
+const publicApi: Hono<ApiEnv> = new Hono<ApiEnv>()
+publicApi.use('/auth/*', emailAuthMiddleware)
+
+publicApi.get('/health', (ctx): Response => {
 	return ctx.json({})
 })
 
-api.all('/api/auth/*', async (ctx): Promise<Response> => {
+publicApi.all('/auth/*', async (ctx): Promise<Response> => {
 	const h = authCore(ctx.env, ctx.get('db')).handler
 	return h(ctx.req.raw)
 })
 
-api.post('/api/get_public_config', (ctx): Response => {
+publicApi.post('/get_public_config', (ctx): Response => {
 	const envMap = ctx.env as unknown as Record<string, string | undefined>
 	return ctx.json({
 		beta_code_enabled: String(ctx.env.BETA_CODE_ENABLED) === 'true',
@@ -67,22 +67,36 @@ api.post('/api/get_public_config', (ctx): Response => {
 		credits_referral_enabled: envMap['CREDITS_REFERRAL_ENABLED'] === 'true'
 	})
 })
+publicApi.get('/r2/public/*', readR2ObjectHandler)
 
-api.get('/api/r2/*', readR2ObjectHandler)
+const authOnlyApi: Hono<ApiEnv> = new Hono<ApiEnv>()
+authOnlyApi.use('*', authMiddleware)
+authOnlyApi.post('/bind_beta_code', bindBetaCodeHandler)
 
-api.post('/api/bind_beta_code', bindBetaCodeHandler)
-api.post('/api/admin/generate_beta_codes', adminSecretMiddleware, generateBetaCodesHandler)
-api.post('/api/admin/list_beta_codes', adminSecretMiddleware, listBetaCodesHandler)
-api.post('/api/get_credit_summary', getCreditSummaryHandler)
-api.post('/api/list_credit_transactions', listCreditTransactionsHandler)
-api.post('/api/daily_checkin', dailyCheckinHandler)
-api.post('/api/bind_referral', bindReferralHandler)
-api.post('/api/admin/generate_credit_codes', adminSecretMiddleware, generateCreditCodesHandler)
-api.post('/api/admin/list_credit_codes', adminSecretMiddleware, listCreditCodesHandler)
-api.post('/api/admin/grant_credits', adminSecretMiddleware, grantCreditsHandler)
-api.post('/api/redeem_credit_code', redeemCreditCodeHandler)
-api.post('/api/submit_feedback', submitFeedbackHandler)
-api.post('/api/admin/list_feedbacks', adminSecretMiddleware, listFeedbacksHandler)
-api.post('/api/admin/create_notification', adminSecretMiddleware, createNotificationHandler)
-api.post('/api/list_notifications', listNotificationsHandler)
-api.post('/api/read_notification', readNotificationHandler)
+const adminApi: Hono<ApiEnv> = new Hono<ApiEnv>()
+adminApi.use('/admin/*', adminSecretMiddleware)
+adminApi.post('/admin/generate_beta_codes', generateBetaCodesHandler)
+adminApi.post('/admin/list_beta_codes', listBetaCodesHandler)
+adminApi.post('/admin/generate_credit_codes', generateCreditCodesHandler)
+adminApi.post('/admin/list_credit_codes', listCreditCodesHandler)
+adminApi.post('/admin/grant_credits', grantCreditsHandler)
+adminApi.post('/admin/list_feedbacks', listFeedbacksHandler)
+adminApi.post('/admin/create_notification', createNotificationHandler)
+
+const userApi: Hono<ApiEnv> = new Hono<ApiEnv>()
+userApi.use('*', authMiddleware)
+userApi.use('*', betaGateMiddleware)
+userApi.get('/r2/private/*', readR2ObjectHandler)
+userApi.post('/get_credit_summary', getCreditSummaryHandler)
+userApi.post('/list_credit_transactions', listCreditTransactionsHandler)
+userApi.post('/daily_checkin', dailyCheckinHandler)
+userApi.post('/bind_referral', bindReferralHandler)
+userApi.post('/redeem_credit_code', redeemCreditCodeHandler)
+userApi.post('/submit_feedback', submitFeedbackHandler)
+userApi.post('/list_notifications', listNotificationsHandler)
+userApi.post('/read_notification', readNotificationHandler)
+
+api.route('/api', publicApi)
+api.route('/api', authOnlyApi)
+api.route('/api', adminApi)
+api.route('/api', userApi)
