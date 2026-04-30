@@ -3,6 +3,8 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const SVELTE_WORKER_PATH = '.svelte-kit/cloudflare/_worker.js'
+const SVELTE_SERVER_PATH = '.svelte-kit/output/server/index.js'
+const SVELTE_MANIFEST_PATH = '.svelte-kit/cloudflare-tmp/manifest.js'
 
 function run(command, options = {}) {
 	console.log(`> ${command}`)
@@ -341,12 +343,30 @@ function validateEmailConfig(env) {
 }
 
 function ensureSvelteWorkerBuild() {
-	if (existsSync(SVELTE_WORKER_PATH)) {
+	if (
+		existsSync(SVELTE_WORKER_PATH) &&
+		existsSync(SVELTE_SERVER_PATH) &&
+		existsSync(SVELTE_MANIFEST_PATH) &&
+		manifestServerImportsExist()
+	) {
 		return
 	}
 
-	console.log(`\nMissing ${SVELTE_WORKER_PATH}, building Svelte worker once...`)
+	console.log('\nMissing Svelte build output, building Svelte worker once...')
 	run('pnpm exec vite build')
+}
+
+function manifestServerImportsExist() {
+	const manifest = readFileSync(SVELTE_MANIFEST_PATH, 'utf-8')
+	const importMatches = manifest.matchAll(/['"]\.\.\/output\/server\/([^'"]+)['"]/g)
+
+	for (const match of importMatches) {
+		if (!existsSync(join('.svelte-kit/output/server', match[1]))) {
+			return false
+		}
+	}
+
+	return true
 }
 
 function parseQueueNames(rawValue) {
