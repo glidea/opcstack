@@ -4,7 +4,6 @@ import { runCases, type TestCase } from '../src/testing/bdd'
 type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_ADMIN_SECRET?: string
-	E2E_BETTER_AUTH_SECRET?: string
 	E2E_EMAIL_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
@@ -27,12 +26,11 @@ const e2eEnv =
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const adminSecret: string = e2eEnv.E2E_ADMIN_SECRET ?? 'admin-secret'
-const betterAuthSecret: string = e2eEnv.E2E_BETTER_AUTH_SECRET ?? ''
 const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
 const emailFrom: string = e2eEnv.E2E_EMAIL_FROM ?? ''
-const canCreateUser: boolean = emailEnabled && emailSignupEnabled && betterAuthSecret !== ''
+const canCreateUser: boolean = emailEnabled && emailSignupEnabled && !emailRequireVerification
 
 describe('notification api e2e', () => {
 	beforeAll(async () => {
@@ -242,16 +240,6 @@ async function createUserToken(tag: string): Promise<string> {
 		throw new Error(`failed to sign up test user: ${signupRes.status}`)
 	}
 
-	if (emailRequireVerification) {
-		const verifyToken = await createEmailVerificationToken(email)
-		const verifyRes = await fetch(
-			`${appBaseUrl}/api/auth/verify-email?token=${encodeURIComponent(verifyToken)}`
-		)
-		if (!verifyRes.ok) {
-			throw new Error(`failed to verify test user email: ${verifyRes.status}`)
-		}
-	}
-
 	const signInRes = await postJson('/api/auth/sign-in/email', {
 		email,
 		password
@@ -261,47 +249,6 @@ async function createUserToken(tag: string): Promise<string> {
 		throw new Error(`failed to sign in test user: ${signInRes.status}`)
 	}
 	return payload.token
-}
-
-async function createEmailVerificationToken(email: string): Promise<string> {
-	const now = Math.floor(Date.now() / 1000)
-	const header = base64UrlEncodeJson({ alg: 'HS256' })
-	const payload = base64UrlEncodeJson({
-		email: email.toLowerCase(),
-		iat: now,
-		exp: now + 3600
-	})
-	const signature = await hmacSha256Base64Url(`${header}.${payload}`, betterAuthSecret)
-	return `${header}.${payload}.${signature}`
-}
-
-function base64UrlEncodeJson(value: Record<string, string | number>): string {
-	const raw = JSON.stringify(value)
-	const bytes = new TextEncoder().encode(raw)
-	return base64UrlEncode(bytes)
-}
-
-async function hmacSha256Base64Url(value: string, secret: string): Promise<string> {
-	const key = await crypto.subtle.importKey(
-		'raw',
-		new TextEncoder().encode(secret),
-		{
-			name: 'HMAC',
-			hash: 'SHA-256'
-		},
-		false,
-		['sign']
-	)
-	const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value))
-	return base64UrlEncode(new Uint8Array(signature))
-}
-
-function base64UrlEncode(bytes: Uint8Array): string {
-	let binary = ''
-	for (const byte of bytes) {
-		binary += String.fromCharCode(byte)
-	}
-	return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
 }
 
 function buildScenarioEmail(tag: string): string {

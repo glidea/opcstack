@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import { authCore } from './index'
 import { betterAuth } from 'better-auth'
+import { bearer, emailOTP } from 'better-auth/plugins'
 import { newEmailClients, type EmailSimpleSendInput } from '../../email'
 import type { Resend } from 'resend'
 
@@ -15,6 +16,17 @@ vi.mock('better-auth/adapters/drizzle', () => {
 	return {
 		drizzleAdapter: vi.fn(() => {
 			return {}
+		})
+	}
+})
+
+vi.mock('better-auth/plugins', () => {
+	return {
+		bearer: vi.fn(() => {
+			return { id: 'bearer' }
+		}),
+		emailOTP: vi.fn((options) => {
+			return { id: 'email-otp', options }
 		})
 	}
 })
@@ -51,7 +63,7 @@ describe('authCore email config mapping', () => {
 		emailAndPasswordEnabled: boolean
 		disableSignUp: boolean
 		requireEmailVerification: boolean
-		hasSendVerificationEmail: boolean
+		hasEmailOtpPlugin: boolean
 		hasSendResetPassword: boolean
 	}
 
@@ -75,7 +87,7 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: false,
 				disableSignUp: true,
 				requireEmailVerification: true,
-				hasSendVerificationEmail: false,
+				hasEmailOtpPlugin: false,
 				hasSendResetPassword: false
 			}
 		},
@@ -98,8 +110,8 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: true,
 				disableSignUp: false,
 				requireEmailVerification: true,
-				hasSendVerificationEmail: true,
-				hasSendResetPassword: true
+				hasEmailOtpPlugin: true,
+				hasSendResetPassword: false
 			}
 		},
 		{
@@ -121,7 +133,7 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: false,
 				disableSignUp: true,
 				requireEmailVerification: true,
-				hasSendVerificationEmail: false,
+				hasEmailOtpPlugin: false,
 				hasSendResetPassword: false
 			}
 		},
@@ -144,8 +156,8 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: true,
 				disableSignUp: true,
 				requireEmailVerification: true,
-				hasSendVerificationEmail: true,
-				hasSendResetPassword: true
+				hasEmailOtpPlugin: true,
+				hasSendResetPassword: false
 			}
 		},
 		{
@@ -167,8 +179,8 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: true,
 				disableSignUp: true,
 				requireEmailVerification: true,
-				hasSendVerificationEmail: true,
-				hasSendResetPassword: true
+				hasEmailOtpPlugin: true,
+				hasSendResetPassword: false
 			}
 		}
 	]
@@ -193,7 +205,7 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: false,
 				disableSignUp: true,
 				requireEmailVerification: true,
-				hasSendVerificationEmail: false,
+				hasEmailOtpPlugin: false,
 				hasSendResetPassword: false
 			}
 		}
@@ -205,9 +217,7 @@ describe('authCore email config mapping', () => {
 				requireEmailVerification?: boolean
 				sendResetPassword?: unknown
 			}
-			emailVerification?: {
-				sendVerificationEmail?: unknown
-			}
+			plugins?: Array<{ id?: string }>
 		}
 
 		return {
@@ -215,8 +225,8 @@ describe('authCore email config mapping', () => {
 			emailAndPasswordEnabled: Boolean(options?.emailAndPassword?.enabled),
 			disableSignUp: Boolean(options?.emailAndPassword?.disableSignUp),
 			requireEmailVerification: Boolean(options?.emailAndPassword?.requireEmailVerification),
-			hasSendVerificationEmail:
-				typeof options?.emailVerification?.sendVerificationEmail === 'function',
+			hasEmailOtpPlugin:
+				options?.plugins?.some((plugin: { id?: string }) => plugin.id === 'email-otp') ?? false,
 			hasSendResetPassword: typeof options?.emailAndPassword?.sendResetPassword === 'function'
 		}
 	})
@@ -240,14 +250,21 @@ describe('authCore email callbacks', () => {
 		sendCallCount: number
 		firstSubject: string
 		secondSubject: string
+		firstHtmlIncludesOtp: boolean
+		firstHtmlIncludesUrl: boolean
+		otpLength: number
+		otpExpiresIn: number
+		otpAllowedAttempts: number
+		otpStore: string
+		otpDisableSignUp: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'send verification and reset emails through email client callbacks',
+			scenario: 'send verification and reset emails through email otp callbacks',
 			given: 'email auth enabled with resend provider config',
-			when: 'calling sendVerificationEmail and sendResetPassword callbacks',
-			then: 'email client send is called with expected subjects',
+			when: 'calling sendVerificationOTP callbacks',
+			then: 'email client send is called with otp email subjects',
 			givenDetail: {
 				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
@@ -260,7 +277,14 @@ describe('authCore email callbacks', () => {
 			thenExpected: {
 				sendCallCount: 2,
 				firstSubject: 'Verify your email',
-				secondSubject: 'Reset your password'
+				secondSubject: 'Reset your password',
+				firstHtmlIncludesOtp: true,
+				firstHtmlIncludesUrl: false,
+				otpLength: 6,
+				otpExpiresIn: 300,
+				otpAllowedAttempts: 3,
+				otpStore: 'hashed',
+				otpDisableSignUp: true
 			}
 		}
 	]
@@ -276,31 +300,36 @@ describe('authCore email callbacks', () => {
 		})
 
 		const auth = authCore(createEnv(given), {} as never) as unknown as {
-			emailVerification: {
-				sendVerificationEmail: (data: {
-					user: { email: string }
-					url: string
-				}) => Promise<void>
-			}
-			emailAndPassword: {
-				sendResetPassword: (data: {
-					user: { email: string }
-					url: string
-				}) => Promise<void>
-			}
+			plugins: Array<{ id: string }>
 		}
 
-		await auth.emailVerification.sendVerificationEmail({
-			user: {
-				email: 'u1@example.com'
-			},
-			url: 'https://app.example.com/verify-email?token=t1'
+		expect(auth.plugins).toContainEqual({ id: 'bearer' })
+		expect(vi.mocked(bearer)).toHaveBeenCalledTimes(1)
+
+		const emailOtpOptions = vi.mocked(emailOTP).mock.calls[0]?.[0] as
+			| {
+					otpLength: number
+					expiresIn: number
+					allowedAttempts: number
+					storeOTP: string
+					disableSignUp: boolean
+					sendVerificationOTP: (data: {
+						email: string
+						otp: string
+						type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
+					}) => Promise<void>
+			  }
+			| undefined
+
+		await emailOtpOptions?.sendVerificationOTP({
+			email: 'u1@example.com',
+			otp: '123456',
+			type: 'email-verification'
 		})
-		await auth.emailAndPassword.sendResetPassword({
-			user: {
-				email: 'u1@example.com'
-			},
-			url: 'https://app.example.com/reset-password?token=t2'
+		await emailOtpOptions?.sendVerificationOTP({
+			email: 'u1@example.com',
+			otp: '654321',
+			type: 'forget-password'
 		})
 
 		expect(send).toHaveBeenNthCalledWith(
@@ -318,12 +347,21 @@ describe('authCore email callbacks', () => {
 			})
 		)
 
-		const firstCall = send.mock.calls[0]?.[0] as { subject: string } | undefined
+		const firstCall = send.mock.calls[0]?.[0] as
+			| { subject: string; html: string }
+			| undefined
 		const secondCall = send.mock.calls[1]?.[0] as { subject: string } | undefined
 		return {
 			sendCallCount: send.mock.calls.length,
 			firstSubject: firstCall?.subject ?? '',
-			secondSubject: secondCall?.subject ?? ''
+			secondSubject: secondCall?.subject ?? '',
+			firstHtmlIncludesOtp: firstCall?.html.includes('123456') ?? false,
+			firstHtmlIncludesUrl: firstCall?.html.includes('verify-email?token=') ?? false,
+			otpLength: emailOtpOptions?.otpLength ?? 0,
+			otpExpiresIn: emailOtpOptions?.expiresIn ?? 0,
+			otpAllowedAttempts: emailOtpOptions?.allowedAttempts ?? 0,
+			otpStore: emailOtpOptions?.storeOTP ?? '',
+			otpDisableSignUp: emailOtpOptions?.disableSignUp ?? false
 		}
 	})
 })

@@ -1,19 +1,21 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { bearer } from 'better-auth/plugins'
+import { bearer, emailOTP } from 'better-auth/plugins'
 import type { AppDb } from '../../db'
 import { newEmailClients, type EmailClients } from '../../email'
 import { CreditsService } from '../../credits'
 
 export function authCore(env: Env, db: AppDb) {
   const credits = new CreditsService(db)
+  const emailOtpPlugin = buildEmailOtp(env)
+  const plugins = emailOtpPlugin ? [bearer(), emailOtpPlugin] : [bearer()]
 
   return betterAuth({
     baseURL: env.APP_BASE_URL,
     secret: env.BETTER_AUTH_SECRET,
     trustedOrigins: ['*'],
     database: drizzleAdapter(db, { provider: 'sqlite' }),
-    plugins: [bearer()],
+    plugins,
     databaseHooks: {
       user: {
         create: {
@@ -28,7 +30,7 @@ export function authCore(env: Env, db: AppDb) {
               }
             }
           },
-	          after: async (createdUser: Record<string, unknown>): Promise<void> => {
+          after: async (createdUser: Record<string, unknown>): Promise<void> => {
             if (!readCreditsSignupEnabled(env)) {
               return
             }
@@ -38,7 +40,7 @@ export function authCore(env: Env, db: AppDb) {
               return
             }
 
-	            const userId = String(createdUser['id'] ?? '')
+            const userId = String(createdUser['id'] ?? '')
             if (userId === '') {
               return
             }
@@ -56,7 +58,6 @@ export function authCore(env: Env, db: AppDb) {
       }
     },
     emailAndPassword: buildEmailAndPassword(env),
-    emailVerification: buildEmailVerification(env),
     socialProviders: buildSocialProviders(env),
     session: {
       expiresIn: 30 * 24 * 60 * 60,
@@ -101,14 +102,7 @@ function buildEmailAndPassword(env: Env): AuthEmailAndPasswordConfig {
     disableSignUp: !emailSignupEnabled,
     requireEmailVerification: emailRequireVerification,
     // Use runtime native scrypt in Workers to avoid CPU-heavy pure JS fallback.
-    password: buildPasswordHasher(),
-    sendResetPassword: async (data: EmailActionInput): Promise<void> => {
-      await emailClient.send({
-        to: data.user.email,
-        subject: 'Reset your password',
-        html: buildResetPasswordEmailHtml(data.url)
-      })
-    }
+    password: buildPasswordHasher()
   }
 }
 
@@ -153,22 +147,28 @@ function bytesToHex(bytes: Uint8Array): string {
   return output
 }
 
-function buildEmailVerification(env: Env): AuthEmailVerificationConfig {
+function buildEmailOtp(env: Env): ReturnType<typeof emailOTP> | undefined {
   const emailClient = buildEmailClient(env)
   if (!emailClient) {
     return undefined
   }
 
-  return {
-    sendOnSignUp: true as const,
-    sendVerificationEmail: async (data: EmailActionInput): Promise<void> => {
+  return emailOTP({
+    otpLength: 6,
+    expiresIn: 300,
+    allowedAttempts: 3,
+    storeOTP: 'hashed',
+    disableSignUp: true,
+    sendVerificationOnSignUp: true,
+    overrideDefaultEmailVerification: true,
+    sendVerificationOTP: async (data: EmailOtpInput): Promise<void> => {
       await emailClient.send({
-        to: data.user.email,
-        subject: 'Verify your email',
-        html: buildVerificationEmailHtml(data.url)
+        to: data.email,
+        subject: buildOtpEmailSubject(data.type),
+        html: buildOtpEmailHtml(data.otp, data.type)
       })
     }
-  }
+  })
 }
 
 function buildEmailClient(env: Env): EmailClients['simple'] | undefined {
@@ -191,14 +191,22 @@ function buildSocialProviders(env: Env): AuthSocialProvidersConfig {
   }
 }
 
-function buildVerificationEmailHtml(url: string): string {
+function buildOtpEmailSubject(type: EmailOtpInput['type']): string {
+  if (type === 'forget-password') {
+    return 'Reset your password'
+  }
+  return 'Verify your email'
+}
+
+function buildOtpEmailHtml(otp: string, type: EmailOtpInput['type']): string {
+  const title = buildOtpEmailSubject(type)
   return `
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Verify your email</title>
+    <title>${title}</title>
   </head>
   <body style="margin:0;padding:0;background:#f6f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111827;">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="padding:24px 12px;">
@@ -207,17 +215,17 @@ function buildVerificationEmailHtml(url: string): string {
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
             <tr>
               <td style="padding:28px 24px 8px 24px;">
-                <h1 style="margin:0;font-size:22px;line-height:1.35;">Verify your email</h1>
+                <h1 style="margin:0;font-size:22px;line-height:1.35;">${title}</h1>
               </td>
             </tr>
             <tr>
               <td style="padding:0 24px 8px 24px;">
-                <p style="margin:0;font-size:14px;line-height:1.65;color:#4b5563;">Click the button below to verify your email address.</p>
+                <p style="margin:0;font-size:14px;line-height:1.65;color:#4b5563;">Enter this code in the app. It expires in 5 minutes.</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:18px 24px;">
-                <a href="${url}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 16px;border-radius:8px;">Verify Email</a>
+              <td style="padding:18px 24px 28px 24px;">
+                <div style="display:inline-block;background:#111827;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:6px;padding:12px 18px;border-radius:8px;">${otp}</div>
               </td>
             </tr>
           </table>
@@ -229,47 +237,10 @@ function buildVerificationEmailHtml(url: string): string {
 `.trim()
 }
 
-function buildResetPasswordEmailHtml(url: string): string {
-  return `
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Reset your password</title>
-  </head>
-  <body style="margin:0;padding:0;background:#f6f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111827;">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
-            <tr>
-              <td style="padding:28px 24px 8px 24px;">
-                <h1 style="margin:0;font-size:22px;line-height:1.35;">Reset your password</h1>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 24px 8px 24px;">
-                <p style="margin:0;font-size:14px;line-height:1.65;color:#4b5563;">Click the button below to set a new password.</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:18px 24px;">
-                <a href="${url}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 16px;border-radius:8px;">Reset Password</a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
-`.trim()
-}
-
-type EmailActionInput = {
-  user: { email: string }
-  url: string
+type EmailOtpInput = {
+  email: string
+  otp: string
+  type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
 }
 
 type AuthEmailAndPasswordConfig =
@@ -283,7 +254,6 @@ type AuthEmailAndPasswordConfig =
     disableSignUp: boolean
     requireEmailVerification: boolean
     password: AuthPasswordConfig
-    sendResetPassword: (data: EmailActionInput) => Promise<void>
   }
 
 type AuthPasswordConfig = {
@@ -295,13 +265,6 @@ type AuthPasswordVerifyInput = {
   hash: string
   password: string
 }
-
-type AuthEmailVerificationConfig =
-  | {
-    sendOnSignUp: true
-    sendVerificationEmail: (data: EmailActionInput) => Promise<void>
-  }
-  | undefined
 
 type AuthSocialProvidersConfig =
   | {

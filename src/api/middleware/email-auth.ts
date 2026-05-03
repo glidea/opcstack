@@ -10,23 +10,35 @@ type EmailActionRoute = {
 
 type AuthEmailBody = {
 	email?: string
+	type?: string
 }
 
 const localCooldownStore: Map<string, number> = new Map<string, number>()
 
+const emailOtpSignInRoute = '/api/auth/sign-in/email-otp'
+
 const emailActionRoutes: EmailActionRoute[] = [
 	{ path: '/api/auth/sign-up/email', scene: 'signup' },
-	{ path: '/api/auth/request-password-reset', scene: 'request_password_reset' },
-	{ path: '/api/auth/send-verification-email', scene: 'send_verification_email' }
+	{ path: '/api/auth/email-otp/request-password-reset', scene: 'request_password_reset' },
+	{ path: '/api/auth/email-otp/send-verification-otp', scene: 'send_verification_email' }
 ]
 
 export const emailAuthMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
+	if (ctx.req.path === emailOtpSignInRoute) {
+		return ctx.json({ code: 'EMAIL_OTP_SIGN_IN_DISABLED' }, 400)
+	}
+
 	const scene = resolveEmailActionScene(ctx.req.path)
 	if (!scene) {
 		return next()
+	}
+
+	const body = await parseAuthEmailBody(ctx.req.raw)
+	if (scene === 'send_verification_email' && body.type === 'sign-in') {
+		return ctx.json({ code: 'EMAIL_OTP_SIGN_IN_DISABLED' }, 400)
 	}
 
 	const emailEnabled = ctx.env.EMAIL_ENABLED === 'true'
@@ -46,7 +58,6 @@ export const emailAuthMiddleware: MiddlewareHandler<ApiEnv> = async (
 
 	const userActionCooldownSeconds = Number(ctx.env.EMAIL_USER_ACTION_COOLDOWN_SECONDS)
 
-	const body = await parseAuthEmailBody(ctx.req.raw)
 	const email = normalizeEmail(body.email)
 
 	if (
@@ -119,8 +130,10 @@ async function parseAuthEmailBody(request: Request): Promise<AuthEmailBody> {
 		}
 		const body = payload as Record<string, unknown>
 		const email = body['email']
+		const type = body['type']
 		return {
-			email: typeof email === 'string' ? email : undefined
+			email: typeof email === 'string' ? email : undefined,
+			type: typeof type === 'string' ? type : undefined
 		}
 	} catch {
 		return {}

@@ -13,6 +13,7 @@ describe('emailAuthMiddleware', () => {
 		path: string
 		body: {
 			email?: string
+			type?: string
 		}
 		emailEnabled: string
 		emailSignupEnabled: string
@@ -49,6 +50,52 @@ describe('emailAuthMiddleware', () => {
 				status: 0,
 				code: '',
 				nextCalled: true,
+				kvGetCalled: false,
+				kvPutCalled: false
+			}
+		},
+		{
+			scenario: 'reject otp sign in endpoint',
+			given: 'email otp sign in endpoint',
+			when: 'running middleware',
+			then: 'returns otp sign in disabled',
+			givenDetail: {
+				path: '/api/auth/sign-in/email-otp',
+				body: { email: 'u-login@example.com', type: 'sign-in' },
+				emailEnabled: 'true',
+				emailSignupEnabled: 'true',
+				emailSignupDomainAllowlist: '',
+				cooldownSeconds: '50',
+				kvGetValue: null
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'EMAIL_OTP_SIGN_IN_DISABLED',
+				nextCalled: false,
+				kvGetCalled: false,
+				kvPutCalled: false
+			}
+		},
+		{
+			scenario: 'reject sign in otp code request',
+			given: 'verification otp endpoint with sign in type',
+			when: 'running middleware',
+			then: 'returns otp sign in disabled',
+			givenDetail: {
+				path: '/api/auth/email-otp/send-verification-otp',
+				body: { email: 'u-login@example.com', type: 'sign-in' },
+				emailEnabled: 'true',
+				emailSignupEnabled: 'true',
+				emailSignupDomainAllowlist: '',
+				cooldownSeconds: '50',
+				kvGetValue: null
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'EMAIL_OTP_SIGN_IN_DISABLED',
+				nextCalled: false,
 				kvGetCalled: false,
 				kvPutCalled: false
 			}
@@ -100,12 +147,12 @@ describe('emailAuthMiddleware', () => {
 			}
 		},
 		{
-			scenario: 'rate limit repeated password reset request',
-			given: 'password reset endpoint and cooldown key exists',
+			scenario: 'rate limit repeated otp password reset request',
+			given: 'otp password reset endpoint and cooldown key exists',
 			when: 'running middleware',
 			then: 'returns action rate limited',
 			givenDetail: {
-				path: '/api/auth/request-password-reset',
+				path: '/api/auth/email-otp/request-password-reset',
 				body: { email: 'u-rate@example.com' },
 				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
@@ -123,13 +170,36 @@ describe('emailAuthMiddleware', () => {
 			}
 		},
 		{
-			scenario: 'allow first password reset request and write cooldown key',
-			given: 'password reset endpoint and cooldown key missing',
+			scenario: 'allow first otp password reset request and write cooldown key',
+			given: 'otp password reset endpoint and cooldown key missing',
 			when: 'running middleware',
 			then: 'calls next and writes cooldown key',
 			givenDetail: {
-				path: '/api/auth/request-password-reset',
+				path: '/api/auth/email-otp/request-password-reset',
 				body: { email: 'u-allow@example.com' },
+				emailEnabled: 'true',
+				emailSignupEnabled: 'true',
+				emailSignupDomainAllowlist: '',
+				cooldownSeconds: '50',
+				kvGetValue: null
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 0,
+				code: '',
+				nextCalled: true,
+				kvGetCalled: true,
+				kvPutCalled: true
+			}
+		},
+		{
+			scenario: 'allow first verification otp request and write cooldown key',
+			given: 'verification otp endpoint and cooldown key missing',
+			when: 'running middleware',
+			then: 'calls next and writes cooldown key',
+			givenDetail: {
+				path: '/api/auth/email-otp/send-verification-otp',
+				body: { email: 'u-otp@example.com' },
 				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
@@ -177,6 +247,7 @@ type ContextState = {
 	path: string
 	body: {
 		email?: string
+		type?: string
 	}
 	env: Record<string, unknown>
 	nextCalled: boolean
@@ -189,6 +260,7 @@ function createContextState(given: {
 	path: string
 	body: {
 		email?: string
+		type?: string
 	}
 	emailEnabled: string
 	emailSignupEnabled: string
