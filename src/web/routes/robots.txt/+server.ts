@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private'
+import { resolveSiteOrigin } from '$web/seo'
 
 export const prerender = true
 
@@ -10,15 +11,4 @@ export function GET(): Response {
 			'content-type': 'text/plain; charset=utf-8'
 		}
 	})
-}
-
-function resolveSiteOrigin(domain: string): string {
-	const normalized = domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')
-	if (normalized === 'localhost') {
-		return 'http://localhost:5173'
-	}
-	if (normalized.startsWith('localhost:')) {
-		return `http://${normalized}`
-	}
-	return `https://${normalized}`
 }

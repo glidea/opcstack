@@ -1,6 +1,6 @@
 {
-	"home.title": "首页",
-	"home.subtitle": "欢迎使用",
+	"home.titleSuffix": "Cloudflare Workers 全栈开发模板",
+	"home.descriptionSuffix": "是一个基于 Cloudflare Workers 的全栈开发模板，内置 SvelteKit、Hono、D1、R2、队列、定时任务、认证、积分和 AI 能力。",
 	"lang.zh": "中文",
 	"lang.en": "English",
 	"docs.contents": "目录",

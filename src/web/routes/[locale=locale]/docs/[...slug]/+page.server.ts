@@ -1,7 +1,9 @@
+import { env } from '$env/dynamic/private'
 import { error } from '@sveltejs/kit'
 import { defaultLocale } from '$web/i18n/locales'
 import { getDocBySlug, getDocNeighbors, getDocSwitchPath, getLocaleManifest, type DocHeading } from '$web/docs/docs'
 import { getDocsManifest } from '$web/docs/manifest.server'
+import { resolveSiteOrigin, toSiteUrl } from '$web/seo'
 
 export const prerender = true
 
@@ -24,7 +26,7 @@ export async function load({
 	parent
 }: {
 	params: { locale: string; slug: string }
-	parent: () => Promise<{ locale: string; locales: string[] }>
+	parent: () => Promise<{ locale: string; locales: string[]; siteName: string; logoUrl: string }>
 }): Promise<{
 	slug: string
 	title: string
@@ -34,12 +36,16 @@ export async function load({
 	headings: DocHeading[]
 	previous: ReturnType<typeof getDocNeighbors>['previous']
 	next: ReturnType<typeof getDocNeighbors>['next']
-	localePaths: Array<{ locale: string; path: string }>
+	localeUrls: Array<{ locale: string; url: string }>
 	locale: string
-	canonicalPath: string
-	xDefaultPath: string
+	siteName: string
+	logoUrl: string
+	seoTitle: string
+	canonicalUrl: string
+	xDefaultUrl: string
 }> {
 	const layoutData = await parent()
+	const origin = resolveSiteOrigin(env['APP_DOMAIN'] ?? 'localhost')
 	const manifest = await getDocsManifest()
 	const localeManifest = getLocaleManifest(manifest, layoutData.locale)
 	const target = getDocBySlug(localeManifest?.docs ?? [], params.slug)
@@ -48,12 +54,16 @@ export async function load({
 	}
 
 	const neighbors = getDocNeighbors(localeManifest?.docs ?? [], params.slug)
-	const localePaths = layoutData.locales.map((locale) => {
+	const siteName = layoutData.siteName
+	const localeUrls = layoutData.locales.map((locale) => {
+		const path = getDocSwitchPath(manifest, locale, params.slug)
 		return {
 			locale,
-			path: getDocSwitchPath(manifest, locale, params.slug)
+			url: toSiteUrl(origin, path)
 		}
 	})
+	const canonicalUrl = toSiteUrl(origin, `/${layoutData.locale}/docs/${target.slug}`)
+	const xDefaultPath = getDocSwitchPath(manifest, defaultLocale, params.slug)
 
 	return {
 		slug: target.slug,
@@ -64,9 +74,12 @@ export async function load({
 		headings: target.headings,
 		previous: neighbors.previous,
 		next: neighbors.next,
-		localePaths,
+		localeUrls,
 		locale: layoutData.locale,
-		canonicalPath: `/${layoutData.locale}/docs/${target.slug}`,
-		xDefaultPath: getDocSwitchPath(manifest, defaultLocale, params.slug)
+		siteName,
+		logoUrl: layoutData.logoUrl,
+		seoTitle: `${target.title} - ${siteName}`,
+		canonicalUrl,
+		xDefaultUrl: toSiteUrl(origin, xDefaultPath)
 	}
 }

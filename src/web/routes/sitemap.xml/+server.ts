@@ -1,6 +1,7 @@
 import { env } from '$env/dynamic/private'
 import { buildDocsManifest } from '$web/docs/docs'
 import { supportedLocales } from '$web/i18n/locales'
+import { resolveSiteOrigin } from '$web/seo'
 
 const rawDocModules = import.meta.glob('/public-docs/**/*.md', {
 	eager: true,
@@ -103,15 +104,4 @@ function isDynamicSegment(segment: string): boolean {
 
 function isRouteGroup(segment: string): boolean {
 	return segment.startsWith('(') && segment.endsWith(')')
-}
-
-function resolveSiteOrigin(domain: string): string {
-	const normalized = domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')
-	if (normalized === 'localhost') {
-		return 'http://localhost:5173'
-	}
-	if (normalized.startsWith('localhost:')) {
-		return `http://${normalized}`
-	}
-	return `https://${normalized}`
 }

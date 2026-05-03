@@ -1,6 +1,6 @@
 {
-	"home.title": "Home",
-	"home.subtitle": "Welcome",
+	"home.titleSuffix": "Cloudflare Workers Full Stack Starter",
+	"home.descriptionSuffix": "is a Cloudflare Workers full stack starter with SvelteKit, Hono, D1, R2, queues, cron jobs, authentication, credits, and AI integrations.",
 	"lang.zh": "中文",
 	"lang.en": "English",
 	"docs.contents": "Contents",

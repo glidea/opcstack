@@ -10,12 +10,15 @@
 		data: {
 			title: string
 			description: string
-			canonicalPath: string
-			xDefaultPath: string
+			canonicalUrl: string
+			xDefaultUrl: string
+			siteName: string
+			logoUrl: string
+			seoTitle: string
 			locale: string
 			contentHtml: string
 			headings: Array<{ id: string; text: string; level: 2 | 3 }>
-			localePaths: Array<{ locale: string; path: string }>
+			localeUrls: Array<{ locale: string; url: string }>
 			previous: { slug: string; title: string } | null
 			next: { slug: string; title: string } | null
 		}
@@ -129,17 +132,22 @@
 </script>
 
 <svelte:head>
-	<title>{data.title}</title>
+	<title>{data.seoTitle}</title>
 	<meta name="description" content={data.description} />
-	<link rel="canonical" href={data.canonicalPath} />
-	{#each data.localePaths as item}
-		<link rel="alternate" hreflang={item.locale} href={item.path} />
+	<link rel="canonical" href={data.canonicalUrl} />
+	{#each data.localeUrls as item}
+		<link rel="alternate" hreflang={item.locale} href={item.url} />
 	{/each}
-	<link rel="alternate" hreflang="x-default" href={data.xDefaultPath} />
-	<meta property="og:type" content="article" />
-	<meta property="og:title" content={data.title} />
+	<link rel="alternate" hreflang="x-default" href={data.xDefaultUrl} />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content={data.seoTitle} />
 	<meta property="og:description" content={data.description} />
-	<meta property="og:url" content={data.canonicalPath} />
+	<meta property="og:url" content={data.canonicalUrl} />
+	<meta property="og:image" content={data.logoUrl} />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content={data.seoTitle} />
+	<meta name="twitter:description" content={data.description} />
+	<meta name="twitter:image" content={data.logoUrl} />
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-5xl px-4 pb-10 pt-8 sm:px-8">

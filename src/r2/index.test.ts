@@ -332,11 +332,11 @@ function createEnv(): Env & { R2: R2Bucket } {
 	return {
 		APP_BASE_URL: 'http://localhost:5173',
 		R2: r2
-	} as Env & { R2: R2Bucket }
+	} as unknown as Env & { R2: R2Bucket }
 }
 
 function createEnvWithoutR2(): Env {
 	return {
 		APP_BASE_URL: 'http://localhost:5173'
-	} as Env
+	} as unknown as Env
 }

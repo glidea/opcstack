@@ -81,6 +81,11 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 ### 3. Authentication System
 
 - Better Auth: `src/api/auth/index.ts`
+- Email verification uses Better Auth `emailOTP` with 6 digit codes
+- OTP verification endpoint: `POST /api/auth/email-otp/verify-email`
+- OTP resend endpoint: `POST /api/auth/email-otp/send-verification-otp`
+- Password reset uses OTP endpoints under `/api/auth/email-otp/`
+- OTP sign-in is disabled; email auth remains password based
 - Middleware:
   - `authMiddleware`: injects `userId` into `ctx.variables`
   - `adminSecretMiddleware`: validates admin password
@@ -204,6 +209,15 @@ await client.putImage({ dir, imageBase64, mimeType })
 - TTS: `src/ai/tts/gemini/`
 - Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `TTS_GEMINI_*`
 
+### 12. Web SEO
+
+- `src/web/routes/+layout.server.ts` exposes `siteName` from `APP_NAME` and canonical URLs using `APP_DOMAIN`
+- `src/web/lib/seo/` owns site origin normalization JSON-LD serialization and is shared by pages sitemap and robots
+- Business pages should set `<title>` `<meta name="description">` and `<link rel="canonical">` in `<svelte:head>`
+- Docs pages use markdown frontmatter `title` and `description`
+- Pages should use absolute `hreflang` alternate URLs and reuse `/logo.svg` for Open Graph images
+- JSON-LD uses `WebSite` with `APP_NAME` and `APP_DOMAIN`
+
 ---
 
 ## Development Guide
@@ -219,6 +233,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 1. Create page under `src/web/routes/`
 2. Put shared components in `src/web/lib/ui/`
 3. Put i18n messages in `src/web/lib/i18n/messages/`
+4. Set page title description and canonical in `<svelte:head>`
 
 ### Modify database
 
@@ -243,6 +258,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Queue Binding: `Q_<QUEUE_NAME_UPPER>` for example `task-check` → `Q_TASK_CHECK`
 - R2 public path: `public/*`
 - R2 private path: `private/<userId>/*`
+- Canonical URLs use the app domain from `APP_DOMAIN` and must not point business pages to the OPCStack website
 - Test files: `src/**/*.test.ts` for unit tests and `e2e/**/*.test.ts` for E2E tests
 - Commands: `pnpm dev` local `pnpm deploycf` deploy `pnpm test` test
 
