@@ -225,282 +225,282 @@ export class CreditsService {
 	}
 
 	async grant(input: GrantCreditsInput): Promise<GrantCreditsResult> {
-	validateGrantAmount(input.amount)
+		validateGrantAmount(input.amount)
 
-	const userRow = await this.db.query.user.findFirst({
-		columns: {
-			id: true,
-			creditBalance: true
-		},
-		where: eq(user.id, input.userId)
-	})
-	if (!userRow) {
-		throw new CreditsError('CREDIT_USER_NOT_FOUND')
-	}
-
-	const nowMs = input.nowMs ?? Date.now()
-	const currentBalance = userRow.creditBalance
-	const nextBalance = currentBalance + input.amount
-	const debtToRepay = currentBalance < 0 ? Math.min(-currentBalance, input.amount) : 0
-	const remainingAmount = input.amount - debtToRepay
-
-	const entryId = crypto.randomUUID()
-	const transactionId = crypto.randomUUID()
-
-	try {
-		await this.db.batch([
-			this.db
-				.update(user)
-				.set({
-					creditBalance: nextBalance
-				})
-				.where(eq(user.id, input.userId)),
-			this.db.insert(creditEntry).values({
-				id: entryId,
-				userId: input.userId,
-				amount: input.amount,
-				remainingAmount,
-				sourceType: input.sourceType,
-				sourceId: input.sourceId,
-				expiresAt: input.expiresAt ?? null,
-				createdAt: nowMs
-			}),
-			this.db.insert(creditTransaction).values({
-				id: transactionId,
-				userId: input.userId,
-				type: input.type,
-				amount: input.amount,
-				balanceAfter: nextBalance,
-				sourceType: input.sourceType,
-				sourceId: input.sourceId,
-				description: input.description,
-				expiresAt: input.expiresAt ?? null,
-				createdAt: nowMs
-			})
-		])
-	} catch (error) {
-		if (isDuplicatedGrantError(error)) {
-			return {
-				balance: currentBalance,
-				entryId: '',
-				transactionId: '',
-				entryRemainingAmount: 0,
-				duplicated: true
-			}
+		const userRow = await this.db.query.user.findFirst({
+			columns: {
+				id: true,
+				creditBalance: true
+			},
+			where: eq(user.id, input.userId)
+		})
+		if (!userRow) {
+			throw new CreditsError('CREDIT_USER_NOT_FOUND')
 		}
-		throw error
-	}
 
-	return {
-		balance: nextBalance,
-		entryId,
-		transactionId,
-		entryRemainingAmount: remainingAmount,
-		duplicated: false
+		const nowMs = input.nowMs ?? Date.now()
+		const currentBalance = userRow.creditBalance
+		const nextBalance = currentBalance + input.amount
+		const debtToRepay = currentBalance < 0 ? Math.min(-currentBalance, input.amount) : 0
+		const remainingAmount = input.amount - debtToRepay
+
+		const entryId = crypto.randomUUID()
+		const transactionId = crypto.randomUUID()
+
+		try {
+			await this.db.batch([
+				this.db
+					.update(user)
+					.set({
+						creditBalance: nextBalance
+					})
+					.where(eq(user.id, input.userId)),
+				this.db.insert(creditEntry).values({
+					id: entryId,
+					userId: input.userId,
+					amount: input.amount,
+					remainingAmount,
+					sourceType: input.sourceType,
+					sourceId: input.sourceId,
+					expiresAt: input.expiresAt ?? null,
+					createdAt: nowMs
+				}),
+				this.db.insert(creditTransaction).values({
+					id: transactionId,
+					userId: input.userId,
+					type: input.type,
+					amount: input.amount,
+					balanceAfter: nextBalance,
+					sourceType: input.sourceType,
+					sourceId: input.sourceId,
+					description: input.description,
+					expiresAt: input.expiresAt ?? null,
+					createdAt: nowMs
+				})
+			])
+		} catch (error) {
+			if (isDuplicatedGrantError(error)) {
+				return {
+					balance: currentBalance,
+					entryId: '',
+					transactionId: '',
+					entryRemainingAmount: 0,
+					duplicated: true
+				}
+			}
+			throw error
+		}
+
+		return {
+			balance: nextBalance,
+			entryId,
+			transactionId,
+			entryRemainingAmount: remainingAmount,
+			duplicated: false
+		}
 	}
-}
 
 	async createReferralCode(): Promise<string> {
-	const maxAttempts = 10
-	let attempt = 0
-	while (attempt < maxAttempts) {
-		const code = generateReferralCode()
-		const existing = await this.db.query.user.findFirst({
+		const maxAttempts = 10
+		let attempt = 0
+		while (attempt < maxAttempts) {
+			const code = generateReferralCode()
+			const existing = await this.db.query.user.findFirst({
+				columns: {
+					id: true
+				},
+				where: eq(user.referralCode, code)
+			})
+			if (!existing) {
+				return code
+			}
+			attempt += 1
+		}
+		throw new CreditsError('REFERRAL_CODE_GENERATE_FAILED')
+	}
+
+	async getSummary(input: GetCreditSummaryInput): Promise<CreditSummary> {
+		const userRow = await this.db.query.user.findFirst({
+			columns: {
+				creditBalance: true,
+				referralCode: true
+			},
+			where: eq(user.id, input.userId)
+		})
+		if (!userRow) {
+			throw new CreditsError('CREDIT_USER_NOT_FOUND')
+		}
+
+		const nowMs = input.nowMs ?? Date.now()
+		const dayRange = getUtcDayRange(nowMs)
+		const checkedInRow = await this.db.query.creditTransaction.findFirst({
 			columns: {
 				id: true
 			},
-			where: eq(user.referralCode, code)
+			where: and(
+				eq(creditTransaction.userId, input.userId),
+				eq(creditTransaction.type, 'daily_checkin'),
+				gte(creditTransaction.createdAt, dayRange.dayStartMs),
+				lt(creditTransaction.createdAt, dayRange.dayEndMs)
+			)
 		})
-		if (!existing) {
-			return code
+
+		const invitedCountRows = await this.db
+			.select({
+				count: sql<number>`count(*)`
+			})
+			.from(creditReferral)
+			.where(eq(creditReferral.inviterUserId, input.userId))
+		const invitedCount = Number(invitedCountRows[0]?.count ?? 0)
+
+		return {
+			balance: userRow.creditBalance,
+			dailyCheckedIn: Boolean(checkedInRow),
+			dailyCheckinAmount: input.dailyCheckinAmount,
+			referralEnabled: input.referralEnabled,
+			referralCode: userRow.referralCode ?? '',
+			invitedCount
 		}
-		attempt += 1
 	}
-	throw new CreditsError('REFERRAL_CODE_GENERATE_FAILED')
-}
-
-	async getSummary(input: GetCreditSummaryInput): Promise<CreditSummary> {
-	const userRow = await this.db.query.user.findFirst({
-		columns: {
-			creditBalance: true,
-			referralCode: true
-		},
-		where: eq(user.id, input.userId)
-	})
-	if (!userRow) {
-		throw new CreditsError('CREDIT_USER_NOT_FOUND')
-	}
-
-	const nowMs = input.nowMs ?? Date.now()
-	const dayRange = getUtcDayRange(nowMs)
-	const checkedInRow = await this.db.query.creditTransaction.findFirst({
-		columns: {
-			id: true
-		},
-		where: and(
-			eq(creditTransaction.userId, input.userId),
-			eq(creditTransaction.type, 'daily_checkin'),
-			gte(creditTransaction.createdAt, dayRange.dayStartMs),
-			lt(creditTransaction.createdAt, dayRange.dayEndMs)
-		)
-	})
-
-	const invitedCountRows = await this.db
-		.select({
-			count: sql<number>`count(*)`
-		})
-		.from(creditReferral)
-		.where(eq(creditReferral.inviterUserId, input.userId))
-	const invitedCount = Number(invitedCountRows[0]?.count ?? 0)
-
-	return {
-		balance: userRow.creditBalance,
-		dailyCheckedIn: Boolean(checkedInRow),
-		dailyCheckinAmount: input.dailyCheckinAmount,
-		referralEnabled: input.referralEnabled,
-		referralCode: userRow.referralCode ?? '',
-		invitedCount
-	}
-}
 
 	async listTransactions(input: ListCreditTransactionsInput): Promise<ListCreditTransactionsResult> {
-	const limit = resolvePageLimit(input.limit)
-	const offset = resolveOffset(input.offset)
-	const conditions: SQL[] = [eq(creditTransaction.userId, input.userId)]
-	if (input.type) {
-		conditions.push(eq(creditTransaction.type, input.type))
-	}
-	if (input.sourceType) {
-		conditions.push(eq(creditTransaction.sourceType, input.sourceType))
-	}
-	if (input.sourceId) {
-		conditions.push(eq(creditTransaction.sourceId, input.sourceId))
-	}
-	if (input.createdAtStart !== undefined) {
-		conditions.push(gte(creditTransaction.createdAt, input.createdAtStart))
-	}
-	if (input.createdAtEnd !== undefined) {
-		conditions.push(lte(creditTransaction.createdAt, input.createdAtEnd))
-	}
+		const limit = resolvePageLimit(input.limit)
+		const offset = resolveOffset(input.offset)
+		const conditions: SQL[] = [eq(creditTransaction.userId, input.userId)]
+		if (input.type) {
+			conditions.push(eq(creditTransaction.type, input.type))
+		}
+		if (input.sourceType) {
+			conditions.push(eq(creditTransaction.sourceType, input.sourceType))
+		}
+		if (input.sourceId) {
+			conditions.push(eq(creditTransaction.sourceId, input.sourceId))
+		}
+		if (input.createdAtStart !== undefined) {
+			conditions.push(gte(creditTransaction.createdAt, input.createdAtStart))
+		}
+		if (input.createdAtEnd !== undefined) {
+			conditions.push(lte(creditTransaction.createdAt, input.createdAtEnd))
+		}
 
-	const where = and(...conditions)
-	const totalRows = await this.db
-		.select({ total: sql<number>`count(*)` })
-		.from(creditTransaction)
-		.where(where)
-	const rows = await this.db.query.creditTransaction.findMany({
-		columns: {
-			id: true,
-			type: true,
-			amount: true,
-			balanceAfter: true,
-			sourceType: true,
-			sourceId: true,
-			description: true,
-			expiresAt: true,
-			createdAt: true
-		},
-		where,
-		orderBy: [desc(creditTransaction.createdAt)],
-		limit,
-		offset
-	})
+		const where = and(...conditions)
+		const totalRows = await this.db
+			.select({ total: sql<number>`count(*)` })
+			.from(creditTransaction)
+			.where(where)
+		const rows = await this.db.query.creditTransaction.findMany({
+			columns: {
+				id: true,
+				type: true,
+				amount: true,
+				balanceAfter: true,
+				sourceType: true,
+				sourceId: true,
+				description: true,
+				expiresAt: true,
+				createdAt: true
+			},
+			where,
+			orderBy: [desc(creditTransaction.createdAt)],
+			limit,
+			offset
+		})
 
-	return {
-		transactions: rows.map((row) => {
-			return {
-				id: row.id,
-				type: row.type,
-				amount: row.amount,
-				balanceAfter: row.balanceAfter,
-				sourceType: row.sourceType,
-				sourceId: row.sourceId,
-				description: row.description,
-				expiresAt: row.expiresAt,
-				createdAt: row.createdAt
-			}
-		}),
-		total: Number(totalRows[0]?.total ?? 0)
+		return {
+			transactions: rows.map((row) => {
+				return {
+					id: row.id,
+					type: row.type,
+					amount: row.amount,
+					balanceAfter: row.balanceAfter,
+					sourceType: row.sourceType,
+					sourceId: row.sourceId,
+					description: row.description,
+					expiresAt: row.expiresAt,
+					createdAt: row.createdAt
+				}
+			}),
+			total: Number(totalRows[0]?.total ?? 0)
+		}
 	}
-}
 
 	async dailyCheckin(input: DailyCheckinInput): Promise<DailyCheckinResult> {
-	validateGrantAmount(input.amount)
-	const nowMs = input.nowMs ?? Date.now()
-	const sourceId = `${input.userId}:${formatUtcDate(nowMs)}`
-	const result = await this.grant({
-		userId: input.userId,
-		type: 'daily_checkin',
-		amount: input.amount,
-		sourceType: 'daily_checkin',
-		sourceId,
-		description: 'Daily check-in reward'
-	})
-	if (result.duplicated) {
-		throw new CreditsError('DAILY_CHECKIN_ALREADY_DONE')
+		validateGrantAmount(input.amount)
+		const nowMs = input.nowMs ?? Date.now()
+		const sourceId = `${input.userId}:${formatUtcDate(nowMs)}`
+		const result = await this.grant({
+			userId: input.userId,
+			type: 'daily_checkin',
+			amount: input.amount,
+			sourceType: 'daily_checkin',
+			sourceId,
+			description: 'Daily check-in reward'
+		})
+		if (result.duplicated) {
+			throw new CreditsError('DAILY_CHECKIN_ALREADY_DONE')
+		}
+		return {
+			balance: result.balance,
+			checkedIn: true,
+			amount: input.amount
+		}
 	}
-	return {
-		balance: result.balance,
-		checkedIn: true,
-		amount: input.amount
-	}
-}
 
 	async bindReferral(input: BindReferralInput): Promise<BindReferralResult> {
-	const code = input.referralCode.trim()
-	if (code === '') {
-		throw new CreditsError('INVALID_REFERRAL_CODE')
-	}
-	validateGrantAmount(input.inviterAmount)
-	validateGrantAmount(input.inviteeAmount)
+		const code = input.referralCode.trim()
+		if (code === '') {
+			throw new CreditsError('INVALID_REFERRAL_CODE')
+		}
+		validateGrantAmount(input.inviterAmount)
+		validateGrantAmount(input.inviteeAmount)
 
-	const inviter = await this.db.query.user.findFirst({
-		columns: {
-			id: true,
-			creditBalance: true
-		},
-		where: eq(user.referralCode, code)
-	})
-	if (!inviter || inviter.id === input.inviteeUserId) {
-		throw new CreditsError('INVALID_REFERRAL_CODE')
-	}
+		const inviter = await this.db.query.user.findFirst({
+			columns: {
+				id: true,
+				creditBalance: true
+			},
+			where: eq(user.referralCode, code)
+		})
+		if (!inviter || inviter.id === input.inviteeUserId) {
+			throw new CreditsError('INVALID_REFERRAL_CODE')
+		}
 
-	const invitee = await this.db.query.user.findFirst({
-		columns: {
-			id: true,
-			creditBalance: true
-		},
-		where: eq(user.id, input.inviteeUserId)
-	})
-	if (!invitee) {
-		throw new CreditsError('CREDIT_USER_NOT_FOUND')
-	}
+		const invitee = await this.db.query.user.findFirst({
+			columns: {
+				id: true,
+				creditBalance: true
+			},
+			where: eq(user.id, input.inviteeUserId)
+		})
+		if (!invitee) {
+			throw new CreditsError('CREDIT_USER_NOT_FOUND')
+		}
 
-	const nowMs = input.nowMs ?? Date.now()
-	const referralId = crypto.randomUUID()
-	const inviterEntryId = crypto.randomUUID()
-	const inviteeEntryId = crypto.randomUUID()
-	const inviterTransactionId = crypto.randomUUID()
-	const inviteeTransactionId = crypto.randomUUID()
+		const nowMs = input.nowMs ?? Date.now()
+		const referralId = crypto.randomUUID()
+		const inviterEntryId = crypto.randomUUID()
+		const inviteeEntryId = crypto.randomUUID()
+		const inviterTransactionId = crypto.randomUUID()
+		const inviteeTransactionId = crypto.randomUUID()
 
-	const inviterRemaining = resolveEntryRemainingAmount(inviter.creditBalance, input.inviterAmount)
-	const inviteeRemaining = resolveEntryRemainingAmount(invitee.creditBalance, input.inviteeAmount)
-	const inviterBalance = inviter.creditBalance + input.inviterAmount
-	const inviteeBalance = invitee.creditBalance + input.inviteeAmount
+		const inviterRemaining = resolveEntryRemainingAmount(inviter.creditBalance, input.inviterAmount)
+		const inviteeRemaining = resolveEntryRemainingAmount(invitee.creditBalance, input.inviteeAmount)
+		const inviterBalance = inviter.creditBalance + input.inviterAmount
+		const inviteeBalance = invitee.creditBalance + input.inviteeAmount
 
-	try {
-		await this.db.batch([
-			this.db.run(sql`
+		try {
+			await this.db.batch([
+				this.db.run(sql`
         INSERT INTO credit_referrals (id, inviter_user_id, invitee_user_id, created_at)
         VALUES (${referralId}, ${inviter.id}, ${input.inviteeUserId}, ${nowMs})
       `),
-			this.db.run(sql`
+				this.db.run(sql`
         UPDATE "user"
         SET credit_balance = ${inviterBalance}
         WHERE id = ${inviter.id}
           AND EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			this.db.run(sql`
+				this.db.run(sql`
         INSERT INTO credit_entries (
           id,
           user_id,
@@ -522,7 +522,7 @@ export class CreditsService {
           ${nowMs}
         WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			this.db.run(sql`
+				this.db.run(sql`
         INSERT INTO credit_transactions (
           id,
           user_id,
@@ -548,13 +548,13 @@ export class CreditsService {
           ${nowMs}
         WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			this.db.run(sql`
+				this.db.run(sql`
         UPDATE "user"
         SET credit_balance = ${inviteeBalance}
         WHERE id = ${input.inviteeUserId}
           AND EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			this.db.run(sql`
+				this.db.run(sql`
         INSERT INTO credit_entries (
           id,
           user_id,
@@ -576,7 +576,7 @@ export class CreditsService {
           ${nowMs}
         WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `),
-			this.db.run(sql`
+				this.db.run(sql`
         INSERT INTO credit_transactions (
           id,
           user_id,
@@ -602,50 +602,61 @@ export class CreditsService {
           ${nowMs}
         WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
       `)
-		])
-	} catch (error) {
-		if (isReferralAlreadyBoundError(error)) {
-			throw new CreditsError('REFERRAL_ALREADY_BOUND')
+			])
+		} catch (error) {
+			if (isReferralAlreadyBoundError(error)) {
+				throw new CreditsError('REFERRAL_ALREADY_BOUND')
+			}
+			throw error
 		}
-		throw error
-	}
 
-	return {
-		inviterUserId: inviter.id,
-		inviteeUserId: input.inviteeUserId,
-		inviterBalance,
-		inviteeBalance
+		return {
+			inviterUserId: inviter.id,
+			inviteeUserId: input.inviteeUserId,
+			inviterBalance,
+			inviteeBalance
+		}
 	}
-}
 
 	async generateCodes(input: GenerateCreditCodesInput): Promise<GenerateCreditCodesResultCode[]> {
-	if (!Number.isInteger(input.count) || input.count <= 0) {
-		throw new CreditsError('INVALID_GENERATE_COUNT')
-	}
-	validateGrantAmount(input.amount)
+		if (!Number.isInteger(input.count) || input.count <= 0) {
+			throw new CreditsError('INVALID_GENERATE_COUNT')
+		}
+		validateGrantAmount(input.amount)
 
-	const nowMs = input.nowMs ?? Date.now()
-	const rows: Array<{
-		id: string
-		code: string
-		amount: number
-		expiresAt: number | null
-		createdAt: number
-	}> = []
-	let index = 0
-	while (index < input.count) {
-		rows.push({
-			id: crypto.randomUUID(),
-			code: generateCreditCode(),
-			amount: input.amount,
-			expiresAt: input.expiresAt ?? null,
-			createdAt: nowMs
-		})
-		index += 1
-	}
+		const nowMs = input.nowMs ?? Date.now()
+		const rows: Array<{
+			id: string
+			code: string
+			amount: number
+			expiresAt: number | null
+			createdAt: number
+		}> = []
+		let index = 0
+		while (index < input.count) {
+			rows.push({
+				id: crypto.randomUUID(),
+				code: generateCreditCode(),
+				amount: input.amount,
+				expiresAt: input.expiresAt ?? null,
+				createdAt: nowMs
+			})
+			index += 1
+		}
 
-	await this.db.insert(creditRedemptionCode).values(
-		rows.map((row) => {
+		await this.db.insert(creditRedemptionCode).values(
+			rows.map((row) => {
+				return {
+					id: row.id,
+					code: row.code,
+					amount: row.amount,
+					expiresAt: row.expiresAt,
+					createdAt: row.createdAt
+				}
+			})
+		)
+
+		return rows.map((row) => {
 			return {
 				id: row.id,
 				code: row.code,
@@ -654,133 +665,122 @@ export class CreditsService {
 				createdAt: row.createdAt
 			}
 		})
-	)
-
-	return rows.map((row) => {
-		return {
-			id: row.id,
-			code: row.code,
-			amount: row.amount,
-			expiresAt: row.expiresAt,
-			createdAt: row.createdAt
-		}
-	})
-}
+	}
 
 	async listCodes(input: ListCreditCodesInput): Promise<ListCreditCodesResult> {
-	const limit = resolvePageLimit(input.limit)
-	const offset = resolveOffset(input.offset)
-	const conditions: SQL[] = []
-	if (input.code) {
-		conditions.push(eq(creditRedemptionCode.code, input.code))
-	}
-	if (input.usedBy) {
-		conditions.push(eq(creditRedemptionCode.usedBy, input.usedBy))
-	}
-	if (input.used === true) {
-		conditions.push(isNotNull(creditRedemptionCode.usedBy))
-	}
-	if (input.used === false) {
-		conditions.push(isNull(creditRedemptionCode.usedBy))
-	}
-	if (input.amount !== undefined) {
-		conditions.push(eq(creditRedemptionCode.amount, input.amount))
-	}
-	if (input.createdAtStart !== undefined) {
-		conditions.push(gte(creditRedemptionCode.createdAt, input.createdAtStart))
-	}
-	if (input.createdAtEnd !== undefined) {
-		conditions.push(lte(creditRedemptionCode.createdAt, input.createdAtEnd))
-	}
-	if (input.expiresAtStart !== undefined) {
-		conditions.push(gte(creditRedemptionCode.expiresAt, input.expiresAtStart))
-	}
-	if (input.expiresAtEnd !== undefined) {
-		conditions.push(lte(creditRedemptionCode.expiresAt, input.expiresAtEnd))
-	}
+		const limit = resolvePageLimit(input.limit)
+		const offset = resolveOffset(input.offset)
+		const conditions: SQL[] = []
+		if (input.code) {
+			conditions.push(eq(creditRedemptionCode.code, input.code))
+		}
+		if (input.usedBy) {
+			conditions.push(eq(creditRedemptionCode.usedBy, input.usedBy))
+		}
+		if (input.used === true) {
+			conditions.push(isNotNull(creditRedemptionCode.usedBy))
+		}
+		if (input.used === false) {
+			conditions.push(isNull(creditRedemptionCode.usedBy))
+		}
+		if (input.amount !== undefined) {
+			conditions.push(eq(creditRedemptionCode.amount, input.amount))
+		}
+		if (input.createdAtStart !== undefined) {
+			conditions.push(gte(creditRedemptionCode.createdAt, input.createdAtStart))
+		}
+		if (input.createdAtEnd !== undefined) {
+			conditions.push(lte(creditRedemptionCode.createdAt, input.createdAtEnd))
+		}
+		if (input.expiresAtStart !== undefined) {
+			conditions.push(gte(creditRedemptionCode.expiresAt, input.expiresAtStart))
+		}
+		if (input.expiresAtEnd !== undefined) {
+			conditions.push(lte(creditRedemptionCode.expiresAt, input.expiresAtEnd))
+		}
 
-	const where = conditions.length > 0 ? and(...conditions) : undefined
-	const totalRows = await this.db
-		.select({ total: sql<number>`count(*)` })
-		.from(creditRedemptionCode)
-		.where(where)
-	const rows = await this.db.query.creditRedemptionCode.findMany({
-		columns: {
-			id: true,
-			code: true,
-			amount: true,
-			expiresAt: true,
-			usedBy: true,
-			usedAt: true,
-			createdAt: true
-		},
-		where,
-		orderBy: [desc(creditRedemptionCode.createdAt)],
-		limit,
-		offset
-	})
+		const where = conditions.length > 0 ? and(...conditions) : undefined
+		const totalRows = await this.db
+			.select({ total: sql<number>`count(*)` })
+			.from(creditRedemptionCode)
+			.where(where)
+		const rows = await this.db.query.creditRedemptionCode.findMany({
+			columns: {
+				id: true,
+				code: true,
+				amount: true,
+				expiresAt: true,
+				usedBy: true,
+				usedAt: true,
+				createdAt: true
+			},
+			where,
+			orderBy: [desc(creditRedemptionCode.createdAt)],
+			limit,
+			offset
+		})
 
-	return {
-		codes: rows.map((row) => {
-			return {
-				id: row.id,
-				code: row.code,
-				amount: row.amount,
-				expiresAt: row.expiresAt,
-				usedBy: row.usedBy,
-				usedAt: row.usedAt,
-				createdAt: row.createdAt
-			}
-		}),
-		total: Number(totalRows[0]?.total ?? 0)
+		return {
+			codes: rows.map((row) => {
+				return {
+					id: row.id,
+					code: row.code,
+					amount: row.amount,
+					expiresAt: row.expiresAt,
+					usedBy: row.usedBy,
+					usedAt: row.usedAt,
+					createdAt: row.createdAt
+				}
+			}),
+			total: Number(totalRows[0]?.total ?? 0)
+		}
 	}
-}
 
 	async redeemCode(input: RedeemCreditCodeInput): Promise<RedeemCreditCodeResult> {
-	const normalizedCode = input.code.trim().toUpperCase()
-	if (normalizedCode === '') {
-		throw new CreditsError('INVALID_CREDIT_CODE')
-	}
-	const nowMs = input.nowMs ?? Date.now()
+		const normalizedCode = input.code.trim().toUpperCase()
+		if (normalizedCode === '') {
+			throw new CreditsError('INVALID_CREDIT_CODE')
+		}
+		const nowMs = input.nowMs ?? Date.now()
 
-	const userRow = await this.db.query.user.findFirst({
-		columns: {
-			id: true,
-			creditBalance: true
-		},
-		where: eq(user.id, input.userId)
-	})
-	if (!userRow) {
-		throw new CreditsError('CREDIT_USER_NOT_FOUND')
-	}
+		const userRow = await this.db.query.user.findFirst({
+			columns: {
+				id: true,
+				creditBalance: true
+			},
+			where: eq(user.id, input.userId)
+		})
+		if (!userRow) {
+			throw new CreditsError('CREDIT_USER_NOT_FOUND')
+		}
 
-	const codeRow = await this.db.query.creditRedemptionCode.findFirst({
-		columns: {
-			id: true,
-			amount: true,
-			expiresAt: true,
-			usedBy: true
-		},
-		where: eq(creditRedemptionCode.code, normalizedCode)
-	})
-	if (!codeRow) {
-		throw new CreditsError('INVALID_CREDIT_CODE')
-	}
-	if (codeRow.expiresAt !== null && codeRow.expiresAt <= nowMs) {
-		throw new CreditsError('INVALID_CREDIT_CODE')
-	}
-	if (codeRow.usedBy !== null) {
-		throw new CreditsError('CREDIT_CODE_USED')
-	}
+		const codeRow = await this.db.query.creditRedemptionCode.findFirst({
+			columns: {
+				id: true,
+				amount: true,
+				expiresAt: true,
+				usedBy: true
+			},
+			where: eq(creditRedemptionCode.code, normalizedCode)
+		})
+		if (!codeRow) {
+			throw new CreditsError('INVALID_CREDIT_CODE')
+		}
+		if (codeRow.expiresAt !== null && codeRow.expiresAt <= nowMs) {
+			throw new CreditsError('INVALID_CREDIT_CODE')
+		}
+		if (codeRow.usedBy !== null) {
+			throw new CreditsError('CREDIT_CODE_USED')
+		}
 
-	const amount = codeRow.amount
-	const balance = userRow.creditBalance + amount
-	const remainingAmount = resolveEntryRemainingAmount(userRow.creditBalance, amount)
-	const entryId = crypto.randomUUID()
-	const transactionId = crypto.randomUUID()
+		const amount = codeRow.amount
+		const balance = userRow.creditBalance + amount
+		const remainingAmount = resolveEntryRemainingAmount(userRow.creditBalance, amount)
+		const entryId = crypto.randomUUID()
+		const transactionId = crypto.randomUUID()
 
-	const batchResults = await this.db.batch([
-		this.db.run(sql`
+		const batchResults = await this.db.batch([
+			this.db.run(sql`
       INSERT INTO credit_entries (
         id,
         user_id,
@@ -805,19 +805,19 @@ export class CreditsService {
         AND used_by IS NULL
         AND (expires_at IS NULL OR expires_at > ${nowMs})
     `),
-		this.db.run(sql`
+			this.db.run(sql`
       UPDATE credit_redemption_codes
       SET used_by = ${input.userId}, used_at = ${nowMs}
       WHERE id = ${codeRow.id}
         AND EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
     `),
-		this.db.run(sql`
+			this.db.run(sql`
       UPDATE "user"
       SET credit_balance = ${balance}
       WHERE id = ${input.userId}
         AND EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
     `),
-		this.db.run(sql`
+			this.db.run(sql`
       INSERT INTO credit_transactions (
         id,
         user_id,
@@ -843,60 +843,60 @@ export class CreditsService {
         ${nowMs}
       WHERE EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
     `)
-	])
+		])
 
-	const changes = readBatchChanges(batchResults[0])
-	if (changes === 0) {
-		throw new CreditsError('CREDIT_CODE_USED')
-	}
+		const changes = readBatchChanges(batchResults[0])
+		if (changes === 0) {
+			throw new CreditsError('CREDIT_CODE_USED')
+		}
 
-	return {
-		balance,
-		amount
+		return {
+			balance,
+			amount
+		}
 	}
-}
 
 	async ensureEnough(input: EnsureEnoughCreditsInput): Promise<EnsureEnoughCreditsResult> {
-	validateGrantAmount(input.amount)
-	const userRow = await this.db.query.user.findFirst({
-		columns: {
-			id: true,
-			creditBalance: true
-		},
-		where: eq(user.id, input.userId)
-	})
-	if (!userRow) {
-		throw new CreditsError('CREDIT_USER_NOT_FOUND')
+		validateGrantAmount(input.amount)
+		const userRow = await this.db.query.user.findFirst({
+			columns: {
+				id: true,
+				creditBalance: true
+			},
+			where: eq(user.id, input.userId)
+		})
+		if (!userRow) {
+			throw new CreditsError('CREDIT_USER_NOT_FOUND')
+		}
+		if (userRow.creditBalance < input.amount) {
+			throw new CreditsError('INSUFFICIENT_CREDITS')
+		}
+		return {
+			balance: userRow.creditBalance
+		}
 	}
-	if (userRow.creditBalance < input.amount) {
-		throw new CreditsError('INSUFFICIENT_CREDITS')
-	}
-	return {
-		balance: userRow.creditBalance
-	}
-}
 
 	async deduct(input: DeductCreditsInput): Promise<DeductCreditsResult> {
-	validateGrantAmount(input.amount)
+		validateGrantAmount(input.amount)
 
-	const userRow = await this.db.query.user.findFirst({
-		columns: {
-			id: true,
-			creditBalance: true
-		},
-		where: eq(user.id, input.userId)
-	})
-	if (!userRow) {
-		throw new CreditsError('CREDIT_USER_NOT_FOUND')
-	}
+		const userRow = await this.db.query.user.findFirst({
+			columns: {
+				id: true,
+				creditBalance: true
+			},
+			where: eq(user.id, input.userId)
+		})
+		if (!userRow) {
+			throw new CreditsError('CREDIT_USER_NOT_FOUND')
+		}
 
-	const nowMs = input.nowMs ?? Date.now()
-	const nextBalance = userRow.creditBalance - input.amount
+		const nowMs = input.nowMs ?? Date.now()
+		const nextBalance = userRow.creditBalance - input.amount
 
-	const entries = await this.db.all<{
-		id: string
-		remaining_amount: number
-	}>(sql`
+		const entries = await this.db.all<{
+			id: string
+			remaining_amount: number
+		}>(sql`
     SELECT id, remaining_amount
     FROM credit_entries
     WHERE user_id = ${input.userId}
@@ -907,33 +907,33 @@ export class CreditsService {
       created_at ASC
   `)
 
-	const updateStatements: Array<ReturnType<AppDb['run']>> = []
-	let remaining = input.amount
-	for (const entry of entries) {
-		if (remaining <= 0) {
-			break
-		}
-		const used = Math.min(entry.remaining_amount, remaining)
-		const nextRemaining = entry.remaining_amount - used
-		updateStatements.push(
-			this.db.run(sql`
+		const updateStatements: Array<ReturnType<AppDb['run']>> = []
+		let remaining = input.amount
+		for (const entry of entries) {
+			if (remaining <= 0) {
+				break
+			}
+			const used = Math.min(entry.remaining_amount, remaining)
+			const nextRemaining = entry.remaining_amount - used
+			updateStatements.push(
+				this.db.run(sql`
         UPDATE credit_entries
         SET remaining_amount = ${nextRemaining}
         WHERE id = ${entry.id}
       `)
-		)
-		remaining -= used
-	}
+			)
+			remaining -= used
+		}
 
-	const transactionId = crypto.randomUUID()
-	const statements: [ReturnType<AppDb['run']>, ...Array<ReturnType<AppDb['run']>>] = [
-		this.db.run(sql`
+		const transactionId = crypto.randomUUID()
+		const statements: [ReturnType<AppDb['run']>, ...Array<ReturnType<AppDb['run']>>] = [
+			this.db.run(sql`
       UPDATE "user"
       SET credit_balance = ${nextBalance}
       WHERE id = ${input.userId}
     `),
-		...updateStatements,
-		this.db.run(sql`
+			...updateStatements,
+			this.db.run(sql`
       INSERT INTO credit_transactions (
         id,
         user_id,
@@ -959,41 +959,41 @@ export class CreditsService {
         ${nowMs}
       )
     `)
-	]
+		]
 
-	await this.db.batch(statements)
-	return {
-		balance: nextBalance,
-		deductedAmount: input.amount
+		await this.db.batch(statements)
+		return {
+			balance: nextBalance,
+			deductedAmount: input.amount
+		}
 	}
-}
 
 	async runPaidAction<T>(input: RunPaidActionInput<T>): Promise<T> {
-	await this.ensureEnough({
-		userId: input.userId,
-		amount: input.amount
-	})
+		await this.ensureEnough({
+			userId: input.userId,
+			amount: input.amount
+		})
 
-	const result = await input.execute()
-	await this.deduct({
-		userId: input.userId,
-		amount: input.amount,
-		sourceType: input.sourceType,
-		sourceId: input.sourceId,
-		description: input.description
-	})
-	return result
-}
+		const result = await input.execute()
+		await this.deduct({
+			userId: input.userId,
+			amount: input.amount,
+			sourceType: input.sourceType,
+			sourceId: input.sourceId,
+			description: input.description
+		})
+		return result
+	}
 
 	async expire(input: ExpireCreditsInput): Promise<ExpireCreditsResult> {
-	const nowMs = input.nowMs ?? Date.now()
-	const limit = resolveExpireLimit(input.limit)
+		const nowMs = input.nowMs ?? Date.now()
+		const limit = resolveExpireLimit(input.limit)
 
-	const expiredEntries = await this.db.all<{
-		id: string
-		user_id: string
-		remaining_amount: number
-	}>(sql`
+		const expiredEntries = await this.db.all<{
+			id: string
+			user_id: string
+			remaining_amount: number
+		}>(sql`
     SELECT id, user_id, remaining_amount
     FROM credit_entries
     WHERE expires_at IS NOT NULL
@@ -1003,51 +1003,51 @@ export class CreditsService {
     LIMIT ${limit}
   `)
 
-	if (expiredEntries.length === 0) {
-		return {
-			processedEntries: 0,
-			processedUsers: 0
-		}
-	}
-
-	const userExpiredMap = new Map<string, number>()
-	for (const row of expiredEntries) {
-		const currentValue = userExpiredMap.get(row.user_id) ?? 0
-		userExpiredMap.set(row.user_id, currentValue + row.remaining_amount)
-	}
-
-	const userIds = Array.from(userExpiredMap.keys())
-	const userRows = await this.db
-		.select({
-			id: user.id,
-			creditBalance: user.creditBalance
-		})
-		.from(user)
-		.where(sql`${user.id} IN (${sql.join(userIds.map((userId) => sql`${userId}`), sql`, `)})`)
-
-	const balanceMap = new Map<string, number>()
-	for (const row of userRows) {
-		balanceMap.set(row.id, row.creditBalance)
-	}
-
-	const statements: Array<ReturnType<AppDb['run']>> = []
-	for (const [userId, expiredAmount] of userExpiredMap) {
-		const currentBalance = balanceMap.get(userId)
-		if (currentBalance === undefined) {
-			continue
+		if (expiredEntries.length === 0) {
+			return {
+				processedEntries: 0,
+				processedUsers: 0
+			}
 		}
 
-		const nextBalance = currentBalance - expiredAmount
-		const sourceId = `expire:${nowMs}:${userId}`
-		statements.push(
-			this.db.run(sql`
+		const userExpiredMap = new Map<string, number>()
+		for (const row of expiredEntries) {
+			const currentValue = userExpiredMap.get(row.user_id) ?? 0
+			userExpiredMap.set(row.user_id, currentValue + row.remaining_amount)
+		}
+
+		const userIds = Array.from(userExpiredMap.keys())
+		const userRows = await this.db
+			.select({
+				id: user.id,
+				creditBalance: user.creditBalance
+			})
+			.from(user)
+			.where(sql`${user.id} IN (${sql.join(userIds.map((userId) => sql`${userId}`), sql`, `)})`)
+
+		const balanceMap = new Map<string, number>()
+		for (const row of userRows) {
+			balanceMap.set(row.id, row.creditBalance)
+		}
+
+		const statements: Array<ReturnType<AppDb['run']>> = []
+		for (const [userId, expiredAmount] of userExpiredMap) {
+			const currentBalance = balanceMap.get(userId)
+			if (currentBalance === undefined) {
+				continue
+			}
+
+			const nextBalance = currentBalance - expiredAmount
+			const sourceId = `expire:${nowMs}:${userId}`
+			statements.push(
+				this.db.run(sql`
         UPDATE "user"
         SET credit_balance = ${nextBalance}
         WHERE id = ${userId}
       `)
-		)
-		statements.push(
-			this.db.run(sql`
+			)
+			statements.push(
+				this.db.run(sql`
         INSERT INTO credit_transactions (
           id,
           user_id,
@@ -1073,44 +1073,44 @@ export class CreditsService {
           ${nowMs}
         )
       `)
-		)
-	}
+			)
+		}
 
-	for (const entry of expiredEntries) {
-		statements.push(
-			this.db.run(sql`
+		for (const entry of expiredEntries) {
+			statements.push(
+				this.db.run(sql`
         UPDATE credit_entries
         SET remaining_amount = 0
         WHERE id = ${entry.id}
       `)
-		)
-	}
+			)
+		}
 
-	const [firstStatement, ...restStatements] = statements
-	if (firstStatement) {
-		await this.db.batch([firstStatement, ...restStatements])
-	}
+		const [firstStatement, ...restStatements] = statements
+		if (firstStatement) {
+			await this.db.batch([firstStatement, ...restStatements])
+		}
 
-	return {
-		processedEntries: expiredEntries.length,
-		processedUsers: userExpiredMap.size
+		return {
+			processedEntries: expiredEntries.length,
+			processedUsers: userExpiredMap.size
+		}
 	}
-}
 
 	async cleanupTransactions(input: CleanupCreditTransactionsInput): Promise<CleanupCreditTransactionsResult> {
-	const nowMs = input.nowMs ?? Date.now()
-	const retentionDays = resolveRetentionDays(input.retentionDays)
-	const cutoff = nowMs - retentionDays * 24 * 60 * 60 * 1000
+		const nowMs = input.nowMs ?? Date.now()
+		const retentionDays = resolveRetentionDays(input.retentionDays)
+		const cutoff = nowMs - retentionDays * 24 * 60 * 60 * 1000
 
-	const result = await this.db.run(sql`
+		const result = await this.db.run(sql`
     DELETE FROM credit_transactions
     WHERE created_at < ${cutoff}
   `)
 
-	return {
-		deletedRows: readBatchChanges(result)
+		return {
+			deletedRows: readBatchChanges(result)
+		}
 	}
-}
 
 }
 
