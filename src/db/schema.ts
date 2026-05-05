@@ -157,6 +157,125 @@ export const notificationRead = sqliteTable(
 	]
 )
 
+export const checkoutOrder = sqliteTable(
+	'checkout_orders',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		type: text('type').notNull(),
+		status: text('status').notNull(),
+		productId: text('product_id').notNull(),
+		provider: text('provider').notNull(),
+		providerProductId: text('provider_product_id').notNull(),
+		providerCheckoutSessionId: text('provider_checkout_session_id'),
+		providerPaymentId: text('provider_payment_id'),
+		checkoutUrl: text('checkout_url'),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	(table) => [
+		index('checkout_orders_user_id_idx').on(table.userId),
+		index('checkout_orders_provider_checkout_session_id_idx').on(
+			table.provider,
+			table.providerCheckoutSessionId
+		),
+		index('checkout_orders_provider_payment_id_idx').on(table.provider, table.providerPaymentId)
+	]
+)
+
+export const paymentTransaction = sqliteTable(
+	'payment_transactions',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		checkoutOrderId: text('checkout_order_id'),
+		subscriptionId: text('subscription_id'),
+		type: text('type').notNull(),
+		status: text('status').notNull(),
+		productId: text('product_id').notNull(),
+		provider: text('provider').notNull(),
+		providerPaymentId: text('provider_payment_id'),
+		providerRefundId: text('provider_refund_id'),
+		providerDisputeId: text('provider_dispute_id'),
+		amount: integer('amount').notNull(),
+		currency: text('currency').notNull(),
+		creditsGranted: integer('credits_granted').notNull().default(0),
+		creditsReversedAt: integer('credits_reversed_at'),
+		paidAt: integer('paid_at'),
+		refundedAt: integer('refunded_at'),
+		disputedAt: integer('disputed_at'),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	(table) => [
+		index('payment_transactions_user_id_idx').on(table.userId),
+		index('payment_transactions_checkout_order_id_idx').on(table.checkoutOrderId),
+		index('payment_transactions_subscription_id_idx').on(table.subscriptionId),
+		index('payment_transactions_created_at_idx').on(table.createdAt),
+		uniqueIndex('payment_transactions_provider_payment_id_unique').on(
+			table.provider,
+			table.providerPaymentId
+		),
+		uniqueIndex('payment_transactions_provider_refund_id_unique').on(
+			table.provider,
+			table.providerRefundId
+		),
+		uniqueIndex('payment_transactions_provider_dispute_id_unique').on(
+			table.provider,
+			table.providerDisputeId
+		)
+	]
+)
+
+export const userSubscription = sqliteTable(
+	'user_subscriptions',
+	{
+		userId: text('user_id')
+			.primaryKey()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		provider: text('provider').notNull(),
+		providerSubscriptionId: text('provider_subscription_id').notNull(),
+		productId: text('product_id').notNull(),
+		subscriptionPlan: text('subscription_plan').notNull(),
+		periodCreditsAmount: integer('period_credits_amount').notNull(),
+		currentPeriodStart: integer('current_period_start').notNull(),
+		currentPeriodEnd: integer('current_period_end').notNull(),
+		status: text('status').notNull(),
+		canceledAt: integer('canceled_at'),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	(table) => [
+		uniqueIndex('user_subscriptions_provider_subscription_id_unique').on(
+			table.provider,
+			table.providerSubscriptionId
+		),
+		index('user_subscriptions_current_period_end_idx').on(table.currentPeriodEnd)
+	]
+)
+
+export const paymentWebhookEvent = sqliteTable(
+	'payment_webhook_events',
+	{
+		id: text('id').primaryKey(),
+		provider: text('provider').notNull(),
+		webhookId: text('webhook_id').notNull(),
+		eventType: text('event_type').notNull(),
+		processedAt: integer('processed_at').notNull()
+	},
+	(table) => [
+		uniqueIndex('payment_webhook_events_provider_webhook_id_unique').on(
+			table.provider,
+			table.webhookId
+		),
+		index('payment_webhook_events_processed_at_idx').on(table.processedAt)
+	]
+)
+
 export type BetaCode = typeof betaCode.$inferSelect
 export type NewBetaCode = typeof betaCode.$inferInsert
 export type CreditEntry = typeof creditEntry.$inferSelect
@@ -173,3 +292,11 @@ export type Notification = typeof notification.$inferSelect
 export type NewNotification = typeof notification.$inferInsert
 export type NotificationRead = typeof notificationRead.$inferSelect
 export type NewNotificationRead = typeof notificationRead.$inferInsert
+export type CheckoutOrder = typeof checkoutOrder.$inferSelect
+export type NewCheckoutOrder = typeof checkoutOrder.$inferInsert
+export type PaymentTransaction = typeof paymentTransaction.$inferSelect
+export type NewPaymentTransaction = typeof paymentTransaction.$inferInsert
+export type UserSubscription = typeof userSubscription.$inferSelect
+export type NewUserSubscription = typeof userSubscription.$inferInsert
+export type PaymentWebhookEvent = typeof paymentWebhookEvent.$inferSelect
+export type NewPaymentWebhookEvent = typeof paymentWebhookEvent.$inferInsert
