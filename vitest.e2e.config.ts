@@ -19,6 +19,10 @@ const emailUserActionCooldownSeconds =
 const emailSignupDomainAllowlist = readEnv(envContent, 'EMAIL_SIGNUP_DOMAIN_ALLOWLIST') ?? ''
 const emailResendApiKey = readEnv(envContent, 'EMAIL_RESEND_API_KEY') ?? ''
 const emailFrom = readEnv(envContent, 'EMAIL_FROM') ?? ''
+const paymentEnabled = readEnv(envContent, 'PAYMENT_ENABLED') ?? 'false'
+const paymentProviders = readEnv(envContent, 'PAYMENT_PROVIDERS') ?? ''
+const paymentDefaultProvider = readEnv(envContent, 'PAYMENT_DEFAULT_PROVIDER') ?? ''
+const paymentProducts = readEnv(envContent, 'PAYMENT_PRODUCTS') ?? ''
 
 export default defineConfig({
 	test: {
@@ -38,7 +42,11 @@ export default defineConfig({
 			E2E_EMAIL_USER_ACTION_COOLDOWN_SECONDS: emailUserActionCooldownSeconds,
 			E2E_EMAIL_SIGNUP_DOMAIN_ALLOWLIST: emailSignupDomainAllowlist,
 			E2E_EMAIL_RESEND_API_KEY: emailResendApiKey,
-			E2E_EMAIL_FROM: emailFrom
+			E2E_EMAIL_FROM: emailFrom,
+			E2E_PAYMENT_ENABLED: paymentEnabled,
+			E2E_PAYMENT_PROVIDERS: paymentProviders,
+			E2E_PAYMENT_DEFAULT_PROVIDER: paymentDefaultProvider,
+			E2E_PAYMENT_PRODUCTS: paymentProducts
 		}
 	}
 })
