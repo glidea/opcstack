@@ -2,7 +2,13 @@ import { redirect, type Handle } from '@sveltejs/kit'
 import { isSystemLocale, resolveSystemLocale } from '$web/i18n/locales'
 
 const BYPASS_PATH_PREFIXES = ['/_app/', '/api/']
-const BYPASS_EXACT_PATHS = ['/robots.txt', '/sitemap.xml']
+const BYPASS_EXACT_PATHS = [
+	'/robots.txt',
+	'/sitemap.xml',
+	'/terms',
+	'/privacy',
+	'/refund-policy'
+]
 const INTERNAL_PATH_PREFIXES = ['/cdn-cgi/ProxyWorker/']
 
 export const handle: Handle = async ({ event, resolve }) => {

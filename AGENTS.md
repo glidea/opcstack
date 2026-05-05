@@ -63,6 +63,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 **Core variables**:
 - `APP_NAME`: Worker D1 R2 KV resource name
 - `APP_DOMAIN`: App domain local uses `localhost` production uses your domain or subdomain
+- `SUPPORT_EMAIL`: Contact email used by legal pages
 - `BETTER_AUTH_SECRET`: Auth secret minimum 32 characters
 - `ADMIN_SECRET`: Admin password
 
@@ -75,6 +76,11 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `CREDITS_DAILY_CHECKIN_ENABLED` / `CREDITS_DAILY_CHECKIN_AMOUNT`
 - `CREDITS_REFERRAL_ENABLED` / `CREDITS_REFERRAL_INVITER_AMOUNT` / `CREDITS_REFERRAL_INVITEE_AMOUNT`
 - `CREDITS_HISTORY_RETENTION_DAYS`
+- `PAYMENT_ENABLED`
+- `PAYMENT_PROVIDERS` / `PAYMENT_DEFAULT_PROVIDER` / `PAYMENT_PROVIDER_COUNTRY_OVERRIDES`
+- `PAYMENT_PRODUCTS`
+- `PAYMENT_DODO_API_KEY` / `PAYMENT_DODO_WEBHOOK_SECRET` / `PAYMENT_DODO_TEST_MODE`
+- `PAYMENT_CREEM_API_KEY` / `PAYMENT_CREEM_WEBHOOK_SECRET` / `PAYMENT_CREEM_TEST_MODE`
 - `QUEUE_NAMES` semicolon separated
 - `CRONS` semicolon separated
 
@@ -217,6 +223,48 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Docs pages use markdown frontmatter `title` and `description`
 - Pages should use absolute `hreflang` alternate URLs and reuse `/logo.svg` for Open Graph images
 - JSON-LD uses `WebSite` with `APP_NAME` and `APP_DOMAIN`
+
+### 13. Payment System
+
+- Payment entry switch: `PAYMENT_ENABLED`
+- Public config exposes `payment_enabled` from `POST /api/get_public_config`
+- Provider routing uses `request.cf.country` with default plus country override fallback
+- Enabled providers are Dodo and Creem via `src/payment/`
+- Core service is `PaymentService` in `src/payment/service.ts`
+- Main payment APIs:
+  - `POST /api/list_payment_products`
+  - `POST /api/create_payment_checkout`
+  - `POST /api/get_subscription`
+  - `POST /api/cancel_subscription`
+  - `POST /api/upgrade_subscription`
+  - `POST /api/list_payment_transactions`
+  - `POST /api/admin/list_payment_transactions`
+- Webhook APIs:
+  - `POST /api/webhook/dodo`
+  - `POST /api/webhook/creem`
+- Payment runtime tables:
+  - `checkout_orders`
+  - `payment_transactions`
+  - `user_subscriptions`
+  - `payment_webhook_events`
+
+### 14. Legal Pages
+
+- Routes: `/terms`, `/privacy`, `/refund-policy`
+- Footer includes links to all three pages
+- Page copy uses `APP_NAME` and `SUPPORT_EMAIL`
+
+### 13. Testing Style and Base Library
+
+- Base test library is `vitest`
+- Shared BDD helper is `src/testing/bdd.ts`
+- BDD case model uses `TestCase<TGiven, TWhen, TThen>` with `scenario` `given` `when` `then`
+- Detailed inputs and expected outputs use typed fields `givenDetail` `whenDetail` `thenExpected`
+- Use `runCases(cases, fn)` to register cases and assert with one unified flow
+- Generated test title format is `${scenario}: given ${given}, when ${when}, then ${then}`
+- Per-case timeout is optional via `timeoutMs`
+- In test files, keep `describe('unit name', () => { ... })` and define `cases` as an array of typed `TestCase`
+- Unit-under-test output should be wrapped to structured object before assertion, for example `{ result: add(...) }`
 
 ---
 

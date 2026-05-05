@@ -9,7 +9,7 @@
 		data,
 		children,
 	}: {
-		data: { locale: SystemLocale; websiteJsonLd: string };
+		data: { locale: SystemLocale; websiteJsonLd: string; supportEmail: string };
 		children: import("svelte").Snippet;
 	} = $props();
 
@@ -33,13 +33,16 @@
 	<footer
 		class="border-t border-border px-6 py-4 text-center text-sm text-muted-foreground"
 	>
-		<a
-			href="https://opcstack.glidea.app/"
-			target="_blank"
-			rel="noopener"
-			class="hover:text-foreground"
-		>
-			Powered by OPCStack
-		</a>
+		<div class="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-4 gap-y-2">
+			<a href="/terms" class="hover:text-foreground">Terms</a>
+			<a href="/privacy" class="hover:text-foreground">Privacy</a>
+			<a href="/refund-policy" class="hover:text-foreground">Refund Policy</a>
+			<a
+				href={`mailto:${data.supportEmail}`}
+				class="hover:text-foreground"
+			>
+				Support
+			</a>
+		</div>
 	</footer>
 </div>

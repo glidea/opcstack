@@ -1,5 +1,10 @@
 import { env } from '$env/dynamic/private'
-import { defaultLocale, supportedLocales, type SystemLocale } from '$web/i18n/locales'
+import {
+	defaultLocale,
+	isSystemLocale,
+	supportedLocales,
+	type SystemLocale
+} from '$web/i18n/locales'
 import { resolveSiteOrigin, serializeJsonLd, toSiteUrl } from '$web/seo'
 
 type AlternateUrl = {
@@ -13,6 +18,7 @@ export function load(event: {
 }): {
 	locale: SystemLocale
 	siteName: string
+	supportEmail: string
 	siteUrl: string
 	logoUrl: string
 	canonicalUrl: string
@@ -22,6 +28,8 @@ export function load(event: {
 } {
 	const origin = resolveSiteOrigin(env['APP_DOMAIN'] ?? 'localhost')
 	const siteName = env['APP_NAME'] ?? 'OPCStack'
+	const locale = resolveLocale(event.params.locale)
+	const supportEmail = env['SUPPORT_EMAIL'] ?? 'support@example.com'
 	const alternateUrls = supportedLocales.map((locale) => {
 		return {
 			locale,
@@ -30,8 +38,9 @@ export function load(event: {
 	})
 
 	return {
-		locale: event.params.locale as SystemLocale,
+		locale,
 		siteName,
+		supportEmail,
 		siteUrl: toSiteUrl(origin, '/'),
 		logoUrl: toSiteUrl(origin, '/logo.svg'),
 		canonicalUrl: toSiteUrl(origin, event.url.pathname),
@@ -54,4 +63,11 @@ function resolveLocalePath(pathname: string, locale: string): string {
 
 	segments[0] = locale
 	return `/${segments.join('/')}`
+}
+
+function resolveLocale(input: string | undefined): SystemLocale {
+	if (input && isSystemLocale(input)) {
+		return input
+	}
+	return defaultLocale
 }
