@@ -24,6 +24,17 @@ import {
 	listNotificationsHandler,
 	readNotificationHandler
 } from './handler/notification'
+import {
+	cancelSubscriptionHandler,
+	createPaymentCheckoutHandler,
+	creemWebhookHandler,
+	dodoWebhookHandler,
+	getSubscriptionHandler,
+	listAdminPaymentTransactionsHandler,
+	listPaymentProductsHandler,
+	listPaymentTransactionsHandler,
+	upgradeSubscriptionHandler
+} from './handler/payment'
 import { readR2ObjectHandler } from './handler/r2'
 import { authCore } from './auth'
 import type { AppDb } from '../db'
@@ -55,6 +66,9 @@ publicApi.all('/auth/*', async (ctx): Promise<Response> => {
 publicApi.post('/get_public_config', (ctx): Response => {
 	return ctx.json(readPublicConfig(ctx.env))
 })
+publicApi.post('/list_payment_products', listPaymentProductsHandler)
+publicApi.post('/webhook/dodo', dodoWebhookHandler)
+publicApi.post('/webhook/creem', creemWebhookHandler)
 publicApi.get('/r2/public/*', readR2ObjectHandler)
 
 const authOnlyApi: Hono<ApiEnv> = new Hono<ApiEnv>()
@@ -69,6 +83,7 @@ adminApi.post('/admin/list_credit_codes', listCreditCodesHandler)
 adminApi.post('/admin/grant_credits', grantCreditsHandler)
 adminApi.post('/admin/list_feedbacks', listFeedbacksHandler)
 adminApi.post('/admin/create_notification', createNotificationHandler)
+adminApi.post('/admin/list_payment_transactions', listAdminPaymentTransactionsHandler)
 
 const userApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 userApi.get('/r2/private/*', authMiddleware, betaGateMiddleware, readR2ObjectHandler)
@@ -85,6 +100,21 @@ userApi.post('/redeem_credit_code', authMiddleware, betaGateMiddleware, redeemCr
 userApi.post('/submit_feedback', authMiddleware, betaGateMiddleware, submitFeedbackHandler)
 userApi.post('/list_notifications', authMiddleware, betaGateMiddleware, listNotificationsHandler)
 userApi.post('/read_notification', authMiddleware, betaGateMiddleware, readNotificationHandler)
+userApi.post(
+	'/create_payment_checkout',
+	authMiddleware,
+	betaGateMiddleware,
+	createPaymentCheckoutHandler
+)
+userApi.post('/get_subscription', authMiddleware, betaGateMiddleware, getSubscriptionHandler)
+userApi.post('/cancel_subscription', authMiddleware, betaGateMiddleware, cancelSubscriptionHandler)
+userApi.post('/upgrade_subscription', authMiddleware, betaGateMiddleware, upgradeSubscriptionHandler)
+userApi.post(
+	'/list_payment_transactions',
+	authMiddleware,
+	betaGateMiddleware,
+	listPaymentTransactionsHandler
+)
 
 api.route('/api', publicApi)
 api.route('/api', authOnlyApi)
