@@ -25,7 +25,7 @@ const ListAdminPaymentTransactionsRequestSchema = PageRequestSchema.extend({
 })
 
 export async function listPaymentProductsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const service = createPaymentServiceFromEnv(ctx.get('db'), toEnvMap(ctx.env))
+	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
 	const country = readCountryCode(ctx)
 	const items = await service.listPaymentProducts({
 		country
@@ -54,14 +54,14 @@ export async function createPaymentCheckoutHandler(ctx: Context<ApiEnv>): Promis
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const service = createPaymentServiceFromEnv(ctx.get('db'), toEnvMap(ctx.env))
+	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
 	try {
 		const result = await service.createPaymentCheckout({
 			userId: ctx.get('userId'),
 			productId: req.product_id,
 			returnPath: req.return_path ?? null,
 			country: readCountryCode(ctx),
-			appDomain: String(toEnvMap(ctx.env)['APP_DOMAIN'] ?? '')
+			appDomain: String(ctx.env.APP_DOMAIN ?? '')
 		})
 		return ctx.json({
 			checkout_order_id: result.checkoutOrderId,
@@ -77,7 +77,7 @@ export async function createPaymentCheckoutHandler(ctx: Context<ApiEnv>): Promis
 }
 
 export async function getSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const service = createPaymentServiceFromEnv(ctx.get('db'), toEnvMap(ctx.env))
+	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
 	const result = await service.getSubscription({
 		userId: ctx.get('userId')
 	})
@@ -97,7 +97,7 @@ export async function getSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Resp
 }
 
 export async function cancelSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const service = createPaymentServiceFromEnv(ctx.get('db'), toEnvMap(ctx.env))
+	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
 	try {
 		const result = await service.cancelSubscription({
 			userId: ctx.get('userId')
@@ -122,7 +122,7 @@ export async function upgradeSubscriptionHandler(ctx: Context<ApiEnv>): Promise<
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const service = createPaymentServiceFromEnv(ctx.get('db'), toEnvMap(ctx.env))
+	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
 	try {
 		const result = await service.upgradeSubscription({
 			userId: ctx.get('userId'),
@@ -145,7 +145,7 @@ export async function listPaymentTransactionsHandler(ctx: Context<ApiEnv>): Prom
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
-	const service = createPaymentServiceFromEnv(ctx.get('db'), toEnvMap(ctx.env))
+	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
 	const result = await service.listPaymentTransactions({
 		userId: ctx.get('userId'),
 		page: req.page,
@@ -178,7 +178,7 @@ export async function listAdminPaymentTransactionsHandler(ctx: Context<ApiEnv>):
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
-	const service = createPaymentServiceFromEnv(ctx.get('db'), toEnvMap(ctx.env))
+	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
 	const result = await service.listAdminPaymentTransactions({
 		page: req.page,
 		pageSize: req.page_size,
@@ -219,7 +219,7 @@ async function processWebhook(
 	ctx: Context<ApiEnv>,
 	provider: PaymentProviderName
 ): Promise<Response> {
-	const service = createPaymentServiceFromEnv(ctx.get('db'), toEnvMap(ctx.env))
+	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
 	const rawBody = await ctx.req.raw.text()
 	try {
 		await service.processWebhook(provider, rawBody, ctx.req.raw.headers)
@@ -243,10 +243,6 @@ function mapPaymentServiceError(ctx: Context<ApiEnv>, error: unknown): Response 
 		return ctx.json({ code: error.code }, 409)
 	}
 	return ctx.json({ code: error.code }, 400)
-}
-
-function toEnvMap(env: Env): Record<string, string | undefined> {
-	return env as unknown as Record<string, string | undefined>
 }
 
 function readCountryCode(ctx: Context<ApiEnv>): string | null {

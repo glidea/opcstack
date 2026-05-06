@@ -67,22 +67,15 @@ export function authCore(env: Env, db: AppDb) {
 }
 
 function readCreditsSignupEnabled(env: Env): boolean {
-  const value = readOptionalEnv(env, 'CREDITS_SIGNUP_ENABLED')
-  return value === 'true'
+  return env.CREDITS_SIGNUP_ENABLED === 'true'
 }
 
 function readCreditsSignupAmount(env: Env): number {
-  const raw = readOptionalEnv(env, 'CREDITS_SIGNUP_AMOUNT')
-  const parsed = Number(raw ?? '0')
+  const parsed = Number(env.CREDITS_SIGNUP_AMOUNT)
   if (!Number.isFinite(parsed)) {
     return 0
   }
   return Math.max(0, Math.floor(parsed))
-}
-
-function readOptionalEnv(env: Env, key: string): string | undefined {
-  const envMap = env as unknown as Record<string, string | undefined>
-  return envMap[key]
 }
 
 function buildEmailAndPassword(env: Env): AuthEmailAndPasswordConfig {

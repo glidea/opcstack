@@ -84,6 +84,13 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `QUEUE_NAMES` semicolon separated
 - `CRONS` semicolon separated
 
+**Config add and read rules**:
+- When adding a new runtime config key, add it to `wrangler.jsonc.tpl` `vars` first
+- Run `pnpm exec wrangler types` after changing config keys so `worker-configuration.d.ts` stays current
+- Read runtime config from Cloudflare env directly for example `ctx.env.KEY` in API handlers and `env.KEY` in worker jobs
+- For SvelteKit server routes, prefer `event.platform.env.KEY` and use `$env/dynamic/private` only as fallback
+- Do not use `envMap` or `as Record<string, string | undefined>` casts for normal config reads
+
 ### 3. Authentication System
 
 - Better Auth: `src/api/auth/index.ts`

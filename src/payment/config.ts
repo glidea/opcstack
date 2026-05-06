@@ -22,6 +22,20 @@ export interface PaymentConfig {
 	products: PaymentProductConfig[]
 }
 
+export interface PaymentEnv {
+	PAYMENT_ENABLED?: string
+	PAYMENT_PROVIDERS?: string
+	PAYMENT_DEFAULT_PROVIDER?: string
+	PAYMENT_PROVIDER_COUNTRY_OVERRIDES?: string
+	PAYMENT_PRODUCTS?: string
+	PAYMENT_DODO_API_KEY?: string
+	PAYMENT_DODO_WEBHOOK_SECRET?: string
+	PAYMENT_DODO_TEST_MODE?: string
+	PAYMENT_CREEM_API_KEY?: string
+	PAYMENT_CREEM_WEBHOOK_SECRET?: string
+	PAYMENT_CREEM_TEST_MODE?: string
+}
+
 export class PaymentConfigError extends Error {
 	public readonly code: string
 
@@ -65,17 +79,17 @@ export class PaymentProviderRouter {
 	}
 }
 
-export function parsePaymentConfig(env: Record<string, string | undefined>): PaymentConfig {
-	const providers = parseProviders(env['PAYMENT_PROVIDERS'] ?? '')
-	const defaultProvider = parseDefaultProvider(env['PAYMENT_DEFAULT_PROVIDER'] ?? '', providers)
+export function parsePaymentConfig(env: PaymentEnv): PaymentConfig {
+	const providers = parseProviders(env.PAYMENT_PROVIDERS ?? '')
+	const defaultProvider = parseDefaultProvider(env.PAYMENT_DEFAULT_PROVIDER ?? '', providers)
 	const providerCountryOverrides = parseCountryOverrides(
-		env['PAYMENT_PROVIDER_COUNTRY_OVERRIDES'] ?? '',
+		env.PAYMENT_PROVIDER_COUNTRY_OVERRIDES ?? '',
 		providers
 	)
-	const products = parseProducts(env['PAYMENT_PRODUCTS'] ?? '')
+	const products = parseProducts(env.PAYMENT_PRODUCTS ?? '')
 
 	return {
-		enabled: env['PAYMENT_ENABLED'] === 'true',
+		enabled: env.PAYMENT_ENABLED === 'true',
 		providers,
 		defaultProvider,
 		providerCountryOverrides,

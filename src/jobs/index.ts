@@ -24,8 +24,7 @@ export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 	'*/10 * * * *': async (controller, env): Promise<void> => {
 		const db = getDb(env.DB)
 		const nowMs = controller.scheduledTime
-		const envMap = env as unknown as Record<string, string | undefined>
-		const retentionDays = parseRetentionDays(envMap['CREDITS_HISTORY_RETENTION_DAYS'])
+		const retentionDays = parseRetentionDays(env.CREDITS_HISTORY_RETENTION_DAYS)
 		const credits = new CreditsService(db)
 
 		await credits.expire({

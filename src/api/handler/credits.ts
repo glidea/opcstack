@@ -51,10 +51,10 @@ export const AdminGrantCreditsRequestSchema = z.object({
 })
 export type AdminGrantCreditsRequest = z.infer<typeof AdminGrantCreditsRequestSchema>
 
-	export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const env = ctx.env as unknown as Record<string, string | undefined>
-	const referralEnabled = env['CREDITS_REFERRAL_ENABLED'] === 'true'
-	const dailyCheckinAmount = toPositiveInt(env['CREDITS_DAILY_CHECKIN_AMOUNT'])
+export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const env = ctx.env
+	const referralEnabled = env.CREDITS_REFERRAL_ENABLED === 'true'
+	const dailyCheckinAmount = toPositiveInt(env.CREDITS_DAILY_CHECKIN_AMOUNT)
 
 	try {
 		const credits = new CreditsService(ctx.get('db'))
@@ -103,13 +103,13 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 	})
 }
 
-	export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const env = ctx.env as unknown as Record<string, string | undefined>
-	if (env['CREDITS_DAILY_CHECKIN_ENABLED'] !== 'true') {
+export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const env = ctx.env
+	if (env.CREDITS_DAILY_CHECKIN_ENABLED !== 'true') {
 		return ctx.json({})
 	}
 
-	const amount = toPositiveInt(env['CREDITS_DAILY_CHECKIN_AMOUNT'])
+	const amount = toPositiveInt(env.CREDITS_DAILY_CHECKIN_AMOUNT)
 	if (amount <= 0) {
 		return ctx.json({ code: 'INVALID_DAILY_CHECKIN_AMOUNT' }, 400)
 	}
@@ -133,9 +133,9 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 	}
 }
 
-	export async function bindReferralHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const env = ctx.env as unknown as Record<string, string | undefined>
-	if (env['CREDITS_REFERRAL_ENABLED'] !== 'true') {
+export async function bindReferralHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const env = ctx.env
+	if (env.CREDITS_REFERRAL_ENABLED !== 'true') {
 		return ctx.json({})
 	}
 
@@ -144,8 +144,8 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 		return ctx.json({ code: 'INVALID_REFERRAL_CODE' }, 400)
 	}
 
-	const inviterAmount = toPositiveInt(env['CREDITS_REFERRAL_INVITER_AMOUNT'])
-	const inviteeAmount = toPositiveInt(env['CREDITS_REFERRAL_INVITEE_AMOUNT'])
+	const inviterAmount = toPositiveInt(env.CREDITS_REFERRAL_INVITER_AMOUNT)
+	const inviteeAmount = toPositiveInt(env.CREDITS_REFERRAL_INVITEE_AMOUNT)
 	if (inviterAmount <= 0 || inviteeAmount <= 0) {
 		return ctx.json({ code: 'INVALID_REFERRAL_AMOUNT' }, 400)
 	}

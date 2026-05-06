@@ -1,4 +1,4 @@
-import { env } from '$env/dynamic/private'
+import { env as privateEnv } from '$env/dynamic/private'
 import {
 	defaultLocale,
 	isSystemLocale,
@@ -12,9 +12,12 @@ type AlternateUrl = {
 	url: string
 }
 
+type RuntimeEnv = Record<string, string | undefined>
+
 export function load(event: {
 	params: { locale?: string }
 	url: URL
+	platform?: { env?: RuntimeEnv }
 }): {
 	locale: SystemLocale
 	siteName: string
@@ -26,10 +29,10 @@ export function load(event: {
 	xDefaultUrl: string
 	websiteJsonLd: string
 } {
-	const origin = resolveSiteOrigin(env['APP_DOMAIN'] ?? 'localhost')
-	const siteName = env['APP_NAME'] ?? 'OPCStack'
+	const origin = resolveSiteOrigin(getRuntimeEnv(event, 'APP_DOMAIN', 'localhost'))
+	const siteName = getRuntimeEnv(event, 'APP_NAME', 'OPCStack')
 	const locale = resolveLocale(event.params.locale)
-	const supportEmail = env['SUPPORT_EMAIL'] ?? 'support@example.com'
+	const supportEmail = getRuntimeEnv(event, 'SUPPORT_EMAIL', 'support@example.com')
 	const alternateUrls = supportedLocales.map((locale) => {
 		return {
 			locale,
@@ -53,6 +56,10 @@ export function load(event: {
 			url: toSiteUrl(origin, '/')
 		})
 	}
+}
+
+function getRuntimeEnv(event: { platform?: { env?: RuntimeEnv } }, key: string, fallback: string): string {
+	return event.platform?.env?.[key] ?? privateEnv[key] ?? fallback
 }
 
 function resolveLocalePath(pathname: string, locale: string): string {

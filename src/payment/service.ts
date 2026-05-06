@@ -7,6 +7,7 @@ import {
 	parsePaymentConfig,
 	PaymentProviderRouter,
 	type PaymentConfig,
+	type PaymentEnv,
 	type PaymentProductConfig,
 	type PaymentProviderName
 } from './config'
@@ -1073,7 +1074,7 @@ export class PaymentService {
 
 export function createPaymentServiceFromEnv(
 	db: AppDb,
-	env: Record<string, string | undefined>
+	env: PaymentEnv
 ): PaymentService {
 	const config = parsePaymentConfig(env)
 	const providerRouter = new PaymentProviderRouter({
