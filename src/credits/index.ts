@@ -2,6 +2,7 @@ import { and, desc, eq, gte, isNotNull, isNull, lt, lte, sql, type SQL } from 'd
 import type { AppDb } from '../db'
 import { creditEntry, creditRedemptionCode, creditReferral, creditTransaction } from '../db/schema'
 import { user } from '../db/schema.auth'
+import { addUnits, subtractUnits } from '../lib/decimal'
 
 export const CREDIT_TRANSACTION_TYPE_SIGNUP = 'signup'
 export const CREDIT_TRANSACTION_TYPE_DAILY_CHECKIN = 'daily_checkin'
@@ -254,7 +255,7 @@ export class CreditsService {
 
 		const nowMs = input.nowMs ?? Date.now()
 		const currentBalance = userRow.creditBalance
-		const nextBalance = currentBalance + input.amount
+		const nextBalance = addUnits(currentBalance, input.amount)
 		const debtToRepay = currentBalance < 0 ? Math.min(-currentBalance, input.amount) : 0
 		const remainingAmount = input.amount - debtToRepay
 
@@ -499,8 +500,8 @@ export class CreditsService {
 
 		const inviterRemaining = resolveEntryRemainingAmount(inviter.creditBalance, input.inviterAmount)
 		const inviteeRemaining = resolveEntryRemainingAmount(invitee.creditBalance, input.inviteeAmount)
-		const inviterBalance = inviter.creditBalance + input.inviterAmount
-		const inviteeBalance = invitee.creditBalance + input.inviteeAmount
+		const inviterBalance = addUnits(inviter.creditBalance, input.inviterAmount)
+		const inviteeBalance = addUnits(invitee.creditBalance, input.inviteeAmount)
 
 		try {
 			await this.db.batch([
@@ -788,7 +789,7 @@ export class CreditsService {
 		}
 
 		const amount = codeRow.amount
-		const balance = userRow.creditBalance + amount
+		const balance = addUnits(userRow.creditBalance, amount)
 		const remainingAmount = resolveEntryRemainingAmount(userRow.creditBalance, amount)
 		const entryId = crypto.randomUUID()
 		const transactionId = crypto.randomUUID()
@@ -905,7 +906,7 @@ export class CreditsService {
 		}
 
 		const nowMs = input.nowMs ?? Date.now()
-		const nextBalance = userRow.creditBalance - input.amount
+		const nextBalance = subtractUnits(userRow.creditBalance, input.amount)
 
 		const entries = await this.db.all<{
 			id: string
@@ -1052,7 +1053,7 @@ export class CreditsService {
 				continue
 			}
 
-			const nextBalance = currentBalance - expiredAmount
+			const nextBalance = subtractUnits(currentBalance, expiredAmount)
 			const sourceId = `expire:${nowMs}:${userId}`
 			statements.push(
 				this.db.run(sql`
@@ -1130,7 +1131,7 @@ export class CreditsService {
 }
 
 function validateGrantAmount(amount: number): void {
-	if (!Number.isInteger(amount) || amount <= 0) {
+	if (!Number.isSafeInteger(amount) || amount <= 0) {
 		throw new CreditsError('INVALID_CREDIT_AMOUNT')
 	}
 }

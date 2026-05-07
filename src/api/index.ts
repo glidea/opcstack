@@ -38,6 +38,7 @@ import {
 import { readR2ObjectHandler } from './handler/r2'
 import { authCore } from './auth'
 import type { AppDb } from '../db'
+import { formatDecimal, parseDecimal } from '../lib/decimal'
 
 export type ApiEnv = {
 	Bindings: Env
@@ -72,9 +73,9 @@ publicApi.post('/get_public_config', (ctx): Response => {
 		email_require_verification: String(env.EMAIL_REQUIRE_VERIFICATION) === 'true',
 		email_user_action_cooldown_seconds: Number(env.EMAIL_USER_ACTION_COOLDOWN_SECONDS),
 		credits_signup_enabled: String(env.CREDITS_SIGNUP_ENABLED) === 'true',
-		credits_signup_amount: Number(env.CREDITS_SIGNUP_AMOUNT),
+		credits_signup_amount: formatDecimal(parseDecimal(env.CREDITS_SIGNUP_AMOUNT)),
 		credits_daily_checkin_enabled: String(env.CREDITS_DAILY_CHECKIN_ENABLED) === 'true',
-		credits_daily_checkin_amount: Number(env.CREDITS_DAILY_CHECKIN_AMOUNT),
+		credits_daily_checkin_amount: formatDecimal(parseDecimal(env.CREDITS_DAILY_CHECKIN_AMOUNT)),
 		credits_referral_enabled: String(env.CREDITS_REFERRAL_ENABLED) === 'true',
 		payment_enabled: String(env.PAYMENT_ENABLED) === 'true'
 	})

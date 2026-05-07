@@ -9,6 +9,8 @@ order: 10
 
 OPC Stack 内置积分系统，适合 AI 调用、生成任务、额度赠送等按量计费场景。
 
+积分 API 金额使用 6 位小数字符串。数据库存整数 units，`1 credit = 1_000_000 units`。
+
 ## 能力范围
 
 - 查询积分余额
@@ -76,9 +78,9 @@ POST /api/get_credit_summary
 
 ```json
 {
-  "balance": 100,
+  "balance": "100.000000",
   "daily_checked_in": false,
-  "daily_checkin_amount": 10,
+  "daily_checkin_amount": "10.000000",
   "referral_enabled": true,
   "referral_code": "ABC12345",
   "invited_count": 2
@@ -113,8 +115,8 @@ POST /api/list_credit_transactions
     {
       "id": "tx_1",
       "type": "signup",
-      "amount": 100,
-      "balance_after": 100,
+      "amount": "100.000000",
+      "balance_after": "100.000000",
       "source_type": "signup",
       "source_id": "user_id",
       "description": "Signup reward",
@@ -177,7 +179,7 @@ POST /api/admin/generate_credit_codes
 ```json
 {
   "count": 10,
-  "amount": 100,
+  "amount": "100",
   "expires_at": 1767139200000
 }
 ```
@@ -199,7 +201,7 @@ POST /api/admin/list_credit_codes
   "code": "FREE100",
   "used_by": "user_id",
   "used": false,
-  "amount": 100,
+  "amount": "100",
   "created_at_start": 1767139200000,
   "created_at_end": 1767225600000,
   "expires_at_start": 1767139200000,
@@ -215,7 +217,7 @@ POST /api/admin/list_credit_codes
     {
       "id": "code_1",
       "code": "FREE100",
-      "amount": 100,
+      "amount": "100.000000",
       "expires_at": null,
       "used_by": null,
       "used_at": null,
@@ -239,7 +241,7 @@ POST /api/admin/grant_credits
 ```json
 {
   "user_id": "user_id",
-  "amount": 100,
+  "amount": "100",
   "source_id": "manual-2026-001",
   "description": "Manual grant",
   "expires_at": null

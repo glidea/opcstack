@@ -4,7 +4,7 @@ import { z } from 'zod'
 import type { ApiEnv } from '..'
 import type { NewFeedback } from '../../db/schema'
 import { feedback } from '../../db/schema'
-import { PageRequestSchema, parse } from './utils'
+import { PageRequestSchema, parseRequest } from '../../lib/request'
 
 export const SubmitFeedbackRequestSchema = z.object({
 	type: z.string().min(1),
@@ -34,7 +34,7 @@ export interface ListFeedbacksResponse {
 }
 
 export async function submitFeedbackHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, SubmitFeedbackRequestSchema)
+	const req = await parseRequest(ctx, SubmitFeedbackRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
@@ -52,7 +52,7 @@ export async function submitFeedbackHandler(ctx: Context<ApiEnv>): Promise<Respo
 }
 
 export async function listFeedbacksHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, ListFeedbacksRequestSchema)
+	const req = await parseRequest(ctx, ListFeedbacksRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}

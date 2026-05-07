@@ -100,9 +100,9 @@ describe('getCreditSummaryHandler', () => {
 			vi.mocked(creditServiceMocks.getSummary).mockRejectedValue(new CreditsError(given.summaryErrorCode))
 		} else {
 			vi.mocked(creditServiceMocks.getSummary).mockResolvedValue({
-				balance: 120,
+				balance: 120_000_000,
 				dailyCheckedIn: true,
-				dailyCheckinAmount: 10,
+				dailyCheckinAmount: 10_000_000,
 				referralEnabled: true,
 				referralCode: 'ABC12345',
 				invitedCount: 3
@@ -226,9 +226,9 @@ describe('dailyCheckinHandler', () => {
 			vi.mocked(creditServiceMocks.dailyCheckin).mockRejectedValue(new CreditsError(given.errorCode))
 		} else {
 			vi.mocked(creditServiceMocks.dailyCheckin).mockResolvedValue({
-				balance: 100,
+				balance: 100_000_000,
 				checkedIn: true,
-				amount: 10
+				amount: 10_000_000
 			})
 		}
 
@@ -448,7 +448,7 @@ describe('generateCreditCodesHandler', () => {
 			when: 'calling generateCreditCodesHandler',
 			then: 'returns generated code list',
 			givenDetail: {
-				body: { count: 2, amount: 100 }
+				body: { count: 2, amount: '100' }
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -461,8 +461,8 @@ describe('generateCreditCodesHandler', () => {
 
 	runCases(cases, async (given) => {
 		vi.mocked(creditServiceMocks.generateCodes).mockResolvedValue([
-			{ id: 'c1', code: 'AAAA1111', amount: 100, expiresAt: null, createdAt: 123 },
-			{ id: 'c2', code: 'BBBB2222', amount: 100, expiresAt: null, createdAt: 123 }
+			{ id: 'c1', code: 'AAAA1111', amount: 100_000_000, expiresAt: null, createdAt: 123 },
+			{ id: 'c2', code: 'BBBB2222', amount: 100_000_000, expiresAt: null, createdAt: 123 }
 		])
 
 		const ctx = createJsonContext({
@@ -535,7 +535,7 @@ describe('listCreditCodesHandler', () => {
 				{
 					id: 'c1',
 					code: 'AAAA1111',
-					amount: 100,
+					amount: 100_000_000,
 					expiresAt: null,
 					usedBy: null,
 					usedAt: null,
@@ -574,7 +574,7 @@ describe('redeemCreditCodeHandler', () => {
 	type ThenExpected = {
 		status: number
 		code: string
-		amount: number
+		amount: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -591,7 +591,7 @@ describe('redeemCreditCodeHandler', () => {
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_CREDIT_CODE',
-				amount: 0
+				amount: ''
 			}
 		},
 		{
@@ -607,7 +607,7 @@ describe('redeemCreditCodeHandler', () => {
 			thenExpected: {
 				status: 409,
 				code: 'CREDIT_CODE_USED',
-				amount: 0
+				amount: ''
 			}
 		},
 		{
@@ -623,7 +623,7 @@ describe('redeemCreditCodeHandler', () => {
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_CREDIT_CODE',
-				amount: 0
+				amount: ''
 			}
 		},
 		{
@@ -639,7 +639,7 @@ describe('redeemCreditCodeHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				amount: 100
+				amount: '100.000000'
 			}
 		}
 	]
@@ -649,8 +649,8 @@ describe('redeemCreditCodeHandler', () => {
 			vi.mocked(creditServiceMocks.redeemCode).mockRejectedValue(new CreditsError(given.errorCode))
 		} else {
 			vi.mocked(creditServiceMocks.redeemCode).mockResolvedValue({
-				balance: 300,
-				amount: 100
+				balance: 300_000_000,
+				amount: 100_000_000
 			})
 		}
 
@@ -661,11 +661,11 @@ describe('redeemCreditCodeHandler', () => {
 			body: given.body
 		})
 		const res = await redeemCreditCodeHandler(ctx)
-		const payload = (await res.json()) as { code?: string; amount?: number }
+		const payload = (await res.json()) as { code?: string; amount?: string }
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			amount: payload.amount ?? 0
+			amount: payload.amount ?? ''
 		}
 	})
 })
@@ -684,9 +684,10 @@ describe('grantCreditsHandler', () => {
 	type ThenExpected = {
 		status: number
 		code: string
-		balance: number
+		balance: string
 		grantType: string
 		grantSourceType: string
+		grantAmount: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -704,9 +705,10 @@ describe('grantCreditsHandler', () => {
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_REQUEST',
-				balance: 0,
+				balance: '',
 				grantType: '',
-				grantSourceType: ''
+				grantSourceType: '',
+				grantAmount: 0
 			}
 		},
 		{
@@ -715,7 +717,7 @@ describe('grantCreditsHandler', () => {
 			when: 'calling grantCreditsHandler',
 			then: 'returns conflict',
 			givenDetail: {
-				body: { user_id: 'u1', amount: 10, source_id: 'manual-1' },
+				body: { user_id: 'u1', amount: '10', source_id: 'manual-1' },
 				duplicated: true,
 				errorCode: ''
 			},
@@ -723,9 +725,10 @@ describe('grantCreditsHandler', () => {
 			thenExpected: {
 				status: 409,
 				code: 'CREDIT_GRANT_DUPLICATED',
-				balance: 0,
+				balance: '',
 				grantType: 'manual_grant',
-				grantSourceType: 'manual_grant'
+				grantSourceType: 'manual_grant',
+				grantAmount: 10_000_000
 			}
 		},
 		{
@@ -734,7 +737,7 @@ describe('grantCreditsHandler', () => {
 			when: 'calling grantCreditsHandler',
 			then: 'returns 404',
 			givenDetail: {
-				body: { user_id: 'u1', amount: 10, source_id: 'manual-1' },
+				body: { user_id: 'u1', amount: '10', source_id: 'manual-1' },
 				duplicated: false,
 				errorCode: 'CREDIT_USER_NOT_FOUND'
 			},
@@ -742,9 +745,10 @@ describe('grantCreditsHandler', () => {
 			thenExpected: {
 				status: 404,
 				code: 'CREDIT_USER_NOT_FOUND',
-				balance: 0,
+				balance: '',
 				grantType: 'manual_grant',
-				grantSourceType: 'manual_grant'
+				grantSourceType: 'manual_grant',
+				grantAmount: 10_000_000
 			}
 		},
 		{
@@ -753,7 +757,7 @@ describe('grantCreditsHandler', () => {
 			when: 'calling grantCreditsHandler',
 			then: 'returns latest balance',
 			givenDetail: {
-				body: { user_id: 'u1', amount: 10, source_id: 'manual-1' },
+				body: { user_id: 'u1', amount: '10', source_id: 'manual-1' },
 				duplicated: false,
 				errorCode: ''
 			},
@@ -761,9 +765,10 @@ describe('grantCreditsHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				balance: 120,
+				balance: '120.000000',
 				grantType: 'manual_grant',
-				grantSourceType: 'manual_grant'
+				grantSourceType: 'manual_grant',
+				grantAmount: 10_000_000
 			}
 		}
 	]
@@ -773,10 +778,10 @@ describe('grantCreditsHandler', () => {
 			vi.mocked(creditServiceMocks.grant).mockRejectedValue(new CreditsError(given.errorCode))
 		} else {
 			vi.mocked(creditServiceMocks.grant).mockResolvedValue({
-				balance: 120,
+				balance: 120_000_000,
 				entryId: 'e1',
 				transactionId: 't1',
-				entryRemainingAmount: 10,
+				entryRemainingAmount: 10_000_000,
 				duplicated: given.duplicated
 			})
 		}
@@ -788,16 +793,17 @@ describe('grantCreditsHandler', () => {
 			body: given.body
 		})
 		const res = await grantCreditsHandler(ctx)
-		const payload = (await res.json()) as { code?: string; balance?: number }
+		const payload = (await res.json()) as { code?: string; balance?: string }
 		const grantInput = vi.mocked(creditServiceMocks.grant).mock.calls[0]?.[0] as
-			| { type?: string; sourceType?: string }
+			| { type?: string; sourceType?: string; amount?: number }
 			| undefined
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			balance: payload.balance ?? 0,
+			balance: payload.balance ?? '',
 			grantType: grantInput?.type ?? '',
-			grantSourceType: grantInput?.sourceType ?? ''
+			grantSourceType: grantInput?.sourceType ?? '',
+			grantAmount: grantInput?.amount ?? 0
 		}
 	})
 })
@@ -815,7 +821,7 @@ describe('listCreditTransactionsHandler', () => {
 		status: number
 		code: string
 		transactionCount: number
-		firstBalanceAfter: number
+		firstBalanceAfter: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -832,7 +838,7 @@ describe('listCreditTransactionsHandler', () => {
 				status: 400,
 				code: 'INVALID_REQUEST',
 				transactionCount: 0,
-				firstBalanceAfter: 0
+				firstBalanceAfter: ''
 			}
 		},
 		{
@@ -851,7 +857,7 @@ describe('listCreditTransactionsHandler', () => {
 				status: 200,
 				code: '',
 				transactionCount: 1,
-				firstBalanceAfter: 99
+				firstBalanceAfter: '99.000000'
 			}
 		}
 	]
@@ -862,8 +868,8 @@ describe('listCreditTransactionsHandler', () => {
 				{
 					id: 't1',
 					type: 'signup',
-					amount: 100,
-					balanceAfter: 99,
+					amount: 100_000_000,
+					balanceAfter: 99_000_000,
 					sourceType: 'signup',
 					sourceId: 'u1',
 					description: 'desc',
@@ -882,13 +888,13 @@ describe('listCreditTransactionsHandler', () => {
 		const res = await listCreditTransactionsHandler(ctx)
 		const payload = (await res.json()) as {
 			code?: string
-			items?: Array<{ balance_after: number }>
+			items?: Array<{ balance_after: string }>
 		}
 		return {
 			status: res.status,
 			code: payload.code ?? '',
 			transactionCount: payload.items?.length ?? 0,
-			firstBalanceAfter: payload.items?.[0]?.balance_after ?? 0
+			firstBalanceAfter: payload.items?.[0]?.balance_after ?? ''
 		}
 	})
 })

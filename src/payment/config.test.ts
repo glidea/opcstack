@@ -93,7 +93,7 @@ describe('parsePaymentConfig', () => {
 			}
 		},
 		{
-			scenario: 'parse product credit amount as fixed decimal units',
+			scenario: 'parse product credit amount as decimal units',
 			given: 'PAYMENT_PRODUCTS contains decimal credit amount',
 			when: 'config is parsed',
 			then: 'credit amount becomes units',

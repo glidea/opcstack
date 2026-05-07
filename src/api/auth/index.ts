@@ -4,6 +4,7 @@ import { bearer, emailOTP } from 'better-auth/plugins'
 import type { AppDb } from '../../db'
 import { newEmailClients, type EmailClients } from '../../email'
 import { CreditsService } from '../../credits'
+import { parseDecimal } from '../../lib/decimal'
 
 export function authCore(env: Env, db: AppDb) {
   const credits = new CreditsService(db)
@@ -35,7 +36,7 @@ export function authCore(env: Env, db: AppDb) {
               return
             }
 
-            const signupAmount = readCreditsSignupAmount(env)
+            const signupAmount = parseDecimal(env.CREDITS_SIGNUP_AMOUNT)
             if (signupAmount <= 0) {
               return
             }
@@ -68,14 +69,6 @@ export function authCore(env: Env, db: AppDb) {
 
 function readCreditsSignupEnabled(env: Env): boolean {
   return env.CREDITS_SIGNUP_ENABLED === 'true'
-}
-
-function readCreditsSignupAmount(env: Env): number {
-  const parsed = Number(env.CREDITS_SIGNUP_AMOUNT)
-  if (!Number.isFinite(parsed)) {
-    return 0
-  }
-  return Math.max(0, Math.floor(parsed))
 }
 
 function buildEmailAndPassword(env: Env): AuthEmailAndPasswordConfig {

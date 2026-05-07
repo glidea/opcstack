@@ -1,6 +1,5 @@
 import type { Context } from 'hono'
 import { z, type ZodType } from 'zod'
-import type { ApiEnv } from '..'
 
 export const PageRequestSchema = z.object({
 	page: z.number().int().min(1).optional().default(1),
@@ -8,8 +7,8 @@ export const PageRequestSchema = z.object({
 })
 export type PageRequest = z.infer<typeof PageRequestSchema>
 
-export async function parse<Request>(
-	ctx: Context<ApiEnv>,
+export async function parseRequest<Request>(
+	ctx: Context,
 	schema: ZodType<Request>
 ): Promise<Request | null> {
 	try {

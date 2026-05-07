@@ -3,7 +3,7 @@ import type { Context } from 'hono'
 import { z } from 'zod'
 import type { NewBetaCode } from '../../db/schema'
 import { betaCode } from '../../db/schema'
-import { PageRequestSchema, parse } from './utils'
+import { PageRequestSchema, parseRequest } from '../../lib/request'
 import type { ApiEnv } from '..'
 
 export const BindBetaCodeRequestSchema = z.object({
@@ -52,7 +52,7 @@ export async function bindBetaCodeHandler(ctx: Context<ApiEnv>): Promise<Respons
 		return ctx.json({})
 	}
 
-	const req = await parse(ctx, BindBetaCodeRequestSchema)
+	const req = await parseRequest(ctx, BindBetaCodeRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_BETA_CODE' }, 400)
 	}
@@ -85,7 +85,7 @@ export async function bindBetaCodeHandler(ctx: Context<ApiEnv>): Promise<Respons
 }
 
 export async function generateBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, GenerateBetaCodesRequestSchema)
+	const req = await parseRequest(ctx, GenerateBetaCodesRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
@@ -116,7 +116,7 @@ export async function generateBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Re
 }
 
 export async function listBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, ListBetaCodesRequestSchema)
+	const req = await parseRequest(ctx, ListBetaCodesRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}

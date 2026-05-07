@@ -7,7 +7,8 @@ import {
 	CreditsService,
 	type CreditTransactionItem
 } from '../../credits'
-import { PageRequestSchema, parse } from './utils'
+import { formatDecimal, parseDecimal } from '../../lib/decimal'
+import { PageRequestSchema, parseRequest } from '../../lib/request'
 
 export const BindReferralRequestSchema = z.object({
 	referral_code: z.string().min(1)
@@ -25,7 +26,7 @@ export type ListCreditTransactionsRequest = z.infer<typeof ListCreditTransaction
 
 export const GenerateCreditCodesRequestSchema = z.object({
 	count: z.number().int().min(1).max(200).optional().default(1),
-	amount: z.number().int().min(1),
+	amount: z.string().min(1),
 	expires_at: z.number().int().nullable().optional()
 })
 export type GenerateCreditCodesRequest = z.infer<typeof GenerateCreditCodesRequestSchema>
@@ -34,7 +35,7 @@ export const ListCreditCodesRequestSchema = PageRequestSchema.extend({
 	code: z.string().min(1).optional(),
 	used_by: z.string().min(1).optional(),
 	used: z.boolean().optional(),
-	amount: z.number().int().min(1).optional(),
+	amount: z.string().min(1).optional(),
 	created_at_start: z.number().int().optional(),
 	created_at_end: z.number().int().optional(),
 	expires_at_start: z.number().int().optional(),
@@ -49,7 +50,7 @@ export type RedeemCreditCodeRequest = z.infer<typeof RedeemCreditCodeRequestSche
 
 export const AdminGrantCreditsRequestSchema = z.object({
 	user_id: z.string().min(1),
-	amount: z.number().int().min(1),
+	amount: z.string().min(1),
 	source_id: z.string().min(1),
 	description: z.string().min(1).optional(),
 	expires_at: z.number().int().nullable().optional()
@@ -59,7 +60,7 @@ export type AdminGrantCreditsRequest = z.infer<typeof AdminGrantCreditsRequestSc
 export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const env = ctx.env
 	const referralEnabled = env.CREDITS_REFERRAL_ENABLED === 'true'
-	const dailyCheckinAmount = toPositiveInt(env.CREDITS_DAILY_CHECKIN_AMOUNT)
+	const dailyCheckinAmount = toCreditUnits(env.CREDITS_DAILY_CHECKIN_AMOUNT)
 
 	try {
 		const credits = new CreditsService(ctx.get('db'))
@@ -69,9 +70,9 @@ export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Res
 			referralEnabled
 		})
 		return ctx.json({
-			balance: summary.balance,
+			balance: formatCreditAmount(summary.balance),
 			daily_checked_in: summary.dailyCheckedIn,
-			daily_checkin_amount: summary.dailyCheckinAmount,
+			daily_checkin_amount: formatCreditAmount(summary.dailyCheckinAmount),
 			referral_enabled: summary.referralEnabled,
 			referral_code: summary.referralCode,
 			invited_count: summary.invitedCount
@@ -85,7 +86,7 @@ export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Res
 }
 
 export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, ListCreditTransactionsRequestSchema)
+	const req = await parseRequest(ctx, ListCreditTransactionsRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
@@ -114,7 +115,7 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 		return ctx.json({})
 	}
 
-	const amount = toPositiveInt(env.CREDITS_DAILY_CHECKIN_AMOUNT)
+	const amount = toCreditUnits(env.CREDITS_DAILY_CHECKIN_AMOUNT)
 	if (amount <= 0) {
 		return ctx.json({ code: 'INVALID_DAILY_CHECKIN_AMOUNT' }, 400)
 	}
@@ -126,9 +127,9 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 			amount
 		})
 		return ctx.json({
-			balance: result.balance,
+			balance: formatCreditAmount(result.balance),
 			checked_in: result.checkedIn,
-			amount: result.amount
+			amount: formatCreditAmount(result.amount)
 		})
 	} catch (error) {
 		if (error instanceof CreditsError && error.code === 'DAILY_CHECKIN_ALREADY_DONE') {
@@ -144,13 +145,13 @@ export async function bindReferralHandler(ctx: Context<ApiEnv>): Promise<Respons
 		return ctx.json({})
 	}
 
-	const req = await parse(ctx, BindReferralRequestSchema)
+	const req = await parseRequest(ctx, BindReferralRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REFERRAL_CODE' }, 400)
 	}
 
-	const inviterAmount = toPositiveInt(env.CREDITS_REFERRAL_INVITER_AMOUNT)
-	const inviteeAmount = toPositiveInt(env.CREDITS_REFERRAL_INVITEE_AMOUNT)
+	const inviterAmount = toCreditUnits(env.CREDITS_REFERRAL_INVITER_AMOUNT)
+	const inviteeAmount = toCreditUnits(env.CREDITS_REFERRAL_INVITEE_AMOUNT)
 	if (inviterAmount <= 0 || inviteeAmount <= 0) {
 		return ctx.json({ code: 'INVALID_REFERRAL_AMOUNT' }, 400)
 	}
@@ -178,15 +179,20 @@ export async function bindReferralHandler(ctx: Context<ApiEnv>): Promise<Respons
 }
 
 export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, GenerateCreditCodesRequestSchema)
+	const req = await parseRequest(ctx, GenerateCreditCodesRequestSchema)
 	if (!req) {
+		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+	}
+
+	const amount = toCreditUnits(req.amount)
+	if (amount <= 0) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
 	const credits = new CreditsService(ctx.get('db'))
 	const rows = await credits.generateCodes({
 		count: req.count,
-		amount: req.amount,
+		amount,
 		expiresAt: req.expires_at
 	})
 	return ctx.json({
@@ -194,7 +200,7 @@ export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<
 			return {
 				id: row.id,
 				code: row.code,
-				amount: row.amount,
+				amount: formatCreditAmount(row.amount),
 				expires_at: row.expiresAt,
 				created_at: row.createdAt
 			}
@@ -203,8 +209,13 @@ export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<
 }
 
 export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, ListCreditCodesRequestSchema)
+	const req = await parseRequest(ctx, ListCreditCodesRequestSchema)
 	if (!req) {
+		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+	}
+
+	const amount = req.amount === undefined ? undefined : toCreditUnits(req.amount)
+	if (req.amount !== undefined && (!amount || amount <= 0)) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
@@ -215,7 +226,7 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 		code: req.code,
 		usedBy: req.used_by,
 		used: req.used,
-		amount: req.amount,
+		amount,
 		createdAtStart: req.created_at_start,
 		createdAtEnd: req.created_at_end,
 		expiresAtStart: req.expires_at_start,
@@ -226,7 +237,7 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 			return {
 				id: row.id,
 				code: row.code,
-				amount: row.amount,
+				amount: formatCreditAmount(row.amount),
 				expires_at: row.expiresAt,
 				used_by: row.usedBy,
 				used_at: row.usedAt,
@@ -238,7 +249,7 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 }
 
 export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, RedeemCreditCodeRequestSchema)
+	const req = await parseRequest(ctx, RedeemCreditCodeRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_CREDIT_CODE' }, 400)
 	}
@@ -250,8 +261,8 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 			code: req.code
 		})
 		return ctx.json({
-			balance: result.balance,
-			amount: result.amount
+			balance: formatCreditAmount(result.balance),
+			amount: formatCreditAmount(result.amount)
 		})
 	} catch (error) {
 		if (error instanceof CreditsError) {
@@ -267,8 +278,13 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 }
 
 export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, AdminGrantCreditsRequestSchema)
+	const req = await parseRequest(ctx, AdminGrantCreditsRequestSchema)
 	if (!req) {
+		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+	}
+
+	const amount = toCreditUnits(req.amount)
+	if (amount <= 0) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
@@ -277,7 +293,7 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 		const result = await credits.grant({
 			userId: req.user_id,
 			type: CREDIT_TRANSACTION_TYPE_MANUAL_GRANT,
-			amount: req.amount,
+			amount,
 			sourceType: 'manual_grant',
 			sourceId: req.source_id,
 			description: req.description,
@@ -287,7 +303,7 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 			return ctx.json({ code: 'CREDIT_GRANT_DUPLICATED' }, 409)
 		}
 		return ctx.json({
-			balance: result.balance
+			balance: formatCreditAmount(result.balance)
 		})
 	} catch (error) {
 		if (error instanceof CreditsError) {
@@ -302,20 +318,27 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 	}
 }
 
-function toPositiveInt(raw: string | undefined): number {
-	const parsed = Number(raw ?? '0')
-	if (!Number.isFinite(parsed) || parsed <= 0) {
+function toCreditUnits(raw: string | undefined): number {
+	if (!raw) {
 		return 0
 	}
-	return Math.floor(parsed)
+	try {
+		return parseDecimal(raw)
+	} catch {
+		return 0
+	}
+}
+
+function formatCreditAmount(units: number): string {
+	return formatDecimal(units)
 }
 
 function toApiTransaction(row: CreditTransactionItem): Record<string, unknown> {
 	return {
 		id: row.id,
 		type: row.type,
-		amount: row.amount,
-		balance_after: row.balanceAfter,
+		amount: formatCreditAmount(row.amount),
+		balance_after: formatCreditAmount(row.balanceAfter),
 		source_type: row.sourceType,
 		source_id: row.sourceId,
 		description: row.description,

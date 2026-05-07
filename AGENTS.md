@@ -84,6 +84,13 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `QUEUE_NAMES` semicolon separated
 - `CRONS` semicolon separated
 
+**Credits amount convention**:
+- Credit amounts use 6 decimal places
+- API request and response credit amounts use decimal strings for example `"1.230000"`
+- Database and service code store credit amounts as integer units where `1 credit = 1_000_000 units`
+- Do not use floating point numbers for credit balance, credit entries, credit transactions, redemption codes, or payment credit grants
+- Payment `price_amount` remains provider minor currency units and must not be mixed with credit units
+
 **Config add and read rules**:
 - When adding a new runtime config key, add it to `wrangler.jsonc.tpl` `vars` first
 - Run `pnpm exec wrangler types` after changing config keys so `worker-configuration.d.ts` stays current

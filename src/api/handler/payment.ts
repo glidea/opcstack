@@ -1,14 +1,15 @@
 import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
-import { PageRequestSchema, parse } from './utils'
+import { PageRequestSchema, parseRequest } from '../../lib/request'
 import {
-	createPaymentServiceFromEnv,
+	newPaymentService,
 	PAYMENT_PROVIDER_CREEM,
 	PAYMENT_PROVIDER_DODO,
 	PaymentServiceError,
 	type PaymentProviderName
 } from '../../payment'
+import { formatDecimal } from '../../lib/decimal'
 
 const CreatePaymentCheckoutRequestSchema = z.object({
 	product_id: z.string().min(1),
@@ -31,7 +32,7 @@ const ListAdminPaymentTransactionsRequestSchema = PageRequestSchema.extend({
 })
 
 export async function listPaymentProductsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
+	const service = newPaymentService(ctx.get('db'), ctx.env)
 	const country = readCountryCode(ctx)
 	const items = await service.listPaymentProducts({
 		country
@@ -45,22 +46,22 @@ export async function listPaymentProductsHandler(ctx: Context<ApiEnv>): Promise<
 				description: row.description,
 				price_amount: row.priceAmount,
 				currency: row.currency,
-				credits_amount: row.creditsAmount,
+				credits_amount: formatNullableCreditAmount(row.creditsAmount),
 				subscription_plan: row.subscriptionPlan,
 				upgrade_rank: row.upgradeRank,
-				period_credits_amount: row.periodCreditsAmount
+				period_credits_amount: formatNullableCreditAmount(row.periodCreditsAmount)
 			}
 		})
 	})
 }
 
 export async function createPaymentCheckoutHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, CreatePaymentCheckoutRequestSchema)
+	const req = await parseRequest(ctx, CreatePaymentCheckoutRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
+	const service = newPaymentService(ctx.get('db'), ctx.env)
 	try {
 		const result = await service.createPaymentCheckout({
 			userId: ctx.get('userId'),
@@ -83,7 +84,7 @@ export async function createPaymentCheckoutHandler(ctx: Context<ApiEnv>): Promis
 }
 
 export async function getSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
+	const service = newPaymentService(ctx.get('db'), ctx.env)
 	const result = await service.getSubscription({
 		userId: ctx.get('userId')
 	})
@@ -93,17 +94,17 @@ export async function getSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Resp
 			result.subscription === null
 				? null
 				: {
-						product_id: result.subscription.productId,
-						status: result.subscription.status,
-						current_period_start: result.subscription.currentPeriodStart,
-						current_period_end: result.subscription.currentPeriodEnd,
-						canceled_at: result.subscription.canceledAt
-					}
+					product_id: result.subscription.productId,
+					status: result.subscription.status,
+					current_period_start: result.subscription.currentPeriodStart,
+					current_period_end: result.subscription.currentPeriodEnd,
+					canceled_at: result.subscription.canceledAt
+				}
 	})
 }
 
 export async function cancelSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
+	const service = newPaymentService(ctx.get('db'), ctx.env)
 	try {
 		const result = await service.cancelSubscription({
 			userId: ctx.get('userId')
@@ -123,12 +124,12 @@ export async function cancelSubscriptionHandler(ctx: Context<ApiEnv>): Promise<R
 }
 
 export async function upgradeSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, UpgradeSubscriptionRequestSchema)
+	const req = await parseRequest(ctx, UpgradeSubscriptionRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
+	const service = newPaymentService(ctx.get('db'), ctx.env)
 	try {
 		const result = await service.upgradeSubscription({
 			userId: ctx.get('userId'),
@@ -147,11 +148,11 @@ export async function upgradeSubscriptionHandler(ctx: Context<ApiEnv>): Promise<
 }
 
 export async function listPaymentTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, ListPaymentTransactionsRequestSchema)
+	const req = await parseRequest(ctx, ListPaymentTransactionsRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
-	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
+	const service = newPaymentService(ctx.get('db'), ctx.env)
 	const result = await service.listPaymentTransactions({
 		userId: ctx.get('userId'),
 		page: req.page,
@@ -168,7 +169,7 @@ export async function listPaymentTransactionsHandler(ctx: Context<ApiEnv>): Prom
 				product_id: row.productId,
 				amount: row.amount,
 				currency: row.currency,
-				credits_granted: row.creditsGranted,
+				credits_granted: formatDecimal(row.creditsGranted),
 				paid_at: row.paidAt,
 				refunded_at: row.refundedAt,
 				disputed_at: row.disputedAt,
@@ -180,11 +181,11 @@ export async function listPaymentTransactionsHandler(ctx: Context<ApiEnv>): Prom
 }
 
 export async function listAdminPaymentTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, ListAdminPaymentTransactionsRequestSchema)
+	const req = await parseRequest(ctx, ListAdminPaymentTransactionsRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
-	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
+	const service = newPaymentService(ctx.get('db'), ctx.env)
 	const result = await service.listAdminPaymentTransactions({
 		page: req.page,
 		pageSize: req.page_size,
@@ -202,7 +203,7 @@ export async function listAdminPaymentTransactionsHandler(ctx: Context<ApiEnv>):
 				product_id: row.productId,
 				amount: row.amount,
 				currency: row.currency,
-				credits_granted: row.creditsGranted,
+				credits_granted: formatDecimal(row.creditsGranted),
 				paid_at: row.paidAt,
 				refunded_at: row.refundedAt,
 				disputed_at: row.disputedAt,
@@ -225,7 +226,7 @@ async function processWebhook(
 	ctx: Context<ApiEnv>,
 	provider: PaymentProviderName
 ): Promise<Response> {
-	const service = createPaymentServiceFromEnv(ctx.get('db'), ctx.env)
+	const service = newPaymentService(ctx.get('db'), ctx.env)
 	const rawBody = await ctx.req.raw.text()
 	try {
 		await service.processWebhook(provider, rawBody, ctx.req.raw.headers)
@@ -249,6 +250,13 @@ function mapPaymentServiceError(ctx: Context<ApiEnv>, error: unknown): Response 
 		return ctx.json({ code: error.code }, 409)
 	}
 	return ctx.json({ code: error.code }, 400)
+}
+
+function formatNullableCreditAmount(units: number | null): string | null {
+	if (units === null) {
+		return null
+	}
+	return formatDecimal(units)
 }
 
 function readCountryCode(ctx: Context<ApiEnv>): string | null {

@@ -2,8 +2,8 @@ import { createHmac } from 'node:crypto'
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import {
-	createCreemPaymentProviderFromEnv,
 	CreemPaymentProvider,
+	newCreemPayment,
 	type CreemClient,
 	type CreemClientOptions
 } from './creem'
@@ -269,7 +269,7 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 	})
 })
 
-describe('createCreemPaymentProviderFromEnv', () => {
+describe('newCreemPayment', () => {
 	type GivenDetail = {
 		testMode: string
 	}
@@ -296,7 +296,7 @@ describe('createCreemPaymentProviderFromEnv', () => {
 
 	runCases(cases, async (given) => {
 		let serverIdx: number = -1
-		createCreemPaymentProviderFromEnv(
+		newCreemPayment(
 			{
 				PAYMENT_CREEM_API_KEY: 'api-key',
 				PAYMENT_CREEM_WEBHOOK_SECRET: 'whsec',

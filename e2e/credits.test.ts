@@ -3,9 +3,9 @@ import { runCases, type TestCase } from '../src/testing/bdd'
 
 interface PublicConfigResponse {
 	credits_signup_enabled: boolean
-	credits_signup_amount: number
+	credits_signup_amount: string
 	credits_daily_checkin_enabled: boolean
-	credits_daily_checkin_amount: number
+	credits_daily_checkin_amount: string
 	credits_referral_enabled: boolean
 }
 
@@ -127,9 +127,9 @@ describe('credits api e2e', () => {
 				code: '',
 				hasCreditsFields:
 					typeof payload.credits_signup_enabled === 'boolean' &&
-					typeof payload.credits_signup_amount === 'number' &&
+					typeof payload.credits_signup_amount === 'string' &&
 					typeof payload.credits_daily_checkin_enabled === 'boolean' &&
-					typeof payload.credits_daily_checkin_amount === 'number' &&
+					typeof payload.credits_daily_checkin_amount === 'string' &&
 					typeof payload.credits_referral_enabled === 'boolean'
 			}
 		}
@@ -166,7 +166,7 @@ describe('credits api e2e', () => {
 
 		const res = await postJson('/api/admin/grant_credits', {
 			user_id: 'u1',
-			amount: 10,
+			amount: '10',
 			source_id: 's1',
 			description: 'x'
 		})

@@ -4,7 +4,7 @@ import { z } from 'zod'
 import type { ApiEnv } from '..'
 import type { NewNotification, NewNotificationRead } from '../../db/schema'
 import { notification, notificationRead } from '../../db/schema'
-import { PageRequestSchema, parse } from './utils'
+import { PageRequestSchema, parseRequest } from '../../lib/request'
 
 export const CreateNotificationRequestSchema = z.object({
 	type: z.string().min(1).optional().default('system'),
@@ -42,7 +42,7 @@ export interface ListNotificationsResponse {
 }
 
 export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, CreateNotificationRequestSchema)
+	const req = await parseRequest(ctx, CreateNotificationRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
@@ -61,7 +61,7 @@ export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<R
 }
 
 export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, ListNotificationsRequestSchema)
+	const req = await parseRequest(ctx, ListNotificationsRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
@@ -145,7 +145,7 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 }
 
 export async function readNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parse(ctx, ReadNotificationRequestSchema)
+	const req = await parseRequest(ctx, ReadNotificationRequestSchema)
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}

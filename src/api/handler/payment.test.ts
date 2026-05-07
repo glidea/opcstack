@@ -30,7 +30,8 @@ vi.mock('../../payment', async () => {
 	const actual = await vi.importActual<typeof import('../../payment')>('../../payment')
 	return {
 		...actual,
-		createPaymentServiceFromEnv: vi.fn().mockImplementation(() => paymentServiceMocks)
+		createPaymentServiceFromEnv: vi.fn().mockImplementation(() => paymentServiceMocks),
+		newPaymentService: vi.fn().mockImplementation(() => paymentServiceMocks)
 	}
 })
 

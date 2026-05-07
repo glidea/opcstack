@@ -1,4 +1,4 @@
-import { CreditDecimal, parseFixedDecimal } from '../fixed-decimal'
+import { parseDecimal } from '../lib/decimal'
 
 export const PAYMENT_PROVIDER_DODO = 'dodo'
 export const PAYMENT_PROVIDER_CREEM = 'creem'
@@ -216,7 +216,7 @@ function toNullableCreditUnits(value: string | undefined): number | null {
 		return null
 	}
 	try {
-		return parseFixedDecimal(value, CreditDecimal)
+		return parseDecimal(value)
 	} catch {
 		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
 	}
