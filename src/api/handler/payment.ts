@@ -10,6 +10,7 @@ import {
 	type PaymentProviderName
 } from '../../payment'
 import { formatDecimal } from '../../lib/decimal'
+import { logWarn } from '../../lib/log'
 
 const CreatePaymentCheckoutRequestSchema = z.object({
 	product_id: z.string().min(1),
@@ -233,6 +234,9 @@ async function processWebhook(
 		return ctx.json({})
 	} catch (error) {
 		if (error instanceof Error && error.message.endsWith('_SIGNATURE_INVALID')) {
+			logWarn(error, {
+				provider
+			})
 			return ctx.json({ code: error.message }, 400)
 		}
 		throw error

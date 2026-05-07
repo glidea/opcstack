@@ -318,6 +318,12 @@ await client.putImage({ dir, imageBase64, mimeType })
 
 ## Conventions
 
+- Logs must be structured JSON and should go through `src/lib/log.ts`
+- Do not log expected user-caused 4xx results such as invalid request unauthorized beta gate or rate limit
+- Do not duplicate platform-level observability for request latency cron trigger or queue retry state
+- Do not log an error and then rethrow it; let the outer boundary log thrown errors
+- Log only internal business state transitions and internal failures that Cloudflare cannot infer
+- Never log tokens cookies authorization headers raw webhook bodies full email addresses or user content
 - Queue Binding: `Q_<QUEUE_NAME_UPPER>` for example `task-check` → `Q_TASK_CHECK`
 - R2 public path: `public/*`
 - R2 private path: `private/<userId>/*`

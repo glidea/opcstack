@@ -29,6 +29,7 @@ import {
 	type PaymentEvent,
 	type PaymentProvider
 } from './contract'
+import { logInfo, logWarn } from '../lib/log'
 import { newDodoPayment } from './dodo'
 import { newCreemPayment } from './creem'
 
@@ -512,6 +513,7 @@ export class PaymentService {
 			rawBody,
 			headers
 		})
+		logInfo('Payment webhook received', toPaymentEventLog(event))
 
 		const existingEvent = await this.db.query.paymentWebhookEvent.findFirst({
 			where: and(
@@ -520,6 +522,7 @@ export class PaymentService {
 			)
 		})
 		if (existingEvent) {
+			logInfo('Payment webhook deduplicated', toPaymentEventLog(event))
 			return
 		}
 
@@ -563,12 +566,18 @@ export class PaymentService {
 
 	private async handlePaymentSucceeded(event: PaymentEvent): Promise<void> {
 		if (event.checkoutOrderId === null) {
+			logPaymentIgnored(event, {
+				reason: 'missing_checkout_order_id'
+			})
 			return
 		}
 		const order = await this.db.query.checkoutOrder.findFirst({
 			where: eq(checkoutOrder.id, event.checkoutOrderId)
 		})
 		if (!order) {
+			logPaymentIgnored(event, {
+				reason: 'checkout_order_not_found'
+			})
 			return
 		}
 
@@ -589,6 +598,10 @@ export class PaymentService {
 		event: PaymentEvent
 	): Promise<void> {
 		if (event.providerPaymentId === null) {
+			logPaymentIgnored(event, {
+				checkout_order_id: order.id,
+				reason: 'missing_provider_payment_id'
+			})
 			return
 		}
 
@@ -615,10 +628,18 @@ export class PaymentService {
 				updatedAt: nowMs
 			})
 			.where(eq(paymentTransaction.id, row.id))
+		logPaymentStateTransition(event, {
+			checkout_order_id: order.id,
+			transaction_id: row.id,
+			state: 'provider_payment_id_recorded'
+		})
 	}
 
 	private async handlePaymentFailed(event: PaymentEvent): Promise<void> {
 		if (event.checkoutOrderId === null) {
+			logPaymentIgnored(event, {
+				reason: 'missing_checkout_order_id'
+			})
 			return
 		}
 
@@ -626,6 +647,11 @@ export class PaymentService {
 			where: eq(checkoutOrder.id, event.checkoutOrderId)
 		})
 		if (!order || order.status !== CHECKOUT_ORDER_STATUS_PENDING) {
+			if (!order) {
+				logPaymentIgnored(event, {
+					reason: 'checkout_order_not_found'
+				})
+			}
 			return
 		}
 
@@ -638,8 +664,18 @@ export class PaymentService {
 				updatedAt: nowMs
 			})
 			.where(eq(checkoutOrder.id, order.id))
+		logPaymentStateTransition(event, {
+			checkout_order_id: order.id,
+			user_id: order.userId,
+			from_status: order.status,
+			to_status: CHECKOUT_ORDER_STATUS_FAILED
+		})
 
 		if (event.providerPaymentId === null) {
+			logPaymentIgnored(event, {
+				checkout_order_id: order.id,
+				reason: 'missing_provider_payment_id'
+			})
 			return
 		}
 
@@ -703,6 +739,9 @@ export class PaymentService {
 
 	private async handleRefundSucceeded(event: PaymentEvent): Promise<void> {
 		if (event.providerPaymentId === null || event.providerRefundId === null) {
+			logPaymentIgnored(event, {
+				reason: 'missing_refund_identity'
+			})
 			return
 		}
 
@@ -723,6 +762,9 @@ export class PaymentService {
 			)
 		})
 		if (!row) {
+			logPaymentIgnored(event, {
+				reason: 'payment_transaction_not_found'
+			})
 			return
 		}
 
@@ -736,6 +778,12 @@ export class PaymentService {
 				updatedAt: nowMs
 			})
 			.where(eq(paymentTransaction.id, row.id))
+		logPaymentStateTransition(event, {
+			transaction_id: row.id,
+			user_id: row.userId,
+			from_status: row.status,
+			to_status: PAYMENT_TRANSACTION_STATUS_REFUNDED
+		})
 
 		if (row.creditsGranted > 0 && row.creditsReversedAt === null) {
 			const credits = new CreditsService(this.db)
@@ -759,6 +807,9 @@ export class PaymentService {
 
 	private async handleDisputeOpened(event: PaymentEvent): Promise<void> {
 		if (event.providerPaymentId === null || event.providerDisputeId === null) {
+			logPaymentIgnored(event, {
+				reason: 'missing_dispute_identity'
+			})
 			return
 		}
 
@@ -779,6 +830,9 @@ export class PaymentService {
 			)
 		})
 		if (!row) {
+			logPaymentIgnored(event, {
+				reason: 'payment_transaction_not_found'
+			})
 			return
 		}
 
@@ -792,10 +846,19 @@ export class PaymentService {
 				updatedAt: nowMs
 			})
 			.where(eq(paymentTransaction.id, row.id))
+		logPaymentStateTransition(event, {
+			transaction_id: row.id,
+			user_id: row.userId,
+			from_status: row.status,
+			to_status: PAYMENT_TRANSACTION_STATUS_DISPUTED
+		})
 	}
 
 	private async handleSubscriptionStatusEvent(event: PaymentEvent, nextStatus: string): Promise<void> {
 		if (event.providerSubscriptionId === null) {
+			logPaymentIgnored(event, {
+				reason: 'missing_provider_subscription_id'
+			})
 			return
 		}
 		const row = await this.db.query.userSubscription.findFirst({
@@ -805,6 +868,9 @@ export class PaymentService {
 			)
 		})
 		if (!row) {
+			logPaymentIgnored(event, {
+				reason: 'subscription_not_found'
+			})
 			return
 		}
 
@@ -818,6 +884,11 @@ export class PaymentService {
 				updatedAt: nowMs
 			})
 			.where(eq(userSubscription.userId, row.userId))
+		logPaymentStateTransition(event, {
+			user_id: row.userId,
+			from_status: row.status,
+			to_status: nextStatus
+		})
 	}
 
 	private async applyCreditsPurchase(
@@ -825,6 +896,10 @@ export class PaymentService {
 		event: PaymentEvent
 	): Promise<void> {
 		if (event.providerPaymentId === null || event.amount === null || event.currency === null) {
+			logPaymentIgnored(event, {
+				checkout_order_id: order.id,
+				reason: 'missing_payment_fields'
+			})
 			return
 		}
 		const duplicated = await this.db.query.paymentTransaction.findFirst({
@@ -883,6 +958,14 @@ export class PaymentService {
 				updatedAt: nowMs
 			})
 			.where(eq(checkoutOrder.id, order.id))
+		logPaymentStateTransition(event, {
+			checkout_order_id: order.id,
+			transaction_id: transactionId,
+			user_id: order.userId,
+			from_status: order.status,
+			to_status: CHECKOUT_ORDER_STATUS_COMPLETED,
+			credits_granted: creditsGranted
+		})
 	}
 
 	private async applySubscriptionInitial(
@@ -890,6 +973,10 @@ export class PaymentService {
 		event: PaymentEvent
 	): Promise<void> {
 		if (event.providerSubscriptionId === null) {
+			logPaymentIgnored(event, {
+				checkout_order_id: order.id,
+				reason: 'missing_provider_subscription_id'
+			})
 			return
 		}
 		const providerPaymentId = event.providerPaymentId ?? order.providerPaymentId
@@ -984,10 +1071,22 @@ export class PaymentService {
 				updatedAt: nowMs
 			})
 			.where(eq(checkoutOrder.id, order.id))
+		logPaymentStateTransition(event, {
+			checkout_order_id: order.id,
+			transaction_id: transactionId,
+			user_id: order.userId,
+			from_status: order.status,
+			to_status: CHECKOUT_ORDER_STATUS_COMPLETED,
+			subscription_status: SUBSCRIPTION_STATUS_ACTIVE,
+			credits_granted: product.periodCreditsAmount
+		})
 	}
 
 	private async applySubscriptionRenewal(event: PaymentEvent): Promise<void> {
 		if (event.providerSubscriptionId === null) {
+			logPaymentIgnored(event, {
+				reason: 'missing_provider_subscription_id'
+			})
 			return
 		}
 
@@ -998,6 +1097,9 @@ export class PaymentService {
 			)
 		})
 		if (!sub) {
+			logPaymentIgnored(event, {
+				reason: 'subscription_not_found'
+			})
 			return
 		}
 
@@ -1070,6 +1172,13 @@ export class PaymentService {
 				updatedAt: nowMs
 			})
 			.where(eq(userSubscription.userId, sub.userId))
+		logPaymentStateTransition(event, {
+			transaction_id: transactionId,
+			user_id: sub.userId,
+			from_status: sub.status,
+			to_status: SUBSCRIPTION_STATUS_ACTIVE,
+			credits_granted: sub.periodCreditsAmount
+		})
 	}
 
 	private async applySubscriptionUpgrade(
@@ -1077,6 +1186,10 @@ export class PaymentService {
 		event: PaymentEvent
 	): Promise<void> {
 		if (event.providerSubscriptionId === null) {
+			logPaymentIgnored(event, {
+				checkout_order_id: order.id,
+				reason: 'missing_provider_subscription_id'
+			})
 			return
 		}
 		const sub = await this.db.query.userSubscription.findFirst({
@@ -1169,6 +1282,14 @@ export class PaymentService {
 				updatedAt: nowMs
 			})
 			.where(eq(checkoutOrder.id, order.id))
+		logPaymentStateTransition(event, {
+			checkout_order_id: order.id,
+			transaction_id: transactionId,
+			user_id: sub.userId,
+			from_status: sub.status,
+			to_status: SUBSCRIPTION_STATUS_ACTIVE,
+			credits_granted: creditsDiff
+		})
 	}
 
 	private getProvider(name: PaymentProviderName): PaymentProvider {
@@ -1257,6 +1378,40 @@ function getDefaultProtocol(appDomain: string): string {
 		return 'http'
 	}
 	return 'https'
+}
+
+function toPaymentEventLog(event: PaymentEvent): Record<string, unknown> {
+	return {
+		provider: event.provider,
+		webhook_id: event.webhookId,
+		event_type: event.type,
+		checkout_order_id: event.checkoutOrderId,
+		provider_payment_id: event.providerPaymentId,
+		provider_refund_id: event.providerRefundId,
+		provider_dispute_id: event.providerDisputeId,
+		provider_subscription_id: event.providerSubscriptionId
+	}
+}
+
+function logPaymentIgnored(
+	event: PaymentEvent,
+	fields: Record<string, unknown>
+): void {
+	const reason = typeof fields['reason'] === 'string' ? fields['reason'] : 'payment_event_ignored'
+	logWarn(reason, {
+		...toPaymentEventLog(event),
+		...fields
+	})
+}
+
+function logPaymentStateTransition(
+	event: PaymentEvent,
+	fields: Record<string, unknown>
+): void {
+	logInfo('Payment state transition', {
+		...toPaymentEventLog(event),
+		...fields
+	})
 }
 
 function normalizeEventTimeMs(value: number): number {

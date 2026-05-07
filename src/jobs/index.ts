@@ -1,5 +1,6 @@
 import { CreditsService } from '../credits'
 import { getDb } from '../db'
+import { logInfo } from '../lib/log'
 
 export type ScheduledJobHandler = (
 	controller: ScheduledController,
@@ -27,13 +28,21 @@ export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 		const retentionDays = parseRetentionDays(env.CREDITS_HISTORY_RETENTION_DAYS)
 		const credits = new CreditsService(db)
 
-		await credits.expire({
+		const expireResult = await credits.expire({
 			nowMs,
 			limit: 20
 		})
-		await credits.cleanupTransactions({
+		logInfo('Credits expire job finished', {
+			processed_entries: expireResult.processedEntries,
+			processed_users: expireResult.processedUsers
+		})
+
+		const cleanupResult = await credits.cleanupTransactions({
 			nowMs,
 			retentionDays
+		})
+		logInfo('Credits cleanup job finished', {
+			deleted_rows: cleanupResult.deletedRows
 		})
 	}
 }
