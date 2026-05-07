@@ -1,4 +1,7 @@
-export type PaymentProviderName = 'dodo' | 'creem'
+export const PAYMENT_PROVIDER_DODO = 'dodo'
+export const PAYMENT_PROVIDER_CREEM = 'creem'
+
+export type PaymentProviderName = typeof PAYMENT_PROVIDER_DODO | typeof PAYMENT_PROVIDER_CREEM
 
 export interface PaymentProviderCountryOverride {
 	country: string
@@ -204,7 +207,7 @@ function parseProviderProductIds(
 
 function toProviderName(raw: string): PaymentProviderName {
 	const value = raw.trim().toLowerCase()
-	if (value !== 'dodo' && value !== 'creem') {
+	if (value !== PAYMENT_PROVIDER_DODO && value !== PAYMENT_PROVIDER_CREEM) {
 		throw new PaymentConfigError('PAYMENT_PROVIDER_INVALID')
 	}
 	return value

@@ -6,7 +6,7 @@ import {
 	type DodoClient,
 	type DodoClientOptions
 } from './dodo'
-import type { PaymentEvent } from './provider'
+import type { PaymentEvent } from './index'
 
 describe('DodoPaymentProvider.listProducts', () => {
 	beforeEach(() => {
@@ -200,7 +200,7 @@ describe('DodoPaymentProvider.unwrapWebhook', () => {
 				webhookEvent: {
 					provider: 'dodo',
 					webhookId: 'payment.succeeded:pay_1:2026-01-01T00:00:00Z',
-					eventType: 'payment_succeeded',
+					type: 'payment_succeeded',
 					providerPaymentId: 'pay_1',
 					providerRefundId: null,
 					providerDisputeId: null,
@@ -230,7 +230,7 @@ describe('DodoPaymentProvider.unwrapWebhook', () => {
 				webhookEvent: {
 					provider: 'dodo',
 					webhookId: 'subscription.renewed:sub_2:2026-01-01T00:00:00Z',
-					eventType: 'subscription_paid',
+					type: 'subscription_paid',
 					providerPaymentId: null,
 					providerRefundId: null,
 					providerDisputeId: null,
@@ -268,7 +268,7 @@ describe('DodoPaymentProvider.unwrapWebhook', () => {
 		})
 
 		return {
-			eventType: event.eventType,
+			eventType: event.type,
 			providerPaymentId: event.providerPaymentId ?? '',
 			checkoutOrderId: event.checkoutOrderId ?? '',
 			periodEnd: event.periodEnd ?? -1
@@ -358,7 +358,7 @@ function createDodoProduct(
 }
 
 function toDodoWebhookEvent(event: PaymentEvent): unknown {
-	if (event.eventType === 'payment_succeeded') {
+	if (event.type === 'payment_succeeded') {
 		return {
 			type: 'payment.succeeded',
 			timestamp: '2026-01-01T00:00:00Z',

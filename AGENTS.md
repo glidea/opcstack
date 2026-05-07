@@ -237,7 +237,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Public config exposes `payment_enabled` from `POST /api/get_public_config`
 - Provider routing uses `request.cf.country` with default plus country override fallback
 - Enabled providers are Dodo and Creem via `src/payment/`
-- Core service is `PaymentService` in `src/payment/service.ts`
+- Core service is `PaymentService` in `src/payment/index.ts`
 - Main payment APIs:
   - `POST /api/list_payment_products`
   - `POST /api/create_payment_checkout`
@@ -261,7 +261,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Footer includes links to all three pages
 - Page copy uses `APP_NAME` and `SUPPORT_EMAIL`
 
-### 13. Testing Style and Base Library
+### 15. Testing Style and Base Library
 
 - Base test library is `vitest`
 - Shared BDD helper is `src/testing/bdd.ts`

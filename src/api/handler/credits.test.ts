@@ -685,6 +685,8 @@ describe('grantCreditsHandler', () => {
 		status: number
 		code: string
 		balance: number
+		grantType: string
+		grantSourceType: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -702,7 +704,9 @@ describe('grantCreditsHandler', () => {
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_REQUEST',
-				balance: 0
+				balance: 0,
+				grantType: '',
+				grantSourceType: ''
 			}
 		},
 		{
@@ -719,7 +723,9 @@ describe('grantCreditsHandler', () => {
 			thenExpected: {
 				status: 409,
 				code: 'CREDIT_GRANT_DUPLICATED',
-				balance: 0
+				balance: 0,
+				grantType: 'manual_grant',
+				grantSourceType: 'manual_grant'
 			}
 		},
 		{
@@ -736,7 +742,9 @@ describe('grantCreditsHandler', () => {
 			thenExpected: {
 				status: 404,
 				code: 'CREDIT_USER_NOT_FOUND',
-				balance: 0
+				balance: 0,
+				grantType: 'manual_grant',
+				grantSourceType: 'manual_grant'
 			}
 		},
 		{
@@ -753,7 +761,9 @@ describe('grantCreditsHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				balance: 120
+				balance: 120,
+				grantType: 'manual_grant',
+				grantSourceType: 'manual_grant'
 			}
 		}
 	]
@@ -779,10 +789,15 @@ describe('grantCreditsHandler', () => {
 		})
 		const res = await grantCreditsHandler(ctx)
 		const payload = (await res.json()) as { code?: string; balance?: number }
+		const grantInput = vi.mocked(creditServiceMocks.grant).mock.calls[0]?.[0] as
+			| { type?: string; sourceType?: string }
+			| undefined
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			balance: payload.balance ?? 0
+			balance: payload.balance ?? 0,
+			grantType: grantInput?.type ?? '',
+			grantSourceType: grantInput?.sourceType ?? ''
 		}
 	})
 })

@@ -2,7 +2,13 @@ import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
 import { PageRequestSchema, parse } from './utils'
-import { createPaymentServiceFromEnv, PaymentServiceError, type PaymentProviderName } from '../../payment'
+import {
+	createPaymentServiceFromEnv,
+	PAYMENT_PROVIDER_CREEM,
+	PAYMENT_PROVIDER_DODO,
+	PaymentServiceError,
+	type PaymentProviderName
+} from '../../payment'
 
 const CreatePaymentCheckoutRequestSchema = z.object({
 	product_id: z.string().min(1),
@@ -208,11 +214,11 @@ export async function listAdminPaymentTransactionsHandler(ctx: Context<ApiEnv>):
 }
 
 export async function dodoWebhookHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	return processWebhook(ctx, 'dodo')
+	return processWebhook(ctx, PAYMENT_PROVIDER_DODO)
 }
 
 export async function creemWebhookHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	return processWebhook(ctx, 'creem')
+	return processWebhook(ctx, PAYMENT_PROVIDER_CREEM)
 }
 
 async function processWebhook(

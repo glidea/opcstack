@@ -1,8 +1,8 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import { PaymentProviderRouter, type PaymentConfig } from './config'
-import { PaymentService, PaymentServiceError, type PaymentProviderMap } from './service'
-import type { PaymentEvent, PaymentProvider } from './provider'
+import { PaymentService, PaymentServiceError, type PaymentProviderMap } from './index'
+import type { PaymentEvent, PaymentProvider } from './index'
 import type { AppDb } from '../db'
 import {
 	checkoutOrder,
@@ -269,18 +269,28 @@ describe('PaymentService.processWebhook', () => {
 	})
 
 	type GivenDetail = {
-		eventType: 'payment_succeeded' | 'subscription_paid' | 'refund_succeeded' | 'dispute_opened'
+		eventType:
+			| 'payment_succeeded'
+			| 'payment_failed'
+			| 'subscription_paid'
+			| 'refund_succeeded'
+			| 'dispute_opened'
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		transactions: number
 		checkoutStatus: string
 		subscriptionPlan: string
+		failedStatus: string
 		refundStatus: string
 		disputeStatus: string
 		webhookEvents: number
 		grantCalls: number
 		deductCalls: number
+		grantType: string
+		grantSourceType: string
+		deductType: string
+		deductSourceType: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -297,11 +307,41 @@ describe('PaymentService.processWebhook', () => {
 				transactions: 1,
 				checkoutStatus: 'completed',
 				subscriptionPlan: '',
+				failedStatus: '',
 				refundStatus: '',
 				disputeStatus: '',
 				webhookEvents: 1,
 				grantCalls: 1,
-				deductCalls: 0
+				deductCalls: 0,
+				grantType: 'payment_purchase',
+				grantSourceType: 'payment_transaction',
+				deductType: '',
+				deductSourceType: ''
+			}
+		},
+		{
+			scenario: 'handle payment_failed for credits purchase',
+			given: 'pending credits checkout order exists',
+			when: 'processing payment_failed webhook',
+			then: 'writes failed transaction and marks checkout failed',
+			givenDetail: {
+				eventType: 'payment_failed'
+			},
+			whenDetail: {},
+			thenExpected: {
+				transactions: 1,
+				checkoutStatus: 'failed',
+				subscriptionPlan: '',
+				failedStatus: 'failed',
+				refundStatus: '',
+				disputeStatus: '',
+				webhookEvents: 1,
+				grantCalls: 0,
+				deductCalls: 0,
+				grantType: '',
+				grantSourceType: '',
+				deductType: '',
+				deductSourceType: ''
 			}
 		},
 		{
@@ -317,11 +357,16 @@ describe('PaymentService.processWebhook', () => {
 				transactions: 1,
 				checkoutStatus: 'completed',
 				subscriptionPlan: 'team',
+				failedStatus: '',
 				refundStatus: '',
 				disputeStatus: '',
 				webhookEvents: 1,
 				grantCalls: 1,
-				deductCalls: 0
+				deductCalls: 0,
+				grantType: 'payment_purchase',
+				grantSourceType: 'payment_transaction',
+				deductType: '',
+				deductSourceType: ''
 			}
 		},
 		{
@@ -337,11 +382,16 @@ describe('PaymentService.processWebhook', () => {
 				transactions: 1,
 				checkoutStatus: '',
 				subscriptionPlan: '',
+				failedStatus: '',
 				refundStatus: 'refunded',
 				disputeStatus: '',
 				webhookEvents: 1,
 				grantCalls: 0,
-				deductCalls: 1
+				deductCalls: 1,
+				grantType: '',
+				grantSourceType: '',
+				deductType: 'payment_refund',
+				deductSourceType: 'payment_refund'
 			}
 		},
 		{
@@ -357,11 +407,16 @@ describe('PaymentService.processWebhook', () => {
 				transactions: 1,
 				checkoutStatus: '',
 				subscriptionPlan: '',
+				failedStatus: '',
 				refundStatus: '',
 				disputeStatus: 'disputed',
 				webhookEvents: 1,
 				grantCalls: 0,
-				deductCalls: 0
+				deductCalls: 0,
+				grantType: '',
+				grantSourceType: '',
+				deductType: '',
+				deductSourceType: ''
 			}
 		}
 	]
@@ -386,6 +441,24 @@ describe('PaymentService.processWebhook', () => {
 				createdAt: 0,
 				updatedAt: 0
 			})
+		}
+
+		if (given.eventType === 'payment_failed') {
+			state.checkoutOrders.push({
+				id: 'co_1',
+				userId: 'u1',
+				type: 'credits_purchase',
+				status: 'pending',
+				productId: 'credits_1000',
+				provider: 'dodo',
+				providerProductId: 'dp_credits_1000',
+				providerCheckoutSessionId: 'cs_1',
+				providerPaymentId: null,
+				checkoutUrl: 'https://pay.example.com/cs_1',
+				createdAt: 0,
+				updatedAt: 0
+			})
+			event = createPaymentFailedEvent()
 		}
 
 		if (given.eventType === 'subscription_paid') {
@@ -480,16 +553,94 @@ describe('PaymentService.processWebhook', () => {
 
 		state.provider.unwrapWebhook.mockResolvedValue(event)
 		await service.processWebhook('dodo', '{}', new Headers())
+		const grantInput = vi.mocked(creditServiceMocks.grant).mock.calls[0]?.[0] as
+			| { type?: string; sourceType?: string }
+			| undefined
+		const deductInput = vi.mocked(creditServiceMocks.deduct).mock.calls[0]?.[0] as
+			| { type?: string; sourceType?: string }
+			| undefined
 
 		return {
 			transactions: state.paymentTransactions.length,
 			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
 			subscriptionPlan: state.userSubscriptions[0]?.subscriptionPlan ?? '',
+			failedStatus: state.paymentTransactions[0]?.status === 'failed' ? 'failed' : '',
 			refundStatus: state.paymentTransactions[0]?.status === 'refunded' ? 'refunded' : '',
 			disputeStatus: state.paymentTransactions[0]?.status === 'disputed' ? 'disputed' : '',
 			webhookEvents: state.webhookEvents.length,
 			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length,
-			deductCalls: vi.mocked(creditServiceMocks.deduct).mock.calls.length
+			deductCalls: vi.mocked(creditServiceMocks.deduct).mock.calls.length,
+			grantType: grantInput?.type ?? '',
+			grantSourceType: grantInput?.sourceType ?? '',
+			deductType: deductInput?.type ?? '',
+			deductSourceType: deductInput?.sourceType ?? ''
+		}
+	})
+})
+
+describe('PaymentService.processWebhook subscription event boundary', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = Record<string, never>
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		transactions: number
+		checkoutStatus: string
+		checkoutProviderPaymentId: string
+		webhookEvents: number
+		grantCalls: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'ignore payment_succeeded for subscription initial checkout',
+			given: 'pending subscription initial checkout order exists',
+			when: 'processing payment_succeeded webhook',
+			then: 'waits for subscription_paid to create subscription',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: {
+				transactions: 0,
+				checkoutStatus: 'pending',
+				checkoutProviderPaymentId: 'pay_1',
+				webhookEvents: 1,
+				grantCalls: 0
+			}
+		}
+	]
+
+	runCases(cases, async () => {
+		const state = createMockState()
+		const service = createService(state)
+		state.checkoutOrders.push({
+			id: 'co_1',
+			userId: 'u1',
+			type: 'subscription_initial',
+			status: 'pending',
+			productId: 'pro_monthly',
+			provider: 'dodo',
+			providerProductId: 'dp_pro_monthly',
+			providerCheckoutSessionId: 'cs_1',
+			providerPaymentId: null,
+			checkoutUrl: 'https://pay.example.com/cs_1',
+			createdAt: 0,
+			updatedAt: 0
+		})
+		state.provider.unwrapWebhook.mockResolvedValue({
+			...createPaymentSucceededEvent(),
+			providerSubscriptionId: 'sub_1'
+		})
+
+		await service.processWebhook('dodo', '{}', new Headers())
+
+		return {
+			transactions: state.paymentTransactions.length,
+			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
+			checkoutProviderPaymentId: state.checkoutOrders[0]?.providerPaymentId ?? '',
+			webhookEvents: state.webhookEvents.length,
+			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length
 		}
 	})
 })
@@ -769,8 +920,26 @@ function createPaymentSucceededEvent() {
 	return {
 		provider: 'dodo' as const,
 		webhookId: 'evt_pay_1',
-		eventType: 'payment_succeeded' as const,
+		type: 'payment_succeeded' as const,
 		providerPaymentId: 'pay_1',
+		providerRefundId: null,
+		providerDisputeId: null,
+		providerSubscriptionId: null,
+		checkoutOrderId: 'co_1',
+		amount: 1000,
+		currency: 'USD',
+		periodStart: null,
+		periodEnd: null,
+		occurredAt: 1717200000
+	}
+}
+
+function createPaymentFailedEvent() {
+	return {
+		provider: 'dodo' as const,
+		webhookId: 'evt_pay_failed_1',
+		type: 'payment_failed' as const,
+		providerPaymentId: 'pay_failed_1',
 		providerRefundId: null,
 		providerDisputeId: null,
 		providerSubscriptionId: null,
@@ -787,7 +956,7 @@ function createSubscriptionPaidEvent() {
 	return {
 		provider: 'dodo' as const,
 		webhookId: 'evt_sub_1',
-		eventType: 'subscription_paid' as const,
+		type: 'subscription_paid' as const,
 		providerPaymentId: 'pay_upgrade_1',
 		providerRefundId: null,
 		providerDisputeId: null,
@@ -805,7 +974,7 @@ function createRefundEvent() {
 	return {
 		provider: 'dodo' as const,
 		webhookId: 'evt_refund_1',
-		eventType: 'refund_succeeded' as const,
+		type: 'refund_succeeded' as const,
 		providerPaymentId: 'pay_1',
 		providerRefundId: 'rf_1',
 		providerDisputeId: null,
@@ -823,7 +992,7 @@ function createDisputeEvent() {
 	return {
 		provider: 'dodo' as const,
 		webhookId: 'evt_dispute_1',
-		eventType: 'dispute_opened' as const,
+		type: 'dispute_opened' as const,
 		providerPaymentId: 'pay_1',
 		providerRefundId: null,
 		providerDisputeId: 'dp_1',

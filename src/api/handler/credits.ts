@@ -1,7 +1,12 @@
 import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
-import { CreditsError, CreditsService, type CreditTransactionItem } from '../../credits'
+import {
+	CREDIT_TRANSACTION_TYPE_MANUAL_GRANT,
+	CreditsError,
+	CreditsService,
+	type CreditTransactionItem
+} from '../../credits'
 import { PageRequestSchema, parse } from './utils'
 
 export const BindReferralRequestSchema = z.object({
@@ -271,7 +276,7 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 		const credits = new CreditsService(ctx.get('db'))
 		const result = await credits.grant({
 			userId: req.user_id,
-			type: 'manual_grant',
+			type: CREDIT_TRANSACTION_TYPE_MANUAL_GRANT,
 			amount: req.amount,
 			sourceType: 'manual_grant',
 			sourceId: req.source_id,

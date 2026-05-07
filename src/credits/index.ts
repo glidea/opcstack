@@ -3,15 +3,28 @@ import type { AppDb } from '../db'
 import { creditEntry, creditRedemptionCode, creditReferral, creditTransaction } from '../db/schema'
 import { user } from '../db/schema.auth'
 
+export const CREDIT_TRANSACTION_TYPE_SIGNUP = 'signup'
+export const CREDIT_TRANSACTION_TYPE_DAILY_CHECKIN = 'daily_checkin'
+export const CREDIT_TRANSACTION_TYPE_REFERRAL_INVITER = 'referral_inviter'
+export const CREDIT_TRANSACTION_TYPE_REFERRAL_INVITEE = 'referral_invitee'
+export const CREDIT_TRANSACTION_TYPE_REDEMPTION_CODE = 'redemption_code'
+export const CREDIT_TRANSACTION_TYPE_MANUAL_GRANT = 'manual_grant'
+export const CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE = 'payment_purchase'
+export const CREDIT_TRANSACTION_TYPE_PAYMENT_REFUND = 'payment_refund'
+export const CREDIT_TRANSACTION_TYPE_CONSUME = 'consume'
+export const CREDIT_TRANSACTION_TYPE_EXPIRED = 'expired'
+
 export type CreditTransactionType =
-	| 'signup'
-	| 'daily_checkin'
-	| 'referral_inviter'
-	| 'referral_invitee'
-	| 'redemption_code'
-	| 'manual_grant'
-	| 'consume'
-	| 'expired'
+	| typeof CREDIT_TRANSACTION_TYPE_SIGNUP
+	| typeof CREDIT_TRANSACTION_TYPE_DAILY_CHECKIN
+	| typeof CREDIT_TRANSACTION_TYPE_REFERRAL_INVITER
+	| typeof CREDIT_TRANSACTION_TYPE_REFERRAL_INVITEE
+	| typeof CREDIT_TRANSACTION_TYPE_REDEMPTION_CODE
+	| typeof CREDIT_TRANSACTION_TYPE_MANUAL_GRANT
+	| typeof CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE
+	| typeof CREDIT_TRANSACTION_TYPE_PAYMENT_REFUND
+	| typeof CREDIT_TRANSACTION_TYPE_CONSUME
+	| typeof CREDIT_TRANSACTION_TYPE_EXPIRED
 
 export interface GrantCreditsInput {
 	userId: string
@@ -123,6 +136,7 @@ export interface EnsureEnoughCreditsInput {
 
 export interface DeductCreditsInput {
 	userId: string
+	type?: CreditTransactionType
 	amount: number
 	sourceType: string
 	sourceId: string
@@ -339,7 +353,7 @@ export class CreditsService {
 			},
 			where: and(
 				eq(creditTransaction.userId, input.userId),
-				eq(creditTransaction.type, 'daily_checkin'),
+				eq(creditTransaction.type, CREDIT_TRANSACTION_TYPE_DAILY_CHECKIN),
 				gte(creditTransaction.createdAt, dayRange.dayStartMs),
 				lt(creditTransaction.createdAt, dayRange.dayEndMs)
 			)
@@ -430,7 +444,7 @@ export class CreditsService {
 		const sourceId = `${input.userId}:${formatUtcDate(nowMs)}`
 		const result = await this.grant({
 			userId: input.userId,
-			type: 'daily_checkin',
+			type: CREDIT_TRANSACTION_TYPE_DAILY_CHECKIN,
 			amount: input.amount,
 			sourceType: 'daily_checkin',
 			sourceId,
@@ -516,7 +530,7 @@ export class CreditsService {
           ${inviter.id},
           ${input.inviterAmount},
           ${inviterRemaining},
-          'referral_inviter',
+          ${CREDIT_TRANSACTION_TYPE_REFERRAL_INVITER},
           ${`referral_inviter:${referralId}`},
           NULL,
           ${nowMs}
@@ -570,7 +584,7 @@ export class CreditsService {
           ${input.inviteeUserId},
           ${input.inviteeAmount},
           ${inviteeRemaining},
-          'referral_invitee',
+          ${CREDIT_TRANSACTION_TYPE_REFERRAL_INVITEE},
           ${`referral_invitee:${referralId}`},
           NULL,
           ${nowMs}
@@ -796,7 +810,7 @@ export class CreditsService {
         ${input.userId},
         ${amount},
         ${remainingAmount},
-        'redemption_code',
+        ${CREDIT_TRANSACTION_TYPE_REDEMPTION_CODE},
         ${codeRow.id},
         NULL,
         ${nowMs}
@@ -926,6 +940,7 @@ export class CreditsService {
 		}
 
 		const transactionId = crypto.randomUUID()
+		const transactionType = input.type ?? CREDIT_TRANSACTION_TYPE_CONSUME
 		const statements: [ReturnType<AppDb['run']>, ...Array<ReturnType<AppDb['run']>>] = [
 			this.db.run(sql`
       UPDATE "user"
@@ -949,7 +964,7 @@ export class CreditsService {
       VALUES (
         ${transactionId},
         ${input.userId},
-        'consume',
+        ${transactionType},
         ${-input.amount},
         ${nextBalance},
         ${input.sourceType},
@@ -1063,7 +1078,7 @@ export class CreditsService {
         VALUES (
           ${crypto.randomUUID()},
           ${userId},
-          'expired',
+          ${CREDIT_TRANSACTION_TYPE_EXPIRED},
           ${-expiredAmount},
           ${nextBalance},
           'expired',

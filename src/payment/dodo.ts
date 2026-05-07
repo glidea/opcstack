@@ -1,5 +1,17 @@
 import DodoPayments from 'dodopayments'
-import type { PaymentEnv, PaymentProviderName } from './config'
+import { PAYMENT_PROVIDER_DODO, type PaymentEnv, type PaymentProviderName } from './config'
+import {
+	PAYMENT_BILLING_MODE_ONE_TIME,
+	PAYMENT_BILLING_MODE_SUBSCRIPTION,
+	PAYMENT_EVENT_TYPE_DISPUTE_OPENED,
+	PAYMENT_EVENT_TYPE_PAYMENT_FAILED,
+	PAYMENT_EVENT_TYPE_PAYMENT_SUCCEEDED,
+	PAYMENT_EVENT_TYPE_REFUND_SUCCEEDED,
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_CANCEL_AT_PERIOD_END,
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED,
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAID,
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE
+} from './contract'
 import type {
 	CancelSubscriptionInput,
 	ChangeSubscriptionPlanInput,
@@ -12,9 +24,25 @@ import type {
 	PaymentProvider,
 	ProviderProduct,
 	UnwrapWebhookInput
-} from './provider'
+} from './contract'
 
-type DodoEnvironment = 'live_mode' | 'test_mode'
+const DODO_ENV_LIVE_MODE = 'live_mode'
+const DODO_ENV_TEST_MODE = 'test_mode'
+const DODO_PRORATION_BILLING_MODE_PRORATED_IMMEDIATELY = 'prorated_immediately'
+const DODO_ON_PAYMENT_FAILURE_PREVENT_CHANGE = 'prevent_change'
+const DODO_PRICE_TYPE_USAGE_BASED = 'usage_based_price'
+
+const DODO_EVENT_PAYMENT_SUCCEEDED = 'payment.succeeded'
+const DODO_EVENT_PAYMENT_FAILED = 'payment.failed'
+const DODO_EVENT_REFUND_SUCCEEDED = 'refund.succeeded'
+const DODO_EVENT_DISPUTE_OPENED = 'dispute.opened'
+const DODO_EVENT_SUBSCRIPTION_ACTIVE = 'subscription.active'
+const DODO_EVENT_SUBSCRIPTION_RENEWED = 'subscription.renewed'
+const DODO_EVENT_SUBSCRIPTION_CANCELLED = 'subscription.cancelled'
+const DODO_EVENT_SUBSCRIPTION_FAILED = 'subscription.failed'
+const DODO_EVENT_SUBSCRIPTION_EXPIRED = 'subscription.expired'
+const DODO_METADATA_CHECKOUT_ORDER_ID = 'checkout_order_id'
+const DODO_ERROR_EVENT_TYPE_UNSUPPORTED = 'DODO_EVENT_TYPE_UNSUPPORTED'
 
 export interface DodoClientOptions {
 	bearerToken: string
@@ -22,6 +50,7 @@ export interface DodoClientOptions {
 	environment: DodoEnvironment
 }
 
+type DodoEnvironment = typeof DODO_ENV_LIVE_MODE | typeof DODO_ENV_TEST_MODE
 type DodoProduct = DodoPayments.Product
 type DodoCheckoutSessionResponse = DodoPayments.CheckoutSessionResponse
 type DodoSubscription = DodoPayments.Subscription
@@ -45,12 +74,12 @@ export interface DodoClient {
 			input: {
 				product_id: string
 				proration_billing_mode:
-					| 'prorated_immediately'
-					| 'full_immediately'
-					| 'difference_immediately'
-					| 'do_not_bill'
+				| typeof DODO_PRORATION_BILLING_MODE_PRORATED_IMMEDIATELY
+				| 'full_immediately'
+				| 'difference_immediately'
+				| 'do_not_bill'
 				quantity: number
-				on_payment_failure: 'prevent_change' | 'apply_change'
+				on_payment_failure: typeof DODO_ON_PAYMENT_FAILURE_PREVENT_CHANGE | 'apply_change'
 				metadata: Record<string, string>
 			}
 		): Promise<void>
@@ -73,7 +102,7 @@ export interface DodoClient {
 }
 
 export class DodoPaymentProvider implements PaymentProvider {
-	public readonly name: PaymentProviderName = 'dodo'
+	public readonly name: PaymentProviderName = PAYMENT_PROVIDER_DODO
 	private readonly client: DodoClient
 	private readonly webhookSecret: string
 
@@ -98,7 +127,9 @@ export class DodoPaymentProvider implements PaymentProvider {
 				description: product.description ?? null,
 				priceAmount,
 				currency,
-				billingMode: product.is_recurring ? 'subscription' : 'one_time'
+				billingMode: product.is_recurring
+					? PAYMENT_BILLING_MODE_SUBSCRIPTION
+					: PAYMENT_BILLING_MODE_ONE_TIME
 			}
 		})
 	}
@@ -109,7 +140,7 @@ export class DodoPaymentProvider implements PaymentProvider {
 			customer: { email: input.customerEmail },
 			return_url: input.returnUrl,
 			metadata: {
-				checkout_order_id: input.checkoutOrderId
+				[DODO_METADATA_CHECKOUT_ORDER_ID]: input.checkoutOrderId
 			}
 		})
 
@@ -124,11 +155,11 @@ export class DodoPaymentProvider implements PaymentProvider {
 	): Promise<ChangeSubscriptionPlanResult> {
 		await this.client.subscriptions.changePlan(input.providerSubscriptionId, {
 			product_id: input.providerProductId,
-			proration_billing_mode: 'prorated_immediately',
+			proration_billing_mode: DODO_PRORATION_BILLING_MODE_PRORATED_IMMEDIATELY,
 			quantity: 1,
-			on_payment_failure: 'prevent_change',
+			on_payment_failure: DODO_ON_PAYMENT_FAILURE_PREVENT_CHANGE,
 			metadata: {
-				checkout_order_id: input.checkoutOrderId
+				[DODO_METADATA_CHECKOUT_ORDER_ID]: input.checkoutOrderId
 			}
 		})
 
@@ -170,7 +201,7 @@ export function createDodoPaymentProviderFromEnv(
 }
 
 export function resolveDodoEnvironment(rawTestMode: string | undefined): DodoEnvironment {
-	return rawTestMode === 'true' ? 'test_mode' : 'live_mode'
+	return rawTestMode === 'true' ? DODO_ENV_TEST_MODE : DODO_ENV_LIVE_MODE
 }
 
 function defaultCreateDodoClient(options: DodoClientOptions): DodoClient {
@@ -190,7 +221,7 @@ function toRecordHeaders(headers: Headers): Record<string, string> {
 }
 
 function toDodoPriceAmount(product: DodoProduct): number {
-	if (product.price.type === 'usage_based_price') {
+	if (product.price.type === DODO_PRICE_TYPE_USAGE_BASED) {
 		return product.price.fixed_price
 	}
 	return product.price.price
@@ -205,135 +236,123 @@ function mapDodoWebhookEvent(event: DodoWebhookEvent): PaymentEvent {
 	const webhookId: string = buildDodoWebhookId(event)
 	const occurredAt: number = toUnixSeconds(event.timestamp)
 
-	if (event.type === 'payment.succeeded' || event.type === 'payment.failed') {
-		return {
-			provider: 'dodo',
-			webhookId,
-			eventType,
-			providerPaymentId: event.data.payment_id,
-			providerRefundId: null,
-			providerDisputeId: null,
-			providerSubscriptionId: event.data.subscription_id ?? null,
-			checkoutOrderId: event.data.metadata['checkout_order_id'] ?? null,
-			amount: event.data.total_amount,
-			currency: event.data.currency,
-			periodStart: null,
-			periodEnd: null,
-			occurredAt
-		}
+	switch (event.type) {
+		case DODO_EVENT_PAYMENT_SUCCEEDED:
+		case DODO_EVENT_PAYMENT_FAILED:
+			return {
+				provider: PAYMENT_PROVIDER_DODO,
+				webhookId,
+				type: eventType,
+				providerPaymentId: event.data.payment_id,
+				providerRefundId: null,
+				providerDisputeId: null,
+				providerSubscriptionId: event.data.subscription_id ?? null,
+				checkoutOrderId: event.data.metadata[DODO_METADATA_CHECKOUT_ORDER_ID] ?? null,
+				amount: event.data.total_amount,
+				currency: event.data.currency,
+				periodStart: null,
+				periodEnd: null,
+				occurredAt
+			}
+		case DODO_EVENT_REFUND_SUCCEEDED:
+			return {
+				provider: PAYMENT_PROVIDER_DODO,
+				webhookId,
+				type: eventType,
+				providerPaymentId: event.data.payment_id,
+				providerRefundId: event.data.refund_id,
+				providerDisputeId: null,
+				providerSubscriptionId: null,
+				checkoutOrderId: event.data.metadata[DODO_METADATA_CHECKOUT_ORDER_ID] ?? null,
+				amount: event.data.amount ?? null,
+				currency: event.data.currency ?? null,
+				periodStart: null,
+				periodEnd: null,
+				occurredAt
+			}
+		case DODO_EVENT_DISPUTE_OPENED:
+			return {
+				provider: PAYMENT_PROVIDER_DODO,
+				webhookId,
+				type: eventType,
+				providerPaymentId: event.data.payment_id,
+				providerRefundId: null,
+				providerDisputeId: event.data.dispute_id,
+				providerSubscriptionId: null,
+				checkoutOrderId: null,
+				amount: Number(event.data.amount),
+				currency: event.data.currency,
+				periodStart: null,
+				periodEnd: null,
+				occurredAt
+			}
+		case DODO_EVENT_SUBSCRIPTION_ACTIVE:
+		case DODO_EVENT_SUBSCRIPTION_RENEWED:
+		case DODO_EVENT_SUBSCRIPTION_CANCELLED:
+		case DODO_EVENT_SUBSCRIPTION_FAILED:
+		case DODO_EVENT_SUBSCRIPTION_EXPIRED:
+			return {
+				provider: PAYMENT_PROVIDER_DODO,
+				webhookId,
+				type: eventType,
+				providerPaymentId: null,
+				providerRefundId: null,
+				providerDisputeId: null,
+				providerSubscriptionId: event.data.subscription_id,
+				checkoutOrderId: event.data.metadata[DODO_METADATA_CHECKOUT_ORDER_ID] ?? null,
+				amount: event.data.recurring_pre_tax_amount,
+				currency: event.data.currency,
+				periodStart: toUnixSeconds(event.data.previous_billing_date),
+				periodEnd: toUnixSeconds(event.data.next_billing_date),
+				occurredAt
+			}
+		default:
+			throw new Error(DODO_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
-
-	if (event.type === 'refund.succeeded') {
-		return {
-			provider: 'dodo',
-			webhookId,
-			eventType,
-			providerPaymentId: event.data.payment_id,
-			providerRefundId: event.data.refund_id,
-			providerDisputeId: null,
-			providerSubscriptionId: null,
-			checkoutOrderId: event.data.metadata['checkout_order_id'] ?? null,
-			amount: event.data.amount ?? null,
-			currency: event.data.currency ?? null,
-			periodStart: null,
-			periodEnd: null,
-			occurredAt
-		}
-	}
-
-	if (event.type === 'dispute.opened') {
-		return {
-			provider: 'dodo',
-			webhookId,
-			eventType,
-			providerPaymentId: event.data.payment_id,
-			providerRefundId: null,
-			providerDisputeId: event.data.dispute_id,
-			providerSubscriptionId: null,
-			checkoutOrderId: null,
-			amount: Number(event.data.amount),
-			currency: event.data.currency,
-			periodStart: null,
-			periodEnd: null,
-			occurredAt
-		}
-	}
-
-	if (
-		event.type === 'subscription.active' ||
-		event.type === 'subscription.renewed' ||
-		event.type === 'subscription.cancelled' ||
-		event.type === 'subscription.failed' ||
-		event.type === 'subscription.expired'
-	) {
-		return {
-			provider: 'dodo',
-			webhookId,
-			eventType,
-			providerPaymentId: null,
-			providerRefundId: null,
-			providerDisputeId: null,
-			providerSubscriptionId: event.data.subscription_id,
-			checkoutOrderId: event.data.metadata['checkout_order_id'] ?? null,
-			amount: event.data.recurring_pre_tax_amount,
-			currency: event.data.currency,
-			periodStart: toUnixSeconds(event.data.previous_billing_date),
-			periodEnd: toUnixSeconds(event.data.next_billing_date),
-			occurredAt
-		}
-	}
-
-	throw new Error('DODO_EVENT_TYPE_UNSUPPORTED')
 }
 
 function mapDodoEventType(rawEventType: DodoWebhookEvent['type']): PaymentEventType {
-	if (rawEventType === 'payment.succeeded') {
-		return 'payment_succeeded'
+	switch (rawEventType) {
+		case DODO_EVENT_PAYMENT_SUCCEEDED:
+			return PAYMENT_EVENT_TYPE_PAYMENT_SUCCEEDED
+		case DODO_EVENT_PAYMENT_FAILED:
+			return PAYMENT_EVENT_TYPE_PAYMENT_FAILED
+		case DODO_EVENT_REFUND_SUCCEEDED:
+			return PAYMENT_EVENT_TYPE_REFUND_SUCCEEDED
+		case DODO_EVENT_DISPUTE_OPENED:
+			return PAYMENT_EVENT_TYPE_DISPUTE_OPENED
+		case DODO_EVENT_SUBSCRIPTION_ACTIVE:
+		case DODO_EVENT_SUBSCRIPTION_RENEWED:
+			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAID
+		case DODO_EVENT_SUBSCRIPTION_CANCELLED:
+			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_CANCEL_AT_PERIOD_END
+		case DODO_EVENT_SUBSCRIPTION_FAILED:
+			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE
+		case DODO_EVENT_SUBSCRIPTION_EXPIRED:
+			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED
+		default:
+			throw new Error(DODO_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
-	if (rawEventType === 'payment.failed') {
-		return 'payment_failed'
-	}
-	if (rawEventType === 'refund.succeeded') {
-		return 'refund_succeeded'
-	}
-	if (rawEventType === 'dispute.opened') {
-		return 'dispute_opened'
-	}
-	if (rawEventType === 'subscription.active' || rawEventType === 'subscription.renewed') {
-		return 'subscription_paid'
-	}
-	if (rawEventType === 'subscription.cancelled') {
-		return 'subscription_cancel_at_period_end'
-	}
-	if (rawEventType === 'subscription.failed') {
-		return 'subscription_past_due'
-	}
-	if (rawEventType === 'subscription.expired') {
-		return 'subscription_ended'
-	}
-	throw new Error('DODO_EVENT_TYPE_UNSUPPORTED')
 }
 
 function buildDodoWebhookId(event: DodoWebhookEvent): string {
-	if (event.type === 'payment.succeeded' || event.type === 'payment.failed') {
-		return `${event.type}:${event.data.payment_id}:${event.timestamp}`
+	switch (event.type) {
+		case DODO_EVENT_PAYMENT_SUCCEEDED:
+		case DODO_EVENT_PAYMENT_FAILED:
+			return `${event.type}:${event.data.payment_id}:${event.timestamp}`
+		case DODO_EVENT_REFUND_SUCCEEDED:
+			return `${event.type}:${event.data.refund_id}:${event.timestamp}`
+		case DODO_EVENT_DISPUTE_OPENED:
+			return `${event.type}:${event.data.dispute_id}:${event.timestamp}`
+		case DODO_EVENT_SUBSCRIPTION_ACTIVE:
+		case DODO_EVENT_SUBSCRIPTION_RENEWED:
+		case DODO_EVENT_SUBSCRIPTION_CANCELLED:
+		case DODO_EVENT_SUBSCRIPTION_FAILED:
+		case DODO_EVENT_SUBSCRIPTION_EXPIRED:
+			return `${event.type}:${event.data.subscription_id}:${event.timestamp}`
+		default:
+			throw new Error(DODO_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
-	if (event.type === 'refund.succeeded') {
-		return `${event.type}:${event.data.refund_id}:${event.timestamp}`
-	}
-	if (event.type === 'dispute.opened') {
-		return `${event.type}:${event.data.dispute_id}:${event.timestamp}`
-	}
-	if (
-		event.type === 'subscription.active' ||
-		event.type === 'subscription.renewed' ||
-		event.type === 'subscription.cancelled' ||
-		event.type === 'subscription.failed' ||
-		event.type === 'subscription.expired'
-	) {
-		return `${event.type}:${event.data.subscription_id}:${event.timestamp}`
-	}
-	throw new Error('DODO_EVENT_TYPE_UNSUPPORTED')
 }
 
 function toUnixSeconds(raw: string): number {

@@ -172,8 +172,12 @@ export const checkoutOrder = sqliteTable(
 		providerCheckoutSessionId: text('provider_checkout_session_id'),
 		providerPaymentId: text('provider_payment_id'),
 		checkoutUrl: text('checkout_url'),
-		createdAt: integer('created_at').notNull(),
-		updatedAt: integer('updated_at').notNull()
+		createdAt: integer('created_at')
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+			.notNull(),
+		updatedAt: integer('updated_at')
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+			.notNull()
 	},
 	(table) => [
 		index('checkout_orders_user_id_idx').on(table.userId),
@@ -208,8 +212,12 @@ export const paymentTransaction = sqliteTable(
 		paidAt: integer('paid_at'),
 		refundedAt: integer('refunded_at'),
 		disputedAt: integer('disputed_at'),
-		createdAt: integer('created_at').notNull(),
-		updatedAt: integer('updated_at').notNull()
+		createdAt: integer('created_at')
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+			.notNull(),
+		updatedAt: integer('updated_at')
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+			.notNull()
 	},
 	(table) => [
 		index('payment_transactions_user_id_idx').on(table.userId),
@@ -246,8 +254,12 @@ export const userSubscription = sqliteTable(
 		currentPeriodEnd: integer('current_period_end').notNull(),
 		status: text('status').notNull(),
 		canceledAt: integer('canceled_at'),
-		createdAt: integer('created_at').notNull(),
-		updatedAt: integer('updated_at').notNull()
+		createdAt: integer('created_at')
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+			.notNull(),
+		updatedAt: integer('updated_at')
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+			.notNull()
 	},
 	(table) => [
 		uniqueIndex('user_subscriptions_provider_subscription_id_unique').on(

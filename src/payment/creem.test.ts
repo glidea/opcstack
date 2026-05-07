@@ -256,7 +256,7 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 
 			return {
 				errorCode: '',
-				eventType: event.eventType,
+				eventType: event.type,
 				checkoutOrderId: event.checkoutOrderId ?? ''
 			}
 		} catch (error) {

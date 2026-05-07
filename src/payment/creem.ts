@@ -1,6 +1,17 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { Creem } from 'creem'
-import type { PaymentEnv, PaymentProviderName } from './config'
+import { PAYMENT_PROVIDER_CREEM, type PaymentEnv, type PaymentProviderName } from './config'
+import {
+	PAYMENT_BILLING_MODE_ONE_TIME,
+	PAYMENT_BILLING_MODE_SUBSCRIPTION,
+	PAYMENT_EVENT_TYPE_DISPUTE_OPENED,
+	PAYMENT_EVENT_TYPE_PAYMENT_SUCCEEDED,
+	PAYMENT_EVENT_TYPE_REFUND_SUCCEEDED,
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_CANCEL_AT_PERIOD_END,
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED,
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAID,
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE
+} from './contract'
 import type {
 	CancelSubscriptionInput,
 	ChangeSubscriptionPlanInput,
@@ -13,9 +24,32 @@ import type {
 	PaymentProvider,
 	ProviderProduct,
 	UnwrapWebhookInput
-} from './provider'
+} from './contract'
 
-type CreemServerIndex = 0 | 1
+const CREEM_PRODUCTION_SERVER_INDEX = 0
+const CREEM_TEST_SERVER_INDEX = 1
+const CREEM_BILLING_TYPE_RECURRING = 'recurring'
+const CREEM_BILLING_TYPE_ONETIME = 'onetime'
+const CREEM_UPDATE_BEHAVIOR_PRORATION_CHARGE_IMMEDIATELY = 'proration-charge-immediately'
+const CREEM_CANCEL_MODE_SCHEDULED = 'scheduled'
+const CREEM_CANCEL_EXECUTE_CANCEL = 'cancel'
+const CREEM_SIGNATURE_HEADER = 'creem-signature'
+const CREEM_SIGNATURE_ALGORITHM = 'sha256'
+const CREEM_SIGNATURE_ENCODING = 'hex'
+
+const CREEM_EVENT_CHECKOUT_COMPLETED = 'checkout.completed'
+const CREEM_EVENT_SUBSCRIPTION_PAID = 'subscription.paid'
+const CREEM_EVENT_REFUND_CREATED = 'refund.created'
+const CREEM_EVENT_DISPUTE_CREATED = 'dispute.created'
+const CREEM_EVENT_SUBSCRIPTION_CANCELED = 'subscription.canceled'
+const CREEM_EVENT_SUBSCRIPTION_SCHEDULED_CANCEL = 'subscription.scheduled_cancel'
+const CREEM_EVENT_SUBSCRIPTION_PAST_DUE = 'subscription.past_due'
+const CREEM_EVENT_SUBSCRIPTION_UNPAID = 'subscription.unpaid'
+const CREEM_EVENT_SUBSCRIPTION_EXPIRED = 'subscription.expired'
+const CREEM_METADATA_CHECKOUT_ORDER_ID = 'checkout_order_id'
+const CREEM_ERROR_EVENT_TYPE_UNSUPPORTED = 'CREEM_EVENT_TYPE_UNSUPPORTED'
+
+type CreemServerIndex = typeof CREEM_PRODUCTION_SERVER_INDEX | typeof CREEM_TEST_SERVER_INDEX
 
 export interface CreemClientOptions {
 	apiKey: string
@@ -30,7 +64,7 @@ interface CreemProduct {
 	description: string
 	price: number
 	currency: string
-	billingType: 'recurring' | 'onetime'
+	billingType: typeof CREEM_BILLING_TYPE_RECURRING | typeof CREEM_BILLING_TYPE_ONETIME
 }
 
 interface CreemCheckout {
@@ -93,21 +127,24 @@ export interface CreemClient {
 			subscriptionId: string,
 			input: {
 				productId: string
-				updateBehavior: 'proration-charge-immediately' | 'proration-charge' | 'proration-none'
+				updateBehavior:
+				| typeof CREEM_UPDATE_BEHAVIOR_PRORATION_CHARGE_IMMEDIATELY
+				| 'proration-charge'
+				| 'proration-none'
 			}
 		): Promise<CreemSubscription>
 		cancel(
 			subscriptionId: string,
 			input: {
-				mode: 'immediate' | 'scheduled'
-				onExecute: 'cancel' | 'pause'
+				mode: 'immediate' | typeof CREEM_CANCEL_MODE_SCHEDULED
+				onExecute: typeof CREEM_CANCEL_EXECUTE_CANCEL | 'pause'
 			}
 		): Promise<CreemSubscription>
 	}
 }
 
 export class CreemPaymentProvider implements PaymentProvider {
-	public readonly name: PaymentProviderName = 'creem'
+	public readonly name: PaymentProviderName = PAYMENT_PROVIDER_CREEM
 	private readonly client: CreemClient
 	private readonly webhookSecret: string
 
@@ -130,7 +167,10 @@ export class CreemPaymentProvider implements PaymentProvider {
 				description: product.description,
 				priceAmount: product.price,
 				currency: product.currency,
-				billingMode: product.billingType === 'recurring' ? 'subscription' : 'one_time'
+				billingMode:
+					product.billingType === CREEM_BILLING_TYPE_RECURRING
+						? PAYMENT_BILLING_MODE_SUBSCRIPTION
+						: PAYMENT_BILLING_MODE_ONE_TIME
 			}
 		})
 	}
@@ -145,7 +185,7 @@ export class CreemPaymentProvider implements PaymentProvider {
 			},
 			successUrl: input.returnUrl,
 			metadata: {
-				checkout_order_id: input.checkoutOrderId
+				[CREEM_METADATA_CHECKOUT_ORDER_ID]: input.checkoutOrderId
 			}
 		})
 
@@ -162,7 +202,7 @@ export class CreemPaymentProvider implements PaymentProvider {
 			input.providerSubscriptionId,
 			{
 				productId: input.providerProductId,
-				updateBehavior: 'proration-charge-immediately'
+				updateBehavior: CREEM_UPDATE_BEHAVIOR_PRORATION_CHARGE_IMMEDIATELY
 			}
 		)
 		return {
@@ -172,13 +212,13 @@ export class CreemPaymentProvider implements PaymentProvider {
 
 	async cancelSubscription(input: CancelSubscriptionInput): Promise<void> {
 		await this.client.subscriptions.cancel(input.providerSubscriptionId, {
-			mode: 'scheduled',
-			onExecute: 'cancel'
+			mode: CREEM_CANCEL_MODE_SCHEDULED,
+			onExecute: CREEM_CANCEL_EXECUTE_CANCEL
 		})
 	}
 
 	async unwrapWebhook(input: UnwrapWebhookInput): Promise<PaymentEvent> {
-		const signature: string = input.headers.get('creem-signature') ?? ''
+		const signature: string = input.headers.get(CREEM_SIGNATURE_HEADER) ?? ''
 		if (!isCreemSignatureValid(input.rawBody, signature, this.webhookSecret)) {
 			throw new Error('CREEM_WEBHOOK_SIGNATURE_INVALID')
 		}
@@ -205,7 +245,7 @@ export function createCreemPaymentProviderFromEnv(
 }
 
 export function resolveCreemServerIndex(rawTestMode: string | undefined): CreemServerIndex {
-	return rawTestMode === 'true' ? 1 : 0
+	return rawTestMode === 'true' ? CREEM_TEST_SERVER_INDEX : CREEM_PRODUCTION_SERVER_INDEX
 }
 
 function defaultCreateCreemClient(options: CreemClientOptions): CreemClient {
@@ -217,15 +257,17 @@ function defaultCreateCreemClient(options: CreemClientOptions): CreemClient {
 
 function isCreemSignatureValid(rawBody: string, signature: string, secret: string): boolean {
 	const normalizedSignature: string = signature.trim().toLowerCase()
-	const computedSignature: string = createHmac('sha256', secret).update(rawBody).digest('hex')
+	const computedSignature: string = createHmac(CREEM_SIGNATURE_ALGORITHM, secret)
+		.update(rawBody)
+		.digest(CREEM_SIGNATURE_ENCODING)
 
 	if (normalizedSignature.length !== computedSignature.length) {
 		return false
 	}
 
 	return timingSafeEqual(
-		Buffer.from(computedSignature, 'hex'),
-		Buffer.from(normalizedSignature, 'hex')
+		Buffer.from(computedSignature, CREEM_SIGNATURE_ENCODING),
+		Buffer.from(normalizedSignature, CREEM_SIGNATURE_ENCODING)
 	)
 }
 
@@ -235,143 +277,134 @@ function mapCreemWebhookEvent(event: CreemWebhookEvent): PaymentEvent {
 	const object: Record<string, unknown> = event.object
 	const webhookId: string = event.id
 
-	if (event.eventType === 'checkout.completed') {
-		const checkoutOrderId: string | null =
-			readMetadataText(object['metadata'], 'checkout_order_id') ??
-			readText(object['request_id']) ??
-			null
-		const providerSubscriptionId: string | null = readNestedText(object, ['subscription', 'id'])
-		const providerPaymentId: string | null =
-			readNestedText(object, ['order', 'transaction']) ?? readNestedText(object, ['order', 'id'])
-		const amount: number | null =
-			readNestedNumber(object, ['order', 'amount']) ?? readNestedNumber(object, ['product', 'price'])
-		const currency: string | null =
-			readNestedText(object, ['order', 'currency']) ?? readNestedText(object, ['product', 'currency'])
+	switch (event.eventType) {
+		case CREEM_EVENT_CHECKOUT_COMPLETED: {
+			const checkoutOrderId: string | null =
+				readMetadataText(object['metadata'], CREEM_METADATA_CHECKOUT_ORDER_ID) ??
+				readText(object['request_id']) ??
+				null
+			const providerSubscriptionId: string | null = readNestedText(object, ['subscription', 'id'])
+			const providerPaymentId: string | null =
+				readNestedText(object, ['order', 'transaction']) ?? readNestedText(object, ['order', 'id'])
+			const amount: number | null =
+				readNestedNumber(object, ['order', 'amount']) ?? readNestedNumber(object, ['product', 'price'])
+			const currency: string | null =
+				readNestedText(object, ['order', 'currency']) ?? readNestedText(object, ['product', 'currency'])
 
-		return {
-			provider: 'creem',
-			webhookId,
-			eventType,
-			providerPaymentId,
-			providerRefundId: null,
-			providerDisputeId: null,
-			providerSubscriptionId,
-			checkoutOrderId,
-			amount,
-			currency,
-			periodStart: null,
-			periodEnd: null,
-			occurredAt
+			return {
+				provider: PAYMENT_PROVIDER_CREEM,
+				webhookId,
+				type: eventType,
+				providerPaymentId,
+				providerRefundId: null,
+				providerDisputeId: null,
+				providerSubscriptionId,
+				checkoutOrderId,
+				amount,
+				currency,
+				periodStart: null,
+				periodEnd: null,
+				occurredAt
+			}
 		}
-	}
+		case CREEM_EVENT_SUBSCRIPTION_PAID: {
+			const checkoutOrderId: string | null =
+				readMetadataText(object['metadata'], CREEM_METADATA_CHECKOUT_ORDER_ID) ?? null
 
-	if (event.eventType === 'subscription.paid') {
-		const checkoutOrderId: string | null =
-			readMetadataText(object['metadata'], 'checkout_order_id') ?? null
-
-		return {
-			provider: 'creem',
-			webhookId,
-			eventType,
-			providerPaymentId: readText(object['last_transaction_id']),
-			providerRefundId: null,
-			providerDisputeId: null,
-			providerSubscriptionId: readText(object['id']),
-			checkoutOrderId,
-			amount: readNestedNumber(object, ['product', 'price']),
-			currency: readNestedText(object, ['product', 'currency']),
-			periodStart: toUnixSecondsFromDateText(readText(object['current_period_start_date'])),
-			periodEnd: toUnixSecondsFromDateText(readText(object['current_period_end_date'])),
-			occurredAt
+			return {
+				provider: PAYMENT_PROVIDER_CREEM,
+				webhookId,
+				type: eventType,
+				providerPaymentId: readText(object['last_transaction_id']),
+				providerRefundId: null,
+				providerDisputeId: null,
+				providerSubscriptionId: readText(object['id']),
+				checkoutOrderId,
+				amount: readNestedNumber(object, ['product', 'price']),
+				currency: readNestedText(object, ['product', 'currency']),
+				periodStart: toUnixSecondsFromDateText(readText(object['current_period_start_date'])),
+				periodEnd: toUnixSecondsFromDateText(readText(object['current_period_end_date'])),
+				occurredAt
+			}
 		}
+		case CREEM_EVENT_REFUND_CREATED:
+			return {
+				provider: PAYMENT_PROVIDER_CREEM,
+				webhookId,
+				type: eventType,
+				providerPaymentId: readText(object['transaction']),
+				providerRefundId: readText(object['id']),
+				providerDisputeId: null,
+				providerSubscriptionId: readText(object['subscription']),
+				checkoutOrderId: readMetadataText(object['metadata'], CREEM_METADATA_CHECKOUT_ORDER_ID),
+				amount: readNumber(object['amount']),
+				currency: readText(object['currency']),
+				periodStart: null,
+				periodEnd: null,
+				occurredAt
+			}
+		case CREEM_EVENT_DISPUTE_CREATED:
+			return {
+				provider: PAYMENT_PROVIDER_CREEM,
+				webhookId,
+				type: eventType,
+				providerPaymentId: readText(object['transaction']),
+				providerRefundId: null,
+				providerDisputeId: readText(object['id']),
+				providerSubscriptionId: readText(object['subscription']),
+				checkoutOrderId: readMetadataText(object['metadata'], CREEM_METADATA_CHECKOUT_ORDER_ID),
+				amount: readNumber(object['amount']),
+				currency: readText(object['currency']),
+				periodStart: null,
+				periodEnd: null,
+				occurredAt
+			}
+		case CREEM_EVENT_SUBSCRIPTION_CANCELED:
+		case CREEM_EVENT_SUBSCRIPTION_SCHEDULED_CANCEL:
+		case CREEM_EVENT_SUBSCRIPTION_PAST_DUE:
+		case CREEM_EVENT_SUBSCRIPTION_UNPAID:
+		case CREEM_EVENT_SUBSCRIPTION_EXPIRED:
+			return {
+				provider: PAYMENT_PROVIDER_CREEM,
+				webhookId,
+				type: eventType,
+				providerPaymentId: readText(object['last_transaction_id']),
+				providerRefundId: null,
+				providerDisputeId: null,
+				providerSubscriptionId: readText(object['id']),
+				checkoutOrderId: readMetadataText(object['metadata'], CREEM_METADATA_CHECKOUT_ORDER_ID),
+				amount: readNestedNumber(object, ['product', 'price']),
+				currency: readNestedText(object, ['product', 'currency']),
+				periodStart: toUnixSecondsFromDateText(readText(object['current_period_start_date'])),
+				periodEnd: toUnixSecondsFromDateText(readText(object['current_period_end_date'])),
+				occurredAt
+			}
+		default:
+			throw new Error(CREEM_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
-
-	if (event.eventType === 'refund.created') {
-		return {
-			provider: 'creem',
-			webhookId,
-			eventType,
-			providerPaymentId: readText(object['transaction']),
-			providerRefundId: readText(object['id']),
-			providerDisputeId: null,
-			providerSubscriptionId: readText(object['subscription']),
-			checkoutOrderId: readMetadataText(object['metadata'], 'checkout_order_id'),
-			amount: readNumber(object['amount']),
-			currency: readText(object['currency']),
-			periodStart: null,
-			periodEnd: null,
-			occurredAt
-		}
-	}
-
-	if (event.eventType === 'dispute.created') {
-		return {
-			provider: 'creem',
-			webhookId,
-			eventType,
-			providerPaymentId: readText(object['transaction']),
-			providerRefundId: null,
-			providerDisputeId: readText(object['id']),
-			providerSubscriptionId: readText(object['subscription']),
-			checkoutOrderId: readMetadataText(object['metadata'], 'checkout_order_id'),
-			amount: readNumber(object['amount']),
-			currency: readText(object['currency']),
-			periodStart: null,
-			periodEnd: null,
-			occurredAt
-		}
-	}
-
-	if (
-		event.eventType === 'subscription.canceled' ||
-		event.eventType === 'subscription.scheduled_cancel' ||
-		event.eventType === 'subscription.past_due' ||
-		event.eventType === 'subscription.unpaid' ||
-		event.eventType === 'subscription.expired'
-	) {
-		return {
-			provider: 'creem',
-			webhookId,
-			eventType,
-			providerPaymentId: readText(object['last_transaction_id']),
-			providerRefundId: null,
-			providerDisputeId: null,
-			providerSubscriptionId: readText(object['id']),
-			checkoutOrderId: readMetadataText(object['metadata'], 'checkout_order_id'),
-			amount: readNestedNumber(object, ['product', 'price']),
-			currency: readNestedText(object, ['product', 'currency']),
-			periodStart: toUnixSecondsFromDateText(readText(object['current_period_start_date'])),
-			periodEnd: toUnixSecondsFromDateText(readText(object['current_period_end_date'])),
-			occurredAt
-		}
-	}
-
-	throw new Error('CREEM_EVENT_TYPE_UNSUPPORTED')
 }
 
 function mapCreemEventType(rawEventType: string): PaymentEventType {
-	if (rawEventType === 'checkout.completed') {
-		return 'payment_succeeded'
+	switch (rawEventType) {
+		case CREEM_EVENT_CHECKOUT_COMPLETED:
+			return PAYMENT_EVENT_TYPE_PAYMENT_SUCCEEDED
+		case CREEM_EVENT_SUBSCRIPTION_PAID:
+			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAID
+		case CREEM_EVENT_REFUND_CREATED:
+			return PAYMENT_EVENT_TYPE_REFUND_SUCCEEDED
+		case CREEM_EVENT_DISPUTE_CREATED:
+			return PAYMENT_EVENT_TYPE_DISPUTE_OPENED
+		case CREEM_EVENT_SUBSCRIPTION_CANCELED:
+		case CREEM_EVENT_SUBSCRIPTION_SCHEDULED_CANCEL:
+			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_CANCEL_AT_PERIOD_END
+		case CREEM_EVENT_SUBSCRIPTION_PAST_DUE:
+		case CREEM_EVENT_SUBSCRIPTION_UNPAID:
+			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE
+		case CREEM_EVENT_SUBSCRIPTION_EXPIRED:
+			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED
+		default:
+			throw new Error(CREEM_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
-	if (rawEventType === 'subscription.paid') {
-		return 'subscription_paid'
-	}
-	if (rawEventType === 'refund.created') {
-		return 'refund_succeeded'
-	}
-	if (rawEventType === 'dispute.created') {
-		return 'dispute_opened'
-	}
-	if (rawEventType === 'subscription.canceled' || rawEventType === 'subscription.scheduled_cancel') {
-		return 'subscription_cancel_at_period_end'
-	}
-	if (rawEventType === 'subscription.past_due' || rawEventType === 'subscription.unpaid') {
-		return 'subscription_past_due'
-	}
-	if (rawEventType === 'subscription.expired') {
-		return 'subscription_ended'
-	}
-	throw new Error('CREEM_EVENT_TYPE_UNSUPPORTED')
 }
 
 function readMetadataText(value: unknown, key: string): string | null {
