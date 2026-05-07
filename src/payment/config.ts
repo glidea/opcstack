@@ -1,3 +1,5 @@
+import { CreditDecimal, parseFixedDecimal } from '../fixed-decimal'
+
 export const PAYMENT_PROVIDER_DODO = 'dodo'
 export const PAYMENT_PROVIDER_CREEM = 'creem'
 
@@ -23,20 +25,6 @@ export interface PaymentConfig {
 	defaultProvider: PaymentProviderName
 	providerCountryOverrides: PaymentProviderCountryOverride[]
 	products: PaymentProductConfig[]
-}
-
-export interface PaymentEnv {
-	PAYMENT_ENABLED?: string
-	PAYMENT_PROVIDERS?: string
-	PAYMENT_DEFAULT_PROVIDER?: string
-	PAYMENT_PROVIDER_COUNTRY_OVERRIDES?: string
-	PAYMENT_PRODUCTS?: string
-	PAYMENT_DODO_API_KEY?: string
-	PAYMENT_DODO_WEBHOOK_SECRET?: string
-	PAYMENT_DODO_TEST_MODE?: string
-	PAYMENT_CREEM_API_KEY?: string
-	PAYMENT_CREEM_WEBHOOK_SECRET?: string
-	PAYMENT_CREEM_TEST_MODE?: string
 }
 
 export class PaymentConfigError extends Error {
@@ -82,17 +70,17 @@ export class PaymentProviderRouter {
 	}
 }
 
-export function parsePaymentConfig(env: PaymentEnv): PaymentConfig {
-	const providers = parseProviders(env.PAYMENT_PROVIDERS ?? '')
-	const defaultProvider = parseDefaultProvider(env.PAYMENT_DEFAULT_PROVIDER ?? '', providers)
+export function parsePaymentConfig(env: Env): PaymentConfig {
+	const providers = parseProviders(env.PAYMENT_PROVIDERS)
+	const defaultProvider = parseDefaultProvider(env.PAYMENT_DEFAULT_PROVIDER, providers)
 	const providerCountryOverrides = parseCountryOverrides(
-		env.PAYMENT_PROVIDER_COUNTRY_OVERRIDES ?? '',
+		env.PAYMENT_PROVIDER_COUNTRY_OVERRIDES,
 		providers
 	)
-	const products = parseProducts(env.PAYMENT_PRODUCTS ?? '')
+	const products = parseProducts(env.PAYMENT_PRODUCTS)
 
 	return {
-		enabled: env.PAYMENT_ENABLED === 'true',
+		enabled: String(env.PAYMENT_ENABLED) === 'true',
 		providers,
 		defaultProvider,
 		providerCountryOverrides,
@@ -160,10 +148,10 @@ function parseProducts(raw: string): PaymentProductConfig[] {
 
 	const value = JSON.parse(raw) as Array<{
 		product_id?: string
-		credits_amount?: number
+		credits_amount?: string
 		subscription_plan?: string
 		upgrade_rank?: number
-		period_credits_amount?: number
+		period_credits_amount?: string
 		provider_product_ids?: Record<string, string>
 	}>
 	const products: PaymentProductConfig[] = []
@@ -178,10 +166,10 @@ function parseProducts(raw: string): PaymentProductConfig[] {
 
 		products.push({
 			productId,
-			creditsAmount: toNullableInt(item.credits_amount),
+			creditsAmount: toNullableCreditUnits(item.credits_amount),
 			subscriptionPlan: toNullableText(item.subscription_plan),
 			upgradeRank: toNullableInt(item.upgrade_rank),
-			periodCreditsAmount: toNullableInt(item.period_credits_amount),
+			periodCreditsAmount: toNullableCreditUnits(item.period_credits_amount),
 			providerProductIds
 		})
 	}
@@ -221,6 +209,17 @@ function toNullableInt(value: number | undefined): number | null {
 		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
 	}
 	return value
+}
+
+function toNullableCreditUnits(value: string | undefined): number | null {
+	if (value === undefined) {
+		return null
+	}
+	try {
+		return parseFixedDecimal(value, CreditDecimal)
+	} catch {
+		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
+	}
 }
 
 function toNullableText(value: string | undefined): string | null {

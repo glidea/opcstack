@@ -308,7 +308,7 @@ describe('createDodoPaymentProviderFromEnv', () => {
 				PAYMENT_DODO_API_KEY: 'api-key',
 				PAYMENT_DODO_WEBHOOK_SECRET: 'webhook-secret',
 				PAYMENT_DODO_TEST_MODE: given.testMode
-			},
+			} as unknown as Env,
 			(input: DodoClientOptions): DodoClient => {
 				environment = input.environment
 				return createMockClient()

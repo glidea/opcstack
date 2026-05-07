@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { Creem } from 'creem'
-import { PAYMENT_PROVIDER_CREEM, type PaymentEnv, type PaymentProviderName } from './config'
+import { PAYMENT_PROVIDER_CREEM, type PaymentProviderName } from './config'
 import {
 	PAYMENT_BILLING_MODE_ONE_TIME,
 	PAYMENT_BILLING_MODE_SUBSCRIPTION,
@@ -228,12 +228,12 @@ export class CreemPaymentProvider implements PaymentProvider {
 	}
 }
 
-export function createCreemPaymentProviderFromEnv(
-	env: PaymentEnv,
+export function newCreemPayment(
+	env: Env,
 	createClient: (options: CreemClientOptions) => CreemClient = defaultCreateCreemClient
 ): CreemPaymentProvider {
-	const apiKey: string = env.PAYMENT_CREEM_API_KEY ?? ''
-	const webhookSecret: string = env.PAYMENT_CREEM_WEBHOOK_SECRET ?? ''
+	const apiKey: string = env.PAYMENT_CREEM_API_KEY
+	const webhookSecret: string = env.PAYMENT_CREEM_WEBHOOK_SECRET
 	const serverIdx: CreemServerIndex = resolveCreemServerIndex(env.PAYMENT_CREEM_TEST_MODE)
 
 	const client: CreemClient = createClient({

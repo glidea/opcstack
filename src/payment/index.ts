@@ -11,7 +11,6 @@ import {
 	parsePaymentConfig,
 	PaymentProviderRouter,
 	type PaymentConfig,
-	type PaymentEnv,
 	type PaymentProductConfig,
 	type PaymentProviderName
 } from './config'
@@ -30,8 +29,8 @@ import {
 	type PaymentEvent,
 	type PaymentProvider
 } from './contract'
-import { createDodoPaymentProviderFromEnv } from './dodo'
-import { createCreemPaymentProviderFromEnv } from './creem'
+import { newDodoPayment } from './dodo'
+import { newCreemPayment } from './creem'
 
 export * from './config'
 export * from './contract'
@@ -1210,9 +1209,9 @@ export class PaymentService {
 	}
 }
 
-export function createPaymentServiceFromEnv(
+export function newPaymentService(
 	db: AppDb,
-	env: PaymentEnv
+	env: Env
 ): PaymentService {
 	const config = parsePaymentConfig(env)
 	const providerRouter = new PaymentProviderRouter({
@@ -1221,8 +1220,8 @@ export function createPaymentServiceFromEnv(
 	})
 
 	const providers: PaymentProviderMap = {
-		dodo: createDodoPaymentProviderFromEnv(env),
-		creem: createCreemPaymentProviderFromEnv(env)
+		dodo: newDodoPayment(env),
+		creem: newCreemPayment(env)
 	}
 
 	return new PaymentService(db, config, providerRouter, providers)
@@ -1242,12 +1241,22 @@ function normalizeReturnPath(returnPath: string | null): string {
 function buildReturnUrl(appDomain: string, returnPath: string, checkoutOrderId: string): string {
 	const base = appDomain.startsWith('http://') || appDomain.startsWith('https://')
 		? appDomain
-		: `https://${appDomain}`
+		: `${getDefaultProtocol(appDomain)}://${appDomain}`
 	const url = new URL(returnPath, base)
 	if (checkoutOrderId.length > 0) {
 		url.searchParams.set(CHECKOUT_ORDER_ID_PARAM, checkoutOrderId)
 	}
 	return url.toString()
+}
+
+function getDefaultProtocol(appDomain: string): string {
+	if (appDomain === 'localhost' || appDomain.startsWith('localhost:')) {
+		return 'http'
+	}
+	if (appDomain === '127.0.0.1' || appDomain.startsWith('127.0.0.1:')) {
+		return 'http'
+	}
+	return 'https'
 }
 
 function normalizeEventTimeMs(value: number): number {

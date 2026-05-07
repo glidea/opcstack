@@ -301,7 +301,7 @@ describe('createCreemPaymentProviderFromEnv', () => {
 				PAYMENT_CREEM_API_KEY: 'api-key',
 				PAYMENT_CREEM_WEBHOOK_SECRET: 'whsec',
 				PAYMENT_CREEM_TEST_MODE: given.testMode
-			},
+			} as unknown as Env,
 			(options: CreemClientOptions): CreemClient => {
 				serverIdx = options.serverIdx
 				return createMockClient()

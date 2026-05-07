@@ -1,5 +1,5 @@
 import DodoPayments from 'dodopayments'
-import { PAYMENT_PROVIDER_DODO, type PaymentEnv, type PaymentProviderName } from './config'
+import { PAYMENT_PROVIDER_DODO, type PaymentProviderName } from './config'
 import {
 	PAYMENT_BILLING_MODE_ONE_TIME,
 	PAYMENT_BILLING_MODE_SUBSCRIPTION,
@@ -183,12 +183,12 @@ export class DodoPaymentProvider implements PaymentProvider {
 	}
 }
 
-export function createDodoPaymentProviderFromEnv(
-	env: PaymentEnv,
+export function newDodoPayment(
+	env: Env,
 	createClient: (options: DodoClientOptions) => DodoClient = defaultCreateDodoClient
 ): DodoPaymentProvider {
-	const bearerToken: string = env.PAYMENT_DODO_API_KEY ?? ''
-	const webhookKey: string = env.PAYMENT_DODO_WEBHOOK_SECRET ?? ''
+	const bearerToken: string = env.PAYMENT_DODO_API_KEY
+	const webhookKey: string = env.PAYMENT_DODO_WEBHOOK_SECRET
 	const environment: DodoEnvironment = resolveDodoEnvironment(env.PAYMENT_DODO_TEST_MODE)
 
 	const client: DodoClient = createClient({

@@ -22,6 +22,7 @@ describe('parsePaymentConfig', () => {
 		errorCode: string
 		paymentEnabled: boolean
 		selectedProvider: PaymentProviderName | ''
+		firstCreditsAmount: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -43,7 +44,8 @@ describe('parsePaymentConfig', () => {
 			thenExpected: {
 				errorCode: '',
 				paymentEnabled: true,
-				selectedProvider: 'creem'
+				selectedProvider: 'creem',
+				firstCreditsAmount: 0
 			}
 		},
 		{
@@ -64,7 +66,8 @@ describe('parsePaymentConfig', () => {
 			thenExpected: {
 				errorCode: '',
 				paymentEnabled: true,
-				selectedProvider: 'dodo'
+				selectedProvider: 'dodo',
+				firstCreditsAmount: 0
 			}
 		},
 		{
@@ -85,7 +88,31 @@ describe('parsePaymentConfig', () => {
 			thenExpected: {
 				errorCode: '',
 				paymentEnabled: false,
-				selectedProvider: 'creem'
+				selectedProvider: 'creem',
+				firstCreditsAmount: 0
+			}
+		},
+		{
+			scenario: 'parse product credit amount as fixed decimal units',
+			given: 'PAYMENT_PRODUCTS contains decimal credit amount',
+			when: 'config is parsed',
+			then: 'credit amount becomes units',
+			givenDetail: {
+				paymentEnabled: 'true',
+				providers: 'dodo;creem',
+				defaultProvider: 'creem',
+				overrides: '[]',
+				products:
+					'[{"product_id":"p1","credits_amount":"1.23","provider_product_ids":{"creem":"prod_1"}}]'
+			},
+			whenDetail: {
+				country: null
+			},
+			thenExpected: {
+				errorCode: '',
+				paymentEnabled: true,
+				selectedProvider: 'creem',
+				firstCreditsAmount: 1_230_000
 			}
 		}
 	]
@@ -98,7 +125,7 @@ describe('parsePaymentConfig', () => {
 				PAYMENT_DEFAULT_PROVIDER: given.defaultProvider,
 				PAYMENT_PROVIDER_COUNTRY_OVERRIDES: given.overrides,
 				PAYMENT_PRODUCTS: given.products
-			})
+			} as unknown as Env)
 			const router = new PaymentProviderRouter({
 				defaultProvider: config.defaultProvider,
 				providerCountryOverrides: config.providerCountryOverrides
@@ -108,13 +135,15 @@ describe('parsePaymentConfig', () => {
 				paymentEnabled: config.enabled,
 				selectedProvider: router.select({
 					country: when.country
-				})
+				}),
+				firstCreditsAmount: config.products[0]?.creditsAmount ?? 0
 			}
 		} catch (error) {
 			return {
 				errorCode: error instanceof PaymentConfigError ? error.code : 'UNKNOWN',
 				paymentEnabled: false,
-				selectedProvider: ''
+				selectedProvider: '',
+				firstCreditsAmount: 0
 			}
 		}
 	})

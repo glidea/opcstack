@@ -90,6 +90,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Read runtime config from Cloudflare env directly for example `ctx.env.KEY` in API handlers and `env.KEY` in worker jobs
 - For SvelteKit server routes, prefer `event.platform.env.KEY` and use `$env/dynamic/private` only as fallback
 - Do not use `envMap` or `as Record<string, string | undefined>` casts for normal config reads
+- Do not create feature-specific env interfaces; use generated `Env` from `worker-configuration.d.ts`
 
 ### 3. Authentication System
 

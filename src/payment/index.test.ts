@@ -78,12 +78,16 @@ describe('PaymentService.createPaymentCheckout', () => {
 
 	type GivenDetail = {
 		returnPath: string
+		appDomain: string
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: string
 		checkoutOrderCount: number
 		checkoutUrl: string
+		returnUrlOrigin: string
+		returnUrlPathname: string
+		returnUrlHasCheckoutOrderId: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -93,13 +97,36 @@ describe('PaymentService.createPaymentCheckout', () => {
 			when: 'creating payment checkout',
 			then: 'stores pending order and returns provider url',
 			givenDetail: {
-				returnPath: '/settings/billing'
+				returnPath: '/settings/billing',
+				appDomain: 'example.com'
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 'pending',
 				checkoutOrderCount: 1,
-				checkoutUrl: 'https://pay.example.com/cs_1'
+				checkoutUrl: 'https://pay.example.com/cs_1',
+				returnUrlOrigin: 'https://example.com',
+				returnUrlPathname: '/settings/billing',
+				returnUrlHasCheckoutOrderId: true
+			}
+		},
+		{
+			scenario: 'create localhost return url with http',
+			given: 'APP_DOMAIN is localhost',
+			when: 'creating payment checkout',
+			then: 'provider receives http localhost return url',
+			givenDetail: {
+				returnPath: '/settings/billing',
+				appDomain: 'localhost'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 'pending',
+				checkoutOrderCount: 1,
+				checkoutUrl: 'https://pay.example.com/cs_1',
+				returnUrlOrigin: 'http://localhost',
+				returnUrlPathname: '/settings/billing',
+				returnUrlHasCheckoutOrderId: true
 			}
 		}
 	]
@@ -116,12 +143,17 @@ describe('PaymentService.createPaymentCheckout', () => {
 			productId: 'credits_1000',
 			returnPath: given.returnPath,
 			country: 'CN',
-			appDomain: 'example.com'
+			appDomain: given.appDomain
 		})
+		const providerInput = state.provider.createCheckout.mock.calls[0]?.[0]
+		const returnUrl = new URL(providerInput.returnUrl)
 		return {
 			status: state.checkoutOrders[0]?.status ?? '',
 			checkoutOrderCount: state.checkoutOrders.length,
-			checkoutUrl: result.checkoutUrl
+			checkoutUrl: result.checkoutUrl,
+			returnUrlOrigin: returnUrl.origin,
+			returnUrlPathname: returnUrl.pathname,
+			returnUrlHasCheckoutOrderId: returnUrl.searchParams.has('checkout_order_id')
 		}
 	})
 })
