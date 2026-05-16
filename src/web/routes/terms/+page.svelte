@@ -11,11 +11,11 @@
 	/>
 </svelte:head>
 
-<main class="mx-auto w-full max-w-3xl px-6 py-12">
-	<h1 class="text-3xl font-semibold tracking-tight">Terms of Service</h1>
-	<div class="mt-6 space-y-8 text-sm leading-7 text-muted-foreground">
+<main class="mx-auto w-full max-w-3xl px-6 py-16">
+	<h1 class="text-display-md">Terms of Service</h1>
+	<div class="mt-8 space-y-10 text-muted-foreground">
 		<section class="space-y-2">
-			<h2 class="text-base font-semibold text-foreground">Service</h2>
+			<h2 class="text-tagline text-foreground">Service</h2>
 			<p>
 				These terms govern your use of {data.siteName}. The service
 				provides account features, product documentation, and the
@@ -24,7 +24,7 @@
 		</section>
 
 		<section class="space-y-2">
-			<h2 class="text-base font-semibold text-foreground">Account</h2>
+			<h2 class="text-tagline text-foreground">Account</h2>
 			<p>
 				You are responsible for your account activity and must keep your
 				credentials secure. You must provide accurate account
@@ -33,7 +33,7 @@
 		</section>
 
 		<section class="space-y-2">
-			<h2 class="text-base font-semibold text-foreground">
+			<h2 class="text-tagline text-foreground">
 				Plans and Credits
 			</h2>
 			<p>
@@ -44,7 +44,7 @@
 		</section>
 
 		<section class="space-y-2">
-			<h2 class="text-base font-semibold text-foreground">
+			<h2 class="text-tagline text-foreground">
 				Acceptable Use
 			</h2>
 			<p>
@@ -55,7 +55,7 @@
 		</section>
 
 		<section class="space-y-2">
-			<h2 class="text-base font-semibold text-foreground">
+			<h2 class="text-tagline text-foreground">
 				User Content
 			</h2>
 			<p>
@@ -66,7 +66,7 @@
 		</section>
 
 		<section class="space-y-2">
-			<h2 class="text-base font-semibold text-foreground">
+			<h2 class="text-tagline text-foreground">
 				Changes and Termination
 			</h2>
 			<p>
@@ -78,7 +78,7 @@
 		</section>
 
 		<section class="space-y-2">
-			<h2 class="text-base font-semibold text-foreground">Disclaimers</h2>
+			<h2 class="text-tagline text-foreground">Disclaimers</h2>
 			<p>
 				The service is provided as available. We do not guarantee
 				uninterrupted availability, error-free operation, or that
@@ -87,7 +87,7 @@
 		</section>
 
 		<section class="space-y-2">
-			<h2 class="text-base font-semibold text-foreground">Contact</h2>
+			<h2 class="text-tagline text-foreground">Contact</h2>
 			<p>For legal or account questions contact {data.supportEmail}</p>
 		</section>
 	</div>

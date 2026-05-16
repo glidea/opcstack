@@ -6,85 +6,86 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-	--radius: 0.5rem;
-	--background: oklch(0.99 0.003 250);
-	--foreground: oklch(0.18 0.012 250);
-	--card: oklch(1 0 0);
-	--card-foreground: var(--foreground);
-	--popover: oklch(1 0 0);
-	--popover-foreground: var(--foreground);
-	--primary: oklch(0.48 0.14 250);
-	--primary-foreground: oklch(0.985 0 0);
-	--secondary: oklch(0.955 0.008 250);
-	--secondary-foreground: oklch(0.24 0.025 250);
-	--muted: oklch(0.96 0.006 250);
-	--muted-foreground: oklch(0.48 0.018 250);
-	--accent: oklch(0.94 0.018 250);
-	--accent-foreground: oklch(0.24 0.025 250);
-	--destructive: oklch(0.577 0.245 27.325);
-	--border: oklch(0.9 0.008 250);
-	--input: oklch(0.88 0.01 250);
-	--ring: oklch(0.56 0.14 250);
-	--chart-1: oklch(0.646 0.222 41.116);
-	--chart-2: oklch(0.6 0.118 184.704);
-	--chart-3: oklch(0.398 0.07 227.392);
-	--chart-4: oklch(0.828 0.189 84.429);
-	--chart-5: oklch(0.769 0.188 70.08);
-	--sidebar: oklch(0.975 0.005 250);
-	--sidebar-foreground: var(--foreground);
-	--sidebar-primary: var(--primary);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.94 0.012 250);
-	--sidebar-accent-foreground: oklch(0.24 0.025 250);
-	--sidebar-border: oklch(0.89 0.008 250);
-	--sidebar-ring: var(--ring);
+	/* Apple color palette - light */
+	--background: #ffffff;
+	--foreground: #1d1d1f;
+	--card: #ffffff;
+	--card-foreground: #1d1d1f;
+	--popover: #ffffff;
+	--popover-foreground: #1d1d1f;
+	--primary: #0066cc;
+	--primary-foreground: #ffffff;
+	--secondary: #f5f5f7;
+	--secondary-foreground: #1d1d1f;
+	--muted: #f5f5f7;
+	--muted-foreground: #6e6e73;
+	--accent: #f5f5f7;
+	--accent-foreground: #1d1d1f;
+	--destructive: #ff3b30;
+	--border: #d2d2d7;
+	--input: #d2d2d7;
+	--ring: #0071e3;
+	--chart-1: #0066cc;
+	--chart-2: #34c759;
+	--chart-3: #ff9500;
+	--chart-4: #af52de;
+	--chart-5: #ff2d55;
+	--sidebar: #f5f5f7;
+	--sidebar-foreground: #1d1d1f;
+	--sidebar-primary: #0066cc;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #e8e8ed;
+	--sidebar-accent-foreground: #1d1d1f;
+	--sidebar-border: #d2d2d7;
+	--sidebar-ring: #0071e3;
 
-	/* App-level tokens: surface, elevation */
-	--surface: oklch(1 0 0);
-	--surface-border: oklch(0 0 0 / 7%);
-	--shadow-soft: 0 1px 2px oklch(0 0 0 / 4%);
-	--shadow-mid: 0 8px 24px -18px oklch(0 0 0 / 24%);
-	--radius-surface: 0.625rem;
-	--radius-surface-lg: 0.75rem;
+	/* Surface & elevation */
+	--surface: #ffffff;
+	--surface-border: rgba(0, 0, 0, 0.08);
+	--shadow-soft: none;
+	--shadow-mid: none;
+	--shadow-product: 3px 5px 30px rgba(0, 0, 0, 0.22);
+	--radius-surface: 18px;
+	--radius-surface-lg: 18px;
 }
 
 .dark {
-	--background: oklch(0.17 0.012 250);
-	--foreground: oklch(0.96 0.004 250);
-	--card: oklch(0.205 0.014 250);
-	--card-foreground: var(--foreground);
-	--popover: oklch(0.205 0.014 250);
-	--popover-foreground: var(--foreground);
-	--primary: oklch(0.68 0.15 250);
-	--primary-foreground: oklch(0.13 0.018 250);
-	--secondary: oklch(0.255 0.016 250);
-	--secondary-foreground: var(--foreground);
-	--muted: oklch(0.255 0.016 250);
-	--muted-foreground: oklch(0.72 0.02 250);
-	--accent: oklch(0.3 0.026 250);
-	--accent-foreground: var(--foreground);
-	--destructive: oklch(0.704 0.191 22.216);
-	--border: oklch(1 0 0 / 11%);
-	--input: oklch(1 0 0 / 14%);
-	--ring: oklch(0.68 0.15 250);
-	--chart-1: oklch(0.488 0.243 264.376);
-	--chart-2: oklch(0.696 0.17 162.48);
-	--chart-3: oklch(0.769 0.188 70.08);
-	--chart-4: oklch(0.627 0.265 303.9);
-	--chart-5: oklch(0.645 0.246 16.439);
-	--sidebar: oklch(0.19 0.014 250);
-	--sidebar-foreground: var(--foreground);
-	--sidebar-primary: var(--primary);
-	--sidebar-primary-foreground: var(--primary-foreground);
-	--sidebar-accent: oklch(0.27 0.02 250);
-	--sidebar-accent-foreground: var(--foreground);
-	--sidebar-border: oklch(1 0 0 / 10%);
-	--sidebar-ring: var(--ring);
+	--background: #1d1d1f;
+	--foreground: #f5f5f7;
+	--card: #2a2a2c;
+	--card-foreground: #f5f5f7;
+	--popover: #2a2a2c;
+	--popover-foreground: #f5f5f7;
+	--primary: #2997ff;
+	--primary-foreground: #000000;
+	--secondary: #272729;
+	--secondary-foreground: #f5f5f7;
+	--muted: #272729;
+	--muted-foreground: #98989d;
+	--accent: #333336;
+	--accent-foreground: #f5f5f7;
+	--destructive: #ff453a;
+	--border: rgba(255, 255, 255, 0.14);
+	--input: rgba(255, 255, 255, 0.14);
+	--ring: #2997ff;
+	--chart-1: #2997ff;
+	--chart-2: #30d158;
+	--chart-3: #ff9f0a;
+	--chart-4: #bf5af2;
+	--chart-5: #ff375f;
+	--sidebar: #272729;
+	--sidebar-foreground: #f5f5f7;
+	--sidebar-primary: #2997ff;
+	--sidebar-primary-foreground: #000000;
+	--sidebar-accent: #333336;
+	--sidebar-accent-foreground: #f5f5f7;
+	--sidebar-border: rgba(255, 255, 255, 0.14);
+	--sidebar-ring: #2997ff;
 
-	--surface: oklch(0.205 0.014 250);
-	--surface-border: oklch(1 0 0 / 9%);
-	--shadow-soft: 0 1px 2px oklch(0 0 0 / 18%);
-	--shadow-mid: 0 8px 24px -18px oklch(0 0 0 / 42%);
+	--surface: #2a2a2c;
+	--surface-border: rgba(255, 255, 255, 0.09);
+	--shadow-soft: none;
+	--shadow-mid: none;
 }
 
 @theme inline {
@@ -119,14 +120,15 @@
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
-	--radius-sm: calc(var(--radius) - 4px);
-	--radius-md: calc(var(--radius) - 2px);
-	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) + 4px);
 	--color-surface: var(--surface);
 	--color-surface-border: var(--surface-border);
+	--radius-sm: 8px;
+	--radius-md: 11px;
+	--radius-lg: 18px;
+	--radius-xl: 18px;
 	--shadow-soft: var(--shadow-soft);
 	--shadow-mid: var(--shadow-mid);
+	--shadow-product: var(--shadow-product);
 	--radius-surface: var(--radius-surface);
 	--radius-surface-lg: var(--radius-surface-lg);
 }
@@ -137,15 +139,16 @@
 	}
 	body {
 		@apply bg-background text-foreground;
-	}
-	html {
-		@apply font-sans;
+		font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "InterVariable", "Inter", sans-serif;
+		font-size: 16px;
+		line-height: 1.5;
+		letter-spacing: -0.32px;
 	}
 }
 
 @layer components {
 	.docs-shell {
-		--header-h: 3.0625rem;
+		--header-h: 2.75rem;
 	}
 
 	.docs-shell [data-slot="sidebar-container"] {
@@ -155,19 +158,26 @@
 	}
 
 	.docs-content {
-		@apply text-sm leading-7 text-foreground sm:text-base;
+		@apply text-[16px] leading-7 text-foreground;
 	}
 
 	.docs-content h1 {
-		@apply mt-10 scroll-mt-24 text-3xl font-semibold tracking-tight first:mt-0;
+		@apply mt-10 scroll-mt-24 font-semibold tracking-tight first:mt-0;
+		font-size: 34px;
+		line-height: 1.12;
 	}
 
 	.docs-content h2 {
-		@apply mt-12 scroll-mt-24 text-2xl font-semibold tracking-tight;
+		@apply mt-12 scroll-mt-24 font-semibold tracking-tight;
+		font-size: 28px;
+		line-height: 1.14;
 	}
 
 	.docs-content h3 {
-		@apply mt-8 scroll-mt-24 text-xl font-semibold tracking-tight;
+		@apply mt-8 scroll-mt-24 font-semibold;
+		font-size: 21px;
+		letter-spacing: 0.231px;
+		line-height: 1.19;
 	}
 
 	.docs-content p {
@@ -183,7 +193,7 @@
 	}
 
 	.docs-content a {
-		@apply text-foreground underline decoration-border underline-offset-2 transition-colors hover:text-primary;
+		@apply text-primary underline-offset-2 transition-colors hover:underline;
 	}
 
 	.docs-content ul {
@@ -266,5 +276,59 @@
 
 	.docs-content hr {
 		@apply my-8 border-border/70;
+	}
+
+	/* Apple typography scale */
+	.text-hero-display {
+		font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "InterVariable", "Inter", sans-serif;
+		font-size: 56px;
+		font-weight: 600;
+		line-height: 1.07;
+		letter-spacing: -0.28px;
+	}
+
+	.text-display-lg {
+		font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "InterVariable", "Inter", sans-serif;
+		font-size: 40px;
+		font-weight: 600;
+		line-height: 1.1;
+		letter-spacing: 0;
+	}
+
+	.text-display-md {
+		font-size: 34px;
+		font-weight: 600;
+		line-height: 1.47;
+		letter-spacing: -0.374px;
+	}
+
+	.text-lead {
+		font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "InterVariable", "Inter", sans-serif;
+		font-size: 28px;
+		font-weight: 400;
+		line-height: 1.14;
+		letter-spacing: 0.196px;
+	}
+
+	.text-tagline {
+		font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "InterVariable", "Inter", sans-serif;
+		font-size: 21px;
+		font-weight: 600;
+		line-height: 1.19;
+		letter-spacing: 0.231px;
+	}
+
+	.text-caption {
+		font-size: 14px;
+		font-weight: 400;
+		line-height: 1.43;
+		letter-spacing: -0.224px;
+	}
+
+	.text-fine-print {
+		font-size: 12px;
+		font-weight: 400;
+		line-height: 1.0;
+		letter-spacing: -0.12px;
 	}
 }

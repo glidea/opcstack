@@ -123,6 +123,8 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Prefer `INSERT ... SELECT ... WHERE` for "insert only if condition matches"
 - Use `WHERE EXISTS (SELECT 1 FROM ...)` on later statements in the same batch to make them run only when the first conditional insert succeeded
 - Do not split these flows into `SELECT` then independent `UPDATE` or `INSERT`; concurrent requests can pass the same check
+- Credit grant and refund deduction must be source-idempotent and update `user.credit_balance` with SQL arithmetic such as `credit_balance = credit_balance + ?` or `credit_balance = credit_balance - ?`
+- Do not read `user.credit_balance` in service code and then write a fixed calculated balance for credit grant or refund deduction
 
 **D1 Read Replication**:
 - Automatically enabled in remote mode
@@ -297,6 +299,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 2. Put shared components in `src/web/lib/ui/`
 3. Put i18n messages in `src/web/lib/i18n/messages/`
 4. Set page title description and canonical in `<svelte:head>`
+5. Follow the Frontend Design Contract below
 
 ### Modify database
 
@@ -330,6 +333,27 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Canonical URLs use the app domain from `APP_DOMAIN` and must not point business pages to the OPCStack website
 - Test files: `src/**/*.test.ts` for unit tests and `e2e/**/*.test.ts` for E2E tests
 - Commands: `pnpm dev` local `pnpm deploycf` deploy `pnpm test` test
+
+### Frontend Design Contract
+
+- All pages must follow `DESIGN.md` as the visual authority
+- Use semantic tokens from `src/web/app.css`; never hardcode hex in page files
+- Button default is pill-shaped (`rounded-full`); no shadow on any UI element
+- Shadow is reserved for product imagery only (use `shadow-product`)
+- Active state on buttons: `scale(0.95)` via tailwind-variants
+- No decorative gradients, no glassmorphism, no glow effects
+- Elevation comes from surface color change and hairline borders, not shadows
+- Typography uses Apple scale: 17px body, negative letter-spacing at display sizes
+- Use typography utility classes: `text-hero-display` `text-display-lg` `text-display-md` `text-lead` `text-tagline` `text-caption` `text-fine-print`
+- Page layout rules:
+  - Document pages (docs/legal/blog): `max-w-3xl mx-auto px-6 py-16`
+  - Landing pages (home/product): full-width, sections control own max-width
+  - Workspace pages (dashboard): full-width with sidebar via SvelteKit layout nesting
+- Header height is 44px (`h-11`); all sticky/sidebar calculations reference this
+- Icons come from `lucide-svelte`
+- Buttons, inputs, tabs, dialogs, dropdowns, tables, badges use `$web/ui/*`
+- Route files compose layout and data; they do not define new visual styles
+- After frontend changes, verify at 375px and 1440px viewport
 
 ---
 

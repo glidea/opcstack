@@ -22,14 +22,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event)
 	}
 
-	const firstSegment = pathname.split('/').filter((segment) => segment !== '')[0] ?? ''
-	if (isSystemLocale(firstSegment)) {
-		return resolve(event)
+	const response = await resolve(event)
+	if (response.status !== 404) {
+		return response
 	}
 
-	const locale = resolveSystemLocale(event.request.headers.get('accept-language') ?? '')
-	const targetPath = pathname === '/' ? `/${locale}` : `/${locale}${pathname}`
-	redirect(302, `${targetPath}${event.url.search}`)
+	const firstSegment = pathname.split('/').filter((segment) => segment !== '')[0] ?? ''
+	const targetLocale = isSystemLocale(firstSegment)
+		? firstSegment
+		: resolveSystemLocale(event.request.headers.get('accept-language') ?? '')
+	throw redirect(302, `/${targetLocale}${event.url.search}`)
 }
 
 function isInternalPath(pathname: string): boolean {
