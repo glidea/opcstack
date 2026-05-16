@@ -4,14 +4,14 @@ type StringConfigKeys = {
 	[K in keyof Env]: Env[K] extends string ? K : never
 }[keyof Env]
 
-type AppConfigType = {
+type ServerConfig = {
 	readonly [K in StringConfigKeys]: Env[K]
 }
 
 type WranglerConfig = {
-	vars: AppConfigType
+	vars: ServerConfig
 }
 
 const wranglerConfig = JSON.parse(wranglerConfigText) as WranglerConfig
 
-export const AppConfig: AppConfigType = wranglerConfig.vars
+export const serverConfig: ServerConfig = wranglerConfig.vars

@@ -7,17 +7,21 @@
 	let {
 		email,
 		type = 'email-verification',
-		onSuccess
+		onSuccess,
+		emailUserActionCooldownSeconds
 	}: {
 		email: string
 		type?: 'email-verification' | 'forget-password'
 		onSuccess?: () => void
+		emailUserActionCooldownSeconds: number
 	} = $props()
 
 	let otp = $state('')
 	let loading = $state(false)
 	let error = $state('')
 	let resending = $state(false)
+	let resendCooldownLeft = $state(0)
+	let cooldownTimer: ReturnType<typeof setInterval> | undefined = undefined
 
 	async function handleVerify(): Promise<void> {
 		loading = true
@@ -33,9 +37,58 @@
 
 	async function handleResend(): Promise<void> {
 		resending = true
-		await authClient.emailOtp.sendVerificationOtp({ email, type })
+		error = ''
+		const result = await authClient.emailOtp.sendVerificationOtp({ email, type })
 		resending = false
+		if (result.error) {
+			error = resolveEmailError(result.error, $_('auth.otp.resend'))
+			if (result.error.code === 'EMAIL_ACTION_RATE_LIMITED') {
+				startResendCooldown()
+			}
+			return
+		}
+		startResendCooldown()
 	}
+
+	type AuthClientError = {
+		code?: string
+		message?: string
+	}
+
+	function resolveEmailError(authError: AuthClientError, fallback: string): string {
+		switch (authError.code) {
+			case 'EMAIL_DISABLED':
+				return $_('auth.error.emailDisabled')
+			case 'EMAIL_ACTION_RATE_LIMITED':
+				return $_('auth.error.emailActionRateLimited', {
+					values: { seconds: emailUserActionCooldownSeconds }
+				})
+			default:
+				return authError.message ?? fallback
+		}
+	}
+
+	function startResendCooldown(): void {
+		resendCooldownLeft = emailUserActionCooldownSeconds
+		if (cooldownTimer) {
+			clearInterval(cooldownTimer)
+		}
+		cooldownTimer = setInterval((): void => {
+			resendCooldownLeft -= 1
+			if (resendCooldownLeft <= 0 && cooldownTimer) {
+				clearInterval(cooldownTimer)
+				cooldownTimer = undefined
+			}
+		}, 1000)
+	}
+
+	$effect(() => {
+		return (): void => {
+			if (cooldownTimer) {
+				clearInterval(cooldownTimer)
+			}
+		}
+	})
 </script>
 
 <div class="mx-auto w-full max-w-[380px] space-y-6">
@@ -69,10 +122,15 @@
 			type="button"
 			class="text-primary hover:text-primary/80"
 			onclick={handleResend}
-			disabled={resending}
+			disabled={resending || resendCooldownLeft > 0}
 		>
-			{resending ? $_('auth.otp.resending') : $_('auth.otp.resend')}
+			{#if resending}
+				{$_('auth.otp.resending')}
+			{:else if resendCooldownLeft > 0}
+				{$_('auth.otp.resendIn', { values: { seconds: resendCooldownLeft } })}
+			{:else}
+				{$_('auth.otp.resend')}
+			{/if}
 		</button>
 	</p>
 </div>
-

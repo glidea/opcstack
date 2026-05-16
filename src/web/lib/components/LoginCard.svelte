@@ -8,11 +8,17 @@
 	let {
 		onSuccess,
 		registerHref = '/register',
-		forgotPasswordHref = '/forgot-password'
+		forgotPasswordHref = '/forgot-password',
+		googleAuthEnabled,
+		emailEnabled,
+		emailSignupEnabled
 	}: {
 		onSuccess?: () => void
 		registerHref?: string
 		forgotPasswordHref?: string
+		googleAuthEnabled: boolean
+		emailEnabled: boolean
+		emailSignupEnabled: boolean
 	} = $props()
 
 	let email = $state('')
@@ -43,35 +49,46 @@
 		<p class="mt-2 text-muted-foreground">{$_('auth.login.subtitle')}</p>
 	</div>
 
-	<Button variant="secondary" class="w-full" onclick={handleGoogleLogin}>
-		<GoogleIcon />
-		{$_('auth.continueWithGoogle')}
-	</Button>
-
-	<div class="flex items-center gap-3">
-		<div class="h-px flex-1 bg-border"></div>
-		<span class="text-sm text-muted-foreground">{$_('auth.or')}</span>
-		<div class="h-px flex-1 bg-border"></div>
-	</div>
-
-	<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleEmailLogin() }}>
-		{#if error}
-			<p class="text-sm text-destructive">{error}</p>
-		{/if}
-		<Input type="email" placeholder={$_('auth.login.email')} bind:value={email} required />
-		<Input type="password" placeholder={$_('auth.login.password')} bind:value={password} required />
-		<Button type="submit" class="w-full" disabled={loading}>
-			{loading ? $_('auth.login.submitting') : $_('auth.login.submit')}
+	{#if googleAuthEnabled}
+		<Button variant="secondary" class="w-full" onclick={handleGoogleLogin}>
+			<GoogleIcon />
+			{$_('auth.continueWithGoogle')}
 		</Button>
-	</form>
+	{/if}
 
-	<div class="flex items-center justify-between text-sm">
-		<a href={forgotPasswordHref} class="text-muted-foreground hover:text-foreground">
-			{$_('auth.login.forgotPassword')}
-		</a>
-		<a href={registerHref} class="text-primary hover:text-primary/80">
-			{$_('auth.login.createAccount')}
-		</a>
-	</div>
+	{#if googleAuthEnabled && emailEnabled}
+		<div class="flex items-center gap-3">
+			<div class="h-px flex-1 bg-border"></div>
+			<span class="text-sm text-muted-foreground">{$_('auth.or')}</span>
+			<div class="h-px flex-1 bg-border"></div>
+		</div>
+	{/if}
+
+	{#if emailEnabled}
+		<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleEmailLogin() }}>
+			{#if error}
+				<p class="text-sm text-destructive">{error}</p>
+			{/if}
+			<Input type="email" placeholder={$_('auth.login.email')} bind:value={email} required />
+			<Input type="password" placeholder={$_('auth.login.password')} bind:value={password} required />
+			<Button type="submit" class="w-full" disabled={loading}>
+				{loading ? $_('auth.login.submitting') : $_('auth.login.submit')}
+			</Button>
+		</form>
+	{/if}
+
+	{#if emailEnabled || googleAuthEnabled}
+		<div class="flex items-center justify-between text-sm">
+			{#if emailEnabled}
+				<a href={forgotPasswordHref} class="text-muted-foreground hover:text-foreground">
+					{$_('auth.login.forgotPassword')}
+				</a>
+			{/if}
+			{#if googleAuthEnabled || (emailEnabled && emailSignupEnabled)}
+				<a href={registerHref} class="text-primary hover:text-primary/80">
+					{$_('auth.login.createAccount')}
+				</a>
+			{/if}
+		</div>
+	{/if}
 </div>
-

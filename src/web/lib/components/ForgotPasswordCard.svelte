@@ -6,10 +6,12 @@
 
 	let {
 		onSuccess,
-		loginHref = '/login'
+		loginHref = '/login',
+		emailUserActionCooldownSeconds
 	}: {
 		onSuccess?: (email: string) => void
 		loginHref?: string
+		emailUserActionCooldownSeconds: number
 	} = $props()
 
 	let email = $state('')
@@ -25,10 +27,28 @@
 		})
 		loading = false
 		if (result.error) {
-			error = result.error.message ?? $_('auth.forgotPassword.submit')
+			error = resolveEmailError(result.error, $_('auth.forgotPassword.submit'))
 			return
 		}
 		onSuccess?.(email)
+	}
+
+	type AuthClientError = {
+		code?: string
+		message?: string
+	}
+
+	function resolveEmailError(authError: AuthClientError, fallback: string): string {
+		switch (authError.code) {
+			case 'EMAIL_DISABLED':
+				return $_('auth.error.emailDisabled')
+			case 'EMAIL_ACTION_RATE_LIMITED':
+				return $_('auth.error.emailActionRateLimited', {
+					values: { seconds: emailUserActionCooldownSeconds }
+				})
+			default:
+				return authError.message ?? fallback
+		}
 	}
 </script>
 
@@ -54,4 +74,3 @@
 		</a>
 	</p>
 </div>
-
