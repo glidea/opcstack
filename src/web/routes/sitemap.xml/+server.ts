@@ -1,6 +1,6 @@
-import { env } from '$env/dynamic/private'
 import { buildDocsManifest } from '$web/docs/docs'
 import { supportedLocales } from '$web/i18n/locales'
+import { AppConfig } from '$web/server/app-config'
 import { resolveSiteOrigin } from '$web/seo'
 
 const rawDocModules = import.meta.glob('/public-docs/**/*.md', {
@@ -29,7 +29,7 @@ export async function GET(): Promise<Response> {
 		}
 	}
 
-	const origin = resolveSiteOrigin(env['APP_DOMAIN'] ?? 'localhost')
+	const origin = resolveSiteOrigin(AppConfig.APP_DOMAIN)
 
 	const body = [
 		'<?xml version="1.0" encoding="UTF-8"?>',

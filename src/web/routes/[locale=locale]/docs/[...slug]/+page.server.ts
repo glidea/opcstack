@@ -1,8 +1,8 @@
-import { env } from '$env/dynamic/private'
 import { error } from '@sveltejs/kit'
 import { defaultLocale } from '$web/i18n/locales'
 import { getDocBySlug, getDocNeighbors, getDocSwitchPath, getLocaleManifest, type DocHeading } from '$web/docs/docs'
 import { getDocsManifest } from '$web/docs/manifest.server'
+import { AppConfig } from '$web/server/app-config'
 import { resolveSiteOrigin, toSiteUrl } from '$web/seo'
 
 export const prerender = true
@@ -45,7 +45,7 @@ export async function load({
 	xDefaultUrl: string
 }> {
 	const layoutData = await parent()
-	const origin = resolveSiteOrigin(env['APP_DOMAIN'] ?? 'localhost')
+	const origin = resolveSiteOrigin(AppConfig.APP_DOMAIN)
 	const manifest = await getDocsManifest()
 	const localeManifest = getLocaleManifest(manifest, layoutData.locale)
 	const target = getDocBySlug(localeManifest?.docs ?? [], params.slug)

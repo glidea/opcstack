@@ -1,10 +1,10 @@
-import { env } from '$env/dynamic/private'
+import { AppConfig } from '$web/server/app-config'
 import { resolveSiteOrigin } from '$web/seo'
 
 export const prerender = true
 
 export function GET(): Response {
-	const origin = resolveSiteOrigin(env['APP_DOMAIN'] ?? 'localhost')
+	const origin = resolveSiteOrigin(AppConfig.APP_DOMAIN)
 	const body = `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`
 	return new Response(body, {
 		headers: {
