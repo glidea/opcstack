@@ -95,7 +95,9 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - When adding a new runtime config key, add it to `wrangler.jsonc.tpl` `vars` first
 - Run `pnpm exec wrangler types` after changing config keys so `worker-configuration.d.ts` stays current
 - Read runtime config from Cloudflare env directly for example `ctx.env.KEY` in API handlers and `env.KEY` in worker jobs
-- For SvelteKit server routes, prefer `event.platform.env.KEY` and use `$env/dynamic/private` only as fallback
+- For SvelteKit server routes, use `serverConfig` from `$web/config/server`
+- Do not import `wrangler.jsonc` outside `src/web/lib/config/server.ts`
+- Do not use the old `AppConfig` name; server-side web config is `serverConfig`
 - Do not use `envMap` or `as Record<string, string | undefined>` casts for normal config reads
 - Do not create feature-specific env interfaces; use generated `Env` from `worker-configuration.d.ts`
 
@@ -170,6 +172,11 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Returns backend feature flag config
 - Frontend dynamically shows or hides features based on config
 - Fields include `beta_code_enabled` `google_auth_enabled` `email_enabled` and more
+- `PublicConfig` type lives in `src/web/lib/config/client.ts`
+- Frontend loads public config through `getPublicConfig(fetchApi)` from `$web/config/client`
+- `+layout.server.ts` is the single source that calls `getPublicConfig(event.fetch)` and passes `data.publicConfig` to pages
+- Components and pages must not call `/api/get_public_config` directly unless they are replacing the layout-level state source
+- Public config controls feature visibility such as Google auth, email auth, email signup, email verification, user email action cooldown, credits, and payment
 
 ### 8. List API Contract
 
