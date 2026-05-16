@@ -140,7 +140,7 @@ function resolveAppBase(env, isRemote) {
 function renderTemplate(template, env) {
 	return template.replace(/\{\{(\w+)\}\}/g, (_match, varName) => {
 		if (Object.prototype.hasOwnProperty.call(env, varName)) {
-			return String(env[varName] ?? '')
+			return JSON.stringify(String(env[varName] ?? '')).slice(1, -1)
 		}
 
 		console.error(`Error: Missing required variable ${varName}`)
