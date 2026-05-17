@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { authClient } from '$web/auth/client'
+	import { authClient, setAuthToken } from '$web/auth/client'
 	import { _ } from '$web/i18n'
 	import { Button } from '$web/ui/button'
 	import { Input } from '$web/ui/input'
@@ -23,6 +23,10 @@
 	let resendCooldownLeft = $state(0)
 	let cooldownTimer: ReturnType<typeof setInterval> | undefined = undefined
 
+	type OtpVerifyResultData = {
+		token?: string | null
+	}
+
 	async function handleVerify(): Promise<void> {
 		loading = true
 		error = ''
@@ -31,6 +35,11 @@
 		if (result.error) {
 			error = result.error.message ?? $_('auth.otp.submit')
 			return
+		}
+		const data = result.data as OtpVerifyResultData | null
+		const token: string = data?.token ?? ''
+		if (token !== '') {
+			setAuthToken(token)
 		}
 		onSuccess?.()
 	}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { _ } from "$web/i18n";
+	import { authClient } from "$web/auth/client";
 	import AppHeader from "$web/components/AppHeader.svelte";
 	import UserMenu from "$web/components/UserMenu.svelte";
 	import { Button } from "$web/ui/button";
@@ -16,6 +17,8 @@
 			xDefaultUrl: string;
 		};
 	} = $props();
+
+	const session = authClient.useSession();
 </script>
 
 <svelte:head>
@@ -54,10 +57,13 @@
 
 <AppHeader logoHref={`/${data.locale}`}>
 	{#snippet actions()}
-		<UserMenu onSignOut={() => {}} />
-		<Button size="sm" href={`/${data.locale}/login`}
-			>{$_("home.cta.signIn")}</Button
-		>
+		{#if $session.data}
+			<UserMenu onSignOut={() => {}} />
+		{:else if !$session.isPending}
+			<Button size="sm" href={`/${data.locale}/login`}
+				>{$_("home.cta.signIn")}</Button
+			>
+		{/if}
 	{/snippet}
 </AppHeader>
 

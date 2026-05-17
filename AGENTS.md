@@ -111,6 +111,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - OTP sign-in is disabled; email auth remains password based
 - Middleware:
   - `authMiddleware`: injects `userId` into `ctx.variables`
+  - Authenticated API routes accept Better Auth sessions from either Cookie or `Authorization: Bearer <token>`
   - `adminSecretMiddleware`: validates admin password
   - `betaGateMiddleware`: beta code gate
   - `emailAuthMiddleware`: email auth gate
@@ -144,7 +145,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 
 **API**:
 - `GET /api/r2/public/*`: public access
-- `GET /api/r2/private/*`: requires Bearer Token
+- `GET /api/r2/private/*`: requires authenticated Better Auth session via Cookie or Bearer Token
 
 **Client**:
 ```ts

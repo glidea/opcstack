@@ -30,9 +30,18 @@
 		loading = true
 		error = ''
 		const result = await authClient.signUp.email({ email, password, name: email })
-		loading = false
 		if (result.error) {
+			loading = false
 			error = resolveEmailError(result.error, $_('auth.register.submit'))
+			return
+		}
+		const otpResult = await authClient.emailOtp.sendVerificationOtp({
+			email,
+			type: 'email-verification'
+		})
+		loading = false
+		if (otpResult.error) {
+			error = resolveEmailError(otpResult.error, $_('auth.register.submit'))
 			return
 		}
 		onSuccess?.(email)

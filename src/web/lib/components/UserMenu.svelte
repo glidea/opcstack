@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { authClient } from "$web/auth/client";
+	import { authClient, clearAuthToken } from "$web/auth/client";
 	import { _ } from "$web/i18n";
 	import { Button } from "$web/ui/button";
 	import * as DropdownMenu from "$web/ui/dropdown-menu";
@@ -16,6 +16,7 @@
 
 	async function handleSignOut(): Promise<void> {
 		await authClient.signOut();
+		clearAuthToken();
 		onSignOut?.();
 	}
 </script>
@@ -27,11 +28,7 @@
 			{#snippet child({ props })}
 				<Button variant="ghost" size="icon" {...props}>
 					{#if user.image}
-						<img
-							src={user.image}
-							alt={user.name}
-							class="size-7 rounded-full"
-						/>
+						<img src={user.image} alt={user.name} class="size-7 rounded-full" />
 					{:else}
 						<UserIcon class="size-4" />
 					{/if}
@@ -40,7 +37,6 @@
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content align="end" class="w-56">
 			<div class="px-1.5 py-1.5">
-				<p class="text-sm font-medium">{user.name}</p>
 				<p class="text-xs text-muted-foreground">{user.email}</p>
 			</div>
 			<DropdownMenu.Separator />
