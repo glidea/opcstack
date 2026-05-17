@@ -1,15 +1,19 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import { authClient, clearAuthToken } from "$web/auth/client";
 	import { _ } from "$web/i18n";
 	import { Button } from "$web/ui/button";
 	import * as DropdownMenu from "$web/ui/dropdown-menu";
 	import LogOutIcon from "@lucide/svelte/icons/log-out";
+	import SettingsIcon from "@lucide/svelte/icons/settings";
 	import UserIcon from "@lucide/svelte/icons/user";
 
 	let {
 		onSignOut,
+		settingsHref = "/settings",
 	}: {
 		onSignOut?: () => void;
+		settingsHref?: string;
 	} = $props();
 
 	const session = authClient.useSession();
@@ -18,6 +22,10 @@
 		await authClient.signOut();
 		clearAuthToken();
 		onSignOut?.();
+	}
+
+	function handleSettings(): void {
+		void goto(settingsHref);
 	}
 </script>
 
@@ -40,6 +48,10 @@
 				<p class="text-xs text-muted-foreground">{user.email}</p>
 			</div>
 			<DropdownMenu.Separator />
+			<DropdownMenu.Item onclick={handleSettings}>
+				<SettingsIcon class="mr-2 size-4" />
+				{$_("auth.userMenu.settings")}
+			</DropdownMenu.Item>
 			<DropdownMenu.Item onclick={handleSignOut}>
 				<LogOutIcon class="mr-2 size-4" />
 				{$_("auth.userMenu.signOut")}

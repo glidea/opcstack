@@ -58,7 +58,7 @@
 <AppHeader logoHref={`/${data.locale}`}>
 	{#snippet actions()}
 		{#if $session.data}
-			<UserMenu onSignOut={() => {}} />
+			<UserMenu onSignOut={() => {}} settingsHref={`/${data.locale}/settings`} />
 		{:else if !$session.isPending}
 			<Button size="sm" href={`/${data.locale}/login`}
 				>{$_("home.cta.signIn")}</Button

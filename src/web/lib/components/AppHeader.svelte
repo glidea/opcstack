@@ -27,12 +27,11 @@
 			<img src="/logo.svg" alt="logo" class="block h-6 w-auto" />
 		</a>
 		<div class="ml-auto flex items-center gap-2">
+			<LocaleSwitcher current={$locale ?? defaultLocale} />
+			<ThemeSwitcher />
 			{#if actions}
 				{@render actions()}
 			{/if}
-			<LocaleSwitcher current={$locale ?? defaultLocale} />
-			<ThemeSwitcher />
 		</div>
 	</div>
 </header>
-
