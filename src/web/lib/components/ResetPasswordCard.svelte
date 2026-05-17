@@ -3,6 +3,7 @@
 	import { _ } from '$web/i18n'
 	import { Button } from '$web/ui/button'
 	import { Input } from '$web/ui/input'
+	import OtpInput from './OtpInput.svelte'
 
 	let {
 		email,
@@ -48,16 +49,9 @@
 		{#if error}
 			<p class="text-sm text-destructive">{error}</p>
 		{/if}
-		<Input
-			type="text"
-			placeholder="000000"
-			bind:value={otp}
-			maxlength={6}
-			class="text-center text-[24px] tracking-[0.3em]"
-			required
-		/>
+		<OtpInput bind:value={otp} disabled={loading} label={$_('auth.resetPassword.title')} />
 		<Input type="password" placeholder={$_('auth.resetPassword.newPassword')} bind:value={newPassword} required />
-		<Button type="submit" class="w-full" disabled={loading}>
+		<Button type="submit" class="w-full" disabled={loading || otp.length !== 6}>
 			{loading ? $_('auth.resetPassword.submitting') : $_('auth.resetPassword.submit')}
 		</Button>
 	</form>
@@ -68,4 +62,3 @@
 		</a>
 	</p>
 </div>
-
