@@ -29,82 +29,82 @@ colors:
 typography:
   hero-display:
     fontFamily: "SF Pro Display, system-ui, -apple-system, sans-serif"
-    fontSize: 56px
-    fontWeight: 600
-    lineHeight: 1.07
-    letterSpacing: -0.28px
-  display-lg:
-    fontFamily: "SF Pro Display, system-ui, -apple-system, sans-serif"
-    fontSize: 40px
+    fontSize: 44px
     fontWeight: 600
     lineHeight: 1.1
-    letterSpacing: 0
+    letterSpacing: -0.22px
+  display-lg:
+    fontFamily: "SF Pro Display, system-ui, -apple-system, sans-serif"
+    fontSize: 32px
+    fontWeight: 600
+    lineHeight: 1.15
+    letterSpacing: -0.16px
   display-md:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 34px
+    fontSize: 28px
     fontWeight: 600
-    lineHeight: 1.47
-    letterSpacing: -0.374px
+    lineHeight: 1.2
+    letterSpacing: -0.14px
   lead:
     fontFamily: "SF Pro Display, system-ui, -apple-system, sans-serif"
-    fontSize: 28px
+    fontSize: 20px
     fontWeight: 400
-    lineHeight: 1.14
-    letterSpacing: 0.196px
+    lineHeight: 1.4
+    letterSpacing: -0.1px
   lead-airy:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 24px
+    fontSize: 20px
     fontWeight: 300
     lineHeight: 1.5
     letterSpacing: 0
   tagline:
     fontFamily: "SF Pro Display, system-ui, -apple-system, sans-serif"
-    fontSize: 21px
+    fontSize: 18px
     fontWeight: 600
-    lineHeight: 1.19
-    letterSpacing: 0.231px
+    lineHeight: 1.25
+    letterSpacing: -0.09px
   body-strong:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 17px
+    fontSize: 15px
     fontWeight: 600
-    lineHeight: 1.24
-    letterSpacing: -0.374px
+    lineHeight: 1.4
+    letterSpacing: -0.15px
   body:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 17px
+    fontSize: 15px
     fontWeight: 400
-    lineHeight: 1.47
-    letterSpacing: -0.374px
+    lineHeight: 1.5
+    letterSpacing: -0.15px
   dense-link:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 17px
+    fontSize: 15px
     fontWeight: 400
-    lineHeight: 2.41
+    lineHeight: 2.2
     letterSpacing: 0
   caption:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 14px
+    fontSize: 13px
     fontWeight: 400
     lineHeight: 1.43
-    letterSpacing: -0.224px
+    letterSpacing: -0.13px
   caption-strong:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 14px
+    fontSize: 13px
     fontWeight: 600
     lineHeight: 1.29
-    letterSpacing: -0.224px
+    letterSpacing: -0.13px
   button-large:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 18px
+    fontSize: 16px
     fontWeight: 300
     lineHeight: 1.0
     letterSpacing: 0
   button-utility:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
-    fontSize: 14px
+    fontSize: 13px
     fontWeight: 400
     lineHeight: 1.29
-    letterSpacing: -0.224px
+    letterSpacing: -0.13px
   fine-print:
     fontFamily: "SF Pro Text, system-ui, -apple-system, sans-serif"
     fontSize: 12px
@@ -336,30 +336,30 @@ Store and shop surfaces retain the same chassis but switch modes. The product co
 
 | Token                         | Size | Weight | Line Height | Letter Spacing | Use                                                    |
 | ----------------------------- | ---- | ------ | ----------- | -------------- | ------------------------------------------------------ |
-| `{typography.hero-display}`   | 56px | 600    | 1.07        | -0.28px        | Hero headline; the signature "Apple tight" tracking    |
-| `{typography.display-lg}`     | 40px | 600    | 1.10        | 0              | Tile headlines atop every product tile                 |
-| `{typography.display-md}`     | 34px | 600    | 1.47        | -0.374px       | Section heads (SF Pro Text at display proportions)     |
-| `{typography.lead}`           | 28px | 400    | 1.14        | 0.196px        | Product tile subcopy                                   |
-| `{typography.lead-airy}`      | 24px | 300    | 1.5         | 0              | Environment-page lead paragraphs (the rare weight 300) |
-| `{typography.tagline}`        | 21px | 600    | 1.19        | 0.231px        | Sub-tile tagline; sub-nav category name                |
-| `{typography.body-strong}`    | 17px | 600    | 1.24        | -0.374px       | Inline strong emphasis                                 |
-| `{typography.body}`           | 17px | 400    | 1.47        | -0.374px       | Default paragraph                                      |
-| `{typography.dense-link}`     | 17px | 400    | 2.41        | 0              | Footer / store utility link lists (relaxed leading)    |
-| `{typography.caption}`        | 14px | 400    | 1.43        | -0.224px       | Secondary captions, button text                        |
-| `{typography.caption-strong}` | 14px | 600    | 1.29        | -0.224px       | Emphasized captions                                    |
-| `{typography.button-large}`   | 18px | 300    | 1.0         | 0              | Store hero CTAs (the rare weight 300)                  |
-| `{typography.button-utility}` | 14px | 400    | 1.29        | -0.224px       | Utility/nav button labels                              |
+| `{typography.hero-display}`   | 44px | 600    | 1.10        | -0.22px        | Hero headline                                          |
+| `{typography.display-lg}`     | 32px | 600    | 1.15        | -0.16px        | Tile headlines atop every product tile                 |
+| `{typography.display-md}`     | 28px | 600    | 1.20        | -0.14px        | Section heads                                          |
+| `{typography.lead}`           | 20px | 400    | 1.40        | -0.1px         | Product tile subcopy                                   |
+| `{typography.lead-airy}`      | 20px | 300    | 1.5         | 0              | Environment-page lead paragraphs                       |
+| `{typography.tagline}`        | 18px | 600    | 1.25        | -0.09px        | Sub-tile tagline; sub-nav category name                |
+| `{typography.body-strong}`    | 15px | 600    | 1.40        | -0.15px        | Inline strong emphasis                                 |
+| `{typography.body}`           | 15px | 400    | 1.50        | -0.15px        | Default paragraph                                      |
+| `{typography.dense-link}`     | 15px | 400    | 2.20        | 0              | Footer / store utility link lists                      |
+| `{typography.caption}`        | 13px | 400    | 1.43        | -0.13px        | Secondary captions, button text                        |
+| `{typography.caption-strong}` | 13px | 600    | 1.29        | -0.13px        | Emphasized captions                                    |
+| `{typography.button-large}`   | 16px | 300    | 1.0         | 0              | Store hero CTAs                                        |
+| `{typography.button-utility}` | 13px | 400    | 1.29        | -0.13px        | Utility/nav button labels                              |
 | `{typography.fine-print}`     | 12px | 400    | 1.0         | -0.12px        | Fine-print, footer body                                |
 | `{typography.micro-legal}`    | 10px | 400    | 1.3         | -0.08px        | Micro legal disclaimers                                |
 | `{typography.nav-link}`       | 12px | 400    | 1.0         | -0.12px        | Global nav menu items                                  |
 
 ### Principles
 
-- **Negative letter-spacing at display sizes.** Every headline at 17px and up carries a slight tracking tighten (`-0.12 → -0.374px`). This produces the iconic "Apple tight" headline cadence. Never used at 12px or below.
-- **Body copy at 17px, not 16px.** Apple breaks the SaaS convention and runs paragraph text at 17px. The extra pixel gives the page an unmistakable "reading, not scanning" pace.
-- **Weight 300 is real and rare.** Used deliberately on a handful of large-size reads (`{typography.button-large}` at 18px/300 and `{typography.lead-airy}` at 24px/300). It's not an accident — it's a light-atmosphere cue reserved for moments where the content should feel airy.
-- **Weight 600, not 700, for headlines.** Apple's headlines sit at weight 600. Weight 700 is used sparingly for `{typography.tagline}` (21px) when a touch more assertion is needed.
-- **Line-height is context-specific.** Display sizes use 1.07–1.19 (tight). Body uses 1.47. Utility link stacks in the footer/store use an unusually relaxed 2.41 (`{typography.dense-link}`). The 2.41 is not a bug — it's how the footer's dense link columns breathe.
+- **Negative letter-spacing at display sizes.** Headlines use slight tracking tighten to stay compact without feeling dense.
+- **Body copy at 15px.** The product is a workspace, so paragraph and form text should scan faster than a marketing page.
+- **Weight 300 is rare.** Use it only for intentionally airy large text such as `{typography.button-large}` and `{typography.lead-airy}`.
+- **Weight 600, not 700, for headlines.** Headlines sit at weight 600. Weight 700 is reserved for rare emphasis.
+- **Line-height is context-specific.** Display sizes are tight. Body uses 1.5. Utility link stacks use `{typography.dense-link}`.
 - **Weight 500 is deliberately absent.** The ladder is 300 / 400 / 600 / 700. Mid-weight readings always use 600.
 
 ### Note on Font Substitutes
@@ -368,7 +368,7 @@ SF Pro is Apple's proprietary system font. When building off-system:
 - Use `system-ui, -apple-system, BlinkMacSystemFont` as the first stack entry — on macOS/iOS/Safari this resolves to the real SF Pro.
 - For non-Apple platforms, **Inter** (Google Fonts, variable) is the closest open-source equivalent. Inter at weight 600 with `font-feature-settings: "ss03"` approximates SF Pro's rounded "a" character.
 - Nudge `letter-spacing` down by `-0.01em` on display sizes to re-create the Apple tight feel; Inter's default tracking runs slightly wider than SF Pro.
-- For body text, tighten line-height by `0.03` (from 1.47 → 1.44) when substituting Inter — Inter's taller x-height needs less leading.
+- For body text, use the token line-height directly. Do not compensate with ad-hoc per-page overrides.
 
 ## Layout
 
@@ -378,7 +378,7 @@ SF Pro is Apple's proprietary system font. When building off-system:
 - **Section vertical padding:** `{spacing.section}` (80px) inside a product tile; tiles stack edge-to-edge with 0 gap (the color change provides the break).
 - **Card padding:** `{spacing.lg}` (24px) inside utility grid cards.
 - **Button padding:** 8–11px vertical, 15–22px horizontal.
-- **Universal rhythm constants:** the 17px body line-height multiplier (~25px line) and 21px tagline size show up on every analyzed page.
+- **Universal rhythm constants:** the 15px body text and 18px tagline keep workspace pages compact.
 
 ### Grid & Container
 - **Max content width:** ~980px on text-heavy sections (environment), ~1440px on product grids (store, accessories), full-bleed for product tiles (homepage).
@@ -431,21 +431,21 @@ Apple's whitespace is the product's pedestal. Every tile begins with at least 64
 
 **`global-nav`** — Persistent, ultra-thin black nav bar pinned to the top of every page. Background `{colors.surface-black}`, height 44px, text `{colors.on-dark}` in `{typography.nav-link}` (12px / 400 / -0.12px tracking). Links are quiet, spaced ~20px apart, running edge-to-edge across the top. Right-aligned cluster: Search, Bag icons — always visible. On mobile, collapses to hamburger at ~834px and the Apple logo centers.
 
-**`sub-nav-frosted`** — Surface-specific nav that sticks below the global nav. Background `{colors.canvas-parchment}` at 80% opacity with backdrop-filter blur, creating a frosted-glass effect. Height 52px. Content on left: product category name ("iPhone", "Store", "Accessories") in `{typography.tagline}` (21px / 600). Content right: inline nav links in `{typography.button-utility}` (14px), ending in a persistent `{component.button-primary}` ("Buy") or a utility link.
+**`sub-nav-frosted`** — Surface-specific nav that sticks below the global nav. Background `{colors.canvas-parchment}` at 80% opacity with backdrop-filter blur, creating a frosted-glass effect. Height 52px. Content on left: product category name ("iPhone", "Store", "Accessories") in `{typography.tagline}` (18px / 600). Content right: inline nav links in `{typography.button-utility}` (13px), ending in a persistent `{component.button-primary}` ("Buy") or a utility link.
 
 ### Buttons
 
-**`button-primary`** — The signature action. Background `{colors.primary}` (Mono Action #111111), text `{colors.on-primary}` in `{typography.body}` (SF Pro Text 17px / 400), rounded `{rounded.pill}` (full pill — capsule-shaped), padding 11px × 22px. The full-pill radius IS the brand action signal.
+**`button-primary`** — The signature action. Background `{colors.primary}` (Mono Action #111111), text `{colors.on-primary}` in `{typography.body}` (SF Pro Text 15px / 400), rounded `{rounded.pill}` (full pill — capsule-shaped), padding 11px × 22px. The full-pill radius IS the brand action signal.
 - Active state: `{component.button-primary-active}` — `transform: scale(0.95)` (the system-wide micro-interaction).
 - Focus state: `{component.button-primary-focus}` — 2px solid `{colors.primary-focus}` outline.
 
 **`button-secondary-pill`** — Used as the second CTA when two pill actions appear together ("Learn more" / "Buy"). Background transparent, text `{colors.primary}`, 1px solid `{colors.primary}` border, rounded `{rounded.pill}`, padding 11px × 22px. Reads as a "ghost pill."
 
-**`button-dark-utility`** — Global nav actions (Sign In, Bag, language selector). Background `{colors.ink}` (#1d1d1f), text `{colors.on-dark}` in `{typography.button-utility}` (14px / 400 / -0.224px tracking), rounded `{rounded.sm}` (8px), padding 8px × 15px. Active state shrinks via `transform: scale(0.95)`.
+**`button-dark-utility`** — Global nav actions (Sign In, Bag, language selector). Background `{colors.ink}` (#1d1d1f), text `{colors.on-dark}` in `{typography.button-utility}` (13px / 400 / -0.13px tracking), rounded `{rounded.sm}` (8px), padding 8px × 15px. Active state shrinks via `transform: scale(0.95)`.
 
 **`button-pearl-capsule`** — Product-card secondary button. Background `{colors.surface-pearl}` (#fafafc), text `{colors.ink-muted-80}` in `{typography.caption}` (14px), 3px solid `{colors.divider-soft}` border (functions as a soft ring rather than a visible line), rounded `{rounded.md}` (11px), padding 8px × 14px.
 
-**`button-store-hero`** — A larger primary CTA used on store hero surfaces. Same Mono Action + Paper White as `{component.button-primary}`, but with `{typography.button-large}` (18px / 300 — note the rare weight 300) and slightly more padding (14px × 28px). Used sparingly on the store landing.
+**`button-store-hero`** — A larger primary CTA used on store hero surfaces. Same Mono Action + Paper White as `{component.button-primary}`, but with `{typography.button-large}` (16px / 300) and slightly more padding (14px × 28px). Used sparingly on the store landing.
 
 **`button-icon-circular`** — Floats over photography. 44 × 44px, background `{colors.surface-chip-translucent}` at ~64% alpha, icon in `{colors.ink}`, rounded `{rounded.full}`. Used for carousel controls, close buttons, and in-image controls (product image thumbnails on the iPhone buy page).
 
@@ -455,7 +455,7 @@ Apple's whitespace is the product's pedestal. Every tile begins with at least 64
 
 ### Cards & Containers
 
-**`product-tile-light`** — Full-bleed light tile. Background `{colors.canvas}` (white), text `{colors.ink}`, rounded `{rounded.none}` (0 — tiles touch edges), vertical padding `{spacing.section}` (80px). Centered stack: product name in `{typography.display-lg}` (40px / 600) → one-line tagline in `{typography.lead}` (28px / 400) → two `{component.button-primary}` CTAs ("Learn more" / "Buy") → product render resting on the surface with the system shadow.
+**`product-tile-light`** — Full-bleed light tile. Background `{colors.canvas}` (white), text `{colors.ink}`, rounded `{rounded.none}` (0 — tiles touch edges), vertical padding `{spacing.section}` (80px). Centered stack: product name in `{typography.display-lg}` (32px / 600) → one-line tagline in `{typography.lead}` (20px / 400) → two `{component.button-primary}` CTAs ("Learn more" / "Buy") → product render resting on the surface with the system shadow.
 
 **`product-tile-parchment`** — Same as `{component.product-tile-light}` but on `{colors.canvas-parchment}` (#f5f5f7). Used to break two consecutive white tiles.
 
@@ -465,32 +465,32 @@ Apple's whitespace is the product's pedestal. Every tile begins with at least 64
 
 **`product-tile-dark-3`** — Variant on `{colors.surface-tile-3}` (#252527). Used at the bottom of the stack and in embedded video/player frames.
 
-**`store-utility-card`** — Used in store grid and accessories grid. Background `{colors.canvas}` (white), 1px solid `{colors.hairline}` border, rounded `{rounded.lg}` (18px), padding `{spacing.lg}` (24px). Top: product image (1:1 crop with `{rounded.sm}` (8px) inner image radius). Below: product name in `{typography.body-strong}` (17px / 600), price in `{typography.body}` (17px / 400), and a `{component.text-link}` ("Buy" or "Learn more"). No shadow by default; product render itself carries the system product-shadow.
+**`store-utility-card`** — Used in store grid and accessories grid. Background `{colors.canvas}` (white), 1px solid `{colors.hairline}` border, rounded `{rounded.lg}` (18px), padding `{spacing.lg}` (24px). Top: product image (1:1 crop with `{rounded.sm}` (8px) inner image radius). Below: product name in `{typography.body-strong}` (15px / 600), price in `{typography.body}` (15px / 400), and a `{component.text-link}` ("Buy" or "Learn more"). No shadow by default; product render itself carries the system product-shadow.
 
 **`configurator-option-chip`** — Pill-shaped tappable cell used in the iPhone 17 Pro buy page. Background `{colors.canvas}`, text `{colors.ink}` in `{typography.caption}`, rounded `{rounded.pill}`, padding 12px × 16px. Contains a small product thumbnail + label + price delta. Arranged in a grid of 4–5 options per row.
 
 **`configurator-option-chip-selected`** — Selected state. Border upgrades to 2px solid `{colors.primary-focus}`. Same shape, same content.
 
-**`environment-quote-card`** — A photographic-canvas hero specific to the environment page. Dark photographic backdrop (mountain vista at dawn) with `{colors.surface-tile-1}` as the fallback color, centered white-text headline in `{typography.display-lg}` (40px), small green "Apple 2030" pictographic logo above the headline, single `{component.button-primary}` below. Padding `{spacing.section}` (80px).
+**`environment-quote-card`** — A photographic-canvas hero specific to the environment page. Dark photographic backdrop (mountain vista at dawn) with `{colors.surface-tile-1}` as the fallback color, centered white-text headline in `{typography.display-lg}` (32px), small green "Apple 2030" pictographic logo above the headline, single `{component.button-primary}` below. Padding `{spacing.section}` (80px).
 
 **`floating-sticky-bar`** — Floats at the bottom of the viewport on the iPhone 17 Pro buy page during scroll. Background `{colors.canvas-parchment}` at 80% opacity with `backdrop-filter: blur(N)`, height 64px, padding 12px × 32px. Left: running price total in `{typography.body}`. Right: `{component.button-primary}` ("Add to Bag").
 
 ### Inputs & Forms
 
-**`search-input`** — The accessories search input. Background `{colors.canvas}`, text `{colors.ink}` in `{typography.body}` (17px), 1px solid `rgba(0, 0, 0, 0.08)` border, rounded `{rounded.pill}` (full pill — search is also pill-shaped, matching the CTA grammar), padding 12px × 20px, height 44px. Leading icon: search glyph at 14px, muted tint.
+**`search-input`** — The accessories search input. Background `{colors.canvas}`, text `{colors.ink}` in `{typography.body}` (15px), 1px solid `rgba(0, 0, 0, 0.08)` border, rounded `{rounded.pill}` (full pill — search is also pill-shaped, matching the CTA grammar), padding 12px × 20px, height 44px. Leading icon: search glyph at 14px, muted tint.
 
 Error and validation states were not surfaced in the analyzed pages.
 
 ### Footer
 
-**`footer`** — Background `{colors.canvas-parchment}` (#f5f5f7), text `{colors.ink-muted-80}`. Link columns in `{typography.dense-link}` (17px / 400 / 2.41 line-height — the relaxed leading is what makes the dense columns scannable). Column headings in `{typography.caption-strong}` (14px / 600). Legal row at the very bottom in `{typography.fine-print}` (12px / 400) with `{colors.ink-muted-48}` text. Vertical padding 64px.
+**`footer`** — Background `{colors.canvas-parchment}` (#f5f5f7), text `{colors.ink-muted-80}`. Link columns in `{typography.dense-link}` (15px / 400 / 2.2 line-height). Column headings in `{typography.caption-strong}` (13px / 600). Legal row at the very bottom in `{typography.fine-print}` (12px / 400) with `{colors.ink-muted-48}` text. Vertical padding 64px.
 
 ## Do's and Don'ts
 
 ### Do
 - Use `{colors.primary}` (Mono Action #111111) for every interactive element on light surfaces — links, pill CTAs, focus signals — and nothing else. The single accent is non-negotiable.
-- Set headlines in `{typography.hero-display}` or `{typography.display-lg}` with negative letter-spacing (`-0.28 → -0.374px`) to get the signature "Apple tight" cadence.
-- Run body copy at `{typography.body}` (17px / 400 / 1.47 / -0.374px) — not 16px. The extra pixel defines the brand's reading pace.
+- Set headlines in `{typography.hero-display}` or `{typography.display-lg}` with compact negative letter-spacing.
+- Run body copy at `{typography.body}` (15px / 400 / 1.5 / -0.15px).
 - Alternate `{component.product-tile-light}` (or parchment) and `{component.product-tile-dark}` for full-bleed section rhythm. The color change IS the divider.
 - Reserve `{rounded.pill}` for the primary CTA and any other element that should read as an "action" (configurator chips, search input, sticky bar CTA).
 - Apply the single product-shadow (`rgba(0, 0, 0, 0.22) 3px 5px 30px`) only to product renders resting on a surface — never on cards, buttons, or text.
@@ -503,7 +503,7 @@ Error and validation states were not surfaced in the analyzed pages.
 - Don't use gradients as decorative backgrounds; atmosphere comes from photography.
 - Don't set body copy at weight 500 — Apple's ladder is 300 / 400 / 600 / 700, with 500 deliberately absent. Body is always 400; strong inline is 600; display is 600.
 - Don't round full-bleed tiles — tiles are rectangular and edge-to-edge; the color change is the divider.
-- Don't tighten line-height below 1.47 for body copy — the editorial leading is part of the brand.
+- Don't tighten line-height below 1.5 for body copy.
 - Don't mix radii grammars — use `{rounded.sm}` for compact utility, `{rounded.lg}` for utility cards, `{rounded.pill}` for pills, and nothing in between (except the rare `{rounded.md}` Pearl Button).
 - Don't use `{colors.primary-on-dark}` (Mono Action On Dark) on light surfaces — it's the dark-tile-only variant. Mono Action is for light surfaces.
 
@@ -513,12 +513,12 @@ Error and validation states were not surfaced in the analyzed pages.
 
 | Name             | Width       | Key Changes                                                                                               |
 | ---------------- | ----------- | --------------------------------------------------------------------------------------------------------- |
-| Small phone      | ≤ 419px     | Single-column tiles; sub-nav collapses to category name + primary CTA only; hero typography drops to 28px |
-| Phone            | 420–640px   | Single-column stack; product renders scale to 80% of tile width; hero h1 drops to 34px                    |
+| Small phone      | ≤ 419px     | Single-column tiles; sub-nav collapses to category name + primary CTA only; hero typography drops to 24px |
+| Phone            | 420–640px   | Single-column stack; product renders scale to 80% of tile width; hero h1 drops to 28px                    |
 | Large phone      | 641–735px   | Tiles transition to tighter padding (48px vertical vs 80px); fine-print wraps                             |
 | Tablet portrait  | 736–833px   | Global nav collapses to hamburger; sub-nav hides category chips, keeps primary CTA                        |
 | Tablet landscape | 834–1023px  | Global nav returns fully expanded; 3-column utility grids become 2-column                                 |
-| Small desktop    | 1024–1068px | Product tiles use 2/3 width with margin gutters; hero h1 stays at 40px                                    |
+| Small desktop    | 1024–1068px | Product tiles use 2/3 width with margin gutters; hero h1 stays at 32px                                    |
 | Desktop          | 1069–1440px | Full layout; 4–5 column store grids; 1440px content max                                                   |
 | Wide desktop     | ≥ 1441px    | Content locks at 1440px, margins absorb extra width                                                       |
 
@@ -534,7 +534,7 @@ The structural breakpoints that matter for agents: 1440px (content lock), 1068px
 - **Sub-nav**: category name + inline links + primary CTA → category name + primary CTA only at mobile; inline links move into a hamburger tray.
 - **Product tiles**: stack from 2-column to 1-column at 834px; vertical padding tightens from 80px → 48px at small-phone.
 - **Utility grids** (store, accessories): 5-col → 4-col (1440px) → 3-col (1068px) → 2-col (834px) → 1-col (640px).
-- **Hero typography**: `{typography.hero-display}` (56px) → `{typography.display-lg}` (40px) at 1068px → 34px at 640px → 28px at 419px.
+- **Hero typography**: `{typography.hero-display}` (44px) → `{typography.display-lg}` (32px) at 1068px → 28px at 640px → 24px at 419px.
 
 ### Image Behavior
 - All product imagery uses responsive `srcset` with breakpoint-matched crops.
@@ -548,7 +548,7 @@ The structural breakpoints that matter for agents: 1440px (content lock), 1068px
 2. Variants of an existing component (`-active`, `-focus`, `-2`, `-3`) live as separate entries in `components:`.
 3. Use `{token.refs}` everywhere — never inline hex.
 4. Never document hover. Default and Active/Pressed states only.
-5. Display headlines stay SF Pro Display 600 with negative letter-spacing. Body stays SF Pro Text 400 at 17px. The boundary is unbreakable.
+5. Display headlines stay SF Pro Display 600 with negative letter-spacing. Body stays SF Pro Text 400 at 15px. The boundary is unbreakable.
 6. The single drop-shadow (`rgba(0, 0, 0, 0.22) 3px 5px 30px`) is reserved for product photography only.
 7. When in doubt about emphasis: alternate surface (light → dark tile) before adding chrome.
 

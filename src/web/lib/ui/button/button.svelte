@@ -15,9 +15,9 @@
 				link: "text-primary underline-offset-4 hover:underline",
 			},
 			size: {
-				default: "h-[44px] gap-1.5 px-[22px] text-[17px]",
-				sm: "h-8 gap-1 px-3 text-[14px]",
-				lg: "h-[48px] gap-1.5 px-7 text-[18px] font-light",
+				default: "h-[44px] gap-1.5 px-[22px] text-[15px]",
+				sm: "h-8 gap-1 px-3 text-[13px]",
+				lg: "h-[48px] gap-1.5 px-7 text-[16px] font-light",
 				icon: "size-[44px] rounded-full",
 				"icon-sm": "size-8 rounded-sm",
 			},

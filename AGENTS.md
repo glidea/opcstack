@@ -351,7 +351,6 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Active state on buttons: `scale(0.95)` via tailwind-variants
 - No decorative gradients, no glassmorphism, no glow effects
 - Elevation comes from surface color change and hairline borders, not shadows
-- Typography uses Apple scale: 17px body, negative letter-spacing at display sizes
 - Use typography utility classes: `text-hero-display` `text-display-lg` `text-display-md` `text-lead` `text-tagline` `text-caption` `text-fine-print`
 - Page layout rules:
   - Document pages (docs/legal/blog): `max-w-3xl mx-auto px-6 py-16`
