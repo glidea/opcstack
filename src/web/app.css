@@ -6,14 +6,14 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-	/* Apple color palette - light */
+	/* Monochrome color palette - light */
 	--background: #ffffff;
 	--foreground: #1d1d1f;
 	--card: #ffffff;
 	--card-foreground: #1d1d1f;
 	--popover: #ffffff;
 	--popover-foreground: #1d1d1f;
-	--primary: #0066cc;
+	--primary: #111111;
 	--primary-foreground: #ffffff;
 	--secondary: #f5f5f7;
 	--secondary-foreground: #1d1d1f;
@@ -24,20 +24,20 @@
 	--destructive: #ff3b30;
 	--border: #d2d2d7;
 	--input: #d2d2d7;
-	--ring: #0071e3;
-	--chart-1: #0066cc;
-	--chart-2: #34c759;
-	--chart-3: #ff9500;
-	--chart-4: #af52de;
-	--chart-5: #ff2d55;
+	--ring: #111111;
+	--chart-1: #111111;
+	--chart-2: #4b5563;
+	--chart-3: #6b7280;
+	--chart-4: #9ca3af;
+	--chart-5: #d1d5db;
 	--sidebar: #f5f5f7;
 	--sidebar-foreground: #1d1d1f;
-	--sidebar-primary: #0066cc;
+	--sidebar-primary: #111111;
 	--sidebar-primary-foreground: #ffffff;
 	--sidebar-accent: #e8e8ed;
 	--sidebar-accent-foreground: #1d1d1f;
 	--sidebar-border: #d2d2d7;
-	--sidebar-ring: #0071e3;
+	--sidebar-ring: #111111;
 
 	/* Surface & elevation */
 	--surface: #ffffff;
@@ -56,7 +56,7 @@
 	--card-foreground: #f5f5f7;
 	--popover: #2a2a2c;
 	--popover-foreground: #f5f5f7;
-	--primary: #2997ff;
+	--primary: #f5f5f7;
 	--primary-foreground: #000000;
 	--secondary: #272729;
 	--secondary-foreground: #f5f5f7;
@@ -67,20 +67,20 @@
 	--destructive: #ff453a;
 	--border: rgba(255, 255, 255, 0.14);
 	--input: rgba(255, 255, 255, 0.14);
-	--ring: #2997ff;
-	--chart-1: #2997ff;
-	--chart-2: #30d158;
-	--chart-3: #ff9f0a;
-	--chart-4: #bf5af2;
-	--chart-5: #ff375f;
+	--ring: #f5f5f7;
+	--chart-1: #f5f5f7;
+	--chart-2: #d1d5db;
+	--chart-3: #9ca3af;
+	--chart-4: #6b7280;
+	--chart-5: #4b5563;
 	--sidebar: #272729;
 	--sidebar-foreground: #f5f5f7;
-	--sidebar-primary: #2997ff;
+	--sidebar-primary: #f5f5f7;
 	--sidebar-primary-foreground: #000000;
 	--sidebar-accent: #333336;
 	--sidebar-accent-foreground: #f5f5f7;
 	--sidebar-border: rgba(255, 255, 255, 0.14);
-	--sidebar-ring: #2997ff;
+	--sidebar-ring: #f5f5f7;
 
 	--surface: #2a2a2c;
 	--surface-border: rgba(255, 255, 255, 0.09);
