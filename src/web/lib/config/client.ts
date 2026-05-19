@@ -1,4 +1,5 @@
 export type PublicConfig = {
+	design_system: string
 	beta_code_enabled: boolean
 	google_auth_enabled: boolean
 	email_enabled: boolean

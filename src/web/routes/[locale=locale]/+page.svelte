@@ -70,7 +70,7 @@
 <main class="w-full">
 	<!-- Hero -->
 	<section
-		class="flex min-h-[calc(100svh-2.75rem)] flex-col items-center justify-center px-6 py-20"
+		class="flex min-h-[calc(100svh-3rem)] flex-col items-center justify-center px-6 py-20"
 	>
 		<h1 class="text-hero-display text-center">{data.siteName}</h1>
 		<p class="text-lead mt-4 max-w-2xl text-center text-muted-foreground">

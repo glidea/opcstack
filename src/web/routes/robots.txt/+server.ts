@@ -1,4 +1,4 @@
-import { serverConfig } from '$web/config/server'
+import { serverConfig } from '$web/config/server.server'
 import { resolveSiteOrigin } from '$web/seo'
 
 export const prerender = true

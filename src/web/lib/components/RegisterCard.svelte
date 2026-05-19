@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { authClient } from '$web/auth/client'
 	import { _ } from '$web/i18n'
+	import { Alert, AlertDescription } from '$web/ui/alert'
 	import { Button } from '$web/ui/button'
+	import { Field, FieldLabel } from '$web/ui/field'
 	import { Input } from '$web/ui/input'
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
 	import GoogleIcon from './GoogleIcon.svelte'
 
 	let {
@@ -97,10 +100,19 @@
 	{#if emailEnabled && emailSignupEnabled}
 		<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleRegister() }}>
 			{#if error}
-				<p class="text-sm text-destructive">{error}</p>
+				<Alert variant="destructive">
+					<CircleAlertIcon />
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
 			{/if}
-			<Input type="email" placeholder={$_('auth.register.email')} bind:value={email} required />
-			<Input type="password" placeholder={$_('auth.register.password')} bind:value={password} required />
+			<Field>
+				<FieldLabel for="register-email">{$_('auth.register.email')}</FieldLabel>
+				<Input id="register-email" type="email" autocomplete="email" bind:value={email} required />
+			</Field>
+			<Field>
+				<FieldLabel for="register-password">{$_('auth.register.password')}</FieldLabel>
+				<Input id="register-password" type="password" autocomplete="new-password" bind:value={password} required />
+			</Field>
 			<Button type="submit" class="w-full" disabled={loading}>
 				{loading ? $_('auth.register.submitting') : $_('auth.register.submit')}
 			</Button>

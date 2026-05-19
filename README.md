@@ -83,7 +83,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 
 **前端**
 - 极致简单轻量的 SvelteKit + Tailwind CSS + shadcn UI
-- Apple 风格设计系统（Token-based，可替换，见 [CHANGE_DESIGN.md](./CHANGE_DESIGN.md)）
+- 多风格设计系统（Token-based，deploy-time 切换，内置 Apple-SaaS / Neo Brutalism 两套风格，见 [DESIGN.md](./DESIGN.md)）
 - 支持 SSR 和 SSG
 - 国际化（i18n）
 

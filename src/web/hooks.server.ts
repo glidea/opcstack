@@ -1,5 +1,6 @@
 import { redirect, type Handle } from '@sveltejs/kit'
 import { isSystemLocale, resolveSystemLocale } from '$web/i18n/locales'
+import { serverConfig } from '$web/config/server.server'
 
 const BYPASS_PATH_PREFIXES = ['/_app/', '/api/']
 const BYPASS_EXACT_PATHS = [
@@ -22,7 +23,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event)
 	}
 
-	const response = await resolve(event)
+	const designSystem = serverConfig.DESIGN_SYSTEM || 'apple-saas'
+
+	const response = await resolve(event, {
+		transformPageChunk: ({ html }) =>
+			html.replace('<html lang="en"', `<html lang="en" data-design="${designSystem}"`)
+	})
 	if (response.status !== 404) {
 		return response
 	}

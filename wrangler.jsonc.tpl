@@ -34,6 +34,7 @@
         }
     ],
     "vars": {
+        "DESIGN_SYSTEM": "{{DESIGN_SYSTEM}}",
         "APP_NAME": "{{APP_NAME}}",
         "APP_BASE_URL": "{{APP_BASE_URL}}",
         "APP_DOMAIN": "{{APP_DOMAIN}}",

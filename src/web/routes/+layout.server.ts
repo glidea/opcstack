@@ -4,8 +4,8 @@ import {
 	supportedLocales,
 	type SystemLocale
 } from '$web/i18n/locales'
-import { getPublicConfig, type PublicConfig } from '$web/config/client'
-import { serverConfig } from '$web/config/server'
+import type { PublicConfig } from '$web/config/client'
+import { getServerPublicConfig, serverConfig } from '$web/config/server.server'
 import { resolveSiteOrigin, serializeJsonLd, toSiteUrl } from '$web/seo'
 
 type AlternateUrl = {
@@ -16,7 +16,6 @@ type AlternateUrl = {
 export async function load(event: {
 	params: { locale?: string }
 	url: URL
-	fetch: typeof fetch
 }): Promise<{
 	locale: SystemLocale
 	siteName: string
@@ -33,13 +32,13 @@ export async function load(event: {
 	const siteName = serverConfig.APP_NAME
 	const locale = resolveLocale(event.params.locale)
 	const supportEmail = serverConfig.SUPPORT_EMAIL
+	const publicConfig = getServerPublicConfig()
 	const alternateUrls = supportedLocales.map((locale) => {
 		return {
 			locale,
 			url: toSiteUrl(origin, resolveLocalePath(event.url.pathname, locale))
 		}
 	})
-	const publicConfig = await getPublicConfig(event.fetch)
 
 	return {
 		locale,

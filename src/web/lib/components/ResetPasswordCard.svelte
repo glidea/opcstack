@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { authClient } from '$web/auth/client'
 	import { _ } from '$web/i18n'
+	import { Alert, AlertDescription } from '$web/ui/alert'
 	import { Button } from '$web/ui/button'
+	import { Field, FieldLabel } from '$web/ui/field'
 	import { Input } from '$web/ui/input'
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
 	import OtpInput from './OtpInput.svelte'
 
 	let {
@@ -47,10 +50,16 @@
 
 	<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleReset() }}>
 		{#if error}
-			<p class="text-sm text-destructive">{error}</p>
+			<Alert variant="destructive">
+				<CircleAlertIcon />
+				<AlertDescription>{error}</AlertDescription>
+			</Alert>
 		{/if}
 		<OtpInput bind:value={otp} disabled={loading} label={$_('auth.resetPassword.title')} />
-		<Input type="password" placeholder={$_('auth.resetPassword.newPassword')} bind:value={newPassword} required />
+		<Field>
+			<FieldLabel for="reset-new-password">{$_('auth.resetPassword.newPassword')}</FieldLabel>
+			<Input id="reset-new-password" type="password" autocomplete="new-password" bind:value={newPassword} required />
+		</Field>
 		<Button type="submit" class="w-full" disabled={loading || otp.length !== 6}>
 			{loading ? $_('auth.resetPassword.submitting') : $_('auth.resetPassword.submit')}
 		</Button>

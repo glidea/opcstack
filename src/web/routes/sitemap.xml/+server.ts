@@ -1,6 +1,6 @@
 import { buildDocsManifest } from '$web/docs/docs'
 import { supportedLocales } from '$web/i18n/locales'
-import { serverConfig } from '$web/config/server'
+import { serverConfig } from '$web/config/server.server'
 import { resolveSiteOrigin } from '$web/seo'
 
 const rawDocModules = import.meta.glob('/public-docs/**/*.md', {

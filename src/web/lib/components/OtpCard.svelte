@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { authClient, setAuthToken } from '$web/auth/client'
 	import { _ } from '$web/i18n'
+	import { Alert, AlertDescription } from '$web/ui/alert'
 	import { Button } from '$web/ui/button'
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
 	import OtpInput from './OtpInput.svelte'
 
 	let {
@@ -110,7 +112,10 @@
 
 	<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleVerify() }}>
 		{#if error}
-			<p class="text-sm text-destructive">{error}</p>
+			<Alert variant="destructive">
+				<CircleAlertIcon />
+				<AlertDescription>{error}</AlertDescription>
+			</Alert>
 		{/if}
 		<OtpInput bind:value={otp} disabled={loading} label={$_('auth.otp.title')} />
 		<Button type="submit" class="w-full" disabled={loading || otp.length !== 6}>

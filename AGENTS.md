@@ -345,12 +345,12 @@ await client.putImage({ dir, imageBase64, mimeType })
 ### Frontend Design Contract
 
 - All pages must follow `DESIGN.md` as the visual authority
+- The active design style is determined by `DESIGN_SYSTEM` in `.env` (`apple-saas` or `brutalism`)
+- Follow the **Shared Rules** section of `DESIGN.md` unconditionally
+- Follow the **Style** section matching the active `DESIGN_SYSTEM` value for visual specifics (radius, shadows, press feedback, typography weight, color usage)
+- Pages must satisfy `DESIGN.md` Behavior & Accessibility Contract (1–9: reduce motion, color-is-never-alone, undo over confirmation, modality, loading, empty states, form behavior, settings discipline)
+- **Compose existing primitives, do not invent new ones.** Before writing any `<button>`, `<input>`, `<dialog>`, `<table>`, or `bg-X border rounded` block, consult the Component Inventory below. If you find yourself rewriting visual styles already covered by a primitive, you are doing it wrong
 - Use semantic tokens from `src/web/app.css`; never hardcode hex in page files
-- Button default is pill-shaped (`rounded-full`); no shadow on any UI element
-- Shadow is reserved for product imagery only (use `shadow-product`)
-- Active state on buttons: `scale(0.95)` via tailwind-variants
-- No decorative gradients, no glassmorphism, no glow effects
-- Elevation comes from surface color change and hairline borders, not shadows
 - Use typography utility classes: `text-hero-display` `text-display-lg` `text-display-md` `text-lead` `text-tagline` `text-caption` `text-fine-print`
 - Page layout rules:
   - Document pages (docs/legal/blog): `max-w-3xl mx-auto px-6 py-16`
@@ -358,9 +358,259 @@ await client.putImage({ dir, imageBase64, mimeType })
   - Workspace pages (dashboard): full-width with sidebar via SvelteKit layout nesting
 - Header height is 44px (`h-11`); all sticky/sidebar calculations reference this
 - Icons come from `lucide-svelte`
-- Buttons, inputs, tabs, dialogs, dropdowns, tables, badges use `$web/ui/*`
 - Route files compose layout and data; they do not define new visual styles
 - After frontend changes, verify at 375px and 1440px viewport
+- UI copy: titles, headings, descriptions, button labels, and placeholder text must not end with punctuation (no trailing period, comma, or full stop in any language)
+
+### Component Inventory
+
+When writing a page or feature, pick a component from this table — do not write the visual primitive yourself. Paths are `$web/ui/<dirname>` for primitives and `$web/components/<name>` for business components.
+
+**UI primitives** (`$web/ui/*`)
+
+| 用途 / Intent                                                              | 组件 / Component                                                                                | 目录                                           |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **Feedback**                                                               |                                                                                                 |                                                |
+| Non-blocking operation result (success/error/info/warning)                 | `toast`                                                                                         | `svelte-sonner` (Toaster registered in layout) |
+| Inline banner / field-level warning                                        | `Alert`, `AlertTitle`, `AlertDescription`, `AlertAction`                                        | `alert`                                        |
+| **Dialogs & overlays**                                                     |                                                                                                 |                                                |
+| Critical destructive confirmation                                          | `AlertDialog` family                                                                            | `alert-dialog`                                 |
+| Generic modal / multi-step form                                            | `Dialog` family                                                                                 | `dialog`                                       |
+| Side-panel form (create/edit entity)                                       | `Sheet` family                                                                                  | `sheet`                                        |
+| Mobile bottom sheet                                                        | `Drawer` family                                                                                 | `drawer`                                       |
+| Single-element details / options                                           | `Popover` family                                                                                | `popover`                                      |
+| Hover info card                                                            | `HoverCard` family                                                                              | `hover-card`                                   |
+| Action menu (right-click style)                                            | `ContextMenu` family                                                                            | `context-menu`                                 |
+| Action menu (button-anchored)                                              | `DropdownMenu` family                                                                           | `dropdown-menu`                                |
+| Application menu bar (desktop apps)                                        | `Menubar` family                                                                                | `menubar`                                      |
+| Hover-triggered hint                                                       | `Tooltip` family                                                                                | `tooltip`                                      |
+| Cmd-K command palette                                                      | `Command` family                                                                                | `command`                                      |
+| **Forms & input**                                                          |                                                                                                 |                                                |
+| Single field (label + input + error)                                       | `Field`, `FieldLabel`, `FieldError`, `FieldDescription`                                         | `field`                                        |
+| Full form with sveltekit-superforms                                        | `Form` family                                                                                   | `form`                                         |
+| Single-line text input                                                     | `Input`                                                                                         | `input`                                        |
+| Multi-line text input                                                      | `Textarea`                                                                                      | `textarea`                                     |
+| Input with prefix/suffix addon                                             | `InputGroup` family                                                                             | `input-group`                                  |
+| OTP / PIN input cells                                                      | `InputOtp` family                                                                               | `input-otp`                                    |
+| Custom-styled select                                                       | `Select` family                                                                                 | `select`                                       |
+| Native browser select (compact spaces)                                     | `NativeSelect` family                                                                           | `native-select`                                |
+| Single choice from few options                                             | `RadioGroup`                                                                                    | `radio-group`                                  |
+| Multi choice / single boolean                                              | `Checkbox`                                                                                      | `checkbox`                                     |
+| On/off toggle                                                              | `Switch`                                                                                        | `switch`                                       |
+| Pressed/unpressed toolbar button                                           | `Toggle`, `ToggleGroup`                                                                         | `toggle`, `toggle-group`                       |
+| Numeric range                                                              | `Slider`                                                                                        | `slider`                                       |
+| Date pick                                                                  | `Calendar`                                                                                      | `calendar`                                     |
+| Date range pick                                                            | `RangeCalendar`                                                                                 | `range-calendar`                               |
+| Standalone label                                                           | `Label`                                                                                         | `label`                                        |
+| **Actions**                                                                |                                                                                                 |                                                |
+| Button (default / outline / secondary / ghost / destructive / link / pill) | `Button`                                                                                        | `button`                                       |
+| Joined button cluster                                                      | `ButtonGroup` family                                                                            | `button-group`                                 |
+| Keyboard shortcut display                                                  | `Kbd`, `KbdGroup`                                                                               | `kbd`                                          |
+| **Status & loading**                                                       |                                                                                                 |                                                |
+| Indeterminate spinner                                                      | `Spinner`                                                                                       | `spinner`                                      |
+| Skeleton placeholder                                                       | `Skeleton`                                                                                      | `skeleton`                                     |
+| Determinate progress bar                                                   | `Progress`                                                                                      | `progress`                                     |
+| Empty state (icon + title + description + action)                          | `Empty`, `EmptyHeader`, `EmptyMedia`, `EmptyTitle`, `EmptyDescription`, `EmptyContent`          | `empty`                                        |
+| **Data display**                                                           |                                                                                                 |                                                |
+| Generic content container                                                  | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, `CardFooter`, `CardAction` | `card`                                         |
+| List row (icon + title + description + action)                             | `Item`, `ItemMedia`, `ItemTitle`, `ItemDescription`, `ItemContent`, `ItemActions`               | `item`                                         |
+| Static table                                                               | `Table` family                                                                                  | `table`                                        |
+| Sortable / paginated / filterable table                                    | `DataTable` (uses `@tanstack/table-core`)                                                       | `data-table`                                   |
+| Page navigation between table pages                                        | `Pagination` family                                                                             | `pagination`                                   |
+| Status badge / tag / count                                                 | `Badge`                                                                                         | `badge`                                        |
+| User avatar / fallback                                                     | `Avatar`, `AvatarImage`, `AvatarFallback`, `AvatarGroup`                                        | `avatar`                                       |
+| Charts (line/bar/area, monochrome)                                         | `Chart` family (uses `layerchart`)                                                              | `chart`                                        |
+| Long content scroll                                                        | `ScrollArea`                                                                                    | `scroll-area`                                  |
+| Collapsible single section                                                 | `Collapsible`                                                                                   | `collapsible`                                  |
+| FAQ-style accordion                                                        | `Accordion` family                                                                              | `accordion`                                    |
+| Image/video carousel                                                       | `Carousel` family                                                                               | `carousel`                                     |
+| Fixed aspect-ratio container                                               | `AspectRatio`                                                                                   | `aspect-ratio`                                 |
+| **Navigation & layout**                                                    |                                                                                                 |                                                |
+| Top horizontal nav                                                         | `NavigationMenu` family                                                                         | `navigation-menu`                              |
+| App sidebar (collapsible)                                                  | `Sidebar` family                                                                                | `sidebar`                                      |
+| In-page tabs                                                               | `Tabs` family                                                                                   | `tabs`                                         |
+| Breadcrumb trail                                                           | `Breadcrumb` family                                                                             | `breadcrumb`                                   |
+| Visual divider                                                             | `Separator`                                                                                     | `separator`                                    |
+| Resizable split panes                                                      | `Resizable` family                                                                              | `resizable`                                    |
+
+**Business components** (`$web/components/*`)
+
+| 用途 / Intent                                | 组件                 |
+| -------------------------------------------- | -------------------- |
+| Login flow (email + Google + forgot link)    | `LoginCard`          |
+| Signup flow (email + Google)                 | `RegisterCard`       |
+| Forgot password (email submit)               | `ForgotPasswordCard` |
+| Reset password (OTP + new password)          | `ResetPasswordCard`  |
+| Email verification (OTP + resend)            | `OtpCard`            |
+| 6-digit OTP input cells                      | `OtpInput`           |
+| Application top header                       | `AppHeader`          |
+| Authenticated user menu (avatar + dropdown)  | `UserMenu`           |
+| Date range filter (used in lists/dashboards) | `DateRangeFilter`    |
+| Language switcher (zh / en)                  | `LocaleSwitcher`     |
+| Theme switcher (light / dark / system)       | `ThemeSwitcher`      |
+| Google brand SVG                             | `GoogleIcon`         |
+
+If you need an auth flow card, a header, or a user menu, **reuse the business component**. Don't reimplement.
+
+### Reference Patterns: Bad vs Good
+
+These are the patterns AI agents tend to write incorrectly. Treat each ❌ as a code-review block; if you wrote one, replace it with the ✅ version.
+
+**Buttons**
+
+❌ Naked styling
+```svelte
+<button class="bg-black text-white px-4 py-2 rounded">Save</button>
+```
+✅
+```svelte
+<script>
+  import { Button } from '$web/ui/button'
+</script>
+<Button>Save</Button>
+```
+
+**Form fields**
+
+❌ Placeholder as label, no autocomplete
+```svelte
+<input class="border rounded h-9 px-3" type="email" placeholder="Email" />
+```
+✅
+```svelte
+<script>
+  import { Field, FieldLabel, FieldError } from '$web/ui/field'
+  import { Input } from '$web/ui/input'
+</script>
+<Field>
+  <FieldLabel for="login-email">Email</FieldLabel>
+  <Input id="login-email" type="email" autocomplete="email" required />
+  <FieldError errors={emailErrors} />
+</Field>
+```
+
+**Cards / containers**
+
+❌ Reinventing Card
+```svelte
+<div class="bg-white rounded-lg border border-black/10 p-4 space-y-2">
+  <h3 class="font-semibold">Title</h3>
+  <p class="text-sm text-gray-500">Body</p>
+</div>
+```
+✅
+```svelte
+<script>
+  import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$web/ui/card'
+</script>
+<Card>
+  <CardHeader>
+    <CardTitle>Title</CardTitle>
+    <CardDescription>Body</CardDescription>
+  </CardHeader>
+  <CardContent>...</CardContent>
+</Card>
+```
+
+**Operation-result feedback**
+
+❌ Hand-rolled toast
+```svelte
+<div class="fixed bottom-4 right-4 bg-green-600 text-white p-3 rounded">Saved</div>
+```
+✅
+```ts
+import { toast } from 'svelte-sonner'
+
+toast.success('Saved')
+
+// destructive with Undo (per DESIGN.md 3):
+toast.success('Item deleted', {
+  action: { label: 'Undo', onClick: () => restore() }
+})
+```
+
+**Empty states**
+
+❌ Bare placeholder
+```svelte
+<div class="flex flex-col items-center py-10 text-gray-500">
+  <p>No data yet</p>
+</div>
+```
+✅
+```svelte
+<script>
+  import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '$web/ui/empty'
+  import { Button } from '$web/ui/button'
+  import InboxIcon from '@lucide/svelte/icons/inbox'
+</script>
+<Empty>
+  <EmptyHeader>
+    <EmptyMedia variant="icon"><InboxIcon /></EmptyMedia>
+    <EmptyTitle>No projects yet</EmptyTitle>
+    <EmptyDescription>Create your first project to get started</EmptyDescription>
+  </EmptyHeader>
+  <EmptyContent>
+    <Button>Create project</Button>
+  </EmptyContent>
+</Empty>
+```
+
+**Confirmation dialogs**
+
+❌ `confirm(...)` or hand-rolled modal
+```svelte
+<button onclick={() => { if (confirm('Delete?')) handleDelete() }}>Delete</button>
+```
+✅ (only when undo is impossible per DESIGN.md 3; otherwise prefer toast.success + Undo action)
+```svelte
+<script>
+  import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '$web/ui/alert-dialog'
+  import { Button, buttonVariants } from '$web/ui/button'
+</script>
+<AlertDialog>
+  <AlertDialogTrigger><Button variant="destructive">Delete account</Button></AlertDialogTrigger>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Delete account</AlertDialogTitle>
+      <AlertDialogDescription>This permanently removes all your data. This cannot be undone</AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancel</AlertDialogCancel>
+      <AlertDialogAction class={buttonVariants({ variant: 'destructive' })} onclick={handleDelete}>Delete account</AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+**Loading**
+
+❌ Full-viewport spinner blocking the page
+```svelte
+{#if loading}
+  <div class="fixed inset-0 grid place-items-center bg-white/80">
+    <div class="animate-spin h-8 w-8 border-2 border-black border-t-transparent rounded-full" />
+  </div>
+{/if}
+```
+✅ — match treatment to expected duration (DESIGN.md 5)
+```svelte
+<script>
+  import { Skeleton } from '$web/ui/skeleton'
+  import { Spinner } from '$web/ui/spinner'
+  import { Progress } from '$web/ui/progress'
+</script>
+
+{#if loading}
+  <!-- < 1s, list/dashboard layout -->
+  <Skeleton class="h-9 w-full" />
+  <!-- 1–10s, unknown duration, inline at the action -->
+  <Spinner />
+  <!-- > 10s or measurable progress -->
+  <Progress value={percent} />
+{/if}
+```
 
 ---
 

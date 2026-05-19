@@ -2,6 +2,7 @@
 	import { untrack } from "svelte";
 	import { locale as localeStore } from "$web/i18n";
 	import type { SystemLocale } from "$web/i18n/locales";
+	import type { PublicConfig } from "$web/config/client";
 	import "../app.css";
 	import "$web/i18n";
 
@@ -9,7 +10,7 @@
 		data,
 		children,
 	}: {
-		data: { locale: SystemLocale; websiteJsonLd: string; supportEmail: string };
+		data: { locale: SystemLocale; websiteJsonLd: string; supportEmail: string; publicConfig: PublicConfig };
 		children: import("svelte").Snippet;
 	} = $props();
 
@@ -18,6 +19,7 @@
 	$effect(() => {
 		if (typeof document !== "undefined") {
 			document.documentElement.lang = data.locale;
+			document.documentElement.dataset.design = data.publicConfig.design_system;
 		}
 	});
 </script>

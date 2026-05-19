@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { authClient } from '$web/auth/client'
 	import { _ } from '$web/i18n'
+	import { Alert, AlertDescription } from '$web/ui/alert'
 	import { Button } from '$web/ui/button'
+	import { Field, FieldLabel } from '$web/ui/field'
 	import { Input } from '$web/ui/input'
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
 
 	let {
 		onSuccess,
@@ -60,9 +63,15 @@
 
 	<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleSubmit() }}>
 		{#if error}
-			<p class="text-sm text-destructive">{error}</p>
+			<Alert variant="destructive">
+				<CircleAlertIcon />
+				<AlertDescription>{error}</AlertDescription>
+			</Alert>
 		{/if}
-		<Input type="email" placeholder={$_('auth.forgotPassword.email')} bind:value={email} required />
+		<Field>
+			<FieldLabel for="forgot-email">{$_('auth.forgotPassword.email')}</FieldLabel>
+			<Input id="forgot-email" type="email" autocomplete="email" bind:value={email} required />
+		</Field>
 		<Button type="submit" class="w-full" disabled={loading}>
 			{loading ? $_('auth.forgotPassword.submitting') : $_('auth.forgotPassword.submit')}
 		</Button>

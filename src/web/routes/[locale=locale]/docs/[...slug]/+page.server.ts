@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit'
-import { serverConfig } from '$web/config/server'
+import { serverConfig } from '$web/config/server.server'
 import { defaultLocale } from '$web/i18n/locales'
 import { getDocBySlug, getDocNeighbors, getDocSwitchPath, getLocaleManifest, type DocHeading } from '$web/docs/docs'
 import { getDocsManifest } from '$web/docs/manifest.server'

@@ -76,7 +76,7 @@
 	{/snippet}
 </AppHeader>
 
-<main class="min-h-[calc(100svh-2.75rem)] px-6 py-16">
+<main class="min-h-[calc(100svh-3rem)] px-6 py-16">
 	<div class="mx-auto w-full max-w-3xl">
 		<div class="mb-10">
 			<h1 class="text-display-lg">{$_('settings.title')}</h1>

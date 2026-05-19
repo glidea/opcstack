@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { authClient, setAuthToken } from '$web/auth/client'
 	import { _ } from '$web/i18n'
+	import { Alert, AlertDescription } from '$web/ui/alert'
 	import { Button } from '$web/ui/button'
+	import { Field, FieldLabel } from '$web/ui/field'
 	import { Input } from '$web/ui/input'
+	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
 	import GoogleIcon from './GoogleIcon.svelte'
 
 	type EmailLoginResultData = {
@@ -78,10 +81,19 @@
 	{#if emailEnabled}
 		<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleEmailLogin() }}>
 			{#if error}
-				<p class="text-sm text-destructive">{error}</p>
+				<Alert variant="destructive">
+					<CircleAlertIcon />
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
 			{/if}
-			<Input type="email" placeholder={$_('auth.login.email')} bind:value={email} required />
-			<Input type="password" placeholder={$_('auth.login.password')} bind:value={password} required />
+			<Field>
+				<FieldLabel for="login-email">{$_('auth.login.email')}</FieldLabel>
+				<Input id="login-email" type="email" autocomplete="email" bind:value={email} required />
+			</Field>
+			<Field>
+				<FieldLabel for="login-password">{$_('auth.login.password')}</FieldLabel>
+				<Input id="login-password" type="password" autocomplete="current-password" bind:value={password} required />
+			</Field>
 			<Button type="submit" class="w-full" disabled={loading}>
 				{loading ? $_('auth.login.submitting') : $_('auth.login.submit')}
 			</Button>
