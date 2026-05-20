@@ -420,34 +420,34 @@
 /* --- Layer 1: Token overrides --- */
 :root[data-design="brutalism"],
 :root[data-design="brutalism"] .dark {
-	--background: #f0f0f0;
+	--background: #fffdf0;
 	--foreground: #000000;
 	--card: #ffffff;
 	--card-foreground: #000000;
 	--popover: #ffffff;
 	--popover-foreground: #000000;
-	--primary: #000000;
+	--primary: #ff0000;
 	--primary-foreground: #ffffff;
-	--secondary: #ffffff;
+	--secondary: #f5f0e0;
 	--secondary-foreground: #000000;
-	--muted: #f8f9fa;
+	--muted: #f5f3e8;
 	--muted-foreground: #4b5563;
-	--accent: #ffe66d;
+	--accent: #ffdd00;
 	--accent-foreground: #000000;
 	--destructive: #ef4444;
 	--border: #000000;
 	--input: #000000;
 	--ring: #000000;
 	--chart-1: #000000;
-	--chart-2: #ff6b6b;
-	--chart-3: #4ecdc4;
-	--chart-4: #ffe66d;
-	--chart-5: #ff9f1c;
+	--chart-2: #ff0000;
+	--chart-3: #ffdd00;
+	--chart-4: #0000ff;
+	--chart-5: #00cc66;
 	--sidebar: #ffffff;
 	--sidebar-foreground: #000000;
-	--sidebar-primary: #000000;
+	--sidebar-primary: #ff0000;
 	--sidebar-primary-foreground: #ffffff;
-	--sidebar-accent: #ffe66d;
+	--sidebar-accent: #ffdd00;
 	--sidebar-accent-foreground: #000000;
 	--sidebar-border: #000000;
 	--sidebar-ring: #ffe66d;
@@ -607,6 +607,179 @@
 /* Force light color-scheme on images to prevent SVG internal dark mode */
 :root[data-design="brutalism"] img {
 	color-scheme: light !important;
+}
+
+/* Toggle */
+:root[data-design="brutalism"] [data-slot="toggle"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 2px 2px 0 #000;
+}
+:root[data-design="brutalism"] [data-slot="toggle"][data-state="on"] {
+	background: var(--accent) !important;
+}
+
+/* Select trigger */
+:root[data-design="brutalism"] [data-slot="select-trigger"] {
+	border: 3px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 3px 3px 0 #000;
+}
+
+/* Popover / Dropdown / Select / Tooltip / Menubar content */
+:root[data-design="brutalism"] [data-slot="popover-content"],
+:root[data-design="brutalism"] [data-slot="dropdown-menu-content"],
+:root[data-design="brutalism"] [data-slot="select-content"],
+:root[data-design="brutalism"] [data-slot="tooltip-content"],
+:root[data-design="brutalism"] [data-slot="menubar-content"],
+:root[data-design="brutalism"] [data-slot="menubar-sub-content"],
+:root[data-design="brutalism"] [data-slot="navigation-menu-content"],
+:root[data-design="brutalism"] [data-slot="navigation-menu-viewport"] {
+	border: 3px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 4px 4px 0 #000;
+}
+
+/* Badge */
+:root[data-design="brutalism"] [data-slot="badge"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 2px 2px 0 #000;
+	font-weight: 700;
+}
+
+/* Tabs */
+:root[data-design="brutalism"] [data-slot="tabs-list"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+	background: var(--muted);
+}
+:root[data-design="brutalism"] [data-slot="tabs-trigger"] {
+	border-radius: 0 !important;
+	font-weight: 700;
+}
+:root[data-design="brutalism"] [data-slot="tabs-trigger"][data-state="active"] {
+	background: var(--accent) !important;
+	box-shadow: 2px 2px 0 #000;
+}
+
+/* Native select */
+:root[data-design="brutalism"] [data-slot="native-select-wrapper"] {
+	border: 3px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 3px 3px 0 #000;
+}
+
+/* Input OTP */
+:root[data-design="brutalism"] [data-slot="input-otp-group"] {
+	border: 3px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 3px 3px 0 #000;
+}
+:root[data-design="brutalism"] [data-slot="input-otp-slot"] {
+	border-radius: 0 !important;
+	border-color: #000 !important;
+}
+
+/* Input group */
+:root[data-design="brutalism"] [data-slot="input-group"] {
+	border: 3px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 3px 3px 0 #000;
+}
+
+/* Checkbox */
+:root[data-design="brutalism"] [data-slot="checkbox"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 2px 2px 0 #000;
+}
+:root[data-design="brutalism"] [data-slot="checkbox"][data-state="checked"] {
+	background: var(--primary) !important;
+}
+
+/* Radio group item */
+:root[data-design="brutalism"] [data-slot="radio-group-item"] {
+	border: 2px solid #000 !important;
+	box-shadow: 2px 2px 0 #000;
+}
+
+/* Slider */
+:root[data-design="brutalism"] [data-slot="slider"] {
+	border-radius: 0 !important;
+}
+
+/* Dialog / Sheet / AlertDialog / Drawer content */
+:root[data-design="brutalism"] [data-slot="dialog-content"],
+:root[data-design="brutalism"] [data-slot="sheet-content"],
+:root[data-design="brutalism"] [data-slot="alert-dialog-content"],
+:root[data-design="brutalism"] [data-slot="drawer-content"] {
+	border: 3px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 6px 6px 0 #000;
+}
+
+/* Alert */
+:root[data-design="brutalism"] [data-slot="alert"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 3px 3px 0 #000;
+}
+
+/* Progress */
+:root[data-design="brutalism"] [data-slot="progress"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+}
+
+/* Menubar */
+:root[data-design="brutalism"] [data-slot="menubar"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 3px 3px 0 #000;
+}
+:root[data-design="brutalism"] [data-slot="menubar-trigger"] {
+	border-radius: 0 !important;
+	font-weight: 700;
+}
+
+/* Kbd */
+:root[data-design="brutalism"] [data-slot="kbd"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 2px 2px 0 #000;
+}
+
+/* Pagination link */
+:root[data-design="brutalism"] [data-slot="pagination-link"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+}
+
+/* Textarea */
+:root[data-design="brutalism"] [data-slot="textarea"] {
+	border: 3px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 3px 3px 0 #000;
+}
+
+/* Item (list row) */
+:root[data-design="brutalism"] [data-slot="item"][data-variant="outline"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 2px 2px 0 #000;
+}
+:root[data-design="brutalism"] [data-slot="item-group"] {
+	border: 2px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 3px 3px 0 #000;
+}
+
+/* OtpInput (custom business component) */
+:root[data-design="brutalism"] [role="group"][aria-label] input[inputmode="numeric"] {
+	border: 3px solid #000 !important;
+	border-radius: 0 !important;
+	box-shadow: 2px 2px 0 #000;
 }
 
 /* --- Layer 3: Typography overrides --- */
