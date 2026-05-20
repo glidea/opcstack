@@ -1,17 +1,18 @@
 <script lang="ts">
+	import { page } from '$app/stores'
 	import { onMount } from "svelte";
 	import { _ } from "$web/i18n";
 	import AppHeader from "$web/components/AppHeader.svelte";
 	import { Button } from "$web/ui/button";
 
-	import Foundations from "./_sections/Foundations.svelte";
-	import Actions from "./_sections/Actions.svelte";
-	import Forms from "./_sections/Forms.svelte";
-	import Display from "./_sections/Display.svelte";
-	import Navigation from "./_sections/Navigation.svelte";
-	import Overlays from "./_sections/Overlays.svelte";
-	import Disclosure from "./_sections/Disclosure.svelte";
-	import AppComponents from "./_sections/AppComponents.svelte";
+	import Foundations from "../_sections/Foundations.svelte";
+	import Actions from "../_sections/Actions.svelte";
+	import Forms from "../_sections/Forms.svelte";
+	import Display from "../_sections/Display.svelte";
+	import Navigation from "../_sections/Navigation.svelte";
+	import Overlays from "../_sections/Overlays.svelte";
+	import Disclosure from "../_sections/Disclosure.svelte";
+	import AppComponents from "../_sections/AppComponents.svelte";
 
 	let {
 		data,
@@ -21,6 +22,8 @@
 			canonicalUrl: string;
 		};
 	} = $props();
+
+	const theme = $derived($page.params.theme)
 
 	const navItems = [
 		{ href: "#foundations", label: "Foundations" },
@@ -56,12 +59,10 @@
 </script>
 
 <svelte:head>
-	<title>{$_("designSystem.title")} — {data.siteName}</title>
-	<meta name="description" content={$_("designSystem.description")} />
-	<link rel="canonical" href={data.canonicalUrl} />
+	<title>Design System: {theme} — {data.siteName}</title>
 </svelte:head>
 
-<AppHeader logoHref="/">
+<AppHeader logoHref="/demo-design/{theme}">
 	{#snippet center()}
 		<nav class="hidden items-center gap-1 md:flex">
 			{#each navItems as item (item.href)}
@@ -74,16 +75,15 @@
 	{/snippet}
 </AppHeader>
 
-<!-- Hero -->
 <section class="flex min-h-[60svh] flex-col items-center justify-center overflow-x-hidden bg-background px-6 py-24 text-center">
-	<p class="text-fine-print mb-4 uppercase tracking-[0.12em] text-muted-foreground">OPC Stack</p>
-	<h1 class="text-hero-display max-w-3xl break-words">{$_("designSystem.title")}</h1>
+	<p class="text-fine-print mb-4 uppercase tracking-[0.12em] text-muted-foreground">Design Theme</p>
+	<h1 class="text-hero-display max-w-3xl break-words">{theme}</h1>
 	<p class="text-lead mt-6 max-w-2xl text-muted-foreground">
-		{$_("designSystem.description")}
+		Previewing the {theme} design system
 	</p>
 	<div class="mt-10 flex flex-wrap items-center justify-center gap-4">
-		<Button href="#foundations">{$_("designSystem.exploreTokens")}</Button>
-		<Button variant="outline" href="#app">{$_("designSystem.appComponents")}</Button>
+		<Button href="#foundations">Explore Tokens</Button>
+		<Button variant="outline" href="#app">App Components</Button>
 	</div>
 </section>
 

@@ -309,6 +309,18 @@ await client.putImage({ dir, imageBase64, mimeType })
 4. Set page title description and canonical in `<svelte:head>`
 5. Follow the Frontend Design Contract below
 
+### Prerender static pages
+
+Use `export const prerender = true` in a `+page.ts` when the page:
+- Has no per-request server data (no auth, no dynamic DB queries)
+- Content is the same for all visitors (docs, legal, demo, marketing)
+
+Rules:
+- If the route has dynamic params (e.g. `[theme]`), export an `entries()` function returning all valid param combinations
+- Dynamic params that come from a parent segment (e.g. `[locale=locale]`) must be included in each entry
+- Import shared constants (like `supportedLocales`) instead of hardcoding values in `entries()`
+- Do not prerender pages that depend on user session, real-time data, or runtime env vars
+
 ### Modify database
 
 1. Edit `src/db/schema.ts`

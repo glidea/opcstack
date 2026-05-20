@@ -23,7 +23,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event)
 	}
 
-	const designSystem = serverConfig.DESIGN_SYSTEM || 'apple-saas'
+	const designSystem = getDesignForPath(pathname, serverConfig.DESIGN_SYSTEM || 'apple-saas')
 
 	const response = await resolve(event, {
 		transformPageChunk: ({ html }) =>
@@ -37,7 +37,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const targetLocale = isSystemLocale(firstSegment)
 		? firstSegment
 		: resolveSystemLocale(event.request.headers.get('accept-language') ?? '')
-	throw redirect(302, `/${targetLocale}${event.url.search}`)
+	let search = ''
+	try { search = event.url.search } catch {}
+	throw redirect(302, `/${targetLocale}${pathname}${search}`)
 }
 
 function isInternalPath(pathname: string): boolean {
@@ -48,6 +50,11 @@ function isInternalPath(pathname: string): boolean {
 	}
 
 	return false
+}
+
+function getDesignForPath(pathname: string, fallback: string): string {
+	const match = pathname.match(/\/demo-design\/([^/]+)/)
+	return match?.[1] ?? fallback
 }
 
 function shouldBypassLocaleRedirect(pathname: string): boolean {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from "svelte";
+	import { page } from "$app/stores";
 	import { locale as localeStore } from "$web/i18n";
 	import type { SystemLocale } from "$web/i18n/locales";
 	import type { PublicConfig } from "$web/config/client";
@@ -19,7 +20,8 @@
 	$effect(() => {
 		if (typeof document !== "undefined") {
 			document.documentElement.lang = data.locale;
-			document.documentElement.dataset.design = data.publicConfig.design_system;
+			const themeParam = $page.params.theme;
+			document.documentElement.dataset['design'] = themeParam || data.publicConfig.design_system;
 		}
 	});
 </script>
