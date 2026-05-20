@@ -127,6 +127,8 @@ Every list/table/feed that can be empty must render:
 - Placeholder is hint, not label — every field has visible label above
 - Tab order matches visual order; Esc closes form/modal
 - Errors are specific and actionable
+- Error state must highlight the related field (border color + `aria-invalid`)
+- Error messages must not cause layout shift — reserve space or use absolute positioning
 
 ### 8. Settings Discipline
 
@@ -145,6 +147,23 @@ Before adding a setting, ask: Can a smart default solve this? Can the system inf
 - [ ] Color contrast ≥ 4.5:1 body text, ≥ 3:1 large text / UI (WCAG AA)
 - [ ] New color tokens have both light and dark values
 - [ ] Verified at mobile and desktop viewport
+- [ ] No layout shift when async content arrives
+
+### 10. Layout Stability: No Content Shift
+
+Dynamically inserted content (image upload previews, new list items, loaded media) must not displace existing content.
+
+| Scenario | Approach |
+|----------|----------|
+| Image/media upload | Reserve fixed-size placeholder (`aspect-ratio` or explicit `height`); content fills the placeholder |
+| New list item | Insert outside viewport (top of scrolled list) or append at end; never inject mid-view |
+| Async loaded content | Use Skeleton placeholder sized to match final content |
+| Collapse/expand | Animate with `grid-template-rows` or `max-height` transition; no instant pop |
+
+Rules:
+- Containers must declare expected dimensions before content arrives
+- Never use `auto` height for async content that expands the parent on load
+- Images must set `width` + `height` attributes or `aspect-ratio` to prevent reflow after decode
 
 ---
 
