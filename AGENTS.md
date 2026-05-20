@@ -360,7 +360,7 @@ Rules:
 - The active design style is determined by `DESIGN_SYSTEM` in `.env` (`apple-saas` or `brutalism`)
 - Follow the **Shared Rules** section of `DESIGN.md` unconditionally
 - Follow the **Style** section matching the active `DESIGN_SYSTEM` value for visual specifics (radius, shadows, press feedback, typography weight, color usage)
-- Pages must satisfy `DESIGN.md` Behavior & Accessibility Contract (1–9: reduce motion, color-is-never-alone, undo over confirmation, modality, loading, empty states, form behavior, settings discipline)
+- Pages must satisfy `DESIGN.md` Behavior & Accessibility Contract (1–9: reduce motion, color-is-never-alone, confirmation by default, modality, loading, empty states, form behavior, settings discipline)
 - **Compose existing primitives, do not invent new ones.** Before writing any `<button>`, `<input>`, `<dialog>`, `<table>`, or `bg-X border rounded` block, consult the Component Inventory below. If you find yourself rewriting visual styles already covered by a primitive, you are doing it wrong
 - Use semantic tokens from `src/web/app.css`; never hardcode hex in page files
 - Use typography utility classes: `text-hero-display` `text-display-lg` `text-display-md` `text-lead` `text-tagline` `text-caption` `text-fine-print`
@@ -536,8 +536,8 @@ import { toast } from 'svelte-sonner'
 
 toast.success('Saved')
 
-// destructive with Undo (per DESIGN.md 3):
-toast.success('Item deleted', {
+// reversible action with domain-backed Undo (per DESIGN.md 3):
+toast.success('Item archived', {
   action: { label: 'Undo', onClick: () => restore() }
 })
 ```
@@ -575,7 +575,7 @@ toast.success('Item deleted', {
 ```svelte
 <button onclick={() => { if (confirm('Delete?')) handleDelete() }}>Delete</button>
 ```
-✅ (only when undo is impossible per DESIGN.md 3; otherwise prefer toast.success + Undo action)
+✅ (default for server-side delete and irreversible actions per DESIGN.md 3)
 ```svelte
 <script>
   import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '$web/ui/alert-dialog'

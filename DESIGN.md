@@ -71,15 +71,19 @@ Status must be conveyed by **icon + label + color** together.
 
 For form fields: error state = border + `aria-invalid="true"` + visible error message.
 
-### 3. Destructive Actions: Undo Over Confirmation
+### 3. Destructive Actions: Confirmation by Default
 
-| Action type                                     | Pattern                                         |
-| ----------------------------------------------- | ----------------------------------------------- |
-| Delete item, archive, hide, unfollow            | Execute immediately + Toast with "Undo" (5–10s) |
-| Bulk delete (>10 items)                         | Execute + longer undo (30s) or trash bin        |
-| Permanent delete (account, billing, paid asset) | Confirmation dialog with typed confirmation     |
-| Send email, charge card, publish to public      | Confirmation dialog                             |
-| Logout, switch workspace                        | Inline button, no confirmation                  |
+Undo is only allowed when the domain model already supports reversal, such as local UI state, soft delete, archive, or trash. Do not add server-side undo just to satisfy UI style.
+
+| Action type                                     | Pattern                                               |
+| ----------------------------------------------- | ----------------------------------------------------- |
+| Local reversible action                         | Execute immediately + Toast with "Undo" (5–10s)       |
+| Server-side delete without recovery model       | Confirmation dialog                                   |
+| Archive, hide, unfollow with restore API        | Execute immediately + Toast with "Undo" (5–10s)       |
+| Bulk delete (>10 items)                         | Confirmation dialog, or trash bin if product requires |
+| Permanent delete (account, billing, paid asset) | Confirmation dialog with typed confirmation           |
+| Send email, charge card, publish to public      | Confirmation dialog                                   |
+| Logout, switch workspace                        | Inline button, no confirmation                        |
 
 Confirmation dialogs must use specific verbs ("Delete account", not "OK") and `destructive` button variant.
 
@@ -132,7 +136,7 @@ Before adding a setting, ask: Can a smart default solve this? Can the system inf
 
 - [ ] Works with `prefers-reduced-motion: reduce`
 - [ ] Status conveyed by icon + label, not color alone
-- [ ] Destructive actions have undo (or justification why impossible)
+- [ ] Destructive actions use confirmation or domain-backed undo
 - [ ] Modal has Esc-to-close and visible close button
 - [ ] Loading states render within 100ms; long ops have cancel
 - [ ] Empty states have icon + explanation + action
