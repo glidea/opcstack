@@ -402,13 +402,13 @@
 	}
 }
 
-/* Header button glass tint (apple-saas) */
-:root:not([data-design="brutalism"]) header [data-slot="button"] {
+/* Header button glass tint (apple-saas) — only for ghost/icon buttons, not primary/secondary */
+:root:not([data-design="brutalism"]) header [data-slot="button"]:not(.bg-primary):not(.bg-foreground):not(.bg-destructive\/10) {
 	background: var(--header-btn-bg);
 	box-shadow: var(--header-btn-shadow);
 	border-radius: 6px;
 }
-:root:not([data-design="brutalism"]) header [data-slot="button"]:hover {
+:root:not([data-design="brutalism"]) header [data-slot="button"]:not(.bg-primary):not(.bg-foreground):not(.bg-destructive\/10):hover {
 	background: var(--header-btn-bg-hover);
 }
 
