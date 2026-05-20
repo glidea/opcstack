@@ -242,97 +242,73 @@ Reference products: Gumroad, indie SaaS landing pages, YouMind Nano Banana Pro.
 
 ### Key Characteristics
 
-- Hard black borders (2–4px) define every primary surface and control
+- Hard black borders define every primary surface and control
 - Offset shadows create object weight without blur
 - Saturated accent panels carry section identity
-- Heavy uppercase typography (900 weight) makes headings and controls loud
+- Heavy uppercase typography makes headings loud
 - Cards use a black backplate instead of soft elevation
-- Button feedback is physical: hover shifts 1px, active shifts 3px and removes shadow
-- Rectangular geometry — `rounded-none` is the default
+- Button feedback is physical: hover shifts down, active shifts further and removes shadow
+- Rectangular geometry — zero radius is the default
 
-### Colors
+### Color Rules
 
-| Token | Value | Use |
-|-------|-------|-----|
-| Primary | #000000 | Action color, borders, shadows, ink |
-| Coral | #FF6B6B | Hero and nav panel background |
-| Signal Yellow | #FFE66D | Selected/active/featured state (exclusive) |
-| Teal | #4ECDC4 | CTA bands and alternate panels |
-| Canvas | #F0F0F0 | Page background |
-| Surface | #FFFFFF | Card, input, button fill |
+Concrete color values live in `app.css`. These are the usage rules:
 
-**Yellow exclusivity rule:** Yellow is the only color that means "selected / active / featured." No other accent may carry selection semantics.
+- **Primary** is the action color — used for CTA buttons and key interactive elements
+- **Accent (yellow)** is exclusively for "selected / active / featured" state. No other color may carry selection semantics
+- **Background** is warm (off-white/cream), not cold grey
+- **All borders and shadows** are pure black
+- Decorative backgrounds use saturated, bold colors — not pastels
 
-**Coral stacking rule:** Coral may appear on nav + hero simultaneously. If a banner is also coral, the hero must switch to surface or teal.
-
-### Typography
+### Typography Rules
 
 - Font: Inter, system-ui, sans-serif
-- Display weights: 900 (black)
-- Body: 15px, weight 500
-- Zero letter-spacing (no negative tracking)
-- Uppercase for labels, buttons, chips, nav (English). CJK relies on weight and size instead
-- Weight ladder: 500 (body) → 700 (structural ≤18px) → 800 (inline strong) → 900 (display, buttons, labels)
+- Display: black weight (900), uppercase (English only; CJK relies on weight and size)
+- Body: medium weight (500), zero letter-spacing (no negative tracking)
+- Weight ladder: body → structural → inline strong → display
 
 ### Radius
 
-All structural elements use `rounded-none` (0px). Pill (`9999px`) is reserved for status pills, meta chips, and notification dots only.
+All structural elements use zero radius. Pill is reserved for status pills, meta chips, and notification dots only.
 
 ### Elevation & Shadows
 
-| Level | Treatment | Use |
-|-------|-----------|-----|
-| Flat | No shadow | Page background, large color panels |
-| Control | `2px 2px 0 #000` | Small buttons, tags |
-| Nav | `3px 3px 0 #000` | Logo lockup, icon buttons |
-| Container | `4px 4px 0 #000` | Form shells, title blocks |
-| Backplate | Physical black rect offset 8px | Cards |
+- All shadows are hard, black, offset. No blur. No ambient elevation
+- Larger elements get larger shadow offsets
+- Shadow tiers: control (small) → nav → container → card backplate
 
-All shadows are hard, black, offset. No blur. No ambient elevation.
+### Press Feedback
 
-### Displacement Scale (Press Feedback)
-
-| Element size | Hover | Active | Shadow |
-|-------------|-------|--------|--------|
-| ≤ 44px (icon buttons, chips) | translate(1px, 1px) | translate(2px, 2px) | → none |
-| 45–120px (buttons, tags) | translate(1px, 1px) | translate(3px, 3px) | → none |
-| ≥ 120px (cards) | translate(-4px, -4px) over backplate | — | backplate reveals more |
-
-### Card Backplate
-
-Black rectangle offset 8px behind the card. On hover, card shifts `translate(-4px, -4px)` revealing 12px of backplate. Grid must reserve extra margin for backplate visibility. Mobile: offset reduces to 6px.
-
-Implementation: use `box-shadow: 8px 8px 0 #000` on card (no extra DOM needed). Hover increases to `12px 12px 0 #000` with `translate(-4px, -4px)`.
+- Hover: element shifts slightly toward its shadow (1px)
+- Active: element shifts fully into shadow position, shadow disappears
+- Larger elements have larger displacement
 
 ### Navigation
 
-Solid coral background + 4px black bottom border. No glass, no blur. Logo in white rectangular shell with 2px border and 3px shadow.
+Solid background + thick black bottom border. No glass, no blur.
 
 ### Focus State
 
-4px solid yellow outline with 2px offset on all interactive elements. On yellow surfaces, ring switches to coral.
+Solid outline with offset on all interactive elements. On accent-colored surfaces, ring switches to a contrasting color.
 
 ### Dark Mode
 
-Not specified for v1. Brutalism's heavy black structure makes dark mode low-priority. The system already uses black as its primary visual element.
+Not specified for v1. Brutalism's heavy black structure makes dark mode low-priority.
 
 ### Do's and Don'ts
 
 **Do:**
 - Use black borders as primary structure
 - Use hard offset shadows only, never blurred
-- Keep primary actions black with white text
-- Use yellow exclusively for selected/featured/hover emphasis
+- Use accent color exclusively for selected/featured/active emphasis
 - Use physical press feedback on every clickable object
 - Keep primary CTA labels ≤ 3 words
 - Provide visible focus ring on every interactive element
 
 **Don't:**
 - Don't use glassmorphism or backdrop-blur
-- Don't use large rounded cards
+- Don't use rounded corners on structural elements
 - Don't use blurred shadows
 - Don't use low-contrast gray borders
-- Don't use coral on more than 2 consecutive bands
-- Don't rotate structural surfaces (rotation ≤ 8° only for ribbon-tags)
 - Don't use green/orange/red as decorative backgrounds (reserved for status)
 - Don't use decorative blobs or ambient glow
