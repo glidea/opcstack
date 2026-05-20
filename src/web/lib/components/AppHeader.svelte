@@ -5,17 +5,23 @@
 	import ThemeSwitcher from "./ThemeSwitcher.svelte";
 	import LocaleSwitcher from "./LocaleSwitcher.svelte";
 
+	type AppHeaderProps = {
+		logoHref?: string
+		showSidebarTrigger?: boolean
+		showThemeSwitcher?: boolean
+		showLocaleSwitcher?: boolean
+		center?: Snippet
+		actions?: Snippet
+	}
+
 	let {
 		logoHref = "/",
 		showSidebarTrigger = false,
+		showThemeSwitcher = true,
+		showLocaleSwitcher = true,
 		center,
 		actions
-	}: {
-		logoHref?: string
-		showSidebarTrigger?: boolean
-		center?: Snippet
-		actions?: Snippet
-	} = $props();
+	}: AppHeaderProps = $props();
 </script>
 
 <header
@@ -32,8 +38,12 @@
 			{@render center()}
 		{/if}
 		<div class="ml-auto flex items-center gap-2">
-			<LocaleSwitcher current={$locale ?? defaultLocale} />
-			<ThemeSwitcher />
+			{#if showLocaleSwitcher}
+				<LocaleSwitcher current={$locale ?? defaultLocale} />
+			{/if}
+			{#if showThemeSwitcher}
+				<ThemeSwitcher />
+			{/if}
 			{#if actions}
 				{@render actions()}
 			{/if}
