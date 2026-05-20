@@ -26,11 +26,11 @@ All concrete values (colors, radii, typography sizes, animations) live in `src/w
 
 ### Page Layout Rules
 
-| Page type | Layout |
-|-----------|--------|
-| Document pages (docs/legal/blog) | `max-w-3xl mx-auto px-6 py-16` |
-| Landing pages (home/product) | Full-width, sections control own max-width |
-| Workspace pages (dashboard) | Full-width with sidebar via SvelteKit layout nesting |
+| Page type                        | Layout                                               |
+| -------------------------------- | ---------------------------------------------------- |
+| Document pages (docs/legal/blog) | Constrained readable document shell                  |
+| Landing pages (home/product)     | Full-width, sections control own max-width           |
+| Workspace pages (dashboard)      | Full-width with sidebar via SvelteKit layout nesting |
 
 ### Icons
 
@@ -38,7 +38,7 @@ All icons come from `lucide-svelte`. Do not introduce other icon libraries.
 
 ### Viewport Verification
 
-After frontend changes, verify at 375px and 1440px viewport.
+After frontend changes, verify mobile and desktop viewports.
 
 ### UI Copy
 
@@ -85,14 +85,14 @@ Confirmation dialogs must use specific verbs ("Delete account", not "OK") and `d
 
 ### 4. Modality Decision
 
-| Need                            | Component                   |
-| ------------------------------- | --------------------------- |
-| Critical warning, must respond  | Alert dialog                |
-| Multi-field create/edit form    | Sheet (side panel)          |
-| Detail/options for one item     | Popover                     |
-| Contextual actions (3+ options) | Dropdown menu               |
-| Async result confirmation       | Toast                       |
-| Field-level validation error    | Inline error under field    |
+| Need                            | Component                |
+| ------------------------------- | ------------------------ |
+| Critical warning, must respond  | Alert dialog             |
+| Multi-field create/edit form    | Sheet (side panel)       |
+| Detail/options for one item     | Popover                  |
+| Contextual actions (3+ options) | Dropdown menu            |
+| Async result confirmation       | Toast                    |
+| Field-level validation error    | Inline error under field |
 
 Rules:
 - Modal must always have close affordance (X + Esc + backdrop click for non-destructive)
@@ -111,7 +111,7 @@ Rules:
 ### 6. Empty States
 
 Every list/table/feed that can be empty must render:
-1. Icon (lucide, muted, ~48px)
+1. Icon (lucide, muted)
 2. One-line explanation of why it's empty
 3. One primary action to populate it
 
@@ -140,7 +140,7 @@ Before adding a setting, ask: Can a smart default solve this? Can the system inf
 - [ ] Keyboard-only user can complete primary task
 - [ ] Color contrast ≥ 4.5:1 body text, ≥ 3:1 large text / UI (WCAG AA)
 - [ ] New color tokens have both light and dark values
-- [ ] Verified at 375px and 1440px viewport
+- [ ] Verified at mobile and desktop viewport
 
 ---
 
@@ -152,33 +152,33 @@ Reference products: Linear, Raycast, Vercel Dashboard.
 
 ### What we keep from Apple
 
-- `scale(0.95)` press feedback on all buttons
+- Press feedback on all buttons
 - Single monochrome accent — no second brand color
-- Ultra-light borders (`rgba` not hex) — chrome disappears
-- Negative letter-spacing on display headlines
-- `-webkit-font-smoothing: antialiased` everywhere
-- Backdrop-blur navigation bar
+- Ultra-light borders — chrome disappears
+- Tight display headline tracking
+- Antialiased font rendering
+- Glass navigation bar
 - No shadows on UI chrome — shadow reserved for product imagery only
-- Surface color alternation as section divider (not borders)
+- Surface color alternation as section divider
 
 ### What we change for SaaS
 
-| Apple | Our system | Why |
-|-------|-----------|-----|
-| 44px controls | 36px default | Forms and toolbars need density |
-| 15px body | 14px body | More content per viewport |
-| `rounded-full` (pill) buttons | `rounded-[10px]` default | Pill wastes space in dense UI |
-| 80px section padding | 48px section padding | Workspace, not gallery |
-| 24px card padding | 16px card padding | Tighter cards, more info |
+| Apple                         | Our system                    | Why                             |
+| ----------------------------- | ----------------------------- | ------------------------------- |
+| Gallery-like control density  | Workspace control density     | Forms and toolbars need density |
+| Large reading body text       | Compact workspace body text   | More content per viewport       |
+| Pill buttons                  | Compact rounded buttons       | Pill wastes space in dense UI   |
+| Large section padding         | Tighter section padding       | Workspace, not gallery          |
+| Spacious cards                | Tighter cards                 | More info per viewport          |
 
 ### Elevation Rules
 
-| Level | Treatment | Use |
-|-------|-----------|-----|
-| Flat | No shadow, no border | Sections, nav, body |
-| Hairline | `border-surface-border` | Cards, containers |
-| Input | `border-input` | Form controls |
-| Product | `shadow-product` | Product imagery only |
+| Level    | Treatment               | Use                  |
+| -------- | ----------------------- | -------------------- |
+| Flat     | No shadow, no border    | Sections, nav, body  |
+| Hairline | `border-surface-border` | Cards, containers    |
+| Input    | `border-input`          | Form controls        |
+| Product  | `shadow-product`        | Product imagery only |
 
 **No shadows on buttons, cards, or chrome. Ever.**
 
@@ -188,37 +188,29 @@ Reference products: Linear, Raycast, Vercel Dashboard.
 
 **Where NOT to use:** Cards, sidebars, form inputs, buttons, page backgrounds, table rows.
 
-Details: Sub-pixel borders (0.5px) on glass elements. Float shadow allowed on overlays (detached from document flow). Spring curves for scale/position transforms only; standard `ease-out` for opacity/color.
-
-### Typography
-
-- Font: SF Pro Display / SF Pro Text / Inter fallback
-- Display weights: 600 (semibold)
-- Body: 14px, weight 400
-- Negative letter-spacing on headlines only
-- No uppercase (except brand-specific cases)
+Details: Sub-pixel borders on glass elements. Float shadow allowed on overlays (detached from document flow). Spring curves for scale/position transforms only; standard easing for opacity/color.
 
 ### Radius
 
-`rounded-sm` (6px), `rounded-md` (10px), `rounded-lg` (14px), `rounded-xl` (16px)
+Use the radius scale from `src/web/app.css`. Workspace UI uses compact radius; pill radius is reserved for explicit pill variants.
 
 ### Dark Mode
 
-- Apple-faithful dark, not OLED dark. Background is dark grey (`#1d1d1f`), not `#000`
+- Apple-faithful dark, not OLED dark. Background is dark grey, not pure black
 - Elevation by lightening. Higher surfaces get lighter
 - Borders carry more opacity in dark
 - Glass saturation drops in dark
 - Glass float-shadow strengthens in dark
-- What does not change: radius, typography, spacing, `scale(0.95)`, glass usage, blur radii
+- What does not change: radius, typography, spacing, press feedback, glass usage, blur hierarchy
 
 ### Do's and Don'ts
 
 **Do:**
-- Use `rgba` borders
-- Keep buttons and inputs at same height (36px) in forms
+- Use translucent borders
+- Keep buttons and inputs at the same height in forms
 - Use `antialiased` font rendering
 - Use negative letter-spacing on headlines only
-- Use `scale(0.95)` as universal press state
+- Use consistent press feedback
 - Use surface color change as section dividers
 - Use liquid glass only on nav bar and floating overlays
 
@@ -226,9 +218,9 @@ Details: Sub-pixel borders (0.5px) on glass elements. Float shadow allowed on ov
 - Don't use pill radius in workspace UI
 - Don't add shadows to cards or buttons
 - Don't use gradients as decoration
-- Don't use font-weight 500 or 700
-- Don't use body text larger than 14px in workspace pages
-- Don't use hex borders
+- Don't use unsupported type weights
+- Don't use oversized body text in workspace pages
+- Don't use opaque heavy borders
 - Don't apply glass material to content areas, sidebars, cards, or form inputs
 - Don't use spring curves on opacity or color transitions
 
@@ -263,8 +255,8 @@ Concrete color values live in `app.css`. These are the usage rules:
 ### Typography Rules
 
 - Font: Inter, system-ui, sans-serif
-- Display: black weight (900), uppercase (English only; CJK relies on weight and size)
-- Body: medium weight (500), zero letter-spacing (no negative tracking)
+- Display: black weight, uppercase (English only; CJK relies on weight and size)
+- Body: medium weight, zero letter-spacing (no negative tracking)
 - Weight ladder: body → structural → inline strong → display
 
 ### Radius
@@ -279,7 +271,7 @@ All structural elements use zero radius. Pill is reserved for status pills, meta
 
 ### Press Feedback
 
-- Hover: element shifts slightly toward its shadow (1px)
+- Hover: element shifts slightly toward its shadow
 - Active: element shifts fully into shadow position, shadow disappears
 - Larger elements have larger displacement
 
