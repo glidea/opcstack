@@ -138,6 +138,10 @@ pnpm dev
 ### 3. 后续同步模板更新
 
 ```bash
+# 1. 推荐：Agent 自动更新，解决冲突，任意 Agent 对话中：
+> @SYNC_TEMPLATE.md
+
+# 2. 手动
 git fetch upstream --tags
 git rebase upstream/main
 ```
