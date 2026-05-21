@@ -66,6 +66,7 @@ publicApi.all('/auth/*', async (ctx): Promise<Response> => {
 publicApi.post('/get_public_config', (ctx): Response => {
 	const env = ctx.env
 	return ctx.json({
+		design_system: env.DESIGN_SYSTEM || 'apple-saas',
 		beta_code_enabled: String(env.BETA_CODE_ENABLED) === 'true',
 		google_auth_enabled: String(env.GOOGLE_AUTH_ENABLED) === 'true',
 		email_enabled: String(env.EMAIL_ENABLED) === 'true',

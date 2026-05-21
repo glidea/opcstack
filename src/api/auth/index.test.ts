@@ -257,6 +257,9 @@ describe('authCore email callbacks', () => {
 		otpAllowedAttempts: number
 		otpStore: string
 		otpDisableSignUp: boolean
+		otpSendVerificationOnSignUp: boolean
+		otpOverrideDefaultEmailVerification: boolean
+		emailAutoSignInAfterVerification: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -284,7 +287,10 @@ describe('authCore email callbacks', () => {
 				otpExpiresIn: 300,
 				otpAllowedAttempts: 3,
 				otpStore: 'hashed',
-				otpDisableSignUp: true
+				otpDisableSignUp: true,
+				otpSendVerificationOnSignUp: false,
+				otpOverrideDefaultEmailVerification: true,
+				emailAutoSignInAfterVerification: true
 			}
 		}
 	]
@@ -313,6 +319,8 @@ describe('authCore email callbacks', () => {
 					allowedAttempts: number
 					storeOTP: string
 					disableSignUp: boolean
+					sendVerificationOnSignUp: boolean
+					overrideDefaultEmailVerification: boolean
 					sendVerificationOTP: (data: {
 						email: string
 						otp: string
@@ -361,10 +369,22 @@ describe('authCore email callbacks', () => {
 			otpExpiresIn: emailOtpOptions?.expiresIn ?? 0,
 			otpAllowedAttempts: emailOtpOptions?.allowedAttempts ?? 0,
 			otpStore: emailOtpOptions?.storeOTP ?? '',
-			otpDisableSignUp: emailOtpOptions?.disableSignUp ?? false
+			otpDisableSignUp: emailOtpOptions?.disableSignUp ?? false,
+			otpSendVerificationOnSignUp: emailOtpOptions?.sendVerificationOnSignUp ?? true,
+			otpOverrideDefaultEmailVerification: emailOtpOptions?.overrideDefaultEmailVerification ?? false,
+			emailAutoSignInAfterVerification: readEmailAutoSignInAfterVerification()
 		}
 	})
 })
+
+function readEmailAutoSignInAfterVerification(): boolean {
+	const options = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
+		emailVerification?: {
+			autoSignInAfterVerification?: boolean
+		}
+	}
+	return options.emailVerification?.autoSignInAfterVerification ?? false
+}
 
 function createEnv(input: {
 	emailEnabled: string

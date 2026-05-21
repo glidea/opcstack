@@ -60,6 +60,9 @@ export function authCore(env: Env, db: AppDb) {
         }
       }
     },
+    emailVerification: {
+      autoSignInAfterVerification: true
+    },
     emailAndPassword: buildEmailAndPassword(env),
     socialProviders: buildSocialProviders(env),
     session: {
@@ -147,7 +150,7 @@ function buildEmailOtp(env: Env): ReturnType<typeof emailOTP> | undefined {
     allowedAttempts: 3,
     storeOTP: 'hashed',
     disableSignUp: true,
-    sendVerificationOnSignUp: true,
+    sendVerificationOnSignUp: false,
     overrideDefaultEmailVerification: true,
     sendVerificationOTP: async (data: EmailOtpInput): Promise<void> => {
       await emailClient.send({

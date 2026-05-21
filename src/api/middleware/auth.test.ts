@@ -19,6 +19,7 @@ describe('authMiddleware', () => {
 	type GivenDetail = {
 		path: string
 		authorization?: string
+		cookie?: string
 		sessionUserId?: string
 	}
 	type WhenDetail = Record<string, never>
@@ -31,8 +32,8 @@ describe('authMiddleware', () => {
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'reject request without authorization header',
-			given: 'a protected path and no authorization header',
+			scenario: 'reject request without session',
+			given: 'a protected path and no session',
 			when: 'running auth middleware',
 			then: 'returns unauthorized',
 			givenDetail: {
@@ -47,20 +48,21 @@ describe('authMiddleware', () => {
 			}
 		},
 		{
-			scenario: 'reject request with non bearer authorization',
-			given: 'a protected path and basic authorization header',
-			when: 'running auth middleware',
-			then: 'returns unauthorized',
+			scenario: 'accept cookie session when authorization header is missing',
+			given: 'a protected path and session cookie',
+			when: 'session lookup returns user id',
+			then: 'sets user id and calls next',
 			givenDetail: {
 				path: '/api/r2/private/u1/a.txt',
-				authorization: 'Basic token'
+				cookie: 'better-auth.session_token=signed-token',
+				sessionUserId: 'u1'
 			},
 			whenDetail: {},
 			thenExpected: {
-				status: 401,
-				code: 'UNAUTHORIZED',
-				nextCalled: false,
-				setUserId: ''
+				status: 0,
+				code: '',
+				nextCalled: true,
+				setUserId: 'u1'
 			}
 		},
 		{
@@ -117,7 +119,7 @@ describe('authMiddleware', () => {
 			}
 		} as never)
 
-		const state = createContextState(given.path, given.authorization)
+		const state = createContextState(given.path, given.authorization, given.cookie)
 		const ctx = createContext(state)
 		const res = await authMiddleware(ctx, state.next)
 
@@ -216,16 +218,22 @@ describe('adminSecretMiddleware', () => {
 type ContextState = {
 	path: string
 	authorization?: string
+	cookie?: string
 	env: Record<string, string>
 	values: Record<string, unknown>
 	nextCalled: boolean
 	next: () => Promise<void>
 }
 
-function createContextState(path: string, authorization?: string): ContextState {
+function createContextState(
+	path: string,
+	authorization?: string,
+	cookie?: string
+): ContextState {
 	return {
 		path,
 		...(authorization !== undefined ? { authorization } : {}),
+		...(cookie !== undefined ? { cookie } : {}),
 		env: {
 			ADMIN_SECRET: 'admin-secret',
 			BETA_CODE_ENABLED: 'true',
@@ -250,6 +258,9 @@ function createContext(state: ContextState): Context<ApiEnv> {
 	const reqHeaders = new Headers()
 	if (state.authorization) {
 		reqHeaders.set('authorization', state.authorization)
+	}
+	if (state.cookie) {
+		reqHeaders.set('cookie', state.cookie)
 	}
 
 	const ctx = {

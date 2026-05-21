@@ -2,19 +2,10 @@ import type { MiddlewareHandler } from 'hono'
 import type { ApiEnv } from '..'
 import { authCore } from '../auth'
 
-function hasBearerAuthHeader(authorization: string | undefined): boolean {
-	return typeof authorization === 'string' && authorization.startsWith('Bearer ')
-}
-
 export const authMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
-	const authorization: string | undefined = ctx.req.header('authorization')
-	if (!hasBearerAuthHeader(authorization)) {
-		return ctx.json({ code: 'UNAUTHORIZED' }, 401)
-	}
-
 	const session = await authCore(ctx.env, ctx.get('db')).api.getSession({
 		headers: ctx.req.raw.headers
 	})
