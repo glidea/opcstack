@@ -1,6 +1,6 @@
 ---
 title: Credits
-description: Credit balance, checkin, referral, redemption code, and expiration
+description: Credit balance, checkin, redemption code, and expiration
 group: Guides
 order: 10
 ---
@@ -17,7 +17,6 @@ Credit API amounts use decimal strings with 6 decimal places. The database store
 - Credit transaction history
 - Signup reward
 - Daily checkin reward
-- Referral reward
 - Redemption code top up
 - Admin credit grant
 - Credit expiration
@@ -33,11 +32,6 @@ CREDITS_SIGNUP_AMOUNT=100
 # Daily checkin reward
 CREDITS_DAILY_CHECKIN_ENABLED=true
 CREDITS_DAILY_CHECKIN_AMOUNT=10
-
-# Referral reward
-CREDITS_REFERRAL_ENABLED=true
-CREDITS_REFERRAL_INVITER_AMOUNT=50
-CREDITS_REFERRAL_INVITEE_AMOUNT=20
 
 # Cleanup old credit_transactions
 CREDITS_HISTORY_RETENTION_DAYS=90
@@ -64,7 +58,7 @@ execute business
 deduct credits after success
 ```
 
-Failed business operations do not deduct credits. Concurrent requests may make the balance negative. Later signup rewards, checkins, referrals, redemption codes, or admin grants first offset the negative balance.
+Failed business operations do not deduct credits. Concurrent requests may make the balance negative. Later signup rewards, checkins, affiliate rewards, redemption codes, or admin grants first offset the negative balance.
 
 ## API
 
@@ -80,10 +74,7 @@ Response:
 {
   "balance": "100.000000",
   "daily_checked_in": false,
-  "daily_checkin_amount": "10.000000",
-  "referral_enabled": true,
-  "referral_code": "ABC12345",
-  "invited_count": 2
+  "daily_checkin_amount": "10.000000"
 }
 ```
 
@@ -135,22 +126,6 @@ POST /api/daily_checkin
 ```
 
 Repeated checkin returns `409 DAILY_CHECKIN_ALREADY_DONE`.
-
-### Bind referral
-
-```http
-POST /api/bind_referral
-```
-
-Request:
-
-```json
-{
-  "referral_code": "ABC12345"
-}
-```
-
-Each user can bind one referral only.
 
 ### Redeem credit code
 
@@ -257,7 +232,7 @@ Signup reward is attached to Better Auth user creation:
 ```text
 user.create.before
   ↓
-generate referral_code
+generate aff_code
   ↓
 insert user
   ↓

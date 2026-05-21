@@ -1,13 +1,11 @@
 import { and, desc, eq, gte, isNotNull, isNull, lt, lte, sql, type SQL } from 'drizzle-orm'
 import type { AppDb } from '../db'
-import { creditEntry, creditRedemptionCode, creditReferral, creditTransaction } from '../db/schema'
+import { creditEntry, creditRedemptionCode, creditTransaction } from '../db/schema'
 import { user } from '../db/schema.auth'
 import { addUnits, subtractUnits } from '../lib/decimal'
 
 export const CREDIT_TRANSACTION_TYPE_SIGNUP = 'signup'
 export const CREDIT_TRANSACTION_TYPE_DAILY_CHECKIN = 'daily_checkin'
-export const CREDIT_TRANSACTION_TYPE_REFERRAL_INVITER = 'referral_inviter'
-export const CREDIT_TRANSACTION_TYPE_REFERRAL_INVITEE = 'referral_invitee'
 export const CREDIT_TRANSACTION_TYPE_REDEMPTION_CODE = 'redemption_code'
 export const CREDIT_TRANSACTION_TYPE_MANUAL_GRANT = 'manual_grant'
 export const CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE = 'payment_purchase'
@@ -18,8 +16,6 @@ export const CREDIT_TRANSACTION_TYPE_EXPIRED = 'expired'
 export type CreditTransactionType =
 	| typeof CREDIT_TRANSACTION_TYPE_SIGNUP
 	| typeof CREDIT_TRANSACTION_TYPE_DAILY_CHECKIN
-	| typeof CREDIT_TRANSACTION_TYPE_REFERRAL_INVITER
-	| typeof CREDIT_TRANSACTION_TYPE_REFERRAL_INVITEE
 	| typeof CREDIT_TRANSACTION_TYPE_REDEMPTION_CODE
 	| typeof CREDIT_TRANSACTION_TYPE_MANUAL_GRANT
 	| typeof CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE
@@ -50,16 +46,12 @@ export interface GetCreditSummaryInput {
 	userId: string
 	nowMs?: number
 	dailyCheckinAmount: number
-	referralEnabled: boolean
 }
 
 export interface CreditSummary {
 	balance: number
 	dailyCheckedIn: boolean
 	dailyCheckinAmount: number
-	referralEnabled: boolean
-	referralCode: string
-	invitedCount: number
 }
 
 export interface ListCreditTransactionsInput {
@@ -93,14 +85,6 @@ export interface ListCreditTransactionsResult {
 export interface DailyCheckinInput {
 	userId: string
 	amount: number
-	nowMs?: number
-}
-
-export interface BindReferralInput {
-	inviteeUserId: string
-	referralCode: string
-	inviterAmount: number
-	inviteeAmount: number
 	nowMs?: number
 }
 
@@ -168,13 +152,6 @@ export interface DailyCheckinResult {
 	balance: number
 	checkedIn: boolean
 	amount: number
-}
-
-export interface BindReferralResult {
-	inviterUserId: string
-	inviteeUserId: string
-	inviterBalance: number
-	inviteeBalance: number
 }
 
 export interface GenerateCreditCodesResultCode {
@@ -315,30 +292,10 @@ export class CreditsService {
 		}
 	}
 
-	async createReferralCode(): Promise<string> {
-		const maxAttempts = 10
-		let attempt = 0
-		while (attempt < maxAttempts) {
-			const code = generateReferralCode()
-			const existing = await this.db.query.user.findFirst({
-				columns: {
-					id: true
-				},
-				where: eq(user.referralCode, code)
-			})
-			if (!existing) {
-				return code
-			}
-			attempt += 1
-		}
-		throw new CreditsError('REFERRAL_CODE_GENERATE_FAILED')
-	}
-
 	async getSummary(input: GetCreditSummaryInput): Promise<CreditSummary> {
 		const userRow = await this.db.query.user.findFirst({
 			columns: {
-				creditBalance: true,
-				referralCode: true
+				creditBalance: true
 			},
 			where: eq(user.id, input.userId)
 		})
@@ -360,21 +317,10 @@ export class CreditsService {
 			)
 		})
 
-		const invitedCountRows = await this.db
-			.select({
-				count: sql<number>`count(*)`
-			})
-			.from(creditReferral)
-			.where(eq(creditReferral.inviterUserId, input.userId))
-		const invitedCount = Number(invitedCountRows[0]?.count ?? 0)
-
 		return {
 			balance: userRow.creditBalance,
 			dailyCheckedIn: Boolean(checkedInRow),
-			dailyCheckinAmount: input.dailyCheckinAmount,
-			referralEnabled: input.referralEnabled,
-			referralCode: userRow.referralCode ?? '',
-			invitedCount
+			dailyCheckinAmount: input.dailyCheckinAmount
 		}
 	}
 
@@ -458,178 +404,6 @@ export class CreditsService {
 			balance: result.balance,
 			checkedIn: true,
 			amount: input.amount
-		}
-	}
-
-	async bindReferral(input: BindReferralInput): Promise<BindReferralResult> {
-		const code = input.referralCode.trim()
-		if (code === '') {
-			throw new CreditsError('INVALID_REFERRAL_CODE')
-		}
-		validateGrantAmount(input.inviterAmount)
-		validateGrantAmount(input.inviteeAmount)
-
-		const inviter = await this.db.query.user.findFirst({
-			columns: {
-				id: true,
-				creditBalance: true
-			},
-			where: eq(user.referralCode, code)
-		})
-		if (!inviter || inviter.id === input.inviteeUserId) {
-			throw new CreditsError('INVALID_REFERRAL_CODE')
-		}
-
-		const invitee = await this.db.query.user.findFirst({
-			columns: {
-				id: true,
-				creditBalance: true
-			},
-			where: eq(user.id, input.inviteeUserId)
-		})
-		if (!invitee) {
-			throw new CreditsError('CREDIT_USER_NOT_FOUND')
-		}
-
-		const nowMs = input.nowMs ?? Date.now()
-		const referralId = crypto.randomUUID()
-		const inviterEntryId = crypto.randomUUID()
-		const inviteeEntryId = crypto.randomUUID()
-		const inviterTransactionId = crypto.randomUUID()
-		const inviteeTransactionId = crypto.randomUUID()
-
-		const inviterRemaining = resolveEntryRemainingAmount(inviter.creditBalance, input.inviterAmount)
-		const inviteeRemaining = resolveEntryRemainingAmount(invitee.creditBalance, input.inviteeAmount)
-		const inviterBalance = addUnits(inviter.creditBalance, input.inviterAmount)
-		const inviteeBalance = addUnits(invitee.creditBalance, input.inviteeAmount)
-
-		try {
-			await this.db.batch([
-				this.db.run(sql`
-        INSERT INTO credit_referrals (id, inviter_user_id, invitee_user_id, created_at)
-        VALUES (${referralId}, ${inviter.id}, ${input.inviteeUserId}, ${nowMs})
-      `),
-				this.db.run(sql`
-        UPDATE "user"
-        SET credit_balance = ${inviterBalance}
-        WHERE id = ${inviter.id}
-          AND EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
-      `),
-				this.db.run(sql`
-        INSERT INTO credit_entries (
-          id,
-          user_id,
-          amount,
-          remaining_amount,
-          source_type,
-          source_id,
-          expires_at,
-          created_at
-        )
-        SELECT
-          ${inviterEntryId},
-          ${inviter.id},
-          ${input.inviterAmount},
-          ${inviterRemaining},
-          ${CREDIT_TRANSACTION_TYPE_REFERRAL_INVITER},
-          ${`referral_inviter:${referralId}`},
-          NULL,
-          ${nowMs}
-        WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
-      `),
-				this.db.run(sql`
-        INSERT INTO credit_transactions (
-          id,
-          user_id,
-          type,
-          amount,
-          balance_after,
-          source_type,
-          source_id,
-          description,
-          expires_at,
-          created_at
-        )
-        SELECT
-          ${inviterTransactionId},
-          ${inviter.id},
-          'referral_inviter',
-          ${input.inviterAmount},
-          ${inviterBalance},
-          'referral_inviter',
-          ${`referral_inviter:${referralId}`},
-          'Referral inviter reward',
-          NULL,
-          ${nowMs}
-        WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
-      `),
-				this.db.run(sql`
-        UPDATE "user"
-        SET credit_balance = ${inviteeBalance}
-        WHERE id = ${input.inviteeUserId}
-          AND EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
-      `),
-				this.db.run(sql`
-        INSERT INTO credit_entries (
-          id,
-          user_id,
-          amount,
-          remaining_amount,
-          source_type,
-          source_id,
-          expires_at,
-          created_at
-        )
-        SELECT
-          ${inviteeEntryId},
-          ${input.inviteeUserId},
-          ${input.inviteeAmount},
-          ${inviteeRemaining},
-          ${CREDIT_TRANSACTION_TYPE_REFERRAL_INVITEE},
-          ${`referral_invitee:${referralId}`},
-          NULL,
-          ${nowMs}
-        WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
-      `),
-				this.db.run(sql`
-        INSERT INTO credit_transactions (
-          id,
-          user_id,
-          type,
-          amount,
-          balance_after,
-          source_type,
-          source_id,
-          description,
-          expires_at,
-          created_at
-        )
-        SELECT
-          ${inviteeTransactionId},
-          ${input.inviteeUserId},
-          'referral_invitee',
-          ${input.inviteeAmount},
-          ${inviteeBalance},
-          'referral_invitee',
-          ${`referral_invitee:${referralId}`},
-          'Referral invitee reward',
-          NULL,
-          ${nowMs}
-        WHERE EXISTS (SELECT 1 FROM credit_referrals WHERE id = ${referralId})
-      `)
-			])
-		} catch (error) {
-			if (isReferralAlreadyBoundError(error)) {
-				throw new CreditsError('REFERRAL_ALREADY_BOUND')
-			}
-			throw error
-		}
-
-		return {
-			inviterUserId: inviter.id,
-			inviteeUserId: input.inviteeUserId,
-			inviterBalance,
-			inviteeBalance
 		}
 	}
 
@@ -1191,16 +965,6 @@ function resolveOffset(offset: number | undefined): number {
 function resolveEntryRemainingAmount(currentBalance: number, amount: number): number {
 	const debtToRepay = currentBalance < 0 ? Math.min(-currentBalance, amount) : 0
 	return amount - debtToRepay
-}
-
-function isReferralAlreadyBoundError(error: unknown): boolean {
-	if (!(error instanceof Error)) {
-		return false
-	}
-	return (
-		error.message.includes('credit_referrals_invitee_user_id_unique') ||
-		error.message.includes('UNIQUE constraint failed: credit_referrals.invitee_user_id')
-	)
 }
 
 function formatUtcDate(timestampMs: number): string {

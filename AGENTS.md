@@ -74,7 +74,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `R2_ENABLED`
 - `CREDITS_SIGNUP_ENABLED` / `CREDITS_SIGNUP_AMOUNT`
 - `CREDITS_DAILY_CHECKIN_ENABLED` / `CREDITS_DAILY_CHECKIN_AMOUNT`
-- `CREDITS_REFERRAL_ENABLED` / `CREDITS_REFERRAL_INVITER_AMOUNT` / `CREDITS_REFERRAL_INVITEE_AMOUNT`
+- `AFF_ENABLED` / `AFF_INVITER_CREDIT_AMOUNT` / `AFF_INVITEE_CREDIT_AMOUNT`
 - `CREDITS_HISTORY_RETENTION_DAYS`
 - `PAYMENT_ENABLED`
 - `PAYMENT_PROVIDERS` / `PAYMENT_DEFAULT_PROVIDER` / `PAYMENT_PROVIDER_COUNTRY_OVERRIDES`
@@ -90,6 +90,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Database and service code store credit amounts as integer units where `1 credit = 1_000_000 units`
 - Do not use floating point numbers for credit balance, credit entries, credit transactions, redemption codes, or payment credit grants
 - Payment `price_amount` remains provider minor currency units and must not be mixed with credit units
+- Affiliate invite relationships live in `src/aff/`; credits only own wallet ledger, transactions, daily check-in, redemption codes, expiry, and deduction
 
 **Config add and read rules**:
 - When adding a new runtime config key, add it to `wrangler.jsonc.tpl` `vars` first

@@ -3,10 +3,12 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer, emailOTP } from 'better-auth/plugins'
 import type { AppDb } from '../../db'
 import { newEmailClients, type EmailClients } from '../../email'
+import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
 import { parseDecimal } from '../../lib/decimal'
 
 export function authCore(env: Env, db: AppDb) {
+  const aff = new AffService(db)
   const credits = new CreditsService(db)
   const emailOtpPlugin = buildEmailOtp(env)
   const plugins = emailOtpPlugin ? [bearer(), emailOtpPlugin] : [bearer()]
@@ -23,11 +25,11 @@ export function authCore(env: Env, db: AppDb) {
           before: async (
             userData: Record<string, unknown>
           ): Promise<{ data: Record<string, unknown> }> => {
-            const referralCode = await credits.createReferralCode()
+            const affCode = await aff.createCode()
             return {
               data: {
                 ...userData,
-                referralCode
+                affCode
               }
             }
           },

@@ -6,7 +6,7 @@ interface PublicConfigResponse {
 	credits_signup_amount: string
 	credits_daily_checkin_enabled: boolean
 	credits_daily_checkin_amount: string
-	credits_referral_enabled: boolean
+	aff_enabled: boolean
 }
 
 type E2EEnv = {
@@ -130,7 +130,7 @@ describe('credits api e2e', () => {
 					typeof payload.credits_signup_amount === 'string' &&
 					typeof payload.credits_daily_checkin_enabled === 'boolean' &&
 					typeof payload.credits_daily_checkin_amount === 'string' &&
-					typeof payload.credits_referral_enabled === 'boolean'
+					typeof payload.aff_enabled === 'boolean'
 			}
 		}
 

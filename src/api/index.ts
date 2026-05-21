@@ -9,7 +9,6 @@ import {
 	listBetaCodesHandler
 } from './handler/beta'
 import {
-	bindReferralHandler,
 	dailyCheckinHandler,
 	generateCreditCodesHandler,
 	grantCreditsHandler,
@@ -18,6 +17,7 @@ import {
 	listCreditTransactionsHandler,
 	redeemCreditCodeHandler
 } from './handler/credits'
+import { bindAffHandler, getAffSummaryHandler } from './handler/aff'
 import { listFeedbacksHandler, submitFeedbackHandler } from './handler/feedback'
 import {
 	createNotificationHandler,
@@ -76,7 +76,7 @@ publicApi.post('/get_public_config', (ctx): Response => {
 		credits_signup_amount: formatDecimal(parseDecimal(env.CREDITS_SIGNUP_AMOUNT)),
 		credits_daily_checkin_enabled: String(env.CREDITS_DAILY_CHECKIN_ENABLED) === 'true',
 		credits_daily_checkin_amount: formatDecimal(parseDecimal(env.CREDITS_DAILY_CHECKIN_AMOUNT)),
-		credits_referral_enabled: String(env.CREDITS_REFERRAL_ENABLED) === 'true',
+		aff_enabled: String(env.AFF_ENABLED) === 'true',
 		payment_enabled: String(env.PAYMENT_ENABLED) === 'true'
 	})
 })
@@ -109,7 +109,8 @@ userApi.post(
 	listCreditTransactionsHandler
 )
 userApi.post('/daily_checkin', authMiddleware, betaGateMiddleware, dailyCheckinHandler)
-userApi.post('/bind_referral', authMiddleware, betaGateMiddleware, bindReferralHandler)
+userApi.post('/get_aff_summary', authMiddleware, betaGateMiddleware, getAffSummaryHandler)
+userApi.post('/bind_aff', authMiddleware, betaGateMiddleware, bindAffHandler)
 userApi.post('/redeem_credit_code', authMiddleware, betaGateMiddleware, redeemCreditCodeHandler)
 userApi.post('/submit_feedback', authMiddleware, betaGateMiddleware, submitFeedbackHandler)
 userApi.post('/list_notifications', authMiddleware, betaGateMiddleware, listNotificationsHandler)

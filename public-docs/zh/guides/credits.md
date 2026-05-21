@@ -1,6 +1,6 @@
 ---
 title: 积分系统
-description: 积分余额、签到、邀请、兑换码和过期配置
+description: 积分余额、签到、兑换码和过期配置
 group: 指南
 order: 10
 ---
@@ -17,7 +17,6 @@ OPC Stack 内置积分系统，适合 AI 调用、生成任务、额度赠送等
 - 查询积分流水
 - 注册赠送积分
 - 每日签到赠送积分
-- 邀请奖励
 - 兑换码充值
 - 后台补发积分
 - 积分过期
@@ -33,11 +32,6 @@ CREDITS_SIGNUP_AMOUNT=100
 # Daily checkin reward
 CREDITS_DAILY_CHECKIN_ENABLED=true
 CREDITS_DAILY_CHECKIN_AMOUNT=10
-
-# Referral reward
-CREDITS_REFERRAL_ENABLED=true
-CREDITS_REFERRAL_INVITER_AMOUNT=50
-CREDITS_REFERRAL_INVITEE_AMOUNT=20
 
 # Cleanup old credit_transactions
 CREDITS_HISTORY_RETENTION_DAYS=90
@@ -64,7 +58,7 @@ execute business
 deduct credits after success
 ```
 
-业务失败不会扣积分。并发请求可能让余额扣成负数，后续注册赠送、签到、邀请、兑换码或后台补发会先抵消负余额。
+业务失败不会扣积分。并发请求可能让余额扣成负数，后续注册赠送、签到、aff 奖励、兑换码或后台补发会先抵消负余额。
 
 ## API
 
@@ -80,10 +74,7 @@ POST /api/get_credit_summary
 {
   "balance": "100.000000",
   "daily_checked_in": false,
-  "daily_checkin_amount": "10.000000",
-  "referral_enabled": true,
-  "referral_code": "ABC12345",
-  "invited_count": 2
+  "daily_checkin_amount": "10.000000"
 }
 ```
 
@@ -135,22 +126,6 @@ POST /api/daily_checkin
 ```
 
 重复签到返回 `409 DAILY_CHECKIN_ALREADY_DONE`。
-
-### 绑定邀请关系
-
-```http
-POST /api/bind_referral
-```
-
-请求：
-
-```json
-{
-  "referral_code": "ABC12345"
-}
-```
-
-一个用户只能绑定一次邀请关系。
 
 ### 兑换码充值
 
@@ -257,7 +232,7 @@ POST /api/admin/grant_credits
 ```text
 user.create.before
   ↓
-generate referral_code
+generate aff_code
   ↓
 insert user
   ↓

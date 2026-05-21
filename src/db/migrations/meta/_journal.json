@@ -36,6 +36,13 @@
       "when": 1778120209290,
       "tag": "0004_nervous_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1779333460291,
+      "tag": "0006_handy_nightmare",
+      "breakpoints": true
     }
   ]
 }

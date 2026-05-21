@@ -10,11 +10,6 @@ import {
 import { formatDecimal, parseDecimal } from '../../lib/decimal'
 import { PageRequestSchema, parseRequest } from '../../lib/request'
 
-export const BindReferralRequestSchema = z.object({
-	referral_code: z.string().min(1)
-})
-export type BindReferralRequest = z.infer<typeof BindReferralRequestSchema>
-
 export const ListCreditTransactionsRequestSchema = PageRequestSchema.extend({
 	type: z.string().min(1).optional(),
 	source_type: z.string().min(1).optional(),
@@ -59,23 +54,18 @@ export type AdminGrantCreditsRequest = z.infer<typeof AdminGrantCreditsRequestSc
 
 export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const env = ctx.env
-	const referralEnabled = env.CREDITS_REFERRAL_ENABLED === 'true'
 	const dailyCheckinAmount = toCreditUnits(env.CREDITS_DAILY_CHECKIN_AMOUNT)
 
 	try {
 		const credits = new CreditsService(ctx.get('db'))
 		const summary = await credits.getSummary({
 			userId: ctx.get('userId'),
-			dailyCheckinAmount,
-			referralEnabled
+			dailyCheckinAmount
 		})
 		return ctx.json({
 			balance: formatCreditAmount(summary.balance),
 			daily_checked_in: summary.dailyCheckedIn,
-			daily_checkin_amount: formatCreditAmount(summary.dailyCheckinAmount),
-			referral_enabled: summary.referralEnabled,
-			referral_code: summary.referralCode,
-			invited_count: summary.invitedCount
+			daily_checkin_amount: formatCreditAmount(summary.dailyCheckinAmount)
 		})
 	} catch (error) {
 		if (error instanceof CreditsError && error.code === 'CREDIT_USER_NOT_FOUND') {
@@ -134,45 +124,6 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 	} catch (error) {
 		if (error instanceof CreditsError && error.code === 'DAILY_CHECKIN_ALREADY_DONE') {
 			return ctx.json({ code: error.code }, 409)
-		}
-		throw error
-	}
-}
-
-export async function bindReferralHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const env = ctx.env
-	if (env.CREDITS_REFERRAL_ENABLED !== 'true') {
-		return ctx.json({})
-	}
-
-	const req = await parseRequest(ctx, BindReferralRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REFERRAL_CODE' }, 400)
-	}
-
-	const inviterAmount = toCreditUnits(env.CREDITS_REFERRAL_INVITER_AMOUNT)
-	const inviteeAmount = toCreditUnits(env.CREDITS_REFERRAL_INVITEE_AMOUNT)
-	if (inviterAmount <= 0 || inviteeAmount <= 0) {
-		return ctx.json({ code: 'INVALID_REFERRAL_AMOUNT' }, 400)
-	}
-
-	try {
-		const credits = new CreditsService(ctx.get('db'))
-		await credits.bindReferral({
-			inviteeUserId: ctx.get('userId'),
-			referralCode: req.referral_code,
-			inviterAmount,
-			inviteeAmount
-		})
-		return ctx.json({})
-	} catch (error) {
-		if (error instanceof CreditsError) {
-			if (error.code === 'INVALID_REFERRAL_CODE') {
-				return ctx.json({ code: error.code }, 400)
-			}
-			if (error.code === 'REFERRAL_ALREADY_BOUND') {
-				return ctx.json({ code: error.code }, 409)
-			}
 		}
 		throw error
 	}

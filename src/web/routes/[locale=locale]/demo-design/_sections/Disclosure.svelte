@@ -45,7 +45,7 @@
 		<Accordion.Root type="multiple" class="w-full">
 			{#each [
 				{ value: "b1", trigger: "Authentication", content: "Better Auth with email OTP, Google OAuth, and beta-code gating." },
-				{ value: "b2", trigger: "Credits system", content: "Signup grants, daily check-in, referral rewards, redemption codes, and expiry." },
+				{ value: "b2", trigger: "Credits system", content: "Signup grants, daily check-in, affiliate rewards, redemption codes, and expiry" },
 				{ value: "b3", trigger: "Payment", content: "Dodo and Creem providers with country-based routing and webhook handling." },
 			] as item (item.value)}
 				<Accordion.Item value={item.value}>

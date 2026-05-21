@@ -69,8 +69,8 @@ export const creditTransaction = sqliteTable(
 	]
 )
 
-export const creditReferral = sqliteTable(
-	'credit_referrals',
+export const affReferral = sqliteTable(
+	'aff_referrals',
 	{
 		id: text('id').primaryKey(),
 		inviterUserId: text('inviter_user_id')
@@ -83,8 +83,8 @@ export const creditReferral = sqliteTable(
 		createdAt: integer('created_at').notNull()
 	},
 	(table) => [
-		index('credit_referrals_inviter_user_id_idx').on(table.inviterUserId),
-		check('credit_referrals_not_self_invite', sql`${table.inviterUserId} != ${table.inviteeUserId}`)
+		index('aff_referrals_inviter_user_id_idx').on(table.inviterUserId),
+		check('aff_referrals_not_self_invite', sql`${table.inviterUserId} != ${table.inviteeUserId}`)
 	]
 )
 
@@ -294,8 +294,8 @@ export type CreditEntry = typeof creditEntry.$inferSelect
 export type NewCreditEntry = typeof creditEntry.$inferInsert
 export type CreditTransaction = typeof creditTransaction.$inferSelect
 export type NewCreditTransaction = typeof creditTransaction.$inferInsert
-export type CreditReferral = typeof creditReferral.$inferSelect
-export type NewCreditReferral = typeof creditReferral.$inferInsert
+export type AffReferral = typeof affReferral.$inferSelect
+export type NewAffReferral = typeof affReferral.$inferInsert
 export type CreditRedemptionCode = typeof creditRedemptionCode.$inferSelect
 export type NewCreditRedemptionCode = typeof creditRedemptionCode.$inferInsert
 export type Feedback = typeof feedback.$inferSelect

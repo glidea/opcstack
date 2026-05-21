@@ -33,7 +33,7 @@ export function getServerPublicConfig(): PublicConfig {
 		credits_daily_checkin_amount: formatDecimal(
 			parseDecimal(serverConfig.CREDITS_DAILY_CHECKIN_AMOUNT)
 		),
-		credits_referral_enabled: String(serverConfig.CREDITS_REFERRAL_ENABLED) === 'true',
+		aff_enabled: String(serverConfig.AFF_ENABLED) === 'true',
 		payment_enabled: String(serverConfig.PAYMENT_ENABLED) === 'true'
 	}
 }

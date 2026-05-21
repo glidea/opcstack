@@ -1,7 +1,6 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
-	bindReferralHandler,
 	dailyCheckinHandler,
 	generateCreditCodesHandler,
 	grantCreditsHandler,
@@ -15,7 +14,6 @@ import { CreditsError } from '../../credits'
 
 const creditServiceMocks = vi.hoisted(() => {
 	return {
-		bindReferral: vi.fn(),
 		dailyCheckin: vi.fn(),
 		generateCodes: vi.fn(),
 		grant: vi.fn(),
@@ -44,7 +42,6 @@ describe('getCreditSummaryHandler', () => {
 	})
 
 	type GivenDetail = {
-		referralEnabled: string
 		dailyCheckinAmount: string
 		summaryErrorCode: string
 	}
@@ -53,7 +50,6 @@ describe('getCreditSummaryHandler', () => {
 		status: number
 		code: string
 		dailyCheckedIn: boolean
-		invitedCount: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -63,7 +59,6 @@ describe('getCreditSummaryHandler', () => {
 			when: 'calling getCreditSummaryHandler',
 			then: 'returns snake_case response',
 			givenDetail: {
-				referralEnabled: 'true',
 				dailyCheckinAmount: '10',
 				summaryErrorCode: ''
 			},
@@ -71,8 +66,7 @@ describe('getCreditSummaryHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				dailyCheckedIn: true,
-				invitedCount: 3
+				dailyCheckedIn: true
 			}
 		},
 		{
@@ -81,7 +75,6 @@ describe('getCreditSummaryHandler', () => {
 			when: 'calling getCreditSummaryHandler',
 			then: 'returns 404 with code',
 			givenDetail: {
-				referralEnabled: 'false',
 				dailyCheckinAmount: '0',
 				summaryErrorCode: 'CREDIT_USER_NOT_FOUND'
 			},
@@ -89,8 +82,7 @@ describe('getCreditSummaryHandler', () => {
 			thenExpected: {
 				status: 404,
 				code: 'CREDIT_USER_NOT_FOUND',
-				dailyCheckedIn: false,
-				invitedCount: 0
+				dailyCheckedIn: false
 			}
 		}
 	]
@@ -102,16 +94,12 @@ describe('getCreditSummaryHandler', () => {
 			vi.mocked(creditServiceMocks.getSummary).mockResolvedValue({
 				balance: 120_000_000,
 				dailyCheckedIn: true,
-				dailyCheckinAmount: 10_000_000,
-				referralEnabled: true,
-				referralCode: 'ABC12345',
-				invitedCount: 3
+				dailyCheckinAmount: 10_000_000
 			})
 		}
 
 		const ctx = createJsonContext({
 			env: {
-				CREDITS_REFERRAL_ENABLED: given.referralEnabled,
 				CREDITS_DAILY_CHECKIN_AMOUNT: given.dailyCheckinAmount
 			},
 			userId: 'u1',
@@ -122,13 +110,11 @@ describe('getCreditSummaryHandler', () => {
 		const payload = (await res.json()) as {
 			code?: string
 			daily_checked_in?: boolean
-			invited_count?: number
 		}
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			dailyCheckedIn: payload.daily_checked_in ?? false,
-			invitedCount: payload.invited_count ?? 0
+			dailyCheckedIn: payload.daily_checked_in ?? false
 		}
 	})
 })
@@ -247,166 +233,6 @@ describe('dailyCheckinHandler', () => {
 			status: res.status,
 			code: payload.code ?? '',
 			checkedIn: payload.checked_in ?? false
-		}
-	})
-})
-
-describe('bindReferralHandler', () => {
-	beforeEach(() => {
-		vi.clearAllMocks()
-	})
-
-	type GivenDetail = {
-		enabled: string
-		body: { referral_code: string } | null
-		inviterAmount: string
-		inviteeAmount: string
-		errorCode: string
-	}
-	type WhenDetail = Record<string, never>
-	type ThenExpected = {
-		status: number
-		code: string
-	}
-
-	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
-		{
-			scenario: 'skip bind when referral is disabled',
-			given: 'referral switch is false',
-			when: 'calling bindReferralHandler',
-			then: 'returns empty response',
-			givenDetail: {
-				enabled: 'false',
-				body: { referral_code: 'ABCD1234' },
-				inviterAmount: '50',
-				inviteeAmount: '20',
-				errorCode: ''
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 200,
-				code: ''
-			}
-		},
-		{
-			scenario: 'reject invalid request payload',
-			given: 'body parse failed',
-			when: 'calling bindReferralHandler',
-			then: 'returns invalid referral code',
-			givenDetail: {
-				enabled: 'true',
-				body: null,
-				inviterAmount: '50',
-				inviteeAmount: '20',
-				errorCode: ''
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 400,
-				code: 'INVALID_REFERRAL_CODE'
-			}
-		},
-		{
-			scenario: 'reject invalid referral reward config',
-			given: 'referral amount is zero',
-			when: 'calling bindReferralHandler',
-			then: 'returns invalid referral amount',
-			givenDetail: {
-				enabled: 'true',
-				body: { referral_code: 'ABCD1234' },
-				inviterAmount: '0',
-				inviteeAmount: '20',
-				errorCode: ''
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 400,
-				code: 'INVALID_REFERRAL_AMOUNT'
-			}
-		},
-		{
-			scenario: 'reject duplicated referral binding',
-			given: 'core bindReferral throws REFERRAL_ALREADY_BOUND',
-			when: 'calling bindReferralHandler',
-			then: 'returns conflict code',
-			givenDetail: {
-				enabled: 'true',
-				body: { referral_code: 'ABCD1234' },
-				inviterAmount: '50',
-				inviteeAmount: '20',
-				errorCode: 'REFERRAL_ALREADY_BOUND'
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 409,
-				code: 'REFERRAL_ALREADY_BOUND'
-			}
-		},
-		{
-			scenario: 'reject invalid referral code from core',
-			given: 'core bindReferral throws INVALID_REFERRAL_CODE',
-			when: 'calling bindReferralHandler',
-			then: 'returns bad request code',
-			givenDetail: {
-				enabled: 'true',
-				body: { referral_code: 'ABCD1234' },
-				inviterAmount: '50',
-				inviteeAmount: '20',
-				errorCode: 'INVALID_REFERRAL_CODE'
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 400,
-				code: 'INVALID_REFERRAL_CODE'
-			}
-		},
-		{
-			scenario: 'bind referral successfully',
-			given: 'core bindReferral succeeds',
-			when: 'calling bindReferralHandler',
-			then: 'returns empty response',
-			givenDetail: {
-				enabled: 'true',
-				body: { referral_code: 'ABCD1234' },
-				inviterAmount: '50',
-				inviteeAmount: '20',
-				errorCode: ''
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 200,
-				code: ''
-			}
-		}
-	]
-
-	runCases(cases, async (given) => {
-		if (given.errorCode !== '') {
-			vi.mocked(creditServiceMocks.bindReferral).mockRejectedValue(new CreditsError(given.errorCode))
-		} else {
-			vi.mocked(creditServiceMocks.bindReferral).mockResolvedValue({
-				inviterUserId: 'u2',
-				inviteeUserId: 'u1',
-				inviterBalance: 100,
-				inviteeBalance: 50
-			})
-		}
-
-		const ctx = createJsonContext({
-			env: {
-				CREDITS_REFERRAL_ENABLED: given.enabled,
-				CREDITS_REFERRAL_INVITER_AMOUNT: given.inviterAmount,
-				CREDITS_REFERRAL_INVITEE_AMOUNT: given.inviteeAmount
-			},
-			userId: 'u1',
-			db: {},
-			body: given.body
-		})
-		const res = await bindReferralHandler(ctx)
-		const payload = (await res.json()) as { code?: string }
-		return {
-			status: res.status,
-			code: payload.code ?? ''
 		}
 	})
 })

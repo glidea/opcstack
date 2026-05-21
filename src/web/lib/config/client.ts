@@ -10,7 +10,7 @@ export type PublicConfig = {
 	credits_signup_amount: string
 	credits_daily_checkin_enabled: boolean
 	credits_daily_checkin_amount: string
-	credits_referral_enabled: boolean
+	aff_enabled: boolean
 	payment_enabled: boolean
 }
 
