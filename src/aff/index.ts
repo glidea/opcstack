@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm'
-import type { AppDb } from '../db'
+import { runRawD1Batch, type AppDb } from '../db'
 import { affReferral } from '../db/schema'
 import { user } from '../db/schema.auth'
 import { addUnits } from '../lib/decimal'
@@ -136,7 +136,7 @@ export class AffService {
 		const inviteeSourceId: string = `${AFF_TRANSACTION_TYPE_INVITEE}:${affId}`
 
 		try {
-			await this.db.batch([
+			await runRawD1Batch(this.db, [
 				this.db.run(sql`
         INSERT INTO aff_referrals (id, inviter_user_id, invitee_user_id, created_at)
         VALUES (${affId}, ${inviter.id}, ${input.inviteeUserId}, ${nowMs})

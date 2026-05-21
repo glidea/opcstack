@@ -229,6 +229,24 @@ type AffMockDb = AppDb & {
 	_state: AffMockState
 }
 
+type MockRawRunQuery = {
+	getQuery: () => {
+		sql: string
+		params: unknown[]
+	}
+}
+
+function createMockRawRunQuery(payload: unknown): MockRawRunQuery {
+	return {
+		getQuery: () => {
+			return {
+				sql: String(payload),
+				params: [payload]
+			}
+		}
+	}
+}
+
 function createAffMockDb(input: {
 	userExists: boolean
 	affCode: string | null
@@ -280,8 +298,8 @@ function createAffMockDb(input: {
 				}
 			}
 		},
-		run: (payload: unknown): unknown => {
-			return payload
+		run: (payload: unknown): MockRawRunQuery => {
+			return createMockRawRunQuery(payload)
 		},
 		batch: async (items: unknown[]): Promise<unknown[]> => {
 			state.batchItems = items
@@ -289,6 +307,25 @@ function createAffMockDb(input: {
 				throw new Error(input.batchErrorMessage)
 			}
 			return []
+		},
+		$client: {
+			prepare: (query: string): { bind: (...params: unknown[]) => unknown } => {
+				return {
+					bind: (...params: unknown[]) => {
+						return {
+							query,
+							params
+						}
+					}
+				}
+			},
+			batch: async (items: unknown[]): Promise<unknown[]> => {
+				state.batchItems = items
+				if (input.batchErrorMessage) {
+					throw new Error(input.batchErrorMessage)
+				}
+				return []
+			}
 		}
 	} as unknown as AffMockDb
 

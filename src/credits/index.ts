@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, isNotNull, isNull, lt, lte, sql, type SQL } from 'drizzle-orm'
-import type { AppDb } from '../db'
+import { runRawD1Batch, type AppDb } from '../db'
 import { creditEntry, creditRedemptionCode, creditTransaction } from '../db/schema'
 import { user } from '../db/schema.auth'
 import { addUnits, subtractUnits } from '../lib/decimal'
@@ -189,6 +189,7 @@ export interface EnsureEnoughCreditsResult {
 export interface DeductCreditsResult {
 	balance: number
 	deductedAmount: number
+	duplicated: boolean
 }
 
 export interface ExpireCreditsResult {
@@ -219,75 +220,131 @@ export class CreditsService {
 	async grant(input: GrantCreditsInput): Promise<GrantCreditsResult> {
 		validateGrantAmount(input.amount)
 
-		const userRow = await this.db.query.user.findFirst({
-			columns: {
-				id: true,
-				creditBalance: true
-			},
-			where: eq(user.id, input.userId)
-		})
-		if (!userRow) {
+		const nowMs = input.nowMs ?? Date.now()
+		const entryId = crypto.randomUUID()
+		const transactionId = crypto.randomUUID()
+		const expiresAt = input.expiresAt ?? null
+		const description = input.description ?? null
+
+		const batchResults = await runRawD1Batch(this.db, [
+			this.db.run(sql`
+        INSERT INTO credit_entries (
+          id,
+          user_id,
+          amount,
+          remaining_amount,
+          source_type,
+          source_id,
+          expires_at,
+          created_at
+        )
+        SELECT
+          ${entryId},
+          ${input.userId},
+          ${input.amount},
+          0,
+          ${input.sourceType},
+          ${input.sourceId},
+          ${expiresAt},
+          ${nowMs}
+        FROM "user"
+        WHERE id = ${input.userId}
+          AND NOT EXISTS (
+            SELECT 1
+            FROM credit_entries
+            WHERE source_type = ${input.sourceType}
+              AND source_id = ${input.sourceId}
+          )
+        ON CONFLICT(source_type, source_id) DO NOTHING
+      `),
+			this.db.run(sql`
+        UPDATE "user"
+        SET credit_balance = credit_balance + ${input.amount}
+        WHERE id = ${input.userId}
+          AND EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
+      `),
+			this.db.run(sql`
+        UPDATE credit_entries
+        SET remaining_amount = (
+          SELECT
+            CASE
+              WHEN credit_balance <= 0 THEN 0
+              WHEN credit_balance >= ${input.amount} THEN ${input.amount}
+              ELSE credit_balance
+            END
+          FROM "user"
+          WHERE id = ${input.userId}
+        )
+        WHERE id = ${entryId}
+      `),
+			this.db.run(sql`
+        INSERT INTO credit_transactions (
+          id,
+          user_id,
+          type,
+          amount,
+          balance_after,
+          source_type,
+          source_id,
+          description,
+          expires_at,
+          created_at
+        )
+        SELECT
+          ${transactionId},
+          ${input.userId},
+          ${input.type},
+          ${input.amount},
+          credit_balance,
+          ${input.sourceType},
+          ${input.sourceId},
+          ${description},
+          ${expiresAt},
+          ${nowMs}
+        FROM "user"
+        WHERE id = ${input.userId}
+          AND EXISTS (SELECT 1 FROM credit_entries WHERE id = ${entryId})
+      `)
+		])
+
+		if (readBatchChanges(batchResults[0]) === 0) {
+			const userRow = await this.db.query.user.findFirst({
+				columns: {
+					id: true,
+					creditBalance: true
+				},
+				where: eq(user.id, input.userId)
+			})
+			if (!userRow) {
+				throw new CreditsError('CREDIT_USER_NOT_FOUND')
+			}
+			return {
+				balance: userRow.creditBalance,
+				entryId: '',
+				transactionId: '',
+				entryRemainingAmount: 0,
+				duplicated: true
+			}
+		}
+
+		const rows = await this.db
+			.select({
+				balance: user.creditBalance,
+				entryRemainingAmount: creditEntry.remainingAmount
+			})
+			.from(user)
+			.innerJoin(creditEntry, eq(creditEntry.id, entryId))
+			.where(eq(user.id, input.userId))
+		const row = rows[0]
+		if (!row) {
 			throw new CreditsError('CREDIT_USER_NOT_FOUND')
 		}
 
-		const nowMs = input.nowMs ?? Date.now()
-		const currentBalance = userRow.creditBalance
-		const nextBalance = addUnits(currentBalance, input.amount)
-		const debtToRepay = currentBalance < 0 ? Math.min(-currentBalance, input.amount) : 0
-		const remainingAmount = input.amount - debtToRepay
-
-		const entryId = crypto.randomUUID()
-		const transactionId = crypto.randomUUID()
-
-		try {
-			await this.db.batch([
-				this.db
-					.update(user)
-					.set({
-						creditBalance: nextBalance
-					})
-					.where(eq(user.id, input.userId)),
-				this.db.insert(creditEntry).values({
-					id: entryId,
-					userId: input.userId,
-					amount: input.amount,
-					remainingAmount,
-					sourceType: input.sourceType,
-					sourceId: input.sourceId,
-					expiresAt: input.expiresAt ?? null,
-					createdAt: nowMs
-				}),
-				this.db.insert(creditTransaction).values({
-					id: transactionId,
-					userId: input.userId,
-					type: input.type,
-					amount: input.amount,
-					balanceAfter: nextBalance,
-					sourceType: input.sourceType,
-					sourceId: input.sourceId,
-					description: input.description,
-					expiresAt: input.expiresAt ?? null,
-					createdAt: nowMs
-				})
-			])
-		} catch (error) {
-			if (isDuplicatedGrantError(error)) {
-				return {
-					balance: currentBalance,
-					entryId: '',
-					transactionId: '',
-					entryRemainingAmount: 0,
-					duplicated: true
-				}
-			}
-			throw error
-		}
-
 		return {
-			balance: nextBalance,
+			balance: row.balance,
 			entryId,
 			transactionId,
-			entryRemainingAmount: remainingAmount,
+			entryRemainingAmount: row.entryRemainingAmount,
 			duplicated: false
 		}
 	}
@@ -568,7 +625,7 @@ export class CreditsService {
 		const entryId = crypto.randomUUID()
 		const transactionId = crypto.randomUUID()
 
-		const batchResults = await this.db.batch([
+		const batchResults = await runRawD1Batch(this.db, [
 			this.db.run(sql`
       INSERT INTO credit_entries (
         id,
@@ -680,49 +737,9 @@ export class CreditsService {
 		}
 
 		const nowMs = input.nowMs ?? Date.now()
-		const nextBalance = subtractUnits(userRow.creditBalance, input.amount)
-
-		const entries = await this.db.all<{
-			id: string
-			remaining_amount: number
-		}>(sql`
-    SELECT id, remaining_amount
-    FROM credit_entries
-    WHERE user_id = ${input.userId}
-      AND remaining_amount > 0
-    ORDER BY
-      CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END ASC,
-      expires_at ASC,
-      created_at ASC
-  `)
-
-		const updateStatements: Array<ReturnType<AppDb['run']>> = []
-		let remaining = input.amount
-		for (const entry of entries) {
-			if (remaining <= 0) {
-				break
-			}
-			const used = Math.min(entry.remaining_amount, remaining)
-			const nextRemaining = entry.remaining_amount - used
-			updateStatements.push(
-				this.db.run(sql`
-        UPDATE credit_entries
-        SET remaining_amount = ${nextRemaining}
-        WHERE id = ${entry.id}
-      `)
-			)
-			remaining -= used
-		}
-
 		const transactionId = crypto.randomUUID()
 		const transactionType = input.type ?? CREDIT_TRANSACTION_TYPE_CONSUME
 		const statements: [ReturnType<AppDb['run']>, ...Array<ReturnType<AppDb['run']>>] = [
-			this.db.run(sql`
-      UPDATE "user"
-      SET credit_balance = ${nextBalance}
-      WHERE id = ${input.userId}
-    `),
-			...updateStatements,
 			this.db.run(sql`
       INSERT INTO credit_transactions (
         id,
@@ -736,25 +753,103 @@ export class CreditsService {
         expires_at,
         created_at
       )
-      VALUES (
+      SELECT
         ${transactionId},
         ${input.userId},
         ${transactionType},
         ${-input.amount},
-        ${nextBalance},
+        credit_balance - ${input.amount},
         ${input.sourceType},
         ${input.sourceId},
         ${input.description ?? null},
         NULL,
         ${nowMs}
+      FROM "user"
+      WHERE id = ${input.userId}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM credit_transactions
+          WHERE source_type = ${input.sourceType}
+            AND source_id = ${input.sourceId}
+        )
+      ON CONFLICT(source_type, source_id) DO NOTHING
+    `),
+			this.db.run(sql`
+      WITH ordered_entries AS (
+        SELECT
+          id,
+          remaining_amount,
+          COALESCE(
+            SUM(remaining_amount) OVER (
+              ORDER BY
+                CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END ASC,
+                expires_at ASC,
+                created_at ASC,
+                id ASC
+              ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+            ),
+            0
+          ) AS previous_amount
+        FROM credit_entries
+        WHERE user_id = ${input.userId}
+          AND remaining_amount > 0
+      ),
+      used_entries AS (
+        SELECT
+          id,
+          CASE
+            WHEN previous_amount >= ${input.amount} THEN 0
+            WHEN previous_amount + remaining_amount <= ${input.amount} THEN remaining_amount
+            ELSE ${input.amount} - previous_amount
+          END AS used_amount
+        FROM ordered_entries
       )
+      UPDATE credit_entries
+      SET remaining_amount = remaining_amount - (
+        SELECT used_amount
+        FROM used_entries
+        WHERE used_entries.id = credit_entries.id
+      )
+      WHERE id IN (
+        SELECT id
+        FROM used_entries
+        WHERE used_amount > 0
+      )
+        AND EXISTS (SELECT 1 FROM credit_transactions WHERE id = ${transactionId})
+    `),
+			this.db.run(sql`
+      UPDATE "user"
+      SET credit_balance = credit_balance - ${input.amount}
+      WHERE id = ${input.userId}
+        AND EXISTS (SELECT 1 FROM credit_transactions WHERE id = ${transactionId})
+    `),
+			this.db.run(sql`
+      UPDATE credit_transactions
+      SET balance_after = (SELECT credit_balance FROM "user" WHERE id = ${input.userId})
+      WHERE id = ${transactionId}
     `)
 		]
 
-		await this.db.batch(statements)
+		const batchResults = await runRawD1Batch(this.db, statements)
+		const balanceRows = await this.db
+			.select({
+				creditBalance: user.creditBalance
+			})
+			.from(user)
+			.where(eq(user.id, input.userId))
+		const balance = balanceRows[0]?.creditBalance ?? subtractUnits(userRow.creditBalance, input.amount)
+		if (readBatchChanges(batchResults[0]) === 0) {
+			return {
+				balance,
+				deductedAmount: 0,
+				duplicated: true
+			}
+		}
+
 		return {
-			balance: nextBalance,
-			deductedAmount: input.amount
+			balance,
+			deductedAmount: input.amount,
+			duplicated: false
 		}
 	}
 
@@ -878,7 +973,7 @@ export class CreditsService {
 
 		const [firstStatement, ...restStatements] = statements
 		if (firstStatement) {
-			await this.db.batch([firstStatement, ...restStatements])
+			await runRawD1Batch(this.db, [firstStatement, ...restStatements])
 		}
 
 		return {
@@ -908,21 +1003,6 @@ function validateGrantAmount(amount: number): void {
 	if (!Number.isSafeInteger(amount) || amount <= 0) {
 		throw new CreditsError('INVALID_CREDIT_AMOUNT')
 	}
-}
-
-function isDuplicatedGrantError(error: unknown): boolean {
-	if (!(error instanceof Error)) {
-		return false
-	}
-	return (
-		error.message.includes('credit_entries_source_type_source_id_unique') ||
-		error.message.includes('UNIQUE constraint failed: credit_entries.source_type, credit_entries.source_id')
-	)
-}
-
-function generateReferralCode(): string {
-	const raw = crypto.randomUUID().replaceAll('-', '').slice(0, 8)
-	return raw.toUpperCase()
 }
 
 function getUtcDayRange(nowMs: number): { dayStartMs: number; dayEndMs: number } {

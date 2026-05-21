@@ -8,6 +8,7 @@ describe('CreditsService.grant', () => {
 		userBalance: number | null
 		amount: number
 		batchErrorMessage: string
+		duplicatedSource: boolean
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -16,7 +17,7 @@ describe('CreditsService.grant', () => {
 		entryRemainingAmount: number
 		duplicated: boolean
 		batchItemCount: number
-		insertedEntryRemainingAmount: number
+		changedRows: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -28,7 +29,8 @@ describe('CreditsService.grant', () => {
 			givenDetail: {
 				userBalance: 10,
 				amount: 30,
-				batchErrorMessage: ''
+				batchErrorMessage: '',
+				duplicatedSource: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -36,8 +38,8 @@ describe('CreditsService.grant', () => {
 				balance: 40,
 				entryRemainingAmount: 30,
 				duplicated: false,
-				batchItemCount: 3,
-				insertedEntryRemainingAmount: 30
+				batchItemCount: 4,
+				changedRows: 1
 			}
 		},
 		{
@@ -48,7 +50,8 @@ describe('CreditsService.grant', () => {
 			givenDetail: {
 				userBalance: -20,
 				amount: 10,
-				batchErrorMessage: ''
+				batchErrorMessage: '',
+				duplicatedSource: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -56,8 +59,8 @@ describe('CreditsService.grant', () => {
 				balance: -10,
 				entryRemainingAmount: 0,
 				duplicated: false,
-				batchItemCount: 3,
-				insertedEntryRemainingAmount: 0
+				batchItemCount: 4,
+				changedRows: 1
 			}
 		},
 		{
@@ -68,7 +71,8 @@ describe('CreditsService.grant', () => {
 			givenDetail: {
 				userBalance: -8,
 				amount: 20,
-				batchErrorMessage: ''
+				batchErrorMessage: '',
+				duplicatedSource: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -76,20 +80,20 @@ describe('CreditsService.grant', () => {
 				balance: 12,
 				entryRemainingAmount: 12,
 				duplicated: false,
-				batchItemCount: 3,
-				insertedEntryRemainingAmount: 12
+				batchItemCount: 4,
+				changedRows: 1
 			}
 		},
 		{
 			scenario: 'return duplicated when same source is granted again',
-			given: 'batch insert hits credit entry unique constraint',
+			given: 'conditional credit entry insert changes no rows',
 			when: 'CreditsService.grant is called',
 			then: 'returns duplicated result and keeps original balance',
 			givenDetail: {
 				userBalance: 10,
 				amount: 20,
-				batchErrorMessage:
-					'UNIQUE constraint failed: credit_entries.source_type, credit_entries.source_id'
+				batchErrorMessage: '',
+				duplicatedSource: true
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -97,8 +101,29 @@ describe('CreditsService.grant', () => {
 				balance: 10,
 				entryRemainingAmount: 0,
 				duplicated: true,
-				batchItemCount: 3,
-				insertedEntryRemainingAmount: 20
+				batchItemCount: 4,
+				changedRows: 0
+			}
+		},
+		{
+			scenario: 'grant credits through raw d1 batch',
+			given: 'drizzle raw batch cannot bind parameterized sql',
+			when: 'CreditsService.grant is called',
+			then: 'grant succeeds through d1 prepared batch',
+			givenDetail: {
+				userBalance: 10,
+				amount: 30,
+				batchErrorMessage: "Cannot read properties of undefined (reading 'bind')",
+				duplicatedSource: false
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				balance: 40,
+				entryRemainingAmount: 30,
+				duplicated: false,
+				batchItemCount: 4,
+				changedRows: 1
 			}
 		},
 		{
@@ -109,7 +134,8 @@ describe('CreditsService.grant', () => {
 			givenDetail: {
 				userBalance: 10,
 				amount: 0,
-				batchErrorMessage: ''
+				batchErrorMessage: '',
+				duplicatedSource: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -118,7 +144,7 @@ describe('CreditsService.grant', () => {
 				entryRemainingAmount: 0,
 				duplicated: false,
 				batchItemCount: 0,
-				insertedEntryRemainingAmount: 0
+				changedRows: 0
 			}
 		},
 		{
@@ -129,7 +155,8 @@ describe('CreditsService.grant', () => {
 			givenDetail: {
 				userBalance: null,
 				amount: 10,
-				batchErrorMessage: ''
+				batchErrorMessage: '',
+				duplicatedSource: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -137,8 +164,8 @@ describe('CreditsService.grant', () => {
 				balance: 0,
 				entryRemainingAmount: 0,
 				duplicated: false,
-				batchItemCount: 0,
-				insertedEntryRemainingAmount: 0
+				batchItemCount: 4,
+				changedRows: 0
 			}
 		}
 	]
@@ -160,15 +187,13 @@ describe('CreditsService.grant', () => {
 
 		try {
 			const result = await credits.grant(input)
-			const batchItems = db._state.batchItems
-			const entryInsert = batchItems[1] as { payload?: { remainingAmount?: number } }
 			return {
 				errorCode: '',
 				balance: result.balance,
 				entryRemainingAmount: result.entryRemainingAmount,
 				duplicated: result.duplicated,
-				batchItemCount: batchItems.length,
-				insertedEntryRemainingAmount: entryInsert.payload?.remainingAmount ?? 0
+				batchItemCount: db._state.batchItems.length,
+				changedRows: db._state.changes
 			}
 		} catch (error) {
 			return {
@@ -177,7 +202,7 @@ describe('CreditsService.grant', () => {
 				entryRemainingAmount: 0,
 				duplicated: false,
 				batchItemCount: db._state.batchItems.length,
-				insertedEntryRemainingAmount: 0
+				changedRows: db._state.changes
 			}
 		}
 	})
@@ -185,18 +210,40 @@ describe('CreditsService.grant', () => {
 
 type MockDbState = {
 	batchItems: unknown[]
+	changes: number
 }
 
 type MockDb = AppDb & {
 	_state: MockDbState
 }
 
+type MockRawRunQuery = {
+	getQuery: () => {
+		sql: string
+		params: unknown[]
+	}
+}
+
+function createMockRawRunQuery(payload: unknown): MockRawRunQuery {
+	return {
+		getQuery: () => {
+			return {
+				sql: String(payload),
+				params: [payload]
+			}
+		}
+	}
+}
+
 function createMockDb(given: {
 	userBalance: number | null
+	amount: number
 	batchErrorMessage: string
+	duplicatedSource: boolean
 }): MockDb {
 	const state: MockDbState = {
-		batchItems: []
+		batchItems: [],
+		changes: 0
 	}
 
 	const db = {
@@ -214,40 +261,81 @@ function createMockDb(given: {
 				}
 			}
 		},
-		update: (): {
-			set: (payload: unknown) => {
-				where: (_condition: unknown) => { kind: string; payload: unknown }
+		select: (): {
+			from: (_table: unknown) => {
+				innerJoin: (_table: unknown, _condition: unknown) => {
+					where: (_condition: unknown) => Promise<Array<{ balance: number; entryRemainingAmount: number }>>
+				}
 			}
 		} => {
 			return {
-				set: (payload: unknown) => {
+				from: () => {
 					return {
-						where: () => {
-							return { kind: 'update', payload }
+						innerJoin: () => {
+							return {
+								where: async () => {
+									const userBalance = given.userBalance ?? 0
+									return [
+										{
+											balance: userBalance + given.amount,
+											entryRemainingAmount: resolveTestEntryRemainingAmount(userBalance, given.amount)
+										}
+									]
+								}
+							}
 						}
 					}
 				}
 			}
 		},
-		insert: (): {
-			values: (payload: unknown) => { kind: string; payload: unknown }
-		} => {
-			return {
-				values: (payload: unknown) => {
-					return { kind: 'insert', payload }
-				}
-			}
+		run: (payload: unknown): MockRawRunQuery => {
+			return createMockRawRunQuery(payload)
 		},
 		batch: async (items: unknown[]): Promise<unknown[]> => {
 			state.batchItems = items
 			if (given.batchErrorMessage !== '') {
 				throw new Error(given.batchErrorMessage)
 			}
-			return []
+			state.changes = given.userBalance !== null && !given.duplicatedSource ? 1 : 0
+			return [
+				{
+					meta: {
+						changes: state.changes
+					}
+				}
+			]
+		},
+		$client: {
+			prepare: (query: string): { bind: (...params: unknown[]) => unknown } => {
+				return {
+					bind: (...params: unknown[]) => {
+						return {
+							query,
+							params
+						}
+					}
+				}
+			},
+			batch: async (items: unknown[]): Promise<unknown[]> => {
+				state.batchItems = items
+				state.changes = given.userBalance !== null && !given.duplicatedSource ? 1 : 0
+				return [
+					{
+						meta: {
+							changes: state.changes
+						}
+					}
+				]
+			}
 		}
 	} as unknown as MockDb
 
 	return db
+}
+
+function resolveTestEntryRemainingAmount(currentBalance: number, amount: number): number {
+	const debtToRepay = currentBalance < 0 ? Math.min(-currentBalance, amount) : 0
+	return amount - debtToRepay
 }
 
 describe('CreditsService.ensureEnough', () => {
@@ -327,6 +415,7 @@ describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 		errorCode: string
 		nextBalance: number
 		batchCalled: boolean
+		duplicated: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -345,7 +434,8 @@ describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 			thenExpected: {
 				errorCode: '',
 				nextBalance: -15,
-				batchCalled: true
+				batchCalled: true,
+				duplicated: false
 			}
 		},
 		{
@@ -363,13 +453,14 @@ describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 			thenExpected: {
 				errorCode: 'BUSINESS_FAILED',
 				nextBalance: 0,
-				batchCalled: false
+				batchCalled: false,
+				duplicated: false
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
-		const db = createDeductMockDb(given.initialBalance, given.entries)
+		const db = createDeductMockDb(given.initialBalance, given.entries, given.amount)
 		const credits = new CreditsService(db)
 
 		if (!given.executeThrows) {
@@ -383,7 +474,8 @@ describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 			return {
 				errorCode: '',
 				nextBalance: result.balance,
-				batchCalled: db._deductState.batchCalled
+				batchCalled: db._deductState.batchCalled,
+				duplicated: result.duplicated
 			}
 		}
 
@@ -401,13 +493,15 @@ describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 			return {
 				errorCode: '',
 				nextBalance: 0,
-				batchCalled: db._deductState.batchCalled
+				batchCalled: db._deductState.batchCalled,
+				duplicated: false
 			}
 		} catch (error) {
 			return {
 				errorCode: error instanceof CreditsError ? error.code : 'UNKNOWN',
 				nextBalance: 0,
-				batchCalled: db._deductState.batchCalled
+				batchCalled: db._deductState.batchCalled,
+				duplicated: false
 			}
 		}
 	})
@@ -415,6 +509,7 @@ describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 
 type DeductMockState = {
 	batchCalled: boolean
+	nextBalance: number
 }
 
 type DeductMockDb = AppDb & {
@@ -423,10 +518,12 @@ type DeductMockDb = AppDb & {
 
 function createDeductMockDb(
 	userBalance: number | null,
-	entries: Array<{ id: string; remaining_amount: number }> = []
+	entries: Array<{ id: string; remaining_amount: number }> = [],
+	deductAmount = 0
 ): DeductMockDb {
 	const state: DeductMockState = {
-		batchCalled: false
+		batchCalled: false,
+		nextBalance: userBalance ?? 0
 	}
 
 	return {
@@ -447,12 +544,59 @@ function createDeductMockDb(
 		all: async (): Promise<Array<{ id: string; remaining_amount: number }>> => {
 			return entries
 		},
-		run: (payload: unknown): unknown => {
-			return payload
+		run: (payload: unknown): MockRawRunQuery => {
+			return createMockRawRunQuery(payload)
 		},
 		batch: async (): Promise<unknown[]> => {
 			state.batchCalled = true
-			return []
+			state.nextBalance = (userBalance ?? 0) - deductAmount
+			return [
+				{
+					meta: {
+						changes: 1
+					}
+				}
+			]
+		},
+		$client: {
+			prepare: (query: string): { bind: (...params: unknown[]) => unknown } => {
+				return {
+					bind: (...params: unknown[]) => {
+						return {
+							query,
+							params
+						}
+					}
+				}
+			},
+			batch: async (): Promise<unknown[]> => {
+				state.batchCalled = true
+				state.nextBalance = (userBalance ?? 0) - deductAmount
+				return [
+					{
+						meta: {
+							changes: 1
+						}
+					}
+				]
+			}
+		},
+		select: (): {
+			from: (_table: unknown) => {
+				where: (_condition: unknown) => Promise<Array<{ creditBalance: number }>>
+			}
+		} => {
+			return {
+				from: () => {
+					return {
+						where: async () => [
+							{
+								creditBalance: state.nextBalance
+							}
+						]
+					}
+				}
+			}
 		}
 	} as unknown as DeductMockDb
 }
@@ -626,13 +770,30 @@ function createExpireMockDb(
 				}
 			}
 		},
-		run: (payload: unknown): unknown => {
-			return payload
+		run: (payload: unknown): MockRawRunQuery => {
+			return createMockRawRunQuery(payload)
 		},
 		batch: async (statements: unknown[]): Promise<unknown[]> => {
 			state.batchCalled = true
 			state.statements = statements
 			return []
+		},
+		$client: {
+			prepare: (query: string): { bind: (...params: unknown[]) => unknown } => {
+				return {
+					bind: (...params: unknown[]) => {
+						return {
+							query,
+							params
+						}
+					}
+				}
+			},
+			batch: async (statements: unknown[]): Promise<unknown[]> => {
+				state.batchCalled = true
+				state.statements = statements
+				return []
+			}
 		}
 	} as unknown as ExpireMockDb
 }
