@@ -145,18 +145,18 @@
 - 不改 provider adapter
 
 ## TODO 清单
-- [ ] 1. 在 `src/payment/index.test.ts` 增加半完成退款重试测试
-- [ ] 2. 在 `src/payment/index.test.ts` 增加相同退款重复投递不重复扣积分的测试
-- [ ] 3. 在 `src/payment/index.test.ts` 增加支付失败不覆盖 completed checkout 的测试
-- [ ] 4. 调整 `handleRefundSucceeded`，`creditsReversedAt` 不为空才跳过扣回
-- [ ] 5. 调整 `handlePaymentFailed`，只更新 pending checkout
-- [ ] 6. 确认争议事件只设置 disputed 状态和 dispute id
+- [x] 1. 在 `src/payment/index.test.ts` 增加半完成退款重试测试
+- [x] 2. 在 `src/payment/index.test.ts` 增加相同退款重复投递不重复扣积分的测试
+- [x] 3. 在 `src/payment/index.test.ts` 增加支付失败不覆盖 completed checkout 的测试
+- [x] 4. 调整 `handleRefundSucceeded`，`creditsReversedAt` 不为空才跳过扣回
+- [x] 5. 调整 `handlePaymentFailed`，只更新 pending checkout
+- [x] 6. 确认争议事件只设置 disputed 状态和 dispute id
 
 ## 验收测试步骤
-1. 运行 `pnpm test -- src/payment/index.test.ts`
-2. 半完成退款重试后 `creditsReversedAt` 被设置
-3. 同一 `providerRefundId` 不会重复扣余额
-4. completed checkout 收到失败事件后仍为 `completed`
+1. [x] 运行 `pnpm test -- src/payment/index.test.ts`
+2. [x] 半完成退款重试后 `creditsReversedAt` 被设置
+3. [x] 同一 `providerRefundId` 不会重复扣余额
+4. [x] completed checkout 收到失败事件后仍为 `completed`
 
 # Task-007: 校验 Provider 事件字段契约
 

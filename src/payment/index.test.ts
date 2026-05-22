@@ -1308,6 +1308,158 @@ describe('PaymentService.processWebhook subscription upgrade recovery', () => {
 	})
 })
 
+describe('PaymentService.processWebhook refund and failure recovery', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		caseName: 'duplicated_refund' | 'failed_completed_checkout' | 'dispute_identity'
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		checkoutStatus: string
+		transactionStatus: string
+		providerDisputeId: string
+		webhookEvents: number
+		deductCalls: number
+		creditsReversedAtSet: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'deduplicate refund credit reversal by reversed marker',
+			given: 'same refund is delivered with another webhook id after credits are reversed',
+			when: 'processing both refund webhooks',
+			then: 'deducts credits once and records both completed deliveries',
+			givenDetail: {
+				caseName: 'duplicated_refund'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: '',
+				transactionStatus: 'refunded',
+				providerDisputeId: '',
+				webhookEvents: 2,
+				deductCalls: 1,
+				creditsReversedAtSet: true
+			}
+		},
+		{
+			scenario: 'keep completed checkout when payment failed arrives later',
+			given: 'checkout order is already completed',
+			when: 'processing payment_failed webhook',
+			then: 'does not overwrite checkout status',
+			givenDetail: {
+				caseName: 'failed_completed_checkout'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: 'completed',
+				transactionStatus: '',
+				providerDisputeId: '',
+				webhookEvents: 1,
+				deductCalls: 0,
+				creditsReversedAtSet: false
+			}
+		},
+		{
+			scenario: 'record dispute identity on paid transaction',
+			given: 'paid transaction exists',
+			when: 'processing dispute_opened webhook',
+			then: 'marks transaction disputed and stores provider dispute id',
+			givenDetail: {
+				caseName: 'dispute_identity'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: '',
+				transactionStatus: 'disputed',
+				providerDisputeId: 'dp_1',
+				webhookEvents: 1,
+				deductCalls: 0,
+				creditsReversedAtSet: false
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const state = createMockState()
+		const service = createService(state)
+
+		if (given.caseName === 'duplicated_refund' || given.caseName === 'dispute_identity') {
+			state.paymentTransactions.push({
+				id: 'pt_1',
+				userId: 'u1',
+				checkoutOrderId: 'co_1',
+				subscriptionId: null,
+				type: 'credits_purchase',
+				status: 'paid',
+				productId: 'credits_1000',
+				provider: 'dodo',
+				providerPaymentId: 'pay_1',
+				providerRefundId: null,
+				providerDisputeId: null,
+				amount: 1000,
+				currency: 'USD',
+				creditsGranted: 1000,
+				creditsReversedAt: null,
+				paidAt: 1000,
+				refundedAt: null,
+				disputedAt: null,
+				createdAt: 1000,
+				updatedAt: 1000
+			})
+		}
+
+		if (given.caseName === 'duplicated_refund') {
+			state.queryQueue.paymentWebhookEvent.push(undefined, undefined)
+			state.provider.unwrapWebhook.mockResolvedValue(createRefundEvent())
+			await service.processWebhook('dodo', '{}', new Headers())
+			state.provider.unwrapWebhook.mockResolvedValue({
+				...createRefundEvent(),
+				webhookId: 'evt_refund_2'
+			})
+			await service.processWebhook('dodo', '{}', new Headers())
+		}
+
+		if (given.caseName === 'failed_completed_checkout') {
+			state.checkoutOrders.push({
+				id: 'co_1',
+				userId: 'u1',
+				type: 'credits_purchase',
+				status: 'completed',
+				productId: 'credits_1000',
+				provider: 'dodo',
+				providerProductId: 'dp_credits_1000',
+				providerCheckoutSessionId: 'cs_1',
+				providerPaymentId: 'pay_1',
+				checkoutUrl: 'https://pay.example.com/cs_1',
+				createdAt: 0,
+				updatedAt: 0
+			})
+			state.provider.unwrapWebhook.mockResolvedValue(createPaymentFailedEvent())
+			await service.processWebhook('dodo', '{}', new Headers())
+		}
+
+		if (given.caseName === 'dispute_identity') {
+			state.provider.unwrapWebhook.mockResolvedValue(createDisputeEvent())
+			await service.processWebhook('dodo', '{}', new Headers())
+		}
+
+		return {
+			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
+			transactionStatus: state.paymentTransactions[0]?.status ?? '',
+			providerDisputeId: state.paymentTransactions[0]?.providerDisputeId ?? '',
+			webhookEvents: state.webhookEvents.length,
+			deductCalls: vi.mocked(creditServiceMocks.deduct).mock.calls.length,
+			creditsReversedAtSet:
+				state.paymentTransactions[0]?.creditsReversedAt !== null &&
+				state.paymentTransactions[0]?.creditsReversedAt !== undefined
+		}
+	})
+})
+
 type MockState = {
 	users: Array<{ id: string; email: string }>
 	checkoutOrders: Array<typeof checkoutOrder.$inferSelect>
