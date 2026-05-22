@@ -58,7 +58,7 @@ export async function bindBetaCodeHandler(ctx: Context<ApiEnv>): Promise<Respons
 	}
 
 	const userId = ctx.get('userId')
-	const db = ctx.get('db')
+	const db = ctx.get('metaDb')
 	const updateResult = await db
 		.update(betaCode)
 		.set({
@@ -90,7 +90,7 @@ export async function generateBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Re
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const db = ctx.get('db')
+	const db = ctx.get('metaDb')
 	const now = Date.now()
 	const rows: NewBetaCode[] = []
 	let index = 0
@@ -121,7 +121,7 @@ export async function listBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Respon
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const db = ctx.get('db')
+	const db = ctx.get('metaDb')
 	const conditions: SQL[] = []
 	if (req.code) {
 		conditions.push(eq(betaCode.code, req.code))

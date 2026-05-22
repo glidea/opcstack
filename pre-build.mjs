@@ -1,6 +1,11 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import {
+	buildD1DatabaseBindings,
+	buildShardDescriptors,
+	parseShardCount
+} from './src/build/shards.mjs'
 import { resolveTurnstileConfig, selectTurnstileWidget } from './src/build/turnstile.mjs'
 
 const SVELTE_WORKER_PATH = '.svelte-kit/cloudflare/_worker.js'
@@ -242,6 +247,29 @@ function queueBindingName(queueName) {
 	return `Q_${queueName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`
 }
 
+function shellQuote(value) {
+	return `'${String(value).replaceAll("'", "'\\''")}'`
+}
+
+function buildShardRegistryUpsertSql(shard, databaseId, nowMs) {
+	return [
+		'INSERT INTO d1_shards',
+		'(id, binding_name, database_name, database_id, status, assigned_count, created_at, updated_at)',
+		'VALUES',
+		`(${sqlString(shard.id)}, ${sqlString(shard.bindingName)}, ${sqlString(shard.databaseName)}, ${sqlString(databaseId)}, 'active', 0, ${nowMs}, ${nowMs})`,
+		'ON CONFLICT(id) DO UPDATE SET',
+		`binding_name = ${sqlString(shard.bindingName)},`,
+		`database_name = ${sqlString(shard.databaseName)},`,
+		`database_id = ${sqlString(databaseId)},`,
+		"status = 'active',",
+		`updated_at = ${nowMs}`
+	].join(' ')
+}
+
+function sqlString(value) {
+	return `'${String(value).replaceAll("'", "''")}'`
+}
+
 function parseCronExpressions(rawValue) {
 	if (!rawValue) {
 		return []
@@ -431,11 +459,15 @@ async function main() {
 	const cronExpressions = parseCronExpressions(env.CRONS)
 	const r2Enabled = env.R2_ENABLED === 'true'
 	const turnstileEnabled = env.TURNSTILE_ENABLED === 'true'
+	const shardCount = parseShardCount(env.D1_SHARD_COUNT)
+	const shards = buildShardDescriptors(env.APP_NAME, shardCount)
 
 	console.log(`\nPre-build script (${isRemote ? 'REMOTE' : 'LOCAL'} mode)\n`)
 
 	let databaseId = '00000000-0000-0000-0000-000000000000'
-	const dbName = env.APP_NAME
+	const appName = env.APP_NAME
+	const metaDbName = `${env.APP_NAME}-meta`
+	const shardDatabaseIds = {}
 	let kvNamespaceId = '00000000000000000000000000000000'
 	let accountId = ''
 	let wranglerToken = ''
@@ -458,14 +490,14 @@ async function main() {
 
 		console.log('\nChecking D1 databases...')
 		let dbs = await listD1Databases(accountId, wranglerToken)
-		let existingDB = dbs.find((db) => db.name === dbName)
+		let existingDB = dbs.find((db) => db.name === metaDbName)
 		if (!existingDB) {
-			console.log(`Creating D1 database '${dbName}'...`)
-			await createD1Database(accountId, wranglerToken, dbName)
+			console.log(`Creating D1 database '${metaDbName}'...`)
+			await createD1Database(accountId, wranglerToken, metaDbName)
 			dbs = await listD1Databases(accountId, wranglerToken)
-			existingDB = dbs.find((db) => db.name === dbName)
+			existingDB = dbs.find((db) => db.name === metaDbName)
 		} else {
-			console.log(`Database '${dbName}' already exists.`)
+			console.log(`Database '${metaDbName}' already exists.`)
 		}
 
 		databaseId = existingDB?.uuid
@@ -475,6 +507,25 @@ async function main() {
 		}
 
 		console.log(`Database ID: ${databaseId}`)
+
+		for (const shard of shards) {
+			let existingShardDB = dbs.find((db) => db.name === shard.databaseName)
+			if (!existingShardDB) {
+				console.log(`Creating D1 database '${shard.databaseName}'...`)
+				await createD1Database(accountId, wranglerToken, shard.databaseName)
+				dbs = await listD1Databases(accountId, wranglerToken)
+				existingShardDB = dbs.find((db) => db.name === shard.databaseName)
+			} else {
+				console.log(`Database '${shard.databaseName}' already exists.`)
+			}
+
+			if (!existingShardDB?.uuid) {
+				console.error(`Failed to get D1 database ID for ${shard.databaseName}`)
+				process.exit(1)
+			}
+
+			shardDatabaseIds[shard.id] = existingShardDB.uuid
+		}
 	} else {
 		// Local mode can use a placeholder ID because D1 is addressed by name for local migrations
 		console.log(`Using local placeholder D1 database ID: ${databaseId}`)
@@ -483,6 +534,9 @@ async function main() {
 	if (isRemote) {
 		console.log('\nEnabling D1 read replication...')
 		await enableD1ReadReplication(accountId, databaseId, wranglerToken)
+		for (const shard of shards) {
+			await enableD1ReadReplication(accountId, shardDatabaseIds[shard.id], wranglerToken)
+		}
 		console.log('D1 read replication enabled')
 	}
 
@@ -510,13 +564,13 @@ async function main() {
 		let buckets = await listR2Buckets(accountId, wranglerToken)
 
 		const existingBucket = buckets.find((bucket) => {
-			return bucket.name === dbName || bucket.bucket_name === dbName
+			return bucket.name === appName || bucket.bucket_name === appName
 		})
 		if (!existingBucket) {
-			console.log(`Creating R2 bucket '${dbName}'...`)
-			await createR2Bucket(accountId, wranglerToken, dbName)
+			console.log(`Creating R2 bucket '${appName}'...`)
+			await createR2Bucket(accountId, wranglerToken, appName)
 		} else {
-			console.log(`R2 bucket '${dbName}' already exists.`)
+			console.log(`R2 bucket '${appName}' already exists.`)
 		}
 	}
 
@@ -525,18 +579,18 @@ async function main() {
 		let namespaces = await listKVNamespaces(accountId, wranglerToken)
 
 		let existingNamespace = namespaces.find((namespace) => {
-			return namespace.title === dbName || namespace.name === dbName
+			return namespace.title === appName || namespace.name === appName
 		})
 
 		if (!existingNamespace) {
-			console.log(`Creating KV namespace '${dbName}'...`)
-			await createKVNamespace(accountId, wranglerToken, dbName)
+			console.log(`Creating KV namespace '${appName}'...`)
+			await createKVNamespace(accountId, wranglerToken, appName)
 			namespaces = await listKVNamespaces(accountId, wranglerToken)
 			existingNamespace = namespaces.find((namespace) => {
-				return namespace.title === dbName || namespace.name === dbName
+				return namespace.title === appName || namespace.name === appName
 			})
 		} else {
-			console.log(`KV namespace '${dbName}' already exists.`)
+			console.log(`KV namespace '${appName}' already exists.`)
 		}
 
 		kvNamespaceId = existingNamespace?.id
@@ -610,12 +664,13 @@ async function main() {
 
 	config.vars = config.vars || {}
 	config.vars.R2_ENABLED = r2Enabled ? 'true' : 'false'
+	config.d1_databases = buildD1DatabaseBindings(appName, databaseId, shards, shardDatabaseIds)
 
 	if (r2Enabled) {
 		config.r2_buckets = [
 			{
 				binding: 'R2',
-				bucket_name: dbName
+				bucket_name: appName
 			}
 		]
 	}
@@ -635,7 +690,19 @@ async function main() {
 
 	console.log('\nApplying migrations...')
 	const migrateFlag = isRemote ? '--remote' : '--local'
-	run(`pnpm exec wrangler d1 migrations apply ${dbName} ${migrateFlag}`)
+	run(`pnpm exec wrangler d1 migrations apply ${metaDbName} ${migrateFlag}`)
+	for (const shard of shards) {
+		run(`pnpm exec wrangler d1 migrations apply ${shard.databaseName} ${migrateFlag}`)
+	}
+
+	console.log('\nUpserting shard registry...')
+	const nowMs = Date.now()
+	for (const shard of shards) {
+		const shardDatabaseId =
+			shardDatabaseIds[shard.id] ?? '00000000-0000-0000-0000-000000000000'
+		const sql = buildShardRegistryUpsertSql(shard, shardDatabaseId, nowMs)
+		run(`pnpm exec wrangler d1 execute ${metaDbName} ${migrateFlag} --command ${shellQuote(sql)}`)
+	}
 
 	console.log('\nPre-build completed\n')
 }

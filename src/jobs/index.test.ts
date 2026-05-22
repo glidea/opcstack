@@ -45,7 +45,7 @@ describe('handleScheduled', () => {
 
 	it('run expire and cleanup on 10-minute cron', async () => {
 		const env = {
-			DB: {},
+			META_DB: {},
 			CREDITS_HISTORY_RETENTION_DAYS: '30'
 		} as unknown as Env
 
@@ -55,7 +55,7 @@ describe('handleScheduled', () => {
 			{} as ExecutionContext
 		)
 
-		expect(getDb).toHaveBeenCalledWith(env.DB)
+		expect(getDb).toHaveBeenCalledWith(env.META_DB)
 		expect(creditsMock.expire).toHaveBeenCalledWith({
 			nowMs: 1890000000000,
 			limit: 20
@@ -68,7 +68,7 @@ describe('handleScheduled', () => {
 
 	it('use default retention days when env is invalid', async () => {
 		const env = {
-			DB: {},
+			META_DB: {},
 			CREDITS_HISTORY_RETENTION_DAYS: '0'
 		} as unknown as Env
 

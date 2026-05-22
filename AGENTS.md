@@ -27,7 +27,7 @@ src/
   api/
     index.ts            # API route registration
     handler/            # API handlers
-    middleware/         # Middleware auth beta-gate d1-session
+    middleware/         # Middleware auth beta-gate meta-db-session
   web/routes/           # SvelteKit pages
   db/
     schema.ts           # Drizzle schema
@@ -123,10 +123,12 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 ### 4. Database
 
 - D1 with Drizzle ORM
-- Get DB via `ctx.get('db')` request scoped
+- Meta DB uses the `META_DB` binding
+- Get Meta DB via `ctx.get('metaDb')` request scoped
+- Tenant shard registry lives in Meta DB tables `d1_shards` and `user_shards`
 - Modify schema by editing `src/db/schema.ts` then restart `pnpm dev` to auto generate and apply
 - D1 does not support full transactions; atomicity must be achieved using batch operations
-- For conditional writes such as redeem codes, daily check-in, idempotent grants, use `env.DB.batch()` with SQL-level conditions
+- For conditional writes such as redeem codes, daily check-in, idempotent grants, use `env.META_DB.batch()` with SQL-level conditions
 - Prefer `INSERT ... SELECT ... WHERE` for "insert only if condition matches"
 - Use `WHERE EXISTS (SELECT 1 FROM ...)` on later statements in the same batch to make them run only when the first conditional insert succeeded
 - Do not split these flows into `SELECT` then independent `UPDATE` or `INSERT`; concurrent requests can pass the same check
@@ -135,11 +137,11 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 
 **D1 Read Replication**:
 - Automatically enabled in remote mode
-- Bookmark mechanism:
-  - Request: prefers `x-d1-bookmark` header then `d1_bookmark` cookie
+- Meta DB bookmark mechanism:
+  - Request: prefers `x-d1-meta-bookmark` header then `d1_meta_bookmark` cookie
   - Response: writes back both header and cookie
   - Default: `first-primary`
-- Middleware: `src/api/middleware/d1-session.ts`
+- Middleware: `src/api/middleware/meta-db-session.ts`
 
 ### 5. R2 Storage
 
@@ -196,7 +198,8 @@ await client.putImage({ dir, imageBase64, mimeType })
 
 **Feedback**:
 - `POST /api/submit_feedback`: authenticated user submits `{ type, content }`
-- `POST /api/admin/list_feedbacks`: admin lists user feedback
+- Feedback rows are stored in the user's Tenant Shard DB
+- `POST /api/admin/list_feedbacks`: returns `501 FEEDBACK_FANOUT_NOT_IMPLEMENTED` until shard fan-out exists
 - `feedback.type` is a free string controlled by frontend product usage
 
 **Notifications**:
@@ -303,7 +306,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 
 1. Write handler in `src/api/handler/`
 2. Register route in `src/api/index.ts`: `api.post('/api/xxx', handler)`
-3. Use `ctx.get('userId')` and `ctx.get('db')`
+3. Use `ctx.get('userId')` and `ctx.get('metaDb')`
 
 ### Add a new page
 

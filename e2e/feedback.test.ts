@@ -10,16 +10,6 @@ type E2EEnv = {
 	E2E_EMAIL_FROM?: string
 }
 
-interface FeedbackListResponse {
-	items: Array<{
-		id: string
-		user_id: string
-		type: string
-		content: string
-		created_at: number
-	}>
-}
-
 const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
@@ -105,24 +95,24 @@ describe('feedback api e2e', () => {
 		type FlowWhen = Record<string, never>
 		type FlowThen = {
 			submitStatus: number
-			listStatus: number
-			listContainsFeedback: boolean
-			typeRoundTrip: boolean
+			tenantShardHeader: boolean
+			adminListStatus: number
+			adminListCode: string
 		}
 
 		const flowCases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 			{
-				scenario: 'user submits feedback and admin can list it',
+				scenario: 'user submits feedback to tenant shard',
 				given: 'a signed in user and admin secret',
-				when: 'submitting and listing feedback',
-				then: 'admin list contains the submitted feedback',
+				when: 'submitting feedback and listing globally',
+				then: 'submit succeeds and global list is not implemented',
 				givenDetail: {},
 				whenDetail: {},
 				thenExpected: {
 					submitStatus: 200,
-					listStatus: 200,
-					listContainsFeedback: true,
-					typeRoundTrip: true
+					tenantShardHeader: true,
+					adminListStatus: 501,
+					adminListCode: 'FEEDBACK_FANOUT_NOT_IMPLEMENTED'
 				}
 			}
 		]
@@ -150,16 +140,13 @@ describe('feedback api e2e', () => {
 					authorization: `Bearer ${adminSecret}`
 				}
 			)
-			const listPayload = (await listRes.json()) as FeedbackListResponse
-			const feedback = listPayload.items.find((item) => {
-				return item.content === content
-			})
+			const listPayload = (await listRes.json()) as { code: string }
 
 			return {
 				submitStatus: submitRes.status,
-				listStatus: listRes.status,
-				listContainsFeedback: Boolean(feedback),
-				typeRoundTrip: feedback?.type === feedbackType
+				tenantShardHeader: Boolean(submitRes.headers.get('x-d1-tenant-shard')),
+				adminListStatus: listRes.status,
+				adminListCode: listPayload.code
 			}
 		})
 	})

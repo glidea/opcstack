@@ -241,7 +241,7 @@ function createContextState(
 			APP_BASE_URL: 'http://localhost:5173'
 		},
 		values: {
-			db: {}
+			metaDb: {}
 		},
 		nextCalled: false,
 		next: async (): Promise<void> => {

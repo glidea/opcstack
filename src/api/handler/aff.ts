@@ -20,7 +20,7 @@ export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Respon
 	}
 
 	try {
-		const aff = new AffService(ctx.get('db'))
+		const aff = new AffService(ctx.get('metaDb'))
 		const summary = await aff.getSummary({
 			userId: ctx.get('userId')
 		})
@@ -52,7 +52,7 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const inviteeAmount: number = parseDecimal(env.AFF_INVITEE_CREDIT_AMOUNT)
 
 	try {
-		const aff = new AffService(ctx.get('db'))
+		const aff = new AffService(ctx.get('metaDb'))
 		await aff.bind({
 			inviteeUserId: ctx.get('userId'),
 			affCode: req.aff_code,

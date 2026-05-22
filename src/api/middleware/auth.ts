@@ -6,7 +6,7 @@ export const authMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
-	const session = await authCore(ctx.env, ctx.get('db')).api.getSession({
+	const session = await authCore(ctx.env, ctx.get('metaDb')).api.getSession({
 		headers: ctx.req.raw.headers
 	})
 	if (!session) {

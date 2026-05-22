@@ -56,7 +56,7 @@ export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<R
 		createdAt: Date.now()
 	}
 
-	await ctx.get('db').insert(notification).values(row)
+	await ctx.get('metaDb').insert(notification).values(row)
 	return ctx.json({ id: row.id })
 }
 
@@ -96,7 +96,7 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 		)`)
 	}
 
-	const db = ctx.get('db')
+	const db = ctx.get('metaDb')
 	const where = conditions.length > 0 ? and(...conditions) : undefined
 	const offset = (req.page - 1) * req.page_size
 	const totalRows = await db
@@ -117,7 +117,7 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 	const ids = rows.map((row) => {
 		return row.id
 	})
-	const readRows = await ctx.get('db').query.notificationRead.findMany({
+	const readRows = await ctx.get('metaDb').query.notificationRead.findMany({
 		columns: {
 			notificationId: true
 		},
@@ -156,6 +156,6 @@ export async function readNotificationHandler(ctx: Context<ApiEnv>): Promise<Res
 		readAt: Date.now()
 	}
 
-	await ctx.get('db').insert(notificationRead).values(row).onConflictDoNothing()
+	await ctx.get('metaDb').insert(notificationRead).values(row).onConflictDoNothing()
 	return ctx.json({})
 }

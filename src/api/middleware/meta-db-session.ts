@@ -2,19 +2,19 @@ import type { MiddlewareHandler } from 'hono'
 import { getDb } from '../../db'
 import type { ApiEnv } from '..'
 
-export const D1_BOOKMARK_HEADER = 'x-d1-bookmark'
-export const D1_BOOKMARK_COOKIE = 'd1_bookmark'
-export const D1_BOOKMARK_DEFAULT: D1SessionConstraint = 'first-primary'
+export const META_DB_BOOKMARK_HEADER = 'x-d1-meta-bookmark'
+export const META_DB_BOOKMARK_COOKIE = 'd1_meta_bookmark'
+export const META_DB_BOOKMARK_DEFAULT: D1SessionConstraint = 'first-primary'
 
-export const d1SessionMiddleware: MiddlewareHandler<ApiEnv> = async (
+export const metaDbSessionMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
-	const headerBookmark = ctx.req.header(D1_BOOKMARK_HEADER)
-	const cookieBookmark = readCookie(ctx.req.header('cookie'), D1_BOOKMARK_COOKIE)
+	const headerBookmark = ctx.req.header(META_DB_BOOKMARK_HEADER)
+	const cookieBookmark = readCookie(ctx.req.header('cookie'), META_DB_BOOKMARK_COOKIE)
 	const bookmark = resolveSessionBookmark(headerBookmark, cookieBookmark)
-	const session = ctx.env.DB.withSession(bookmark)
-	ctx.set('db', getDb(session))
+	const session = ctx.env.META_DB.withSession(bookmark)
+	ctx.set('metaDb', getDb(session))
 
 	await next()
 
@@ -23,7 +23,7 @@ export const d1SessionMiddleware: MiddlewareHandler<ApiEnv> = async (
 		return
 	}
 
-	ctx.res.headers.set(D1_BOOKMARK_HEADER, nextBookmark)
+	ctx.res.headers.set(META_DB_BOOKMARK_HEADER, nextBookmark)
 	ctx.res.headers.append(
 		'set-cookie',
 		buildBookmarkSetCookie(nextBookmark, shouldUseSecureCookie(ctx.env.APP_BASE_URL))
@@ -40,15 +40,15 @@ export function resolveSessionBookmark(
 	if (cookieBookmark && cookieBookmark.trim() !== '') {
 		return cookieBookmark.trim()
 	}
-	return D1_BOOKMARK_DEFAULT
+	return META_DB_BOOKMARK_DEFAULT
 }
 
 export function buildBookmarkSetCookie(bookmark: string, secure: boolean): string {
 	const encodedBookmark = encodeURIComponent(bookmark)
 	if (secure) {
-		return `${D1_BOOKMARK_COOKIE}=${encodedBookmark}; Path=/; HttpOnly; SameSite=Lax; Secure`
+		return `${META_DB_BOOKMARK_COOKIE}=${encodedBookmark}; Path=/; HttpOnly; SameSite=Lax; Secure`
 	}
-	return `${D1_BOOKMARK_COOKIE}=${encodedBookmark}; Path=/; HttpOnly; SameSite=Lax`
+	return `${META_DB_BOOKMARK_COOKIE}=${encodedBookmark}; Path=/; HttpOnly; SameSite=Lax`
 }
 
 function shouldUseSecureCookie(appBaseUrl: string): boolean {

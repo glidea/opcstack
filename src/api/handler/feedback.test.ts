@@ -4,18 +4,11 @@ import type { ApiEnv } from '..'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
 	listFeedbacksHandler,
-	submitFeedbackHandler,
-	type ListFeedbacksResponse
+	submitFeedbackHandler
 } from './feedback'
 
 type MockDb = {
 	insert: ReturnType<typeof vi.fn>
-	select: ReturnType<typeof vi.fn>
-	query: {
-		feedback: {
-			findMany: ReturnType<typeof vi.fn>
-		}
-	}
 }
 
 describe('submitFeedbackHandler', () => {
@@ -30,7 +23,8 @@ describe('submitFeedbackHandler', () => {
 	type ThenExpected = {
 		status: number
 		code: string
-		insertCalled: boolean
+		metaInsertCalled: boolean
+		tenantInsertCalled: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -46,7 +40,8 @@ describe('submitFeedbackHandler', () => {
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_REQUEST',
-				insertCalled: false
+				metaInsertCalled: false,
+				tenantInsertCalled: false
 			}
 		},
 		{
@@ -61,14 +56,16 @@ describe('submitFeedbackHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				insertCalled: true
+				metaInsertCalled: false,
+				tenantInsertCalled: true
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
-		const db = createMockDb()
-		db.insert.mockReturnValue({
+		const metaDb = createMockDb()
+		const tenantDb = createMockDb()
+		tenantDb.insert.mockReturnValue({
 			values: async () => {
 				return
 			}
@@ -76,7 +73,8 @@ describe('submitFeedbackHandler', () => {
 
 		const ctx = createJsonContext({
 			userId: 'u1',
-			db,
+			metaDb,
+			tenantDb,
 			body: given.body
 		})
 
@@ -85,7 +83,8 @@ describe('submitFeedbackHandler', () => {
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			insertCalled: db.insert.mock.calls.length === 1
+			metaInsertCalled: metaDb.insert.mock.calls.length === 1,
+			tenantInsertCalled: tenantDb.insert.mock.calls.length === 1
 		}
 	})
 })
@@ -102,8 +101,6 @@ describe('listFeedbacksHandler', () => {
 	type ThenExpected = {
 		status: number
 		code: string
-		items: ListFeedbacksResponse['items']
-		total: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -118,91 +115,52 @@ describe('listFeedbacksHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				code: 'INVALID_REQUEST',
-				items: [],
-				total: 0
+				code: 'INVALID_REQUEST'
 			}
 		},
 		{
-			scenario: 'list feedback rows successfully',
-			given: 'one feedback row exists',
+			scenario: 'reject global feedback list',
+			given: 'request is valid',
 			when: 'listing feedbacks',
-			then: 'returns snake case fields',
+			then: 'returns fanout not implemented',
 			givenDetail: {
 				body: {}
 			},
 			whenDetail: {},
 			thenExpected: {
-				status: 200,
-				code: '',
-				items: [
-					{
-						id: 'f1',
-						user_id: 'u1',
-						type: 'bug',
-						content: 'broken',
-						created_at: 123
-					}
-				],
-				total: 1
+				status: 501,
+				code: 'FEEDBACK_FANOUT_NOT_IMPLEMENTED'
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
-		const db = createMockDb()
-		db.query.feedback.findMany.mockResolvedValue([
-			{
-				id: 'f1',
-				userId: 'u1',
-				type: 'bug',
-				content: 'broken',
-				createdAt: 123
-			}
-		])
-
 		const ctx = createJsonContext({
 			userId: 'admin',
-			db,
+			metaDb: createMockDb(),
+			tenantDb: createMockDb(),
 			body: given.body
 		})
 
 		const res = await listFeedbacksHandler(ctx)
-		const payload = (await res.json()) as { code?: string } & Partial<ListFeedbacksResponse>
+		const payload = (await res.json()) as { code?: string }
 		return {
 			status: res.status,
-			code: payload.code ?? '',
-			items: payload.items ?? [],
-			total: payload.total ?? 0
+			code: payload.code ?? ''
 		}
 	})
 })
 
 function createMockDb(): MockDb {
 	return {
-		insert: vi.fn(),
-		select: vi.fn(() => {
-			return {
-				from: () => {
-					return {
-						where: async () => {
-							return [{ total: 1 }]
-						}
-					}
-				}
-			}
-		}),
-		query: {
-			feedback: {
-				findMany: vi.fn()
-			}
-		}
+		insert: vi.fn()
 	}
 }
 
 function createJsonContext(input: {
 	userId: string
-	db: unknown
+	metaDb: unknown
+	tenantDb: unknown
 	body: unknown
 }): Context<ApiEnv> {
 	const req = {
@@ -220,7 +178,10 @@ function createJsonContext(input: {
 			if (key === 'userId') {
 				return input.userId
 			}
-			return input.db
+			if (key === 'tenantDb') {
+				return input.tenantDb
+			}
+			return input.metaDb
 		},
 		json: (payload: unknown, status?: number): Response => {
 			return new Response(JSON.stringify(payload), {

@@ -11,7 +11,7 @@ export const betaGateMiddleware: MiddlewareHandler<ApiEnv> = async (
 		return next()
 	}
 
-	const db = ctx.get('db')
+	const db = ctx.get('metaDb')
 	const betaBinding = await db.query.betaCode.findFirst({
 		columns: { id: true },
 		where: eq(betaCode.usedBy, ctx.get('userId'))

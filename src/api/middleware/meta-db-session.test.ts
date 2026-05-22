@@ -1,10 +1,10 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
-	d1SessionMiddleware,
+	metaDbSessionMiddleware,
 	buildBookmarkSetCookie,
 	resolveSessionBookmark
-} from './d1-session'
+} from './meta-db-session'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 
@@ -91,7 +91,7 @@ describe('buildBookmarkSetCookie', () => {
 			},
 			whenDetail: {},
 			thenExpected: {
-				cookie: 'd1_bookmark=b-1; Path=/; HttpOnly; SameSite=Lax; Secure'
+				cookie: 'd1_meta_bookmark=b-1; Path=/; HttpOnly; SameSite=Lax; Secure'
 			}
 		},
 		{
@@ -105,7 +105,7 @@ describe('buildBookmarkSetCookie', () => {
 			},
 			whenDetail: {},
 			thenExpected: {
-				cookie: 'd1_bookmark=b-1; Path=/; HttpOnly; SameSite=Lax'
+				cookie: 'd1_meta_bookmark=b-1; Path=/; HttpOnly; SameSite=Lax'
 			}
 		}
 	]
@@ -116,7 +116,7 @@ describe('buildBookmarkSetCookie', () => {
 	})
 })
 
-describe('d1SessionMiddleware', () => {
+describe('metaDbSessionMiddleware', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 	})
@@ -137,13 +137,13 @@ describe('d1SessionMiddleware', () => {
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
 			scenario: 'use header bookmark and write back secure cookie',
-			given: 'x-d1-bookmark is present and app uses https',
+			given: 'x-d1-meta-bookmark is present and app uses https',
 			when: 'running d1 session middleware',
 			then: 'uses header bookmark and sets header plus secure cookie',
 			givenDetail: {
 				headers: {
-					'x-d1-bookmark': 'h-1',
-					cookie: 'd1_bookmark=c-1'
+					'x-d1-meta-bookmark': 'h-1',
+					cookie: 'd1_meta_bookmark=c-1'
 				},
 				responseBookmark: 'next-1',
 				appBaseUrl: 'https://app.example.com'
@@ -152,7 +152,7 @@ describe('d1SessionMiddleware', () => {
 			thenExpected: {
 				withSessionBookmark: 'h-1',
 				responseHeaderBookmark: 'next-1',
-				responseSetCookie: 'd1_bookmark=next-1; Path=/; HttpOnly; SameSite=Lax; Secure',
+				responseSetCookie: 'd1_meta_bookmark=next-1; Path=/; HttpOnly; SameSite=Lax; Secure',
 				dbSet: true
 			}
 		},
@@ -163,7 +163,7 @@ describe('d1SessionMiddleware', () => {
 			then: 'uses cookie bookmark and sets non-secure cookie',
 			givenDetail: {
 				headers: {
-					cookie: 'd1_bookmark=c-1'
+					cookie: 'd1_meta_bookmark=c-1'
 				},
 				responseBookmark: 'next-2',
 				appBaseUrl: 'http://localhost:5173'
@@ -172,7 +172,7 @@ describe('d1SessionMiddleware', () => {
 			thenExpected: {
 				withSessionBookmark: 'c-1',
 				responseHeaderBookmark: 'next-2',
-				responseSetCookie: 'd1_bookmark=next-2; Path=/; HttpOnly; SameSite=Lax',
+				responseSetCookie: 'd1_meta_bookmark=next-2; Path=/; HttpOnly; SameSite=Lax',
 				dbSet: true
 			}
 		}
@@ -192,13 +192,13 @@ describe('d1SessionMiddleware', () => {
 		const state = createContextState(given.headers, given.appBaseUrl, withSession)
 		const ctx = createContext(state)
 
-		await d1SessionMiddleware(ctx, state.next)
+		await metaDbSessionMiddleware(ctx, state.next)
 
 		return {
 			withSessionBookmark: String(withSession.mock.calls[0]?.[0] ?? ''),
-			responseHeaderBookmark: state.response.headers.get('x-d1-bookmark') ?? '',
+			responseHeaderBookmark: state.response.headers.get('x-d1-meta-bookmark') ?? '',
 			responseSetCookie: state.response.headers.get('set-cookie') ?? '',
-			dbSet: state.values['db'] !== undefined
+			dbSet: state.values['metaDb'] !== undefined
 		}
 	})
 })
@@ -207,7 +207,7 @@ type ContextState = {
 	headers: Headers
 	env: {
 		APP_BASE_URL: string
-		DB: {
+		META_DB: {
 			withSession: (bookmark: string) => {
 				prepare: ReturnType<typeof vi.fn>
 				batch: ReturnType<typeof vi.fn>
@@ -223,14 +223,14 @@ type ContextState = {
 function createContextState(
 	headers: Record<string, string>,
 	appBaseUrl: string,
-	withSession: ContextState['env']['DB']['withSession']
+	withSession: ContextState['env']['META_DB']['withSession']
 ): ContextState {
 	const reqHeaders = new Headers(headers)
 	return {
 		headers: reqHeaders,
 		env: {
 			APP_BASE_URL: appBaseUrl,
-			DB: {
+			META_DB: {
 				withSession
 			}
 		},

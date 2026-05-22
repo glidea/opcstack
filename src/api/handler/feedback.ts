@@ -1,9 +1,8 @@
-import { and, desc, eq, gte, lte, sql, type SQL } from 'drizzle-orm'
 import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
-import type { NewFeedback } from '../../db/schema'
-import { feedback } from '../../db/schema'
+import type { NewFeedback } from '../../db/schema.shard'
+import { feedback } from '../../db/schema.shard'
 import { PageRequestSchema, parseRequest } from '../../lib/request'
 
 export const SubmitFeedbackRequestSchema = z.object({
@@ -47,7 +46,7 @@ export async function submitFeedbackHandler(ctx: Context<ApiEnv>): Promise<Respo
 		createdAt: Date.now()
 	}
 
-	await ctx.get('db').insert(feedback).values(row)
+	await ctx.get('tenantDb').insert(feedback).values(row)
 	return ctx.json({ id: row.id })
 }
 
@@ -57,44 +56,5 @@ export async function listFeedbacksHandler(ctx: Context<ApiEnv>): Promise<Respon
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const conditions: SQL[] = []
-	if (req.user_id) {
-		conditions.push(eq(feedback.userId, req.user_id))
-	}
-	if (req.type) {
-		conditions.push(eq(feedback.type, req.type))
-	}
-	if (req.created_at_start !== undefined) {
-		conditions.push(gte(feedback.createdAt, req.created_at_start))
-	}
-	if (req.created_at_end !== undefined) {
-		conditions.push(lte(feedback.createdAt, req.created_at_end))
-	}
-
-	const db = ctx.get('db')
-	const where = conditions.length > 0 ? and(...conditions) : undefined
-	const offset = (req.page - 1) * req.page_size
-	const totalRows = await db
-		.select({ total: sql<number>`count(*)` })
-		.from(feedback)
-		.where(where)
-	const rows = await db.query.feedback.findMany({
-		where,
-		orderBy: [desc(feedback.createdAt)],
-		limit: req.page_size,
-		offset
-	})
-
-	return ctx.json({
-		items: rows.map((row) => {
-			return {
-				id: row.id,
-				user_id: row.userId,
-				type: row.type,
-				content: row.content,
-				created_at: row.createdAt
-			}
-		}),
-		total: Number(totalRows[0]?.total ?? 0)
-	} as ListFeedbacksResponse)
+	return ctx.json({ code: 'FEEDBACK_FANOUT_NOT_IMPLEMENTED' }, 501)
 }

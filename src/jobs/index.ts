@@ -23,7 +23,7 @@ export async function handleScheduled(
 
 export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 	'*/10 * * * *': async (controller, env): Promise<void> => {
-		const db = getDb(env.DB)
+		const db = getDb(env.META_DB)
 		const nowMs = controller.scheduledTime
 		const retentionDays = parseRetentionDays(env.CREDITS_HISTORY_RETENTION_DAYS)
 		const credits = new CreditsService(db)

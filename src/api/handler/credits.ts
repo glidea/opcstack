@@ -57,7 +57,7 @@ export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Res
 	const dailyCheckinAmount = toCreditUnits(env.CREDITS_DAILY_CHECKIN_AMOUNT)
 
 	try {
-		const credits = new CreditsService(ctx.get('db'))
+		const credits = new CreditsService(ctx.get('metaDb'))
 		const summary = await credits.getSummary({
 			userId: ctx.get('userId'),
 			dailyCheckinAmount
@@ -81,7 +81,7 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const credits = new CreditsService(ctx.get('db'))
+	const credits = new CreditsService(ctx.get('metaDb'))
 	const result = await credits.listTransactions({
 		userId: ctx.get('userId'),
 		limit: req.page_size,
@@ -111,7 +111,7 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 	}
 
 	try {
-		const credits = new CreditsService(ctx.get('db'))
+		const credits = new CreditsService(ctx.get('metaDb'))
 		const result = await credits.dailyCheckin({
 			userId: ctx.get('userId'),
 			amount
@@ -140,7 +140,7 @@ export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const credits = new CreditsService(ctx.get('db'))
+	const credits = new CreditsService(ctx.get('metaDb'))
 	const rows = await credits.generateCodes({
 		count: req.count,
 		amount,
@@ -170,7 +170,7 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const credits = new CreditsService(ctx.get('db'))
+	const credits = new CreditsService(ctx.get('metaDb'))
 	const result = await credits.listCodes({
 		limit: req.page_size,
 		offset: (req.page - 1) * req.page_size,
@@ -206,7 +206,7 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 	}
 
 	try {
-		const credits = new CreditsService(ctx.get('db'))
+		const credits = new CreditsService(ctx.get('metaDb'))
 		const result = await credits.redeemCode({
 			userId: ctx.get('userId'),
 			code: req.code
@@ -240,7 +240,7 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 	}
 
 	try {
-		const credits = new CreditsService(ctx.get('db'))
+		const credits = new CreditsService(ctx.get('metaDb'))
 		const result = await credits.grant({
 			userId: req.user_id,
 			type: CREDIT_TRANSACTION_TYPE_MANUAL_GRANT,

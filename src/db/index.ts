@@ -1,10 +1,15 @@
 import { drizzle, type DrizzleD1Database } from 'drizzle-orm/d1'
-import * as schema from './schema'
+import * as schema from './schema.meta'
 import * as authSchema from './schema.auth'
+import * as shardSchema from './schema.shard'
 
-const dbSchema = { ...schema, ...authSchema }
+export const dbSchema = { ...schema, ...authSchema }
+export const shardDbSchema = { ...shardSchema }
 
 export type AppDb = DrizzleD1Database<typeof dbSchema> & {
+	$client: D1RequestDb
+}
+export type ShardDb = DrizzleD1Database<typeof shardDbSchema> & {
 	$client: D1RequestDb
 }
 export type D1RequestDb = D1Database | D1DatabaseSession
@@ -12,6 +17,10 @@ export type D1RawRunQuery = ReturnType<AppDb['run']>
 
 export function getDb(db: D1RequestDb): AppDb {
 	return drizzle(db as D1Database, { schema: dbSchema })
+}
+
+export function getShardDb(db: D1RequestDb): ShardDb {
+	return drizzle(db as D1Database, { schema: shardDbSchema })
 }
 
 export async function runRawD1Batch(

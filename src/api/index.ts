@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { adminSecretMiddleware, authMiddleware } from './middleware/auth'
 import { emailAuthMiddleware } from './middleware/email-auth'
 import { betaGateMiddleware } from './middleware/beta-gate'
-import { d1SessionMiddleware } from './middleware/d1-session'
+import { metaDbSessionMiddleware } from './middleware/meta-db-session'
+import { tenantDbMiddleware } from './middleware/tenant-db'
 import {
 	bindBetaCodeHandler,
 	generateBetaCodesHandler,
@@ -37,19 +38,21 @@ import {
 } from './handler/payment'
 import { readR2ObjectHandler } from './handler/r2'
 import { authCore } from './auth'
-import type { AppDb } from '../db'
+import type { AppDb, ShardDb } from '../db'
 import { formatDecimal, parseDecimal } from '../lib/decimal'
 
 export type ApiEnv = {
 	Bindings: Env
 	Variables: {
 		userId: string
-		db: AppDb
+		metaDb: AppDb
+		tenantDb: ShardDb
+		tenantShardId: string
 	}
 }
 
 export const api: Hono<ApiEnv> = new Hono<ApiEnv>()
-api.use('/api/*', d1SessionMiddleware)
+api.use('/api/*', metaDbSessionMiddleware)
 
 const publicApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 publicApi.use('/auth/*', emailAuthMiddleware)
@@ -59,7 +62,7 @@ publicApi.get('/health', (ctx): Response => {
 })
 
 publicApi.all('/auth/*', async (ctx): Promise<Response> => {
-	const h = authCore(ctx.env, ctx.get('db')).handler
+	const h = authCore(ctx.env, ctx.get('metaDb')).handler
 	return h(ctx.req.raw)
 })
 
@@ -103,36 +106,25 @@ adminApi.post('/admin/create_notification', createNotificationHandler)
 adminApi.post('/admin/list_payment_transactions', listAdminPaymentTransactionsHandler)
 
 const userApi: Hono<ApiEnv> = new Hono<ApiEnv>()
-userApi.get('/r2/private/*', authMiddleware, betaGateMiddleware, readR2ObjectHandler)
-userApi.post('/get_credit_summary', authMiddleware, betaGateMiddleware, getCreditSummaryHandler)
+userApi.use('*', authMiddleware, betaGateMiddleware, tenantDbMiddleware)
+userApi.get('/r2/private/*', readR2ObjectHandler)
+userApi.post('/get_credit_summary', getCreditSummaryHandler)
 userApi.post(
 	'/list_credit_transactions',
-	authMiddleware,
-	betaGateMiddleware,
 	listCreditTransactionsHandler
 )
-userApi.post('/daily_checkin', authMiddleware, betaGateMiddleware, dailyCheckinHandler)
-userApi.post('/get_aff_summary', authMiddleware, betaGateMiddleware, getAffSummaryHandler)
-userApi.post('/bind_aff', authMiddleware, betaGateMiddleware, bindAffHandler)
-userApi.post('/redeem_credit_code', authMiddleware, betaGateMiddleware, redeemCreditCodeHandler)
-userApi.post('/submit_feedback', authMiddleware, betaGateMiddleware, submitFeedbackHandler)
-userApi.post('/list_notifications', authMiddleware, betaGateMiddleware, listNotificationsHandler)
-userApi.post('/read_notification', authMiddleware, betaGateMiddleware, readNotificationHandler)
-userApi.post(
-	'/create_payment_checkout',
-	authMiddleware,
-	betaGateMiddleware,
-	createPaymentCheckoutHandler
-)
-userApi.post('/get_subscription', authMiddleware, betaGateMiddleware, getSubscriptionHandler)
-userApi.post('/cancel_subscription', authMiddleware, betaGateMiddleware, cancelSubscriptionHandler)
-userApi.post('/upgrade_subscription', authMiddleware, betaGateMiddleware, upgradeSubscriptionHandler)
-userApi.post(
-	'/list_payment_transactions',
-	authMiddleware,
-	betaGateMiddleware,
-	listPaymentTransactionsHandler
-)
+userApi.post('/daily_checkin', dailyCheckinHandler)
+userApi.post('/get_aff_summary', getAffSummaryHandler)
+userApi.post('/bind_aff', bindAffHandler)
+userApi.post('/redeem_credit_code', redeemCreditCodeHandler)
+userApi.post('/submit_feedback', submitFeedbackHandler)
+userApi.post('/list_notifications', listNotificationsHandler)
+userApi.post('/read_notification', readNotificationHandler)
+userApi.post('/create_payment_checkout', createPaymentCheckoutHandler)
+userApi.post('/get_subscription', getSubscriptionHandler)
+userApi.post('/cancel_subscription', cancelSubscriptionHandler)
+userApi.post('/upgrade_subscription', upgradeSubscriptionHandler)
+userApi.post('/list_payment_transactions', listPaymentTransactionsHandler)
 
 api.route('/api', publicApi)
 api.route('/api', authOnlyApi)

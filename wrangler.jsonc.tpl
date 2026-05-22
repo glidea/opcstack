@@ -27,10 +27,10 @@
     },
     "d1_databases": [
         {
-            "binding": "DB",
-            "database_name": "{{APP_NAME}}",
+            "binding": "META_DB",
+            "database_name": "{{APP_NAME}}-meta",
             "database_id": "{{D1_DATABASE_UUID}}",
-            "migrations_dir": "src/db/migrations"
+            "migrations_dir": "src/db/meta-migrations"
         }
     ],
     "vars": {
