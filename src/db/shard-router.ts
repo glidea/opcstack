@@ -50,3 +50,11 @@ export async function resolveUserShard(metaDb: AppDb, userId: string): Promise<R
 		bindingName: shard.bindingName
 	}
 }
+
+export function getTenantD1(env: Env, bindingName: string): D1Database {
+	const d1 = (env as unknown as Record<string, D1Database | undefined>)[bindingName]
+	if (!d1) {
+		throw new Error('TENANT_D1_BINDING_NOT_FOUND')
+	}
+	return d1
+}

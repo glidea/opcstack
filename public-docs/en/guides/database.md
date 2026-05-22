@@ -7,177 +7,132 @@ order: 2
 
 # Database
 
-OPC Stack uses Cloudflare D1 as database and uses Drizzle ORM for queries.
+OPC Stack uses Cloudflare D1 with Drizzle ORM.
 
-## Schema definition
+The database is split into two groups:
 
-```typescript
-// src/db/schema.ts
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+```text
+Meta DB
+  global identity
+  global config
+  payment orders
+  redemption codes
+  shard registry
 
-export const users = sqliteTable('users', {
-  id: text('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  name: text('name'),
-  avatar: text('avatar'),
-  betaCode: text('beta_code'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
-})
-
-export const posts = sqliteTable('posts', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id),
-  title: text('title').notNull(),
-  content: text('content'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
-})
+Tenant Shard DB
+  user credit ledger
+  user feedback
+  notification read state
 ```
+
+## Bindings
+
+`META_DB` is the global metadata database.
+
+`TENANT_DB_0000..N` are tenant shard databases.
+
+Shard count is controlled by:
+
+```env
+D1_SHARD_COUNT=1
+```
+
+## Schema
+
+Meta schema:
+
+```text
+src/db/schema.meta.ts
+src/db/meta-migrations/
+```
+
+Tenant Shard schema:
+
+```text
+src/db/schema.shard.ts
+src/db/shard-migrations/
+```
+
+`src/db/schema.ts` is only the combined export. Do not add new tables there directly.
 
 ## Migration
 
-### Generate migration
+`pre-build.mjs` generates and applies both migration sets automatically.
+
+```text
+Meta migration  -> META_DB
+Shard migration -> every TENANT_DB_xxxx
+```
+
+For local development:
 
 ```bash
-pnpm drizzle-kit generate
+pnpm dev
 ```
 
-SQL files are generated in `src/db/migrations/`.
-
-### Apply migration
-
-`pre-build.mjs` applies migration automatically:
+For deployment:
 
 ```bash
-# local
-wrangler d1 migrations apply DB --local
-
-# remote
-wrangler d1 migrations apply DB --remote
+pnpm deploycf
 ```
 
-## Query data
+## Request Scoped DB
+
+API handlers read databases from the request context.
 
 ```typescript
-import { db } from './db'
-import { users, posts } from './db/schema'
-import { eq, and, desc } from 'drizzle-orm'
-
-// Query single row
-const user = await db.query.users.findFirst({
-  where: eq(users.id, userId)
-})
-
-// Query multiple rows
-const userPosts = await db.query.posts.findMany({
-  where: eq(posts.userId, userId),
-  orderBy: [desc(posts.createdAt)]
-})
-
-// Relation query
-const postsWithUser = await db.query.posts.findMany({
-  with: {
-    user: true
-  }
-})
+const metaDb = ctx.get('metaDb')
+const tenantDb = ctx.get('tenantDb')
 ```
 
-## Insert data
+Use `metaDb` for global data.
 
-```typescript
-// Insert one row
-await db.insert(users).values({
-  id: nanoid(),
-  email: 'user@example.com',
-  name: 'User',
-  createdAt: new Date()
-})
+Use `tenantDb` for user-owned high-write data.
 
-// Insert multiple rows
-await db.insert(posts).values([
-  { id: nanoid(), userId, title: 'Post 1', createdAt: new Date() },
-  { id: nanoid(), userId, title: 'Post 2', createdAt: new Date() }
-])
+Do not add a unified `db` wrapper that hides table ownership.
+
+## Table Ownership
+
+Use Meta DB for:
+
+```text
+data required before login
+global unique constraints
+cross-user relationships
+payment orders and webhook state
+redemption code state
 ```
 
-## Update data
+Use Tenant Shard DB for:
 
-```typescript
-// Update
-await db.update(users)
-  .set({ name: 'New Name' })
-  .where(eq(users.id, userId))
-
-// Update multiple fields
-await db.update(users)
-  .set({
-    name: 'New Name',
-    avatar: 'https://example.com/avatar.jpg'
-  })
-  .where(eq(users.id, userId))
+```text
+single-user data
+high-write user data
+data routable by user_id
 ```
 
-## Delete data
+## Cross-DB Writes
 
-```typescript
-// Delete one row
-await db.delete(posts)
-  .where(eq(posts.id, postId))
+D1 does not support cross-database transactions.
 
-// Delete multiple rows
-await db.delete(posts)
-  .where(eq(posts.userId, userId))
+Cross-DB flows must be modeled as eventual consistency.
+
+Redemption code flow:
+
+```text
+Meta DB: unused -> claimed
+Tenant DB: grant credits with source_type + source_id
+Meta DB: claimed -> granted
 ```
 
-## Batch operations
-
-D1 does not support full transactions.
-Use batch operations when you need atomic execution across multiple statements.
-Batch insert can still improve efficiency:
-
-```typescript
-// Execute multiple statements atomically
-await db.batch([
-  db.insert(posts).values({ id: nanoid(), userId, title: 'Post 1', createdAt: new Date() }),
-  db.insert(posts).values({ id: nanoid(), userId, title: 'Post 2', createdAt: new Date() })
-])
-```
-
-## Raw SQL
-
-```typescript
-// Query
-const result = await db.run(sql`
-  SELECT * FROM users WHERE email = ${email}
-`)
-
-// Execute
-await db.run(sql`
-  UPDATE users SET name = ${name} WHERE id = ${userId}
-`)
-```
-
-## Local development
-
-Local development uses SQLite file:
-
-```bash
-# View local database
-sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/xxx.sqlite
-
-# Run SQL
-sqlite> SELECT * FROM users;
-```
+If tenant credit grant fails, the API returns `202 CREDIT_GRANT_PENDING`. A background job retries with the same `source_type + source_id`.
 
 ## FAQ
 
-**Q: What should I do if migration fails**
+**Q: Does scaling out migrate existing users**
 
-Check SQL syntax and run `wrangler d1 migrations list DB` to verify applied migrations.
+No. Scaling out only adds shards. Existing users keep their current shard in `user_shards`.
 
-**Q: How to rollback migration**
+**Q: Is scaling in supported**
 
-D1 does not support automatic rollback. Write rollback SQL manually and execute it.
-
-**Q: Local and remote data are inconsistent**
-
-Local and remote are separate databases. You need to apply migrations in both environments.
+No by default. The template only provides scale-out.

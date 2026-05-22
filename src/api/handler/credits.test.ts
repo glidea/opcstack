@@ -14,13 +14,34 @@ import { CreditsError } from '../../credits'
 
 const creditServiceMocks = vi.hoisted(() => {
 	return {
+		constructorArgs: [] as unknown[][],
 		dailyCheckin: vi.fn(),
-		generateCodes: vi.fn(),
 		grant: vi.fn(),
 		getSummary: vi.fn(),
+		listTransactions: vi.fn()
+	}
+})
+
+const creditRedemptionServiceMocks = vi.hoisted(() => {
+	return {
+		constructorArgs: [] as unknown[][],
+		claimCode: vi.fn(),
+		generateCodes: vi.fn(),
 		listCodes: vi.fn(),
-		listTransactions: vi.fn(),
-		redeemCode: vi.fn()
+		markGranted: vi.fn()
+	}
+})
+
+const shardRouterMocks = vi.hoisted(() => {
+	return {
+		getTenantD1: vi.fn(),
+		resolveUserShard: vi.fn()
+	}
+})
+
+const dbMocks = vi.hoisted(() => {
+	return {
+		getShardDb: vi.fn()
 	}
 })
 import type { Context } from 'hono'
@@ -30,15 +51,48 @@ vi.mock('../../credits', async () => {
 	const actual = await vi.importActual<typeof import('../../credits')>('../../credits')
 	return {
 		...actual,
-		CreditsService: vi.fn().mockImplementation(function CreditsService() {
+		CreditsService: vi.fn().mockImplementation(function CreditsService(...args: unknown[]) {
+			creditServiceMocks.constructorArgs.push(args)
 			return creditServiceMocks
-		})
+		}),
+		CreditRedemptionService: vi
+			.fn()
+			.mockImplementation(function CreditRedemptionService(...args: unknown[]) {
+				creditRedemptionServiceMocks.constructorArgs.push(args)
+				return creditRedemptionServiceMocks
+			})
 	}
+})
+
+vi.mock('../../db/shard-router', () => {
+	return {
+		getTenantD1: shardRouterMocks.getTenantD1,
+		resolveUserShard: shardRouterMocks.resolveUserShard
+	}
+})
+
+vi.mock('../../db', async () => {
+	const actual = await vi.importActual<typeof import('../../db')>('../../db')
+	return {
+		...actual,
+		getShardDb: dbMocks.getShardDb
+	}
+})
+
+beforeEach(() => {
+	shardRouterMocks.resolveUserShard.mockResolvedValue({
+		shardId: 'shard_0001',
+		bindingName: 'TENANT_DB_0001'
+	})
+	shardRouterMocks.getTenantD1.mockReturnValue({ name: 'd1' })
+	dbMocks.getShardDb.mockReturnValue({ name: 'admin-tenant' })
+	creditRedemptionServiceMocks.markGranted.mockResolvedValue(undefined)
 })
 
 describe('getCreditSummaryHandler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+		creditServiceMocks.constructorArgs = []
 	})
 
 	type GivenDetail = {
@@ -103,7 +157,8 @@ describe('getCreditSummaryHandler', () => {
 				CREDITS_DAILY_CHECKIN_AMOUNT: given.dailyCheckinAmount
 			},
 			userId: 'u1',
-			db: {},
+			metaDb: { name: 'meta' },
+			tenantDb: { name: 'tenant' },
 			body: {}
 		})
 		const res = await getCreditSummaryHandler(ctx)
@@ -122,6 +177,7 @@ describe('getCreditSummaryHandler', () => {
 describe('dailyCheckinHandler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+		creditServiceMocks.constructorArgs = []
 	})
 
 	type GivenDetail = {
@@ -224,7 +280,8 @@ describe('dailyCheckinHandler', () => {
 				CREDITS_DAILY_CHECKIN_AMOUNT: given.amount
 			},
 			userId: 'u1',
-			db: {},
+			metaDb: { name: 'meta' },
+			tenantDb: { name: 'tenant' },
 			body: {}
 		})
 		const res = await dailyCheckinHandler(ctx)
@@ -240,6 +297,8 @@ describe('dailyCheckinHandler', () => {
 describe('generateCreditCodesHandler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+		creditServiceMocks.constructorArgs = []
+		creditRedemptionServiceMocks.constructorArgs = []
 	})
 
 	type GivenDetail = {
@@ -286,7 +345,7 @@ describe('generateCreditCodesHandler', () => {
 	]
 
 	runCases(cases, async (given) => {
-		vi.mocked(creditServiceMocks.generateCodes).mockResolvedValue([
+		vi.mocked(creditRedemptionServiceMocks.generateCodes).mockResolvedValue([
 			{ id: 'c1', code: 'AAAA1111', amount: 100_000_000, expiresAt: null, createdAt: 123 },
 			{ id: 'c2', code: 'BBBB2222', amount: 100_000_000, expiresAt: null, createdAt: 123 }
 		])
@@ -294,7 +353,8 @@ describe('generateCreditCodesHandler', () => {
 		const ctx = createJsonContext({
 			env: {},
 			userId: 'u1',
-			db: {},
+			metaDb: { name: 'meta' },
+			tenantDb: { name: 'tenant' },
 			body: given.body
 		})
 		const res = await generateCreditCodesHandler(ctx)
@@ -310,6 +370,8 @@ describe('generateCreditCodesHandler', () => {
 describe('listCreditCodesHandler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+		creditServiceMocks.constructorArgs = []
+		creditRedemptionServiceMocks.constructorArgs = []
 	})
 
 	type GivenDetail = {
@@ -356,15 +418,17 @@ describe('listCreditCodesHandler', () => {
 	]
 
 	runCases(cases, async (given) => {
-		vi.mocked(creditServiceMocks.listCodes).mockResolvedValue({
+		vi.mocked(creditRedemptionServiceMocks.listCodes).mockResolvedValue({
 			codes: [
 				{
 					id: 'c1',
 					code: 'AAAA1111',
 					amount: 100_000_000,
+					status: 'unused',
 					expiresAt: null,
-					usedBy: null,
-					usedAt: null,
+					claimedBy: null,
+					claimedAt: null,
+					grantedAt: null,
 					createdAt: 123
 				}
 			],
@@ -374,7 +438,8 @@ describe('listCreditCodesHandler', () => {
 		const ctx = createJsonContext({
 			env: {},
 			userId: 'u1',
-			db: {},
+			metaDb: { name: 'meta' },
+			tenantDb: { name: 'tenant' },
 			body: given.body
 		})
 		const res = await listCreditCodesHandler(ctx)
@@ -390,17 +455,21 @@ describe('listCreditCodesHandler', () => {
 describe('redeemCreditCodeHandler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+		creditServiceMocks.constructorArgs = []
+		creditRedemptionServiceMocks.constructorArgs = []
 	})
 
 	type GivenDetail = {
 		body: unknown
 		errorCode: string
+		grantError: string
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: number
 		code: string
 		amount: string
+		markedGranted: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -411,13 +480,15 @@ describe('redeemCreditCodeHandler', () => {
 			then: 'returns invalid credit code',
 			givenDetail: {
 				body: null,
-				errorCode: ''
+				errorCode: '',
+				grantError: ''
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_CREDIT_CODE',
-				amount: ''
+				amount: '',
+				markedGranted: false
 			}
 		},
 		{
@@ -427,13 +498,15 @@ describe('redeemCreditCodeHandler', () => {
 			then: 'returns 409',
 			givenDetail: {
 				body: { code: 'AAAA1111' },
-				errorCode: 'CREDIT_CODE_USED'
+				errorCode: 'CREDIT_CODE_USED',
+				grantError: ''
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 409,
 				code: 'CREDIT_CODE_USED',
-				amount: ''
+				amount: '',
+				markedGranted: false
 			}
 		},
 		{
@@ -443,47 +516,83 @@ describe('redeemCreditCodeHandler', () => {
 			then: 'returns 400',
 			givenDetail: {
 				body: { code: 'AAAA1111' },
-				errorCode: 'INVALID_CREDIT_CODE'
+				errorCode: 'INVALID_CREDIT_CODE',
+				grantError: ''
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_CREDIT_CODE',
-				amount: ''
+				amount: '',
+				markedGranted: false
 			}
 		},
 		{
 			scenario: 'redeem code successfully',
-			given: 'core redeem succeeds',
+			given: 'meta claim and tenant grant succeed',
 			when: 'calling redeemCreditCodeHandler',
 			then: 'returns balance and amount',
 			givenDetail: {
 				body: { code: 'AAAA1111' },
-				errorCode: ''
+				errorCode: '',
+				grantError: ''
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 200,
 				code: '',
-				amount: '100.000000'
+				amount: '100.000000',
+				markedGranted: true
+			}
+		},
+		{
+			scenario: 'return pending when tenant grant fails after claim',
+			given: 'meta claim succeeds and tenant grant fails',
+			when: 'calling redeemCreditCodeHandler',
+			then: 'keeps claim and returns pending',
+			givenDetail: {
+				body: { code: 'AAAA1111' },
+				errorCode: '',
+				grantError: 'D1_DOWN'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 202,
+				code: 'CREDIT_GRANT_PENDING',
+				amount: '',
+				markedGranted: false
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
 		if (given.errorCode !== '') {
-			vi.mocked(creditServiceMocks.redeemCode).mockRejectedValue(new CreditsError(given.errorCode))
+			vi.mocked(creditRedemptionServiceMocks.claimCode).mockRejectedValue(
+				new CreditsError(given.errorCode)
+			)
 		} else {
-			vi.mocked(creditServiceMocks.redeemCode).mockResolvedValue({
-				balance: 300_000_000,
+			vi.mocked(creditRedemptionServiceMocks.claimCode).mockResolvedValue({
+				id: 'code-id',
 				amount: 100_000_000
 			})
+			if (given.grantError !== '') {
+				vi.mocked(creditServiceMocks.grant).mockRejectedValue(new Error(given.grantError))
+			} else {
+				vi.mocked(creditServiceMocks.grant).mockResolvedValue({
+					balance: 300_000_000,
+					entryId: 'e1',
+					transactionId: 't1',
+					entryRemainingAmount: 100_000_000,
+					duplicated: false
+				})
+			}
 		}
 
 		const ctx = createJsonContext({
 			env: {},
 			userId: 'u1',
-			db: {},
+			metaDb: { name: 'meta' },
+			tenantDb: { name: 'tenant' },
 			body: given.body
 		})
 		const res = await redeemCreditCodeHandler(ctx)
@@ -491,7 +600,8 @@ describe('redeemCreditCodeHandler', () => {
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			amount: payload.amount ?? ''
+			amount: payload.amount ?? '',
+			markedGranted: creditRedemptionServiceMocks.markGranted.mock.calls.length > 0
 		}
 	})
 })
@@ -499,6 +609,8 @@ describe('redeemCreditCodeHandler', () => {
 describe('grantCreditsHandler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+		creditServiceMocks.constructorArgs = []
+		creditRedemptionServiceMocks.constructorArgs = []
 	})
 
 	type GivenDetail = {
@@ -615,7 +727,8 @@ describe('grantCreditsHandler', () => {
 		const ctx = createJsonContext({
 			env: {},
 			userId: 'admin',
-			db: {},
+			metaDb: { name: 'meta' },
+			tenantDb: { name: 'tenant' },
 			body: given.body
 		})
 		const res = await grantCreditsHandler(ctx)
@@ -637,6 +750,7 @@ describe('grantCreditsHandler', () => {
 describe('listCreditTransactionsHandler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+		creditServiceMocks.constructorArgs = []
 	})
 
 	type GivenDetail = {
@@ -648,6 +762,7 @@ describe('listCreditTransactionsHandler', () => {
 		code: string
 		transactionCount: number
 		firstBalanceAfter: string
+		usesTenantDb: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -664,7 +779,8 @@ describe('listCreditTransactionsHandler', () => {
 				status: 400,
 				code: 'INVALID_REQUEST',
 				transactionCount: 0,
-				firstBalanceAfter: ''
+				firstBalanceAfter: '',
+				usesTenantDb: false
 			}
 		},
 		{
@@ -683,7 +799,8 @@ describe('listCreditTransactionsHandler', () => {
 				status: 200,
 				code: '',
 				transactionCount: 1,
-				firstBalanceAfter: '99.000000'
+				firstBalanceAfter: '99.000000',
+				usesTenantDb: true
 			}
 		}
 	]
@@ -708,7 +825,8 @@ describe('listCreditTransactionsHandler', () => {
 		const ctx = createJsonContext({
 			env: {},
 			userId: 'u1',
-			db: {},
+			metaDb: { name: 'meta' },
+			tenantDb: { name: 'tenant' },
 			body: given.body
 		})
 		const res = await listCreditTransactionsHandler(ctx)
@@ -720,7 +838,8 @@ describe('listCreditTransactionsHandler', () => {
 			status: res.status,
 			code: payload.code ?? '',
 			transactionCount: payload.items?.length ?? 0,
-			firstBalanceAfter: payload.items?.[0]?.balance_after ?? ''
+			firstBalanceAfter: payload.items?.[0]?.balance_after ?? '',
+			usesTenantDb: creditServiceMocks.constructorArgs[0]?.[0] === ctx.get('tenantDb')
 		}
 	})
 })
@@ -728,7 +847,8 @@ describe('listCreditTransactionsHandler', () => {
 function createJsonContext(input: {
 	env: Record<string, string>
 	userId: string
-	db: unknown
+	metaDb: unknown
+	tenantDb: unknown
 	body: unknown
 }): Context<ApiEnv> {
 	const req = {
@@ -747,7 +867,10 @@ function createJsonContext(input: {
 			if (key === 'userId') {
 				return input.userId
 			}
-			return input.db
+			if (key === 'tenantDb') {
+				return input.tenantDb
+			}
+			return input.metaDb
 		},
 		json: (payload: unknown, status?: number): Response => {
 			return new Response(JSON.stringify(payload), {

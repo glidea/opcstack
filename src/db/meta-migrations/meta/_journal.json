@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1779449827972,
-      "tag": "0000_stiff_xavin",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1779450808331,
-      "tag": "0001_awesome_zzzax",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1779453257874,
-      "tag": "0002_fantastic_ego",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1779454042369,
-      "tag": "0003_tearful_stryfe",
+      "when": 1779459799637,
+      "tag": "0000_spooky_photon",
       "breakpoints": true
     }
   ]

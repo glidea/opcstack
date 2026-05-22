@@ -1,5 +1,6 @@
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm'
-import type { AppDb } from '../db'
+import { getShardDb, type AppDb } from '../db'
+import { getTenantD1, resolveUserShard } from '../db/shard-router'
 import { checkoutOrder, paymentTransaction, paymentWebhookEvent, userSubscription } from '../db/schema'
 import { user } from '../db/schema.auth'
 import {
@@ -66,6 +67,7 @@ const CHECKOUT_ORDER_ID_PARAM = 'checkout_order_id'
 
 type PaymentTransactionRow = typeof paymentTransaction.$inferSelect
 type CheckoutOrderRow = typeof checkoutOrder.$inferSelect
+export type PaymentCreditsServiceFactory = (userId: string) => Promise<CreditsService>
 
 export type PaymentProviderMap = Record<PaymentProviderName, PaymentProvider>
 
@@ -188,17 +190,20 @@ export class PaymentService {
 	private readonly config: PaymentConfig
 	private readonly providerRouter: PaymentProviderRouter
 	private readonly providers: PaymentProviderMap
+	private readonly creditsService: PaymentCreditsServiceFactory
 
 	constructor(
 		db: AppDb,
 		config: PaymentConfig,
 		providerRouter: PaymentProviderRouter,
-		providers: PaymentProviderMap
+		providers: PaymentProviderMap,
+		creditsService: PaymentCreditsServiceFactory
 	) {
 		this.db = db
 		this.config = config
 		this.providerRouter = providerRouter
 		this.providers = providers
+		this.creditsService = creditsService
 	}
 
 	async listPaymentProducts(input: ListPaymentProductsInput): Promise<PaymentProductItem[]> {
@@ -690,7 +695,7 @@ export class PaymentService {
 		})
 
 		if (row.creditsGranted > 0 && row.creditsReversedAt === null) {
-			const credits = new CreditsService(this.db)
+			const credits = await this.creditsService(row.userId)
 			await credits.deduct({
 				userId: row.userId,
 				type: CREDIT_TRANSACTION_TYPE_PAYMENT_REFUND,
@@ -812,7 +817,7 @@ export class PaymentService {
 		})
 
 		if (creditsGranted > 0) {
-			const credits = new CreditsService(this.db)
+			const credits = await this.creditsService(order.userId)
 			await credits.grant({
 				userId: order.userId,
 				type: CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE,
@@ -970,7 +975,7 @@ export class PaymentService {
 				}
 			})
 
-		const credits = new CreditsService(this.db)
+		const credits = await this.creditsService(order.userId)
 		await credits.grant({
 			userId: order.userId,
 			type: CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE,
@@ -1036,7 +1041,7 @@ export class PaymentService {
 			paidAt: periodEnd
 		})
 
-		const credits = new CreditsService(this.db)
+		const credits = await this.creditsService(sub.userId)
 		await credits.grant({
 			userId: sub.userId,
 			type: CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE,
@@ -1109,7 +1114,7 @@ export class PaymentService {
 		})
 
 		if (creditsDiff > 0) {
-			const credits = new CreditsService(this.db)
+			const credits = await this.creditsService(sub.userId)
 			await credits.grant({
 				userId: sub.userId,
 				type: CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE,
@@ -1208,7 +1213,10 @@ export function newPaymentService(
 		creem: newCreemPayment(env)
 	}
 
-	return new PaymentService(db, config, providerRouter, providers)
+	return new PaymentService(db, config, providerRouter, providers, async (userId: string) => {
+		const resolved = await resolveUserShard(db, userId)
+		return new CreditsService(getShardDb(getTenantD1(env, resolved.bindingName)))
+	})
 }
 
 function normalizeReturnPath(returnPath: string | null): string {

@@ -1587,7 +1587,15 @@ function createService(
 		creem: state.provider as unknown as PaymentProvider
 	}
 
-	return new PaymentService(createMockDb(state), config, providerRouter, providers)
+	return new PaymentService(
+		createMockDb(state),
+		config,
+		providerRouter,
+		providers,
+		async (): Promise<never> => {
+			return creditServiceMocks as never
+		}
+	)
 }
 
 function createMockDb(state: MockState): AppDb {

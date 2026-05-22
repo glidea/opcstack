@@ -3,10 +3,14 @@ import { z } from 'zod'
 import type { ApiEnv } from '..'
 import {
 	CREDIT_TRANSACTION_TYPE_MANUAL_GRANT,
+	CREDIT_TRANSACTION_TYPE_REDEMPTION_CODE,
+	CreditRedemptionService,
 	CreditsError,
 	CreditsService,
 	type CreditTransactionItem
 } from '../../credits'
+import { getShardDb } from '../../db'
+import { getTenantD1, resolveUserShard } from '../../db/shard-router'
 import { formatDecimal, parseDecimal } from '../../lib/decimal'
 import { PageRequestSchema, parseRequest } from '../../lib/request'
 
@@ -28,8 +32,8 @@ export type GenerateCreditCodesRequest = z.infer<typeof GenerateCreditCodesReque
 
 export const ListCreditCodesRequestSchema = PageRequestSchema.extend({
 	code: z.string().min(1).optional(),
-	used_by: z.string().min(1).optional(),
-	used: z.boolean().optional(),
+	claimed_by: z.string().min(1).optional(),
+	status: z.enum(['unused', 'claimed', 'granted']).optional(),
 	amount: z.string().min(1).optional(),
 	created_at_start: z.number().int().optional(),
 	created_at_end: z.number().int().optional(),
@@ -57,7 +61,7 @@ export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Res
 	const dailyCheckinAmount = toCreditUnits(env.CREDITS_DAILY_CHECKIN_AMOUNT)
 
 	try {
-		const credits = new CreditsService(ctx.get('metaDb'))
+		const credits = new CreditsService(ctx.get('tenantDb'))
 		const summary = await credits.getSummary({
 			userId: ctx.get('userId'),
 			dailyCheckinAmount
@@ -81,7 +85,7 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const credits = new CreditsService(ctx.get('metaDb'))
+	const credits = new CreditsService(ctx.get('tenantDb'))
 	const result = await credits.listTransactions({
 		userId: ctx.get('userId'),
 		limit: req.page_size,
@@ -111,7 +115,7 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 	}
 
 	try {
-		const credits = new CreditsService(ctx.get('metaDb'))
+		const credits = new CreditsService(ctx.get('tenantDb'))
 		const result = await credits.dailyCheckin({
 			userId: ctx.get('userId'),
 			amount
@@ -140,8 +144,8 @@ export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const credits = new CreditsService(ctx.get('metaDb'))
-	const rows = await credits.generateCodes({
+	const redemptions = new CreditRedemptionService(ctx.get('metaDb'))
+	const rows = await redemptions.generateCodes({
 		count: req.count,
 		amount,
 		expiresAt: req.expires_at
@@ -170,13 +174,13 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const credits = new CreditsService(ctx.get('metaDb'))
-	const result = await credits.listCodes({
+	const redemptions = new CreditRedemptionService(ctx.get('metaDb'))
+	const result = await redemptions.listCodes({
 		limit: req.page_size,
 		offset: (req.page - 1) * req.page_size,
 		code: req.code,
-		usedBy: req.used_by,
-		used: req.used,
+		claimedBy: req.claimed_by,
+		status: req.status,
 		amount,
 		createdAtStart: req.created_at_start,
 		createdAtEnd: req.created_at_end,
@@ -189,9 +193,11 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 				id: row.id,
 				code: row.code,
 				amount: formatCreditAmount(row.amount),
+				status: row.status,
 				expires_at: row.expiresAt,
-				used_by: row.usedBy,
-				used_at: row.usedAt,
+				claimed_by: row.claimedBy,
+				claimed_at: row.claimedAt,
+				granted_at: row.grantedAt,
 				created_at: row.createdAt
 			}
 		}),
@@ -205,16 +211,33 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 		return ctx.json({ code: 'INVALID_CREDIT_CODE' }, 400)
 	}
 
+	const redemptions = new CreditRedemptionService(ctx.get('metaDb'))
 	try {
-		const credits = new CreditsService(ctx.get('metaDb'))
-		const result = await credits.redeemCode({
+		const claimed = await redemptions.claimCode({
 			userId: ctx.get('userId'),
 			code: req.code
 		})
-		return ctx.json({
-			balance: formatCreditAmount(result.balance),
-			amount: formatCreditAmount(result.amount)
-		})
+		const credits = new CreditsService(ctx.get('tenantDb'))
+		try {
+			const result = await credits.grant({
+				userId: ctx.get('userId'),
+				type: CREDIT_TRANSACTION_TYPE_REDEMPTION_CODE,
+				amount: claimed.amount,
+				sourceType: 'redemption_code',
+				sourceId: claimed.id,
+				description: 'Redeem credit code'
+			})
+			await redemptions.markGranted({
+				codeId: claimed.id,
+				userId: ctx.get('userId')
+			})
+			return ctx.json({
+				balance: formatCreditAmount(result.balance),
+				amount: formatCreditAmount(claimed.amount)
+			})
+		} catch {
+			return ctx.json({ code: 'CREDIT_GRANT_PENDING' }, 202)
+		}
 	} catch (error) {
 		if (error instanceof CreditsError) {
 			if (error.code === 'CREDIT_CODE_USED') {
@@ -240,7 +263,9 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 	}
 
 	try {
-		const credits = new CreditsService(ctx.get('metaDb'))
+		const resolved = await resolveUserShard(ctx.get('metaDb'), req.user_id)
+		const d1 = getTenantD1(ctx.env, resolved.bindingName)
+		const credits = new CreditsService(getShardDb(d1))
 		const result = await credits.grant({
 			userId: req.user_id,
 			type: CREDIT_TRANSACTION_TYPE_MANUAL_GRANT,

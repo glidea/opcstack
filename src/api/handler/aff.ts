@@ -1,7 +1,10 @@
 import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
-import { AffError, AffService } from '../../aff'
+import { AFF_CREDIT_SOURCE_INVITEE, AFF_CREDIT_SOURCE_INVITER, AffError, AffService } from '../../aff'
+import { CreditsService, type CreditTransactionType } from '../../credits'
+import { getShardDb } from '../../db'
+import { getTenantD1, resolveUserShard } from '../../db/shard-router'
 import { parseDecimal } from '../../lib/decimal'
 import { parseRequest } from '../../lib/request'
 
@@ -53,12 +56,12 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 
 	try {
 		const aff = new AffService(ctx.get('metaDb'))
-		await aff.bind({
+		const result = await aff.bind({
 			inviteeUserId: ctx.get('userId'),
-			affCode: req.aff_code,
-			inviterCreditAmount: inviterAmount,
-			inviteeCreditAmount: inviteeAmount
+			affCode: req.aff_code
 		})
+		await grantAffCredits(ctx, result.inviterUserId, inviterAmount, AFF_CREDIT_SOURCE_INVITER, result.affId)
+		await grantAffCredits(ctx, result.inviteeUserId, inviteeAmount, AFF_CREDIT_SOURCE_INVITEE, result.affId)
 		return ctx.json({})
 	} catch (error) {
 		if (error instanceof AffError) {
@@ -71,4 +74,23 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 		}
 		throw error
 	}
+}
+
+async function grantAffCredits(
+	ctx: Context<ApiEnv>,
+	userId: string,
+	amount: number,
+	sourceType: CreditTransactionType,
+	affId: string
+): Promise<void> {
+	const resolved = await resolveUserShard(ctx.get('metaDb'), userId)
+	const credits = new CreditsService(getShardDb(getTenantD1(ctx.env, resolved.bindingName)))
+	await credits.grant({
+		userId,
+		type: sourceType,
+		amount,
+		sourceType,
+		sourceId: `${sourceType}:${affId}`,
+		description: 'Affiliate reward'
+	})
 }

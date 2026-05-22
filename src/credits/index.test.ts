@@ -1,7 +1,7 @@
 import { describe, expect } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import { CreditsError, CreditsService, type DeductCreditsInput, type GrantCreditsInput } from './index'
-import type { AppDb } from '../db'
+import type { ShardDb } from '../db'
 
 describe('CreditsService.grant', () => {
 	type GivenDetail = {
@@ -38,7 +38,7 @@ describe('CreditsService.grant', () => {
 				balance: 40,
 				entryRemainingAmount: 30,
 				duplicated: false,
-				batchItemCount: 4,
+				batchItemCount: 5,
 				changedRows: 1
 			}
 		},
@@ -59,7 +59,7 @@ describe('CreditsService.grant', () => {
 				balance: -10,
 				entryRemainingAmount: 0,
 				duplicated: false,
-				batchItemCount: 4,
+				batchItemCount: 5,
 				changedRows: 1
 			}
 		},
@@ -80,7 +80,7 @@ describe('CreditsService.grant', () => {
 				balance: 12,
 				entryRemainingAmount: 12,
 				duplicated: false,
-				batchItemCount: 4,
+				batchItemCount: 5,
 				changedRows: 1
 			}
 		},
@@ -101,7 +101,7 @@ describe('CreditsService.grant', () => {
 				balance: 10,
 				entryRemainingAmount: 0,
 				duplicated: true,
-				batchItemCount: 4,
+				batchItemCount: 5,
 				changedRows: 0
 			}
 		},
@@ -122,7 +122,7 @@ describe('CreditsService.grant', () => {
 				balance: 40,
 				entryRemainingAmount: 30,
 				duplicated: false,
-				batchItemCount: 4,
+				batchItemCount: 5,
 				changedRows: 1
 			}
 		},
@@ -148,10 +148,10 @@ describe('CreditsService.grant', () => {
 			}
 		},
 		{
-			scenario: 'reject missing user',
-			given: 'user does not exist',
+			scenario: 'create shard balance on first grant',
+			given: 'balance row does not exist before grant',
 			when: 'CreditsService.grant is called',
-			then: 'returns user not found error',
+			then: 'creates balance and grants credits',
 			givenDetail: {
 				userBalance: null,
 				amount: 10,
@@ -160,12 +160,12 @@ describe('CreditsService.grant', () => {
 			},
 			whenDetail: {},
 			thenExpected: {
-				errorCode: 'CREDIT_USER_NOT_FOUND',
-				balance: 0,
-				entryRemainingAmount: 0,
+				errorCode: '',
+				balance: 10,
+				entryRemainingAmount: 10,
 				duplicated: false,
-				batchItemCount: 4,
-				changedRows: 0
+				batchItemCount: 5,
+				changedRows: 1
 			}
 		}
 	]
@@ -330,9 +330,10 @@ describe('CreditsService payment source idempotency', () => {
 type MockDbState = {
 	batchItems: unknown[]
 	changes: number
+	balance: number
 }
 
-type MockDb = AppDb & {
+type MockDb = ShardDb & {
 	_state: MockDbState
 }
 
@@ -362,20 +363,17 @@ function createMockDb(given: {
 }): MockDb {
 	const state: MockDbState = {
 		batchItems: [],
-		changes: 0
+		changes: 0,
+		balance: given.userBalance ?? 0
 	}
 
 	const db = {
 		_state: state,
 		query: {
-			user: {
-				findFirst: async (): Promise<{ id: string; creditBalance: number } | undefined> => {
-					if (given.userBalance === null) {
-						return undefined
-					}
+			creditBalance: {
+				findFirst: async (): Promise<{ balance: number } | undefined> => {
 					return {
-						id: 'u1',
-						creditBalance: given.userBalance
+						balance: state.balance
 					}
 				}
 			}
@@ -393,11 +391,13 @@ function createMockDb(given: {
 						innerJoin: () => {
 							return {
 								where: async () => {
-									const userBalance = given.userBalance ?? 0
 									return [
 										{
-											balance: userBalance + given.amount,
-											entryRemainingAmount: resolveTestEntryRemainingAmount(userBalance, given.amount)
+											balance: state.balance,
+											entryRemainingAmount: resolveTestEntryRemainingAmount(
+												given.userBalance ?? 0,
+												given.amount
+											)
 										}
 									]
 								}
@@ -415,8 +415,31 @@ function createMockDb(given: {
 			if (given.batchErrorMessage !== '') {
 				throw new Error(given.batchErrorMessage)
 			}
-			state.changes = given.userBalance !== null && !given.duplicatedSource ? 1 : 0
+			state.changes = !given.duplicatedSource ? 1 : 0
+			if (!given.duplicatedSource) {
+				state.balance += given.amount
+			}
 			return [
+				{
+					meta: {
+						changes: 0
+					}
+				},
+				{
+					meta: {
+						changes: state.changes
+					}
+				},
+				{
+					meta: {
+						changes: state.changes
+					}
+				},
+				{
+					meta: {
+						changes: state.changes
+					}
+				},
 				{
 					meta: {
 						changes: state.changes
@@ -437,8 +460,31 @@ function createMockDb(given: {
 			},
 			batch: async (items: unknown[]): Promise<unknown[]> => {
 				state.batchItems = items
-				state.changes = given.userBalance !== null && !given.duplicatedSource ? 1 : 0
+				state.changes = !given.duplicatedSource ? 1 : 0
+				if (!given.duplicatedSource) {
+					state.balance += given.amount
+				}
 				return [
+					{
+						meta: {
+							changes: 0
+						}
+					},
+					{
+						meta: {
+							changes: state.changes
+						}
+					},
+					{
+						meta: {
+							changes: state.changes
+						}
+					},
+					{
+						meta: {
+							changes: state.changes
+						}
+					},
 					{
 						meta: {
 							changes: state.changes
@@ -464,7 +510,7 @@ type GrantSequenceMockState = {
 	duplicatedCalls: boolean[]
 }
 
-type GrantSequenceMockDb = AppDb & {
+type GrantSequenceMockDb = ShardDb & {
 	_grantSequenceState: GrantSequenceMockState
 }
 
@@ -483,11 +529,10 @@ function createGrantSequenceMockDb(
 	return {
 		_grantSequenceState: state,
 		query: {
-			user: {
-				findFirst: async (): Promise<{ id: string; creditBalance: number } | undefined> => {
+			creditBalance: {
+				findFirst: async (): Promise<{ balance: number } | undefined> => {
 					return {
-						id: 'u1',
-						creditBalance: state.balance
+						balance: state.balance
 					}
 				}
 			}
@@ -538,6 +583,11 @@ function createGrantSequenceMockDb(
 					state.balance += amount
 				}
 				return [
+					{
+						meta: {
+							changes: 0
+						}
+					},
 					{
 						meta: {
 							changes: duplicated ? 0 : 1
@@ -721,9 +771,10 @@ describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 type DeductMockState = {
 	batchCalled: boolean
 	nextBalance: number
+	balanceReads: number
 }
 
-type DeductMockDb = AppDb & {
+type DeductMockDb = ShardDb & {
 	_deductState: DeductMockState
 }
 
@@ -734,20 +785,21 @@ function createDeductMockDb(
 ): DeductMockDb {
 	const state: DeductMockState = {
 		batchCalled: false,
-		nextBalance: userBalance ?? 0
+		nextBalance: userBalance ?? 0,
+		balanceReads: 0
 	}
 
 	return {
 		_deductState: state,
 		query: {
-			user: {
-				findFirst: async (): Promise<{ id: string; creditBalance: number } | undefined> => {
+			creditBalance: {
+				findFirst: async (): Promise<{ balance: number } | undefined> => {
 					if (userBalance === null) {
 						return undefined
 					}
+					state.balanceReads += 1
 					return {
-						id: 'u1',
-						creditBalance: userBalance
+						balance: state.balanceReads === 1 ? userBalance : state.nextBalance
 					}
 				}
 			}
@@ -788,13 +840,23 @@ function createDeductMockDb(
 						meta: {
 							changes: 1
 						}
+					},
+					{
+						meta: {
+							changes: 1
+						}
+					},
+					{
+						meta: {
+							changes: 1
+						}
 					}
 				]
 			}
 		},
 		select: (): {
 			from: (_table: unknown) => {
-				where: (_condition: unknown) => Promise<Array<{ creditBalance: number }>>
+				where: (_condition: unknown) => Promise<Array<{ balance: number }>>
 			}
 		} => {
 			return {
@@ -802,7 +864,7 @@ function createDeductMockDb(
 					return {
 						where: async () => [
 							{
-								creditBalance: state.nextBalance
+								balance: state.nextBalance
 							}
 						]
 					}
@@ -818,7 +880,7 @@ type DeductSequenceMockState = {
 	duplicatedCalls: boolean[]
 }
 
-type DeductSequenceMockDb = AppDb & {
+type DeductSequenceMockDb = ShardDb & {
 	_deductSequenceState: DeductSequenceMockState
 }
 
@@ -836,11 +898,10 @@ function createDeductSequenceMockDb(
 	return {
 		_deductSequenceState: state,
 		query: {
-			user: {
-				findFirst: async (): Promise<{ id: string; creditBalance: number } | undefined> => {
+			creditBalance: {
+				findFirst: async (): Promise<{ balance: number } | undefined> => {
 					return {
-						id: 'u1',
-						creditBalance: state.balance
+						balance: state.balance
 					}
 				}
 			}
@@ -869,13 +930,23 @@ function createDeductSequenceMockDb(
 						meta: {
 							changes: duplicated ? 0 : 1
 						}
+					},
+					{
+						meta: {
+							changes: 1
+						}
+					},
+					{
+						meta: {
+							changes: 1
+						}
 					}
 				]
 			}
 		},
 		select: (): {
 			from: (_table: unknown) => {
-				where: (_condition: unknown) => Promise<Array<{ creditBalance: number }>>
+				where: (_condition: unknown) => Promise<Array<{ balance: number }>>
 			}
 		} => {
 			return {
@@ -883,7 +954,7 @@ function createDeductSequenceMockDb(
 					return {
 						where: async () => [
 							{
-								creditBalance: state.balance
+								balance: state.balance
 							}
 						]
 					}
@@ -896,7 +967,7 @@ function createDeductSequenceMockDb(
 describe('CreditsService.expire', () => {
 	type GivenDetail = {
 		expiredEntries: Array<{ id: string; user_id: string; remaining_amount: number }>
-		users: Array<{ id: string; creditBalance: number }>
+		users: Array<{ balance: number }>
 		limit?: number
 	}
 	type WhenDetail = Record<string, never>
@@ -936,10 +1007,7 @@ describe('CreditsService.expire', () => {
 					{ id: 'e2', user_id: 'u1', remaining_amount: 2 },
 					{ id: 'e3', user_id: 'u2', remaining_amount: 5 }
 				],
-				users: [
-					{ id: 'u1', creditBalance: 10 },
-					{ id: 'u2', creditBalance: 8 }
-				],
+				users: [{ balance: 10 }, { balance: 8 }],
 				limit: 20
 			},
 			whenDetail: {},
@@ -1031,13 +1099,13 @@ type ExpireMockState = {
 	statements: unknown[]
 }
 
-type ExpireMockDb = AppDb & {
+type ExpireMockDb = ShardDb & {
 	_expireState: ExpireMockState
 }
 
 function createExpireMockDb(
 	expiredEntries: Array<{ id: string; user_id: string; remaining_amount: number }>,
-	users: Array<{ id: string; creditBalance: number }>
+	users: Array<{ balance: number }>
 ): ExpireMockDb {
 	const state: ExpireMockState = {
 		batchCalled: false,
@@ -1051,7 +1119,7 @@ function createExpireMockDb(
 		},
 		select: (): {
 			from: (_table: unknown) => {
-				where: (_condition: unknown) => Promise<Array<{ id: string; creditBalance: number }>>
+				where: (_condition: unknown) => Promise<Array<{ balance: number }>>
 			}
 		} => {
 			return {
@@ -1094,7 +1162,7 @@ type CleanupMockState = {
 	called: boolean
 }
 
-type CleanupMockDb = AppDb & {
+type CleanupMockDb = ShardDb & {
 	_cleanupState: CleanupMockState
 }
 

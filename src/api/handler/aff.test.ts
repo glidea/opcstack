@@ -12,6 +12,25 @@ const affServiceMocks = vi.hoisted(() => {
 	}
 })
 
+const creditServiceMocks = vi.hoisted(() => {
+	return {
+		grant: vi.fn()
+	}
+})
+
+const shardRouterMocks = vi.hoisted(() => {
+	return {
+		getTenantD1: vi.fn(),
+		resolveUserShard: vi.fn()
+	}
+})
+
+const dbMocks = vi.hoisted(() => {
+	return {
+		getShardDb: vi.fn()
+	}
+})
+
 vi.mock('../../aff', async () => {
 	const actual = await vi.importActual<typeof import('../../aff')>('../../aff')
 	return {
@@ -20,6 +39,47 @@ vi.mock('../../aff', async () => {
 			return affServiceMocks
 		})
 	}
+})
+
+vi.mock('../../credits', async () => {
+	const actual = await vi.importActual<typeof import('../../credits')>('../../credits')
+	return {
+		...actual,
+		CreditsService: vi.fn().mockImplementation(function CreditsService() {
+			return creditServiceMocks
+		})
+	}
+})
+
+vi.mock('../../db/shard-router', () => {
+	return {
+		getTenantD1: shardRouterMocks.getTenantD1,
+		resolveUserShard: shardRouterMocks.resolveUserShard
+	}
+})
+
+vi.mock('../../db', async () => {
+	const actual = await vi.importActual<typeof import('../../db')>('../../db')
+	return {
+		...actual,
+		getShardDb: dbMocks.getShardDb
+	}
+})
+
+beforeEach(() => {
+	shardRouterMocks.resolveUserShard.mockResolvedValue({
+		shardId: 'shard_0000',
+		bindingName: 'TENANT_DB_0000'
+	})
+	shardRouterMocks.getTenantD1.mockReturnValue({ name: 'tenant-d1' })
+	dbMocks.getShardDb.mockReturnValue({ name: 'tenant-db' })
+	creditServiceMocks.grant.mockResolvedValue({
+		balance: 1,
+		entryId: 'entry-id',
+		transactionId: 'transaction-id',
+		entryRemainingAmount: 1,
+		duplicated: false
+	})
 })
 
 describe('getAffSummaryHandler', () => {
@@ -247,7 +307,11 @@ describe('bindAffHandler', () => {
 		if (given.errorCode !== '') {
 			vi.mocked(affServiceMocks.bind).mockRejectedValue(new AffError(given.errorCode))
 		} else {
-			vi.mocked(affServiceMocks.bind).mockResolvedValue({})
+			vi.mocked(affServiceMocks.bind).mockResolvedValue({
+				affId: 'aff-id',
+				inviterUserId: 'inviter',
+				inviteeUserId: 'u1'
+			})
 		}
 
 		const ctx = createJsonContext({

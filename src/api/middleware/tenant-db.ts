@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono'
 import { getShardDb } from '../../db'
-import { resolveUserShard } from '../../db/shard-router'
+import { getTenantD1, resolveUserShard } from '../../db/shard-router'
 import type { ApiEnv } from '..'
 
 export const TENANT_DB_BOOKMARK_HEADER = 'x-d1-tenant-bookmark'
@@ -39,14 +39,6 @@ export const tenantDbMiddleware: MiddlewareHandler<ApiEnv> = async (
 			shouldUseSecureCookie(ctx.env.APP_BASE_URL)
 		)
 	)
-}
-
-export function getTenantD1(env: Env, bindingName: string): D1Database {
-	const d1 = (env as unknown as Record<string, D1Database | undefined>)[bindingName]
-	if (!d1) {
-		throw new Error('TENANT_D1_BINDING_NOT_FOUND')
-	}
-	return d1
 }
 
 export function tenantBookmarkCookieName(shardId: string): string {

@@ -300,7 +300,7 @@ describe('authCore turnstile config mapping', () => {
 	]
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
-		const env = createEnv({
+		const env: Env = createEnv({
 			emailEnabled: 'true',
 			emailSignupEnabled: 'true',
 			emailRequireVerification: 'true',
@@ -308,11 +308,20 @@ describe('authCore turnstile config mapping', () => {
 			emailResendApiKey: 'resend-api-key',
 			emailFrom: 'Auth <auth@mg.example.com>'
 		})
-		env.TURNSTILE_ENABLED = given.turnstileEnabled
-		env.TURNSTILE_SITE_KEY = given.turnstileSiteKey
-		env.TURNSTILE_SECRET_KEY = given.turnstileSecretKey
+		type TurnstileTestEnv = Omit<
+			Env,
+			'TURNSTILE_ENABLED' | 'TURNSTILE_SITE_KEY' | 'TURNSTILE_SECRET_KEY'
+		> & {
+			TURNSTILE_ENABLED: string
+			TURNSTILE_SITE_KEY: string
+			TURNSTILE_SECRET_KEY: string
+		}
+		const testEnv = env as TurnstileTestEnv
+		testEnv.TURNSTILE_ENABLED = given.turnstileEnabled
+		testEnv.TURNSTILE_SITE_KEY = given.turnstileSiteKey
+		testEnv.TURNSTILE_SECRET_KEY = given.turnstileSecretKey
 
-		authCore(env, {} as never)
+		authCore(testEnv as unknown as Env, {} as never)
 		const options = vi.mocked(captcha).mock.calls[0]?.[0] as
 			| {
 					provider: string

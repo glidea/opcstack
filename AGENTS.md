@@ -30,8 +30,11 @@ src/
     middleware/         # Middleware auth beta-gate meta-db-session
   web/routes/           # SvelteKit pages
   db/
-    schema.ts           # Drizzle schema
-    migrations/         # Auto generated migration files
+    schema.ts           # Combined Drizzle schema export
+    schema.meta.ts      # Meta DB schema
+    schema.shard.ts     # Tenant Shard DB schema
+    meta-migrations/    # Auto generated Meta DB migrations
+    shard-migrations/   # Auto generated Tenant Shard DB migrations
   jobs/index.ts         # Cron handlers
   consumers/index.ts    # Queue handlers
   ai/                   # AI clients
@@ -125,15 +128,23 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - D1 with Drizzle ORM
 - Meta DB uses the `META_DB` binding
 - Get Meta DB via `ctx.get('metaDb')` request scoped
+- Tenant Shard DB uses generated `TENANT_DB_0000..N` bindings
+- Get current user's Tenant Shard DB via `ctx.get('tenantDb')` request scoped
 - Tenant shard registry lives in Meta DB tables `d1_shards` and `user_shards`
-- Modify schema by editing `src/db/schema.ts` then restart `pnpm dev` to auto generate and apply
+- `credit_redemption_codes` lives in Meta DB
+- `credit_balances` `credit_entries` `credit_transactions` `feedbacks` and `notification_reads` live in Tenant Shard DB
+- Payment orders transactions subscriptions and webhook events live in Meta DB
+- Modify Meta schema by editing `src/db/schema.meta.ts`
+- Modify Tenant Shard schema by editing `src/db/schema.shard.ts`
+- Restart `pnpm dev` to auto generate and apply Meta and Shard migrations
 - D1 does not support full transactions; atomicity must be achieved using batch operations
-- For conditional writes such as redeem codes, daily check-in, idempotent grants, use `env.META_DB.batch()` with SQL-level conditions
+- For single-DB conditional writes such as daily check-in and idempotent grants, use D1 batch operations with SQL-level conditions
 - Prefer `INSERT ... SELECT ... WHERE` for "insert only if condition matches"
 - Use `WHERE EXISTS (SELECT 1 FROM ...)` on later statements in the same batch to make them run only when the first conditional insert succeeded
 - Do not split these flows into `SELECT` then independent `UPDATE` or `INSERT`; concurrent requests can pass the same check
-- Credit grant and refund deduction must be source-idempotent and update `user.credit_balance` with SQL arithmetic such as `credit_balance = credit_balance + ?` or `credit_balance = credit_balance - ?`
-- Do not read `user.credit_balance` in service code and then write a fixed calculated balance for credit grant or refund deduction
+- Credit grant and refund deduction must be source-idempotent and update `credit_balances.balance` with SQL arithmetic
+- Do not read `credit_balances.balance` in service code and then write a fixed calculated balance for credit grant or refund deduction
+- Cross-DB flows such as redemption code claim plus tenant credit grant use Meta claim state plus tenant idempotent `source_type + source_id`
 
 **D1 Read Replication**:
 - Automatically enabled in remote mode
@@ -142,6 +153,10 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
   - Response: writes back both header and cookie
   - Default: `first-primary`
 - Middleware: `src/api/middleware/meta-db-session.ts`
+- Tenant DB bookmark mechanism:
+  - Request: prefers `x-d1-tenant-bookmark` header then `d1_tenant_bookmark_{shard_id}` cookie
+  - Response: writes back header cookie and `x-d1-tenant-shard`
+  - Middleware: `src/api/middleware/tenant-db.ts`
 
 ### 5. R2 Storage
 

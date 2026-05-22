@@ -38,73 +38,38 @@ CREATE TABLE `checkout_orders` (
 CREATE INDEX `checkout_orders_user_id_idx` ON `checkout_orders` (`user_id`);--> statement-breakpoint
 CREATE INDEX `checkout_orders_provider_checkout_session_id_idx` ON `checkout_orders` (`provider`,`provider_checkout_session_id`);--> statement-breakpoint
 CREATE INDEX `checkout_orders_provider_payment_id_idx` ON `checkout_orders` (`provider`,`provider_payment_id`);--> statement-breakpoint
-CREATE TABLE `credit_entries` (
-	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
-	`amount` integer NOT NULL,
-	`remaining_amount` integer NOT NULL,
-	`source_type` text NOT NULL,
-	`source_id` text NOT NULL,
-	`expires_at` integer,
-	`created_at` integer NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
-	CONSTRAINT "credit_entries_amount_gt_zero" CHECK("credit_entries"."amount" > 0),
-	CONSTRAINT "credit_entries_remaining_amount_non_negative" CHECK("credit_entries"."remaining_amount" >= 0),
-	CONSTRAINT "credit_entries_remaining_amount_lte_amount" CHECK("credit_entries"."remaining_amount" <= "credit_entries"."amount")
-);
---> statement-breakpoint
-CREATE INDEX `credit_entries_user_id_idx` ON `credit_entries` (`user_id`);--> statement-breakpoint
-CREATE INDEX `credit_entries_remaining_amount_idx` ON `credit_entries` (`remaining_amount`);--> statement-breakpoint
-CREATE INDEX `credit_entries_expires_at_idx` ON `credit_entries` (`expires_at`);--> statement-breakpoint
-CREATE INDEX `credit_entries_created_at_idx` ON `credit_entries` (`created_at`);--> statement-breakpoint
-CREATE UNIQUE INDEX `credit_entries_source_type_source_id_unique` ON `credit_entries` (`source_type`,`source_id`);--> statement-breakpoint
 CREATE TABLE `credit_redemption_codes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`code` text NOT NULL,
 	`amount` integer NOT NULL,
+	`status` text DEFAULT 'unused' NOT NULL,
 	`expires_at` integer,
-	`used_by` text,
-	`used_at` integer,
+	`claimed_by` text,
+	`claimed_at` integer,
+	`granted_at` integer,
 	`created_at` integer NOT NULL,
-	FOREIGN KEY (`used_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`claimed_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null,
 	CONSTRAINT "credit_redemption_codes_amount_gt_zero" CHECK("credit_redemption_codes"."amount" > 0)
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `credit_redemption_codes_code_unique` ON `credit_redemption_codes` (`code`);--> statement-breakpoint
+CREATE INDEX `credit_redemption_codes_status_claimed_at_idx` ON `credit_redemption_codes` (`status`,`claimed_at`);--> statement-breakpoint
 CREATE INDEX `credit_redemption_codes_expires_at_idx` ON `credit_redemption_codes` (`expires_at`);--> statement-breakpoint
-CREATE INDEX `credit_redemption_codes_used_by_idx` ON `credit_redemption_codes` (`used_by`);--> statement-breakpoint
+CREATE INDEX `credit_redemption_codes_claimed_by_idx` ON `credit_redemption_codes` (`claimed_by`);--> statement-breakpoint
 CREATE INDEX `credit_redemption_codes_created_at_idx` ON `credit_redemption_codes` (`created_at`);--> statement-breakpoint
-CREATE TABLE `credit_transactions` (
+CREATE TABLE `d1_shards` (
 	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
-	`type` text NOT NULL,
-	`amount` integer NOT NULL,
-	`balance_after` integer NOT NULL,
-	`source_type` text,
-	`source_id` text,
-	`description` text,
-	`expires_at` integer,
+	`binding_name` text NOT NULL,
+	`database_name` text NOT NULL,
+	`database_id` text NOT NULL,
+	`status` text NOT NULL,
+	`assigned_count` integer DEFAULT 0 NOT NULL,
 	`created_at` integer NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
-	CONSTRAINT "credit_transactions_amount_not_zero" CHECK("credit_transactions"."amount" != 0)
+	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `credit_transactions_user_id_idx` ON `credit_transactions` (`user_id`);--> statement-breakpoint
-CREATE INDEX `credit_transactions_type_idx` ON `credit_transactions` (`type`);--> statement-breakpoint
-CREATE INDEX `credit_transactions_created_at_idx` ON `credit_transactions` (`created_at`);--> statement-breakpoint
-CREATE INDEX `credit_transactions_user_id_created_at_idx` ON `credit_transactions` (`user_id`,`created_at`);--> statement-breakpoint
-CREATE UNIQUE INDEX `credit_transactions_source_type_source_id_unique` ON `credit_transactions` (`source_type`,`source_id`);--> statement-breakpoint
-CREATE TABLE `feedbacks` (
-	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
-	`type` text NOT NULL,
-	`content` text NOT NULL,
-	`created_at` integer NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE INDEX `feedbacks_user_id_idx` ON `feedbacks` (`user_id`);--> statement-breakpoint
-CREATE INDEX `feedbacks_created_at_idx` ON `feedbacks` (`created_at`);--> statement-breakpoint
+CREATE UNIQUE INDEX `d1_shards_binding_name_unique` ON `d1_shards` (`binding_name`);--> statement-breakpoint
+CREATE UNIQUE INDEX `d1_shards_database_name_unique` ON `d1_shards` (`database_name`);--> statement-breakpoint
 CREATE TABLE `notifications` (
 	`id` text PRIMARY KEY NOT NULL,
 	`type` text NOT NULL,
@@ -117,16 +82,6 @@ CREATE TABLE `notifications` (
 --> statement-breakpoint
 CREATE INDEX `notifications_target_user_id_idx` ON `notifications` (`target_user_id`);--> statement-breakpoint
 CREATE INDEX `notifications_created_at_idx` ON `notifications` (`created_at`);--> statement-breakpoint
-CREATE TABLE `notification_reads` (
-	`notification_id` text NOT NULL,
-	`user_id` text NOT NULL,
-	`read_at` integer NOT NULL,
-	PRIMARY KEY(`notification_id`, `user_id`),
-	FOREIGN KEY (`notification_id`) REFERENCES `notifications`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE INDEX `notification_reads_user_id_idx` ON `notification_reads` (`user_id`);--> statement-breakpoint
 CREATE TABLE `payment_transactions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -168,6 +123,15 @@ CREATE TABLE `payment_webhook_events` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `payment_webhook_events_provider_webhook_id_unique` ON `payment_webhook_events` (`provider`,`webhook_id`);--> statement-breakpoint
 CREATE INDEX `payment_webhook_events_processed_at_idx` ON `payment_webhook_events` (`processed_at`);--> statement-breakpoint
+CREATE TABLE `user_shards` (
+	`user_id` text PRIMARY KEY NOT NULL,
+	`shard_id` text NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`shard_id`) REFERENCES `d1_shards`(`id`) ON UPDATE no action ON DELETE restrict
+);
+--> statement-breakpoint
+CREATE INDEX `user_shards_shard_id_idx` ON `user_shards` (`shard_id`);--> statement-breakpoint
 CREATE TABLE `user_subscriptions` (
 	`user_id` text PRIMARY KEY NOT NULL,
 	`provider` text NOT NULL,
@@ -223,7 +187,6 @@ CREATE TABLE `user` (
 	`name` text NOT NULL,
 	`email` text NOT NULL,
 	`aff_code` text,
-	`credit_balance` integer DEFAULT 0 NOT NULL,
 	`email_verified` integer DEFAULT false NOT NULL,
 	`image` text,
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,

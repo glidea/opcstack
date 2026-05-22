@@ -87,7 +87,8 @@ describe('AffService.bind', () => {
 	}
 	type ThenExpected = {
 		errorCode: string
-		batchItemCount: number
+		insertedReferral: boolean
+		inviterUserId: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -107,7 +108,8 @@ describe('AffService.bind', () => {
 			},
 			thenExpected: {
 				errorCode: 'INVALID_AFF_CODE',
-				batchItemCount: 0
+				insertedReferral: false,
+				inviterUserId: ''
 			}
 		},
 		{
@@ -126,7 +128,8 @@ describe('AffService.bind', () => {
 			},
 			thenExpected: {
 				errorCode: 'INVALID_AFF_CODE',
-				batchItemCount: 0
+				insertedReferral: false,
+				inviterUserId: ''
 			}
 		},
 		{
@@ -145,7 +148,8 @@ describe('AffService.bind', () => {
 			},
 			thenExpected: {
 				errorCode: 'AFF_USER_NOT_FOUND',
-				batchItemCount: 0
+				insertedReferral: false,
+				inviterUserId: ''
 			}
 		},
 		{
@@ -164,14 +168,15 @@ describe('AffService.bind', () => {
 			},
 			thenExpected: {
 				errorCode: 'AFF_ALREADY_BOUND',
-				batchItemCount: 7
+				insertedReferral: true,
+				inviterUserId: ''
 			}
 		},
 		{
 			scenario: 'bind aff successfully',
 			given: 'inviter and invitee exist',
 			when: 'AffService.bind is called',
-			then: 'writes relation and reward records',
+			then: 'writes relation and returns inviter',
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: true,
@@ -183,7 +188,8 @@ describe('AffService.bind', () => {
 			},
 			thenExpected: {
 				errorCode: '',
-				batchItemCount: 7
+				insertedReferral: true,
+				inviterUserId: 'u2'
 			}
 		}
 	]
@@ -201,50 +207,32 @@ describe('AffService.bind', () => {
 		const input: BindAffInput = {
 			inviteeUserId: when.inviteeUserId,
 			affCode: when.affCode,
-			inviterCreditAmount: 50_000_000,
-			inviteeCreditAmount: 20_000_000,
 			nowMs: 1890000000000
 		}
 
 		try {
-			await aff.bind(input)
+			const result = await aff.bind(input)
 			return {
 				errorCode: '',
-				batchItemCount: db._state.batchItems.length
+				insertedReferral: db._state.insertedReferral,
+				inviterUserId: result.inviterUserId
 			}
 		} catch (error) {
 			return {
 				errorCode: error instanceof AffError ? error.code : 'UNKNOWN',
-				batchItemCount: db._state.batchItems.length
+				insertedReferral: db._state.insertedReferral,
+				inviterUserId: ''
 			}
 		}
 	})
 })
 
 type AffMockState = {
-	batchItems: unknown[]
+	insertedReferral: boolean
 }
 
 type AffMockDb = AppDb & {
 	_state: AffMockState
-}
-
-type MockRawRunQuery = {
-	getQuery: () => {
-		sql: string
-		params: unknown[]
-	}
-}
-
-function createMockRawRunQuery(payload: unknown): MockRawRunQuery {
-	return {
-		getQuery: () => {
-			return {
-				sql: String(payload),
-				params: [payload]
-			}
-		}
-	}
 }
 
 function createAffMockDb(input: {
@@ -256,7 +244,7 @@ function createAffMockDb(input: {
 	batchErrorMessage?: string
 }): AffMockDb {
 	const state: AffMockState = {
-		batchItems: []
+		insertedReferral: false
 	}
 
 	const db = {
@@ -270,7 +258,6 @@ function createAffMockDb(input: {
 						}
 						return {
 							id: input.inviterUserId ?? 'u2',
-							creditBalance: 100,
 							affCode: input.affCode
 						}
 					}
@@ -279,7 +266,6 @@ function createAffMockDb(input: {
 					}
 					return {
 						id: 'u1',
-						creditBalance: 10,
 						affCode: input.affCode
 					}
 				}
@@ -298,33 +284,16 @@ function createAffMockDb(input: {
 				}
 			}
 		},
-		run: (payload: unknown): MockRawRunQuery => {
-			return createMockRawRunQuery(payload)
-		},
-		batch: async (items: unknown[]): Promise<unknown[]> => {
-			state.batchItems = items
-			if (input.batchErrorMessage) {
-				throw new Error(input.batchErrorMessage)
-			}
-			return []
-		},
-		$client: {
-			prepare: (query: string): { bind: (...params: unknown[]) => unknown } => {
-				return {
-					bind: (...params: unknown[]) => {
-						return {
-							query,
-							params
-						}
+		insert: (): {
+			values: (_row: unknown) => Promise<void>
+		} => {
+			return {
+				values: async (): Promise<void> => {
+					state.insertedReferral = true
+					if (input.batchErrorMessage) {
+						throw new Error(input.batchErrorMessage)
 					}
 				}
-			},
-			batch: async (items: unknown[]): Promise<unknown[]> => {
-				state.batchItems = items
-				if (input.batchErrorMessage) {
-					throw new Error(input.batchErrorMessage)
-				}
-				return []
 			}
 		}
 	} as unknown as AffMockDb

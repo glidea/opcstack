@@ -1,7 +1,8 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer, captcha, emailOTP } from 'better-auth/plugins'
-import type { AppDb } from '../../db'
+import { getShardDb, type AppDb } from '../../db'
+import { getTenantD1, resolveUserShard } from '../../db/shard-router'
 import { newEmailClients, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
@@ -9,7 +10,6 @@ import { parseDecimal } from '../../lib/decimal'
 
 export function authCore(env: Env, db: AppDb) {
   const aff = new AffService(db)
-  const credits = new CreditsService(db)
   const emailOtpPlugin = buildEmailOtp(env)
   const captchaPlugin = buildTurnstileCaptcha(env)
   const plugins: AuthPlugin[] = [bearer()]
@@ -55,6 +55,9 @@ export function authCore(env: Env, db: AppDb) {
               return
             }
 
+            const resolved = await resolveUserShard(db, userId)
+            const d1 = getTenantD1(env, resolved.bindingName)
+            const credits = new CreditsService(getShardDb(d1))
             await credits.grant({
               userId,
               type: 'signup',

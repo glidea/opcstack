@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe } from 'vitest'
+import { runCases, type TestCase } from '../testing/bdd'
 import {
 	creditBalance,
 	creditEntry,
@@ -8,11 +9,35 @@ import {
 } from './schema.shard'
 
 describe('schema.shard', () => {
-	it('exports tenant-owned tables', () => {
-		expect(creditBalance).toBeDefined()
-		expect(creditEntry).toBeDefined()
-		expect(creditTransaction).toBeDefined()
-		expect(feedback).toBeDefined()
-		expect(notificationRead).toBeDefined()
+	type GivenDetail = Record<string, never>
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		hasCreditLedgerTables: boolean
+		hasTenantUserTables: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'tenant shard schema ownership',
+			given: 'shard schema',
+			when: 'checking exported tables',
+			then: 'contains tenant credit ledger and tenant user tables',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: {
+				hasCreditLedgerTables: true,
+				hasTenantUserTables: true
+			}
+		}
+	]
+
+	runCases(cases, (): ThenExpected => {
+		return {
+			hasCreditLedgerTables:
+				creditBalance !== undefined &&
+				creditEntry !== undefined &&
+				creditTransaction !== undefined,
+			hasTenantUserTables: feedback !== undefined && notificationRead !== undefined
+		}
 	})
 })

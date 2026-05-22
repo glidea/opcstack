@@ -7,177 +7,132 @@ order: 2
 
 # 数据库
 
-OPC Stack 使用 Cloudflare D1 作为数据库，通过 Drizzle ORM 操作。
+OPC Stack 使用 Cloudflare D1 和 Drizzle ORM。
 
-## Schema 定义
+数据库分成两类：
 
-```typescript
-// src/db/schema.ts
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+```text
+Meta DB
+  全局身份
+  全局配置
+  支付订单
+  兑换码
+  shard registry
 
-export const users = sqliteTable('users', {
-  id: text('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  name: text('name'),
-  avatar: text('avatar'),
-  betaCode: text('beta_code'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
-})
-
-export const posts = sqliteTable('posts', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id),
-  title: text('title').notNull(),
-  content: text('content'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
-})
+Tenant Shard DB
+  用户积分账本
+  用户反馈
+  通知已读状态
 ```
+
+## 绑定
+
+`META_DB` 是全局元信息库。
+
+`TENANT_DB_0000..N` 是租户分片库。
+
+分片数量由环境变量控制：
+
+```env
+D1_SHARD_COUNT=1
+```
+
+## Schema
+
+Meta schema：
+
+```text
+src/db/schema.meta.ts
+src/db/meta-migrations/
+```
+
+Tenant Shard schema：
+
+```text
+src/db/schema.shard.ts
+src/db/shard-migrations/
+```
+
+`src/db/schema.ts` 只作为统一导出口，不要把新表直接写进去。
 
 ## Migration
 
-### 生成 Migration
+`pre-build.mjs` 会自动生成并应用两套 migration。
+
+```text
+Meta migration  -> META_DB
+Shard migration -> 每个 TENANT_DB_xxxx
+```
+
+本地开发执行：
 
 ```bash
-pnpm drizzle-kit generate
+pnpm dev
 ```
 
-会在 `src/db/migrations/` 生成 SQL 文件。
-
-### 应用 Migration
-
-`pre-build.mjs` 会自动执行 migration：
+部署执行：
 
 ```bash
-# 本地
-wrangler d1 migrations apply DB --local
-
-# 远程
-wrangler d1 migrations apply DB --remote
+pnpm deploycf
 ```
 
-## 查询数据
+## 请求中使用数据库
+
+API handler 中直接读取 request scoped DB。
 
 ```typescript
-import { db } from './db'
-import { users, posts } from './db/schema'
-import { eq, and, desc } from 'drizzle-orm'
-
-// 查询单条
-const user = await db.query.users.findFirst({
-  where: eq(users.id, userId)
-})
-
-// 查询多条
-const userPosts = await db.query.posts.findMany({
-  where: eq(posts.userId, userId),
-  orderBy: [desc(posts.createdAt)]
-})
-
-// 关联查询
-const postsWithUser = await db.query.posts.findMany({
-  with: {
-    user: true
-  }
-})
+const metaDb = ctx.get('metaDb')
+const tenantDb = ctx.get('tenantDb')
 ```
 
-## 插入数据
+全局数据使用 `metaDb`。
 
-```typescript
-// 插入单条
-await db.insert(users).values({
-  id: nanoid(),
-  email: 'user@example.com',
-  name: 'User',
-  createdAt: new Date()
-})
+用户级高频数据使用 `tenantDb`。
 
-// 插入多条
-await db.insert(posts).values([
-  { id: nanoid(), userId, title: 'Post 1', createdAt: new Date() },
-  { id: nanoid(), userId, title: 'Post 2', createdAt: new Date() }
-])
+不要写一个自动判断表归属的统一 `db` wrapper。
+
+## 表归属规则
+
+放 Meta DB：
+
+```text
+登录前必须访问的数据
+全局唯一约束数据
+跨用户关系数据
+支付订单和 webhook 状态
+兑换码状态
 ```
 
-## 更新数据
+放 Tenant Shard DB：
 
-```typescript
-// 更新
-await db.update(users)
-  .set({ name: 'New Name' })
-  .where(eq(users.id, userId))
-
-// 更新多个字段
-await db.update(users)
-  .set({
-    name: 'New Name',
-    avatar: 'https://example.com/avatar.jpg'
-  })
-  .where(eq(users.id, userId))
+```text
+只属于单个用户的数据
+高频用户写入数据
+可通过 user_id 路由的数据
 ```
 
-## 删除数据
+## 跨库写入
 
-```typescript
-// 删除
-await db.delete(posts)
-  .where(eq(posts.id, postId))
+D1 不支持跨数据库事务。
 
-// 删除多条
-await db.delete(posts)
-  .where(eq(posts.userId, userId))
+跨库流程必须显式建模为最终一致。
+
+兑换码流程：
+
+```text
+Meta DB: unused -> claimed
+Tenant DB: grant credits with source_type + source_id
+Meta DB: claimed -> granted
 ```
 
-## 批量操作
-
-D1 不支持完整事务。
-需要多条语句原子执行时请使用 batch 操作。
-批量插入也可以提高性能：
-
-```typescript
-// Execute multiple statements atomically
-await db.batch([
-  db.insert(posts).values({ id: nanoid(), userId, title: 'Post 1', createdAt: new Date() }),
-  db.insert(posts).values({ id: nanoid(), userId, title: 'Post 2', createdAt: new Date() })
-])
-```
-
-## 原始 SQL
-
-```typescript
-// 查询
-const result = await db.run(sql`
-  SELECT * FROM users WHERE email = ${email}
-`)
-
-// 执行
-await db.run(sql`
-  UPDATE users SET name = ${name} WHERE id = ${userId}
-`)
-```
-
-## 本地开发
-
-本地开发使用 SQLite 文件：
-
-```bash
-# 查看本地数据库
-sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/xxx.sqlite
-
-# 执行 SQL
-sqlite> SELECT * FROM users;
-```
+租户库发放失败时接口返回 `202 CREDIT_GRANT_PENDING`，后台任务用同一个 `source_type + source_id` 重试。
 
 ## 常见问题
 
-**Q: Migration 失败怎么办？**
+**Q: 扩容会迁移老用户吗**
 
-检查 SQL 语法是否正确，查看 `wrangler d1 migrations list DB` 确认已应用的 migration。
+不会。扩容只新增 shard，老用户继续使用 `user_shards` 中已有的 shard。
 
-**Q: 如何回滚 Migration？**
+**Q: 可以缩容吗**
 
-D1 不支持自动回滚，需要手动编写回滚 SQL 并执行。
-
-**Q: 本地和远程数据不一致？**
-
-本地和远程是独立的数据库，需要分别执行 migration。
+默认不支持。模板只提供扩容机制。

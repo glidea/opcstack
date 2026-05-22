@@ -6,6 +6,9 @@ import type { ApiEnv } from '..'
 
 vi.mock('../../db/shard-router', () => {
 	return {
+		getTenantD1: vi.fn((env: Record<string, unknown>, bindingName: string) => {
+			return env[bindingName]
+		}),
 		resolveUserShard: vi.fn().mockResolvedValue({
 			shardId: 'shard_0000',
 			bindingName: 'TENANT_DB_0000'
