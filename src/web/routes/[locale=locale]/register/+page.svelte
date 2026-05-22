@@ -46,6 +46,7 @@
 			emailEnabled={data.publicConfig.email_enabled}
 			emailSignupEnabled={data.publicConfig.email_signup_enabled}
 			emailUserActionCooldownSeconds={data.publicConfig.email_user_action_cooldown_seconds}
+			refundHref={data.publicConfig.payment_enabled ? '/refund-policy' : undefined}
 		/>
 	{/if}
 </main>

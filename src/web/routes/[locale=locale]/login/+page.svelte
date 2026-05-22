@@ -28,5 +28,6 @@
 		googleAuthEnabled={data.publicConfig.google_auth_enabled}
 		emailEnabled={data.publicConfig.email_enabled}
 		emailSignupEnabled={data.publicConfig.email_signup_enabled}
+		refundHref={data.publicConfig.payment_enabled ? '/refund-policy' : undefined}
 	/>
 </main>

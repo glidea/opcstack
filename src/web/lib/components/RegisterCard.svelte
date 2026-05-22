@@ -7,6 +7,7 @@
 	import { Input } from '$web/ui/input'
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
 	import GoogleIcon from './GoogleIcon.svelte'
+	import LegalDisclosure from './LegalDisclosure.svelte'
 
 	let {
 		onSuccess,
@@ -14,7 +15,11 @@
 		googleAuthEnabled,
 		emailEnabled,
 		emailSignupEnabled,
-		emailUserActionCooldownSeconds
+		emailUserActionCooldownSeconds,
+		termsHref = '/terms',
+		privacyHref = '/privacy',
+		refundHref,
+		showLegal = true
 	}: {
 		onSuccess?: (email: string) => void
 		loginHref?: string
@@ -22,6 +27,10 @@
 		emailEnabled: boolean
 		emailSignupEnabled: boolean
 		emailUserActionCooldownSeconds: number
+		termsHref?: string
+		privacyHref?: string
+		refundHref?: string
+		showLegal?: boolean
 	} = $props()
 
 	let email = $state('')
@@ -117,6 +126,10 @@
 				{loading ? $_('auth.register.submitting') : $_('auth.register.submit')}
 			</Button>
 		</form>
+	{/if}
+
+	{#if showLegal && (googleAuthEnabled || (emailEnabled && emailSignupEnabled))}
+		<LegalDisclosure intent="register" {termsHref} {privacyHref} {refundHref} />
 	{/if}
 
 	<p class="text-center text-sm text-muted-foreground">
