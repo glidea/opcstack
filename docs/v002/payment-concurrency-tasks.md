@@ -99,17 +99,17 @@
 - 不处理支付失败
 
 ## TODO 清单
-- [ ] 1. 在 `src/payment/index.test.ts` 增加订阅初购半完成重试测试
-- [ ] 2. 在 `src/payment/index.test.ts` 增加订阅续费重复 webhook 测试
-- [ ] 3. 确认缺少 `providerPaymentId` 的续费不会发积分，也不会写 webhook event
-- [ ] 4. 调整 `applySubscriptionInitial`，transaction 已存在时继续补齐 subscription、grant、checkout
-- [ ] 5. 调整 `applySubscriptionRenewal`，transaction 已存在时继续补齐 grant 和 subscription period
+- [x] 1. 在 `src/payment/index.test.ts` 增加订阅初购半完成重试测试
+- [x] 2. 在 `src/payment/index.test.ts` 增加订阅续费重复 webhook 测试
+- [x] 3. 确认缺少 `providerPaymentId` 的续费不会发积分，也不会写 webhook event
+- [x] 4. 调整 `applySubscriptionInitial`，transaction 已存在时继续补齐 subscription、grant、checkout
+- [x] 5. 调整 `applySubscriptionRenewal`，transaction 已存在时继续补齐 grant 和 subscription period
 
 ## 验收测试步骤
-1. 运行 `pnpm test -- src/payment/index.test.ts`
-2. 初购半完成重试后 subscription active、checkout completed、积分已发放
-3. 续费重复投递只产生一条 payment transaction 和一次积分 source
-4. 缺少 `providerPaymentId` 的续费不发权益
+1. [x] 运行 `pnpm test -- src/payment/index.test.ts`
+2. [x] 初购半完成重试后 subscription active、checkout completed、积分已发放
+3. [x] 续费重复投递只产生一条 payment transaction 和一次积分 source
+4. [x] 缺少 `providerPaymentId` 的续费不发权益
 
 # Task-005: 修复订阅升级重试
 

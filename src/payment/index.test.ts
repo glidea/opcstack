@@ -911,7 +911,7 @@ describe('PaymentService.processWebhook completion marker', () => {
 		}
 
 		if (given.caseName === 'grant_failure') {
-			vi.mocked(creditServiceMocks.grant).mockRejectedValue(new Error('GRANT_FAILED'))
+			vi.mocked(creditServiceMocks.grant).mockRejectedValueOnce(new Error('GRANT_FAILED'))
 			state.provider.unwrapWebhook.mockResolvedValue(createPaymentSucceededEvent())
 		}
 
@@ -939,6 +939,234 @@ describe('PaymentService.processWebhook completion marker', () => {
 				webhookEvents: state.webhookEvents.length,
 				grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length
 			}
+		}
+	})
+})
+
+describe('PaymentService.processWebhook subscription retry recovery', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		caseName: 'initial_half_completed' | 'renewal_duplicate_payment' | 'renewal_missing_payment_id'
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		transactions: number
+		checkoutStatus: string
+		subscriptionPlan: string
+		webhookEvents: number
+		grantCalls: number
+		firstGrantSourceId: string
+		secondGrantSourceId: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'recover half completed initial subscription',
+			given: 'paid transaction exists but subscription, grant and checkout completion are missing',
+			when: 'same subscription_paid webhook retries',
+			then: 'creates subscription, grants credits and completes checkout',
+			givenDetail: {
+				caseName: 'initial_half_completed'
+			},
+			whenDetail: {},
+			thenExpected: {
+				transactions: 1,
+				checkoutStatus: 'completed',
+				subscriptionPlan: 'pro',
+				webhookEvents: 1,
+				grantCalls: 1,
+				firstGrantSourceId: 'pt_initial_1',
+				secondGrantSourceId: ''
+			}
+		},
+		{
+			scenario: 'reuse payment transaction for duplicated renewal payment',
+			given: 'same provider payment id is delivered with another webhook id',
+			when: 'processing both renewal webhooks',
+			then: 'keeps one payment transaction and grants with the same source',
+			givenDetail: {
+				caseName: 'renewal_duplicate_payment'
+			},
+			whenDetail: {},
+			thenExpected: {
+				transactions: 1,
+				checkoutStatus: '',
+				subscriptionPlan: 'pro',
+				webhookEvents: 2,
+				grantCalls: 2,
+				firstGrantSourceId: 'pt_renewal_1',
+				secondGrantSourceId: 'pt_renewal_1'
+			}
+		},
+		{
+			scenario: 'skip renewal entitlement when provider payment id is missing',
+			given: 'subscription_paid renewal has provider subscription id but no provider payment id',
+			when: 'processing renewal webhook',
+			then: 'does not grant credits or mark webhook completed',
+			givenDetail: {
+				caseName: 'renewal_missing_payment_id'
+			},
+			whenDetail: {},
+			thenExpected: {
+				transactions: 0,
+				checkoutStatus: '',
+				subscriptionPlan: 'pro',
+				webhookEvents: 0,
+				grantCalls: 0,
+				firstGrantSourceId: '',
+				secondGrantSourceId: ''
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const state = createMockState()
+		const service = createService(state)
+
+		if (given.caseName === 'initial_half_completed') {
+			state.checkoutOrders.push({
+				id: 'co_initial_1',
+				userId: 'u1',
+				type: 'subscription_initial',
+				status: 'pending',
+				productId: 'pro_monthly',
+				provider: 'dodo',
+				providerProductId: 'dp_pro_monthly',
+				providerCheckoutSessionId: 'cs_1',
+				providerPaymentId: null,
+				checkoutUrl: 'https://pay.example.com/cs_1',
+				createdAt: 0,
+				updatedAt: 0
+			})
+			state.paymentTransactions.push({
+				id: 'pt_initial_1',
+				userId: 'u1',
+				checkoutOrderId: 'co_initial_1',
+				subscriptionId: 'u1',
+				type: 'subscription_initial',
+				status: 'paid',
+				productId: 'pro_monthly',
+				provider: 'dodo',
+				providerPaymentId: 'pay_initial_1',
+				providerRefundId: null,
+				providerDisputeId: null,
+				amount: 1990,
+				currency: 'USD',
+				creditsGranted: 3000,
+				creditsReversedAt: null,
+				paidAt: 1000,
+				refundedAt: null,
+				disputedAt: null,
+				createdAt: 1000,
+				updatedAt: 1000
+			})
+			state.queryQueue.paymentTransaction.push(state.paymentTransactions[0])
+			state.provider.unwrapWebhook.mockResolvedValue({
+				...createSubscriptionPaidEvent(),
+				webhookId: 'evt_initial_1',
+				providerPaymentId: 'pay_initial_1',
+				checkoutOrderId: 'co_initial_1',
+				providerSubscriptionId: 'sub_initial_1',
+				amount: 1990
+			})
+			await service.processWebhook('dodo', '{}', new Headers())
+		}
+
+		if (given.caseName === 'renewal_duplicate_payment') {
+			state.userSubscriptions.push({
+				userId: 'u1',
+				provider: 'dodo',
+				providerSubscriptionId: 'sub_1',
+				productId: 'pro_monthly',
+				subscriptionPlan: 'pro',
+				periodCreditsAmount: 3000,
+				currentPeriodStart: 0,
+				currentPeriodEnd: 2000,
+				status: 'active',
+				canceledAt: null,
+				createdAt: 0,
+				updatedAt: 0
+			})
+			state.paymentTransactions.push({
+				id: 'pt_renewal_1',
+				userId: 'u1',
+				checkoutOrderId: null,
+				subscriptionId: 'u1',
+				type: 'subscription_renewal',
+				status: 'paid',
+				productId: 'pro_monthly',
+				provider: 'dodo',
+				providerPaymentId: 'pay_renewal_1',
+				providerRefundId: null,
+				providerDisputeId: null,
+				amount: 1990,
+				currency: 'USD',
+				creditsGranted: 3000,
+				creditsReversedAt: null,
+				paidAt: 2000,
+				refundedAt: null,
+				disputedAt: null,
+				createdAt: 1000,
+				updatedAt: 1000
+			})
+			state.queryQueue.paymentWebhookEvent.push(undefined, undefined)
+			state.provider.unwrapWebhook.mockResolvedValue({
+				...createSubscriptionPaidEvent(),
+				webhookId: 'evt_renewal_1',
+				checkoutOrderId: null,
+				providerPaymentId: 'pay_renewal_1'
+			})
+			await service.processWebhook('dodo', '{}', new Headers())
+			state.provider.unwrapWebhook.mockResolvedValue({
+				...createSubscriptionPaidEvent(),
+				webhookId: 'evt_renewal_2',
+				checkoutOrderId: null,
+				providerPaymentId: 'pay_renewal_1'
+			})
+			await service.processWebhook('dodo', '{}', new Headers())
+		}
+
+		if (given.caseName === 'renewal_missing_payment_id') {
+			state.userSubscriptions.push({
+				userId: 'u1',
+				provider: 'dodo',
+				providerSubscriptionId: 'sub_1',
+				productId: 'pro_monthly',
+				subscriptionPlan: 'pro',
+				periodCreditsAmount: 3000,
+				currentPeriodStart: 0,
+				currentPeriodEnd: 2000,
+				status: 'active',
+				canceledAt: null,
+				createdAt: 0,
+				updatedAt: 0
+			})
+			state.provider.unwrapWebhook.mockResolvedValue({
+				...createSubscriptionPaidEvent(),
+				checkoutOrderId: null,
+				providerPaymentId: null
+			})
+			await service.processWebhook('dodo', '{}', new Headers())
+		}
+
+		const firstGrantInput = vi.mocked(creditServiceMocks.grant).mock.calls[0]?.[0] as
+			| { sourceId?: string }
+			| undefined
+		const secondGrantInput = vi.mocked(creditServiceMocks.grant).mock.calls[1]?.[0] as
+			| { sourceId?: string }
+			| undefined
+
+		return {
+			transactions: state.paymentTransactions.length,
+			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
+			subscriptionPlan: state.userSubscriptions[0]?.subscriptionPlan ?? '',
+			webhookEvents: state.webhookEvents.length,
+			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length,
+			firstGrantSourceId: firstGrantInput?.sourceId ?? '',
+			secondGrantSourceId: secondGrantInput?.sourceId ?? ''
 		}
 	})
 })
