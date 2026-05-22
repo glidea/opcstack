@@ -1,13 +1,5 @@
 import { sql } from 'drizzle-orm'
-import {
-	check,
-	index,
-	integer,
-	primaryKey,
-	sqliteTable,
-	text,
-	uniqueIndex
-} from 'drizzle-orm/sqlite-core'
+import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { user } from './schema.auth'
 
 export const betaCode = sqliteTable('beta_code', {
@@ -146,23 +138,6 @@ export const notification = sqliteTable(
 	(table) => [
 		index('notifications_target_user_id_idx').on(table.targetUserId),
 		index('notifications_created_at_idx').on(table.createdAt)
-	]
-)
-
-export const notificationRead = sqliteTable(
-	'notification_reads',
-	{
-		notificationId: text('notification_id')
-			.notNull()
-			.references(() => notification.id, { onDelete: 'cascade' }),
-		userId: text('user_id')
-			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
-		readAt: integer('read_at').notNull()
-	},
-	(table) => [
-		primaryKey({ columns: [table.notificationId, table.userId] }),
-		index('notification_reads_user_id_idx').on(table.userId)
 	]
 )
 
@@ -313,8 +288,6 @@ export type CreditRedemptionCode = typeof creditRedemptionCode.$inferSelect
 export type NewCreditRedemptionCode = typeof creditRedemptionCode.$inferInsert
 export type Notification = typeof notification.$inferSelect
 export type NewNotification = typeof notification.$inferInsert
-export type NotificationRead = typeof notificationRead.$inferSelect
-export type NewNotificationRead = typeof notificationRead.$inferInsert
 export type CheckoutOrder = typeof checkoutOrder.$inferSelect
 export type NewCheckoutOrder = typeof checkoutOrder.$inferInsert
 export type PaymentTransaction = typeof paymentTransaction.$inferSelect

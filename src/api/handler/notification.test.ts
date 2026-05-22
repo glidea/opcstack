@@ -13,10 +13,10 @@ type MockDb = {
 	insert: ReturnType<typeof vi.fn>
 	select: ReturnType<typeof vi.fn>
 	query: {
-		notification: {
+		notification?: {
 			findMany: ReturnType<typeof vi.fn>
 		}
-		notificationRead: {
+		notificationRead?: {
 			findMany: ReturnType<typeof vi.fn>
 		}
 	}
@@ -71,8 +71,8 @@ describe('createNotificationHandler', () => {
 	]
 
 	runCases(cases, async (given) => {
-		const db = createMockDb()
-		db.insert.mockReturnValue({
+		const metaDb = createMockMetaDb()
+		metaDb.insert.mockReturnValue({
 			values: async () => {
 				return
 			}
@@ -80,7 +80,8 @@ describe('createNotificationHandler', () => {
 
 		const ctx = createJsonContext({
 			userId: 'admin',
-			db,
+			metaDb,
+			tenantDb: createMockTenantDb(),
 			body: given.body
 		})
 
@@ -89,7 +90,7 @@ describe('createNotificationHandler', () => {
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			insertCalled: db.insert.mock.calls.length === 1
+			insertCalled: metaDb.insert.mock.calls.length === 1
 		}
 	})
 })
@@ -109,6 +110,8 @@ describe('listNotificationsHandler', () => {
 		code: string
 		items: ListNotificationsResponse['items']
 		total: number
+		metaReadQueryCalled: boolean
+		tenantReadQueryCalled: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -126,7 +129,9 @@ describe('listNotificationsHandler', () => {
 				status: 400,
 				code: 'INVALID_REQUEST',
 				items: [],
-				total: 0
+				total: 0,
+				metaReadQueryCalled: false,
+				tenantReadQueryCalled: false
 			}
 		},
 		{
@@ -152,14 +157,36 @@ describe('listNotificationsHandler', () => {
 						created_at: 123
 					}
 				],
-				total: 1
+				total: 1,
+				metaReadQueryCalled: false,
+				tenantReadQueryCalled: true
+			}
+		},
+		{
+			scenario: 'filter unread notifications with tenant read state',
+			given: 'one notification is read',
+			when: 'listing unread notifications',
+			then: 'returns no read notifications',
+			givenDetail: {
+				body: { read: false },
+				readRows: [{ notificationId: 'n1' }]
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				items: [],
+				total: 0,
+				metaReadQueryCalled: false,
+				tenantReadQueryCalled: true
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
-		const db = createMockDb()
-		db.query.notification.findMany.mockResolvedValue([
+		const metaDb = createMockMetaDb()
+		const tenantDb = createMockTenantDb()
+		metaDb.query.notification?.findMany.mockResolvedValue([
 			{
 				id: 'n1',
 				type: 'system',
@@ -169,11 +196,12 @@ describe('listNotificationsHandler', () => {
 				createdAt: 123
 			}
 		])
-		db.query.notificationRead.findMany.mockResolvedValue(given.readRows)
+		tenantDb.query.notificationRead?.findMany.mockResolvedValue(given.readRows)
 
 		const ctx = createJsonContext({
 			userId: 'u1',
-			db,
+			metaDb,
+			tenantDb,
 			body: given.body
 		})
 
@@ -183,7 +211,9 @@ describe('listNotificationsHandler', () => {
 			status: res.status,
 			code: payload.code ?? '',
 			items: payload.items ?? [],
-			total: payload.total ?? 0
+			total: payload.total ?? 0,
+			metaReadQueryCalled: Boolean(metaDb.query.notificationRead?.findMany.mock.calls.length),
+			tenantReadQueryCalled: Boolean(tenantDb.query.notificationRead?.findMany.mock.calls.length)
 		}
 	})
 })
@@ -200,7 +230,8 @@ describe('readNotificationHandler', () => {
 	type ThenExpected = {
 		status: number
 		code: string
-		insertCalled: boolean
+		metaInsertCalled: boolean
+		tenantInsertCalled: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -216,7 +247,8 @@ describe('readNotificationHandler', () => {
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_REQUEST',
-				insertCalled: false
+				metaInsertCalled: false,
+				tenantInsertCalled: false
 			}
 		},
 		{
@@ -231,14 +263,16 @@ describe('readNotificationHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				insertCalled: true
+				metaInsertCalled: false,
+				tenantInsertCalled: true
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
-		const db = createMockDb()
-		db.insert.mockReturnValue({
+		const metaDb = createMockMetaDb()
+		const tenantDb = createMockTenantDb()
+		tenantDb.insert.mockReturnValue({
 			values: () => ({
 				onConflictDoNothing: async () => {
 					return
@@ -248,7 +282,8 @@ describe('readNotificationHandler', () => {
 
 		const ctx = createJsonContext({
 			userId: 'u1',
-			db,
+			metaDb,
+			tenantDb,
 			body: given.body
 		})
 
@@ -257,12 +292,13 @@ describe('readNotificationHandler', () => {
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			insertCalled: db.insert.mock.calls.length === 1
+			metaInsertCalled: metaDb.insert.mock.calls.length === 1,
+			tenantInsertCalled: tenantDb.insert.mock.calls.length === 1
 		}
 	})
 })
 
-function createMockDb(): MockDb {
+function createMockMetaDb(): MockDb {
 	return {
 		insert: vi.fn(),
 		select: vi.fn(() => {
@@ -279,7 +315,16 @@ function createMockDb(): MockDb {
 		query: {
 			notification: {
 				findMany: vi.fn()
-			},
+			}
+		}
+	}
+}
+
+function createMockTenantDb(): MockDb {
+	return {
+		insert: vi.fn(),
+		select: vi.fn(),
+		query: {
 			notificationRead: {
 				findMany: vi.fn()
 			}
@@ -289,7 +334,8 @@ function createMockDb(): MockDb {
 
 function createJsonContext(input: {
 	userId: string
-	db: unknown
+	metaDb: unknown
+	tenantDb: unknown
 	body: unknown
 }): Context<ApiEnv> {
 	const req = {
@@ -307,7 +353,10 @@ function createJsonContext(input: {
 			if (key === 'userId') {
 				return input.userId
 			}
-			return input.db
+			if (key === 'tenantDb') {
+				return input.tenantDb
+			}
+			return input.metaDb
 		},
 		json: (payload: unknown, status?: number): Response => {
 			return new Response(JSON.stringify(payload), {

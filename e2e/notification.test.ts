@@ -130,9 +130,11 @@ describe('notification api e2e', () => {
 		type FlowThen = {
 			createStatus: number
 			firstListStatus: number
+			firstListTenantShardHeader: boolean
 			firstListContainsNotification: boolean
 			firstReadState: boolean
 			readStatus: number
+			readTenantShardHeader: boolean
 			secondReadState: boolean
 		}
 
@@ -147,9 +149,11 @@ describe('notification api e2e', () => {
 				thenExpected: {
 					createStatus: 200,
 					firstListStatus: 200,
+					firstListTenantShardHeader: true,
 					firstListContainsNotification: true,
 					firstReadState: false,
 					readStatus: 200,
+					readTenantShardHeader: true,
 					secondReadState: true
 				}
 			}
@@ -187,9 +191,11 @@ describe('notification api e2e', () => {
 				return {
 					createStatus: createRes.status,
 					firstListStatus: firstListRes.status,
+					firstListTenantShardHeader: Boolean(firstListRes.headers.get('x-d1-tenant-shard')),
 					firstListContainsNotification: false,
 					firstReadState: true,
 					readStatus: 0,
+					readTenantShardHeader: false,
 					secondReadState: false
 				}
 			}
@@ -219,9 +225,11 @@ describe('notification api e2e', () => {
 			return {
 				createStatus: createRes.status,
 				firstListStatus: firstListRes.status,
+				firstListTenantShardHeader: Boolean(firstListRes.headers.get('x-d1-tenant-shard')),
 				firstListContainsNotification: true,
 				firstReadState: firstNotification.read,
 				readStatus: readRes.status,
+				readTenantShardHeader: Boolean(readRes.headers.get('x-d1-tenant-shard')),
 				secondReadState: secondNotification?.read ?? false
 			}
 		})

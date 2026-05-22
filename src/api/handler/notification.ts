@@ -2,8 +2,10 @@ import { and, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'dri
 import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
-import type { NewNotification, NewNotificationRead } from '../../db/schema'
-import { notification, notificationRead } from '../../db/schema'
+import type { NewNotification } from '../../db/schema'
+import { notification } from '../../db/schema'
+import type { NewNotificationRead } from '../../db/schema.shard'
+import { notificationRead } from '../../db/schema.shard'
 import { PageRequestSchema, parseRequest } from '../../lib/request'
 
 export const CreateNotificationRequestSchema = z.object({
@@ -81,43 +83,26 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 	if (req.created_at_end !== undefined) {
 		conditions.push(lte(notification.createdAt, req.created_at_end))
 	}
-	if (req.read === true) {
-		conditions.push(sql`exists (
-			select 1 from ${notificationRead}
-			where ${notificationRead.notificationId} = ${notification.id}
-				and ${notificationRead.userId} = ${userId}
-		)`)
-	}
-	if (req.read === false) {
-		conditions.push(sql`not exists (
-			select 1 from ${notificationRead}
-			where ${notificationRead.notificationId} = ${notification.id}
-				and ${notificationRead.userId} = ${userId}
-		)`)
-	}
 
 	const db = ctx.get('metaDb')
 	const where = conditions.length > 0 ? and(...conditions) : undefined
-	const offset = (req.page - 1) * req.page_size
 	const totalRows = await db
 		.select({ total: sql<number>`count(*)` })
 		.from(notification)
 		.where(where)
 	const rows = await db.query.notification.findMany({
 		where,
-		orderBy: [desc(notification.createdAt)],
-		limit: req.page_size,
-		offset
+		orderBy: [desc(notification.createdAt)]
 	})
 
 	if (rows.length === 0) {
-		return ctx.json({ items: [], total: Number(totalRows[0]?.total ?? 0) } as ListNotificationsResponse)
+		return ctx.json({ items: [], total: 0 } as ListNotificationsResponse)
 	}
 
 	const ids = rows.map((row) => {
 		return row.id
 	})
-	const readRows = await ctx.get('metaDb').query.notificationRead.findMany({
+	const readRows = await ctx.get('tenantDb').query.notificationRead.findMany({
 		columns: {
 			notificationId: true
 		},
@@ -129,8 +114,8 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 		})
 	)
 
-	return ctx.json({
-		items: rows.map((row) => {
+	const items = rows
+		.map((row): ListNotificationsResponseItem => {
 			return {
 				id: row.id,
 				type: row.type,
@@ -139,8 +124,18 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 				read: readIds.has(row.id),
 				created_at: row.createdAt
 			}
-		}),
-		total: Number(totalRows[0]?.total ?? 0)
+		})
+		.filter((row) => {
+			if (req.read === undefined) {
+				return true
+			}
+			return row.read === req.read
+		})
+	const offset = (req.page - 1) * req.page_size
+
+	return ctx.json({
+		items: items.slice(offset, offset + req.page_size),
+		total: req.read === undefined ? Number(totalRows[0]?.total ?? 0) : items.length
 	} as ListNotificationsResponse)
 }
 
@@ -156,6 +151,6 @@ export async function readNotificationHandler(ctx: Context<ApiEnv>): Promise<Res
 		readAt: Date.now()
 	}
 
-	await ctx.get('metaDb').insert(notificationRead).values(row).onConflictDoNothing()
+	await ctx.get('tenantDb').insert(notificationRead).values(row).onConflictDoNothing()
 	return ctx.json({})
 }
