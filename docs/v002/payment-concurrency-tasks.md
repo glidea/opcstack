@@ -76,17 +76,17 @@
 - 不改 checkout 创建流程
 
 ## TODO 清单
-- [ ] 1. 在 `src/payment/index.test.ts` 增加半完成购买重试测试
-- [ ] 2. 测试覆盖 transaction 已存在、credit grant 缺失、checkout pending
-- [ ] 3. 调整 `applyCreditsPurchase`，transaction 已存在时继续调用积分发放
-- [ ] 4. 调整 `applyCreditsPurchase`，积分发放成功后再完成 checkout
-- [ ] 5. 确认 `payment_webhook_events` 最后写入
+- [x] 1. 在 `src/payment/index.test.ts` 增加半完成购买重试测试
+- [x] 2. 测试覆盖 transaction 已存在、credit grant 缺失、checkout pending
+- [x] 3. 调整 `applyCreditsPurchase`，transaction 已存在时继续调用积分发放
+- [x] 4. 调整 `applyCreditsPurchase`，积分发放成功后再完成 checkout
+- [x] 5. 确认 `payment_webhook_events` 最后写入
 
 ## 验收测试步骤
-1. 运行 `pnpm test -- src/payment/index.test.ts`
-2. 半完成购买重试后 checkout 变为 `completed`
-3. 积分只按 `payment_transaction` source 发放一次
-4. webhook event 只在 checkout completed 后写入
+1. [x] 运行 `pnpm test -- src/payment/index.test.ts`
+2. [x] 半完成购买重试后 checkout 变为 `completed`
+3. [x] 积分只按 `payment_transaction` source 发放一次
+4. [x] webhook event 只在 checkout completed 后写入
 
 # Task-004: 修复订阅初购和续费重试
 

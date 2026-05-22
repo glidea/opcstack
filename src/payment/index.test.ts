@@ -689,6 +689,7 @@ describe('PaymentService.processWebhook retry recovery', () => {
 	type ThenExpected = {
 		checkoutStatus: string
 		grantCalls: number
+		grantSourceId: string
 		deductCalls: number
 		webhookEvents: number
 		creditsReversedAtSet: boolean
@@ -707,6 +708,7 @@ describe('PaymentService.processWebhook retry recovery', () => {
 			thenExpected: {
 				checkoutStatus: 'completed',
 				grantCalls: 1,
+				grantSourceId: 'pt_1',
 				deductCalls: 0,
 				webhookEvents: 1,
 				creditsReversedAtSet: false
@@ -724,6 +726,7 @@ describe('PaymentService.processWebhook retry recovery', () => {
 			thenExpected: {
 				checkoutStatus: '',
 				grantCalls: 0,
+				grantSourceId: '',
 				deductCalls: 1,
 				webhookEvents: 1,
 				creditsReversedAtSet: true
@@ -804,10 +807,14 @@ describe('PaymentService.processWebhook retry recovery', () => {
 		}
 
 		await service.processWebhook('dodo', '{}', new Headers())
+		const grantInput = vi.mocked(creditServiceMocks.grant).mock.calls[0]?.[0] as
+			| { sourceId?: string }
+			| undefined
 
 		return {
 			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
 			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length,
+			grantSourceId: grantInput?.sourceId ?? '',
 			deductCalls: vi.mocked(creditServiceMocks.deduct).mock.calls.length,
 			webhookEvents: state.webhookEvents.length,
 			creditsReversedAtSet: state.paymentTransactions[0]?.creditsReversedAt !== null
