@@ -157,6 +157,7 @@ function renderTemplate(template, env) {
 function validateEmailConfig(env) {
 	const requiredKeys = [
 		'EMAIL_ENABLED',
+		'EMAIL_PROVIDER',
 		'EMAIL_SIGNUP_ENABLED',
 		'EMAIL_REQUIRE_VERIFICATION',
 		'EMAIL_USER_ACTION_COOLDOWN_SECONDS',
@@ -185,6 +186,7 @@ function validateEmailConfig(env) {
 
 	const emailEnabled = env.EMAIL_ENABLED === 'true'
 	const emailSignupEnabled = env.EMAIL_SIGNUP_ENABLED === 'true'
+	const emailProvider = env.EMAIL_PROVIDER
 	const cooldown = Number(env.EMAIL_USER_ACTION_COOLDOWN_SECONDS)
 	const cooldownValid = Number.isInteger(cooldown) && cooldown > 0
 	if (!cooldownValid) {
@@ -197,7 +199,17 @@ function validateEmailConfig(env) {
 		process.exit(1)
 	}
 
-	if (emailEnabled && (!env.EMAIL_RESEND_API_KEY || !env.EMAIL_FROM)) {
+	if (emailProvider !== 'resend' && emailProvider !== 'cloudflare') {
+		console.error('Error: EMAIL_PROVIDER_CONFIG_INVALID')
+		process.exit(1)
+	}
+
+	if (emailEnabled && !env.EMAIL_FROM) {
+		console.error('Error: EMAIL_PROVIDER_CONFIG_MISSING')
+		process.exit(1)
+	}
+
+	if (emailEnabled && emailProvider === 'resend' && !env.EMAIL_RESEND_API_KEY) {
 		console.error('Error: EMAIL_PROVIDER_CONFIG_MISSING')
 		process.exit(1)
 	}

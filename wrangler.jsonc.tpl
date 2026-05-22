@@ -33,6 +33,11 @@
             "migrations_dir": "src/db/meta-migrations"
         }
     ],
+    "send_email": [
+        {
+            "name": "SEND_EMAIL"
+        }
+    ],
     "vars": {
         "DESIGN_SYSTEM": "{{DESIGN_SYSTEM}}",
         "APP_NAME": "{{APP_NAME}}",
@@ -49,6 +54,7 @@
         "GOOGLE_CLIENT_ID": "{{GOOGLE_CLIENT_ID}}",
         "GOOGLE_CLIENT_SECRET": "{{GOOGLE_CLIENT_SECRET}}",
         "EMAIL_ENABLED": "{{EMAIL_ENABLED}}",
+        "EMAIL_PROVIDER": "{{EMAIL_PROVIDER}}",
         "EMAIL_SIGNUP_ENABLED": "{{EMAIL_SIGNUP_ENABLED}}",
         "EMAIL_REQUIRE_VERIFICATION": "{{EMAIL_REQUIRE_VERIFICATION}}",
         "EMAIL_USER_ACTION_COOLDOWN_SECONDS": "{{EMAIL_USER_ACTION_COOLDOWN_SECONDS}}",

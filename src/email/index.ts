@@ -2,23 +2,35 @@ import {
 	newResendNativeEmailClient,
 	newResendSimpleEmailClient
 } from './resend'
+import {
+	newCloudflareNativeEmailClient,
+	newCloudflareSimpleEmailClient
+} from './cloudflare'
 import type { Resend } from 'resend'
 
 export interface EmailClients {
 	simple: EmailSimpleClient
-	resend: Resend
+	resend?: Resend
+	cloudflare?: SendEmail
 }
 
 export function newEmailClients(
-	env: Env,
-	options: EmailSimpleClientOptions = {}
+	env: Env
 ): EmailClients {
-	const provider = options.provider ?? 'resend'
+	const provider = env.EMAIL_PROVIDER || 'resend'
 	if (provider === 'resend') {
 		const resend = newResendNativeEmailClient(env)
 		return {
 			simple: newResendSimpleEmailClient(env, resend),
 			resend
+		}
+	}
+
+	if (provider === 'cloudflare') {
+		const cloudflare = newCloudflareNativeEmailClient(env)
+		return {
+			simple: newCloudflareSimpleEmailClient(env),
+			cloudflare
 		}
 	}
 
@@ -28,10 +40,6 @@ export function newEmailClients(
 export interface EmailSimpleClient {
 	// TODO: enqueue failed email for retry when queue support is added
 	send(input: EmailSimpleSendInput): Promise<void>
-}
-
-export interface EmailSimpleClientOptions {
-	provider?: 'resend'
 }
 
 export interface EmailSimpleSendInput {
