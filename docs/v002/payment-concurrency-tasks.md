@@ -52,17 +52,17 @@
 - 不新增积分表
 
 ## TODO 清单
-- [ ] 1. 在 `src/credits/index.test.ts` 增加不同 source 连续发放后余额累加的测试
-- [ ] 2. 在 `src/credits/index.test.ts` 增加相同 source 重复发放不重复加余额的测试
-- [ ] 3. 在 `src/credits/index.test.ts` 增加相同 refund source 重复扣回不重复减余额的测试
-- [ ] 4. 检查 `grant` 使用 `credit_balance = credit_balance + amount`
-- [ ] 5. 检查 `deduct` 使用 `credit_balance = credit_balance - amount`
+- [x] 1. 在 `src/credits/index.test.ts` 增加不同 source 连续发放后余额累加的测试
+- [x] 2. 在 `src/credits/index.test.ts` 增加相同 source 重复发放不重复加余额的测试
+- [x] 3. 在 `src/credits/index.test.ts` 增加相同 refund source 重复扣回不重复减余额的测试
+- [x] 4. 检查 `grant` 使用 `credit_balance = credit_balance + amount`
+- [x] 5. 检查 `deduct` 使用 `credit_balance = credit_balance - amount`
 
 ## 验收测试步骤
-1. 运行 `pnpm test -- src/credits/index.test.ts`
-2. 两个不同 payment source 都能发放成功
-3. 同一个 payment source 重试不会重复发放
-4. 同一个 refund source 重试不会重复扣回
+1. [x] 运行 `pnpm test -- src/credits/index.test.ts`
+2. [x] 两个不同 payment source 都能发放成功
+3. [x] 同一个 payment source 重试不会重复发放
+4. [x] 同一个 refund source 重试不会重复扣回
 
 # Task-003: 修复一次性积分包购买重试
 

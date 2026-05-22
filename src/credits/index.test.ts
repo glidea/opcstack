@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { CreditsError, CreditsService, type GrantCreditsInput } from './index'
+import { CreditsError, CreditsService, type DeductCreditsInput, type GrantCreditsInput } from './index'
 import type { AppDb } from '../db'
 
 describe('CreditsService.grant', () => {
@@ -208,6 +208,125 @@ describe('CreditsService.grant', () => {
 	})
 })
 
+describe('CreditsService payment source idempotency', () => {
+	type GivenDetail = {
+		caseName: 'different_grant_sources' | 'same_grant_source' | 'same_refund_source'
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		firstBalance: number
+		secondBalance: number
+		firstDuplicated: boolean
+		secondDuplicated: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'accumulate payment grants from different sources',
+			given: 'two different payment transaction sources',
+			when: 'granting both sources',
+			then: 'balance includes both grants',
+			givenDetail: {
+				caseName: 'different_grant_sources'
+			},
+			whenDetail: {},
+			thenExpected: {
+				firstBalance: 40,
+				secondBalance: 80,
+				firstDuplicated: false,
+				secondDuplicated: false
+			}
+		},
+		{
+			scenario: 'deduplicate payment grant from same source',
+			given: 'same payment transaction source is retried',
+			when: 'granting same source twice',
+			then: 'second grant keeps balance unchanged',
+			givenDetail: {
+				caseName: 'same_grant_source'
+			},
+			whenDetail: {},
+			thenExpected: {
+				firstBalance: 40,
+				secondBalance: 40,
+				firstDuplicated: false,
+				secondDuplicated: true
+			}
+		},
+		{
+			scenario: 'deduplicate refund deduction from same source',
+			given: 'same payment refund source is retried',
+			when: 'deducting same source twice',
+			then: 'second deduction keeps balance unchanged',
+			givenDetail: {
+				caseName: 'same_refund_source'
+			},
+			whenDetail: {},
+			thenExpected: {
+				firstBalance: 60,
+				secondBalance: 60,
+				firstDuplicated: false,
+				secondDuplicated: true
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		if (given.caseName === 'same_refund_source') {
+			const db = createDeductSequenceMockDb(100, 40, [false, true])
+			const credits = new CreditsService(db)
+			const input: DeductCreditsInput = {
+				userId: 'u1',
+				type: 'payment_refund',
+				amount: 40,
+				sourceType: 'payment_refund',
+				sourceId: 'dodo:rf_1',
+				description: 'refund',
+				nowMs: 1890000000000
+			}
+			const first = await credits.deduct(input)
+			const second = await credits.deduct(input)
+			return {
+				firstBalance: first.balance,
+				secondBalance: second.balance,
+				firstDuplicated: first.duplicated,
+				secondDuplicated: second.duplicated
+			}
+		}
+
+		const duplicatedCalls = given.caseName === 'same_grant_source' ? [false, true] : [false, false]
+		const db = createGrantSequenceMockDb(10, [30, 40], duplicatedCalls)
+		const credits = new CreditsService(db)
+		const firstInput: GrantCreditsInput = {
+			userId: 'u1',
+			type: 'payment_purchase',
+			amount: 30,
+			sourceType: 'payment_transaction',
+			sourceId: 'pt_1',
+			description: 'payment',
+			nowMs: 1890000000000
+		}
+		const secondInput: GrantCreditsInput = {
+			userId: 'u1',
+			type: 'payment_purchase',
+			amount: 40,
+			sourceType: 'payment_transaction',
+			sourceId: given.caseName === 'same_grant_source' ? 'pt_1' : 'pt_2',
+			description: 'payment',
+			nowMs: 1890000000000
+		}
+
+		const first = await credits.grant(firstInput)
+		const second = await credits.grant(secondInput)
+		return {
+			firstBalance: first.balance,
+			secondBalance: second.balance,
+			firstDuplicated: first.duplicated,
+			secondDuplicated: second.duplicated
+		}
+	})
+})
+
 type MockDbState = {
 	batchItems: unknown[]
 	changes: number
@@ -336,6 +455,98 @@ function createMockDb(given: {
 function resolveTestEntryRemainingAmount(currentBalance: number, amount: number): number {
 	const debtToRepay = currentBalance < 0 ? Math.min(-currentBalance, amount) : 0
 	return amount - debtToRepay
+}
+
+type GrantSequenceMockState = {
+	balance: number
+	lastAmount: number
+	amounts: number[]
+	duplicatedCalls: boolean[]
+}
+
+type GrantSequenceMockDb = AppDb & {
+	_grantSequenceState: GrantSequenceMockState
+}
+
+function createGrantSequenceMockDb(
+	initialBalance: number,
+	amounts: number[],
+	duplicatedCalls: boolean[]
+): GrantSequenceMockDb {
+	const state: GrantSequenceMockState = {
+		balance: initialBalance,
+		lastAmount: 0,
+		amounts: [...amounts],
+		duplicatedCalls: [...duplicatedCalls]
+	}
+
+	return {
+		_grantSequenceState: state,
+		query: {
+			user: {
+				findFirst: async (): Promise<{ id: string; creditBalance: number } | undefined> => {
+					return {
+						id: 'u1',
+						creditBalance: state.balance
+					}
+				}
+			}
+		},
+		select: (): {
+			from: (_table: unknown) => {
+				innerJoin: (_table: unknown, _condition: unknown) => {
+					where: (_condition: unknown) => Promise<Array<{ balance: number; entryRemainingAmount: number }>>
+				}
+			}
+		} => {
+			return {
+				from: () => {
+					return {
+						innerJoin: () => {
+							return {
+								where: async () => [
+									{
+										balance: state.balance,
+										entryRemainingAmount: state.lastAmount
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		run: (payload: unknown): MockRawRunQuery => {
+			return createMockRawRunQuery(payload)
+		},
+		$client: {
+			prepare: (query: string): { bind: (...params: unknown[]) => unknown } => {
+				return {
+					bind: (...params: unknown[]) => {
+						return {
+							query,
+							params
+						}
+					}
+				}
+			},
+			batch: async (): Promise<unknown[]> => {
+				const amount = state.amounts.shift() ?? 0
+				const duplicated = state.duplicatedCalls.shift() ?? false
+				state.lastAmount = duplicated ? 0 : amount
+				if (!duplicated) {
+					state.balance += amount
+				}
+				return [
+					{
+						meta: {
+							changes: duplicated ? 0 : 1
+						}
+					}
+				]
+			}
+		}
+	} as unknown as GrantSequenceMockDb
 }
 
 describe('CreditsService.ensureEnough', () => {
@@ -599,6 +810,87 @@ function createDeductMockDb(
 			}
 		}
 	} as unknown as DeductMockDb
+}
+
+type DeductSequenceMockState = {
+	balance: number
+	amount: number
+	duplicatedCalls: boolean[]
+}
+
+type DeductSequenceMockDb = AppDb & {
+	_deductSequenceState: DeductSequenceMockState
+}
+
+function createDeductSequenceMockDb(
+	initialBalance: number,
+	amount: number,
+	duplicatedCalls: boolean[]
+): DeductSequenceMockDb {
+	const state: DeductSequenceMockState = {
+		balance: initialBalance,
+		amount,
+		duplicatedCalls: [...duplicatedCalls]
+	}
+
+	return {
+		_deductSequenceState: state,
+		query: {
+			user: {
+				findFirst: async (): Promise<{ id: string; creditBalance: number } | undefined> => {
+					return {
+						id: 'u1',
+						creditBalance: state.balance
+					}
+				}
+			}
+		},
+		run: (payload: unknown): MockRawRunQuery => {
+			return createMockRawRunQuery(payload)
+		},
+		$client: {
+			prepare: (query: string): { bind: (...params: unknown[]) => unknown } => {
+				return {
+					bind: (...params: unknown[]) => {
+						return {
+							query,
+							params
+						}
+					}
+				}
+			},
+			batch: async (): Promise<unknown[]> => {
+				const duplicated = state.duplicatedCalls.shift() ?? false
+				if (!duplicated) {
+					state.balance -= state.amount
+				}
+				return [
+					{
+						meta: {
+							changes: duplicated ? 0 : 1
+						}
+					}
+				]
+			}
+		},
+		select: (): {
+			from: (_table: unknown) => {
+				where: (_condition: unknown) => Promise<Array<{ creditBalance: number }>>
+			}
+		} => {
+			return {
+				from: () => {
+					return {
+						where: async () => [
+							{
+								creditBalance: state.balance
+							}
+						]
+					}
+				}
+			}
+		}
+	} as unknown as DeductSequenceMockDb
 }
 
 describe('CreditsService.expire', () => {
