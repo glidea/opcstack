@@ -23,6 +23,7 @@ const paymentEnabled = readEnv(envContent, 'PAYMENT_ENABLED') ?? 'false'
 const paymentProviders = readEnv(envContent, 'PAYMENT_PROVIDERS') ?? ''
 const paymentDefaultProvider = readEnv(envContent, 'PAYMENT_DEFAULT_PROVIDER') ?? ''
 const paymentProducts = readEnv(envContent, 'PAYMENT_PRODUCTS') ?? ''
+const paymentCreemWebhookSecret = readEnv(envContent, 'PAYMENT_CREEM_WEBHOOK_SECRET') ?? ''
 const affEnabled = readEnv(envContent, 'AFF_ENABLED') ?? 'false'
 
 export default defineConfig({
@@ -48,6 +49,7 @@ export default defineConfig({
 			E2E_PAYMENT_PROVIDERS: paymentProviders,
 			E2E_PAYMENT_DEFAULT_PROVIDER: paymentDefaultProvider,
 			E2E_PAYMENT_PRODUCTS: paymentProducts,
+			E2E_PAYMENT_CREEM_WEBHOOK_SECRET: paymentCreemWebhookSecret,
 			E2E_AFF_ENABLED: affEnabled
 		}
 	}

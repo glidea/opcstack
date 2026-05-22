@@ -192,14 +192,22 @@ Dodo 和 Creem adapter 必须把 provider 原始事件转换成统一 `PaymentEv
 - 不做前端页面调整
 
 ## TODO 清单
-- [ ] 1. 在 `e2e/payment.test.ts` 增加 webhook 重试恢复的可控边界测试
-- [ ] 2. 汇总并确认 `docs/v002/payment-concurrency-design.md` 的 5.x 场景都有覆盖
-- [ ] 3. 运行全量 `pnpm test`
-- [ ] 4. 需要 HTTP 边界时运行 `pnpm test:e2e`
-- [ ] 5. 如实现规则形成新约定，同步更新 `AGENTS.md`
+- [x] 1. 在 `e2e/payment.test.ts` 增加 webhook 重试恢复的可控边界测试
+- [x] 2. 汇总并确认 `docs/v002/payment-concurrency-design.md` 的 5.x 场景都有覆盖
+- [x] 3. 运行全量 `pnpm test`
+- [x] 4. 需要 HTTP 边界时运行 `pnpm test:e2e`
+- [x] 5. 如实现规则形成新约定，同步更新 `AGENTS.md`
 
 ## 验收测试步骤
-1. 运行 `pnpm test`
-2. 运行 `pnpm test:e2e`
-3. 半完成购买、半完成退款、重复续费 webhook 都有测试覆盖
-4. `AGENTS.md` 和设计文档没有互相矛盾的支付规则
+1. [x] 运行 `pnpm test`
+2. [x] 运行 `pnpm test:e2e`
+3. [x] 半完成购买、半完成退款、重复续费 webhook 都有测试覆盖
+4. [x] `AGENTS.md` 和设计文档没有互相矛盾的支付规则
+
+## 覆盖映射
+
+- 5.1 半完成购买重试：`src/payment/index.test.ts` 的 `PaymentService.processWebhook retry recovery`
+- 5.2 半完成退款重试：`src/payment/index.test.ts` 的 `PaymentService.processWebhook retry recovery`
+- 5.3 并发积分发放：`src/credits/index.test.ts` 的 `CreditsService payment source idempotency`
+- 5.4 重复续费 webhook：`src/payment/index.test.ts` 的 `PaymentService.processWebhook subscription retry recovery`
+- HTTP 边界：`e2e/payment.test.ts` 的 `webhook retry boundary`

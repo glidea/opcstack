@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { beforeAll, describe } from 'vitest'
 import { runCases, type TestCase } from '../src/testing/bdd'
 
@@ -21,6 +22,7 @@ type E2EEnv = {
 	E2E_PAYMENT_PROVIDERS?: string
 	E2E_PAYMENT_DEFAULT_PROVIDER?: string
 	E2E_PAYMENT_PRODUCTS?: string
+	E2E_PAYMENT_CREEM_WEBHOOK_SECRET?: string
 }
 
 const e2eEnv =
@@ -31,10 +33,15 @@ const paymentEnabled: boolean = e2eEnv.E2E_PAYMENT_ENABLED === 'true'
 const paymentProviders: string = e2eEnv.E2E_PAYMENT_PROVIDERS ?? ''
 const paymentDefaultProvider: string = e2eEnv.E2E_PAYMENT_DEFAULT_PROVIDER ?? ''
 const paymentProducts: string = e2eEnv.E2E_PAYMENT_PRODUCTS ?? ''
+const paymentCreemWebhookSecret: string = e2eEnv.E2E_PAYMENT_CREEM_WEBHOOK_SECRET ?? ''
 const hasPaymentConfig: boolean =
 	paymentProviders.trim() !== '' &&
 	paymentDefaultProvider.trim() !== '' &&
 	paymentProducts.trim() !== ''
+const hasCreemWebhookConfig: boolean =
+	adminSecret !== '' &&
+	paymentProviders.split(';').includes('creem') &&
+	paymentCreemWebhookSecret.trim() !== ''
 
 describe('payment api e2e', () => {
 	beforeAll(async () => {
@@ -304,6 +311,70 @@ describe('payment api e2e', () => {
 			}
 		})
 	})
+
+	describe.skipIf(!hasCreemWebhookConfig)('webhook retry boundary', () => {
+		type WebhookGiven = Record<string, never>
+		type WebhookWhen = {
+			action: 'post_same_creem_webhook_twice'
+		}
+		type WebhookThen = {
+			beforeStatus: number
+			firstWebhookStatus: number
+			secondWebhookStatus: number
+			afterStatus: number
+			transactionDelta: number
+		}
+
+		const webhookCases: TestCase<WebhookGiven, WebhookWhen, WebhookThen>[] = [
+			{
+				scenario: 'missing checkout webhook retry does not create payment transaction',
+				given: 'signed creem checkout.completed webhook has no local checkout order',
+				when: 'posting same webhook twice',
+				then: 'payment transaction total stays unchanged',
+				givenDetail: {},
+				whenDetail: {
+					action: 'post_same_creem_webhook_twice'
+				},
+				thenExpected: {
+					beforeStatus: 200,
+					firstWebhookStatus: 200,
+					secondWebhookStatus: 200,
+					afterStatus: 200,
+					transactionDelta: 0
+				}
+			}
+		]
+
+		runCases(webhookCases, async () => {
+			const rawBody = JSON.stringify({
+				id: `evt_e2e_missing_checkout_${Date.now()}`,
+				eventType: 'checkout.completed',
+				created_at: Date.now(),
+				object: {
+					request_id: `co_e2e_missing_${Date.now()}`,
+					metadata: {
+						checkout_order_id: `co_e2e_missing_${Date.now()}`
+					},
+					order: {
+						transaction: `txn_e2e_missing_${Date.now()}`,
+						amount: 1000,
+						currency: 'USD'
+					}
+				}
+			})
+			const before = await listAdminPaymentTransactions()
+			const firstWebhook = await postCreemWebhook(rawBody)
+			const secondWebhook = await postCreemWebhook(rawBody)
+			const after = await listAdminPaymentTransactions()
+			return {
+				beforeStatus: before.status,
+				firstWebhookStatus: firstWebhook.status,
+				secondWebhookStatus: secondWebhook.status,
+				afterStatus: after.status,
+				transactionDelta: after.total - before.total
+			}
+		})
+	})
 })
 
 function postJson(path: string, body: unknown): Promise<Response> {
@@ -333,4 +404,19 @@ async function listAdminPaymentTransactions(): Promise<{ status: number; total: 
 		status: res.status,
 		total: typeof payload.total === 'number' ? payload.total : -1
 	}
+}
+
+function postCreemWebhook(rawBody: string): Promise<Response> {
+	return fetch(`${appBaseUrl}/api/webhook/creem`, {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+			'creem-signature': signCreemBody(rawBody)
+		},
+		body: rawBody
+	})
+}
+
+function signCreemBody(rawBody: string): string {
+	return createHmac('sha256', paymentCreemWebhookSecret).update(rawBody).digest('hex')
 }
