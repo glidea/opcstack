@@ -4,10 +4,9 @@ import { newOpenAINativeImageClient, newOpenAISimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput } from '..'
 
 type OpenAIImageResponse = {
-	data?: Array<{
-		b64_json?: string
-	}>
-	output_format?: string
+	type: 'image_generation.partial_image' | 'image_generation.completed' | 'image_edit.partial_image' | 'image_edit.completed'
+	b64_json: string
+	output_format: 'png' | 'jpeg' | 'webp'
 }
 
 type R2PutResult = {
@@ -70,8 +69,8 @@ describe('newOpenAISimpleImageClient.generate', () => {
 	type GivenDetail = {
 		envModel: string
 		optionsModel?: string
-		generateResponse?: OpenAIImageResponse
-		editResponse?: OpenAIImageResponse
+		generateEvents?: OpenAIImageResponse[]
+		editEvents?: OpenAIImageResponse[]
 		r2Results?: R2PutResult[]
 	}
 	type WhenDetail = {
@@ -85,6 +84,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 		sizeInEdit: string
 		moderationInGenerate: string
 		moderationInEdit: string
+		streamInGenerate: boolean
+		streamInEdit: boolean
+		partialImagesInGenerate: number
+		partialImagesInEdit: number
 		generateCalled: number
 		editCalled: number
 		toFileCalls: number
@@ -100,10 +103,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 			then: 'calls generate with converted size and moderation auto',
 			givenDetail: {
 				envModel: 'env-model',
-				generateResponse: {
-					data: [{ b64_json: 'a' }],
-					output_format: 'png'
-				}
+				generateEvents: [
+					{ type: 'image_generation.partial_image', b64_json: 'preview', output_format: 'png' },
+					{ type: 'image_generation.completed', b64_json: 'a', output_format: 'png' }
+				]
 			},
 			whenDetail: {
 				input: {
@@ -121,6 +124,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 				sizeInEdit: '',
 				moderationInGenerate: 'auto',
 				moderationInEdit: '',
+				streamInGenerate: true,
+				streamInEdit: false,
+				partialImagesInGenerate: 1,
+				partialImagesInEdit: 0,
 				generateCalled: 1,
 				editCalled: 0,
 				toFileCalls: 0,
@@ -136,10 +143,7 @@ describe('newOpenAISimpleImageClient.generate', () => {
 			givenDetail: {
 				envModel: 'env-model',
 				optionsModel: 'opt-model',
-				generateResponse: {
-					data: [{ b64_json: 'b' }],
-					output_format: 'jpeg'
-				}
+				generateEvents: [{ type: 'image_generation.completed', b64_json: 'b', output_format: 'jpeg' }]
 			},
 			whenDetail: {
 				input: {
@@ -156,6 +160,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 				sizeInEdit: '',
 				moderationInGenerate: 'auto',
 				moderationInEdit: '',
+				streamInGenerate: true,
+				streamInEdit: false,
+				partialImagesInGenerate: 1,
+				partialImagesInEdit: 0,
 				generateCalled: 1,
 				editCalled: 0,
 				toFileCalls: 0,
@@ -170,10 +178,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 			then: 'calls edit with converted size',
 			givenDetail: {
 				envModel: 'env-model',
-				editResponse: {
-					data: [{ b64_json: 'c' }],
-					output_format: 'webp'
-				}
+				editEvents: [
+					{ type: 'image_edit.partial_image', b64_json: 'preview', output_format: 'webp' },
+					{ type: 'image_edit.completed', b64_json: 'c', output_format: 'webp' }
+				]
 			},
 			whenDetail: {
 				input: {
@@ -191,6 +199,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 				sizeInEdit: '608x1088',
 				moderationInGenerate: '',
 				moderationInEdit: 'low',
+				streamInGenerate: false,
+				streamInEdit: true,
+				partialImagesInGenerate: 0,
+				partialImagesInEdit: 1,
 				generateCalled: 0,
 				editCalled: 1,
 				toFileCalls: 1,
@@ -205,10 +217,7 @@ describe('newOpenAISimpleImageClient.generate', () => {
 			then: 'attaches r2 key in output',
 			givenDetail: {
 				envModel: 'env-model',
-				generateResponse: {
-					data: [{ b64_json: 'd' }],
-					output_format: 'png'
-				},
+				generateEvents: [{ type: 'image_generation.completed', b64_json: 'd', output_format: 'png' }],
 				r2Results: [{ key: 'public/images/1.png', url: 'http://localhost:5173/api/r2/public/images/1.png' }]
 			},
 			whenDetail: {
@@ -225,6 +234,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 				sizeInEdit: '',
 				moderationInGenerate: 'auto',
 				moderationInEdit: '',
+				streamInGenerate: true,
+				streamInEdit: false,
+				partialImagesInGenerate: 1,
+				partialImagesInEdit: 0,
 				generateCalled: 1,
 				editCalled: 0,
 				toFileCalls: 0,
@@ -237,8 +250,8 @@ describe('newOpenAISimpleImageClient.generate', () => {
 	runCases(cases, async (given, when) => {
 		vi.clearAllMocks()
 
-		generateMock.mockResolvedValue(given.generateResponse ?? { data: [] })
-		editMock.mockResolvedValue(given.editResponse ?? { data: [] })
+		generateMock.mockResolvedValue(createEventStream(given.generateEvents ?? []))
+		editMock.mockResolvedValue(createEventStream(given.editEvents ?? []))
 		toFileMock.mockResolvedValue({ name: 'ref.png' } as unknown as File)
 
 		let r2Index = 0
@@ -259,6 +272,8 @@ describe('newOpenAISimpleImageClient.generate', () => {
 					model?: string
 					size?: string
 					moderation?: string
+					stream?: boolean
+					partial_images?: number
 			  }
 			| undefined
 		const editArg = editMock.mock.calls[0]?.[0] as
@@ -266,6 +281,8 @@ describe('newOpenAISimpleImageClient.generate', () => {
 					model?: string
 					size?: string
 					moderation?: string
+					stream?: boolean
+					partial_images?: number
 			  }
 			| undefined
 
@@ -277,6 +294,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 			sizeInEdit: editArg?.size ?? '',
 			moderationInGenerate: generateArg?.moderation ?? '',
 			moderationInEdit: editArg?.moderation ?? '',
+			streamInGenerate: generateArg?.stream ?? false,
+			streamInEdit: editArg?.stream ?? false,
+			partialImagesInGenerate: generateArg?.partial_images ?? 0,
+			partialImagesInEdit: editArg?.partial_images ?? 0,
 			generateCalled: generateMock.mock.calls.length,
 			editCalled: editMock.mock.calls.length,
 			toFileCalls: toFileMock.mock.calls.length,
@@ -285,6 +306,12 @@ describe('newOpenAISimpleImageClient.generate', () => {
 		}
 	})
 })
+
+async function* createEventStream(events: OpenAIImageResponse[]): AsyncIterable<OpenAIImageResponse> {
+	for (const event of events) {
+		yield event
+	}
+}
 
 describe('newOpenAINativeImageClient', () => {
 	type GivenDetail = {

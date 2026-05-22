@@ -1,8 +1,9 @@
 import OpenAI, { toFile } from 'openai'
 import type {
-	ImageEditParamsNonStreaming,
-	ImageGenerateParamsNonStreaming,
-	ImagesResponse
+	ImageEditParamsStreaming,
+	ImageEditStreamEvent,
+	ImageGenerateParamsStreaming,
+	ImageGenStreamEvent
 } from 'openai/resources/images'
 import { newR2Client } from '../../../r2'
 import type {
@@ -45,55 +46,76 @@ class openAISimpleImageClient implements AISimpleImageClient {
 	async generate(input: AISimpleImageClientGenerateInput): Promise<AIImageResult[]> {
 		if (input.references && input.references.length > 0) {
 			const image = await toReferenceFiles(input.references)
-			const request: ImageEditParamsNonStreaming & { moderation?: 'low' | 'auto' } = {
+			const request: ImageEditParamsStreaming & { moderation?: 'low' | 'auto' } = {
 				model: this.model,
 				image,
 				prompt: input.prompt,
 				n: input.numberOfImages,
 				moderation: toModeration(input.lowCensorship),
-				size: toOpenAIImageSize(input) as ImageEditParamsNonStreaming['size']
+				size: toOpenAIImageSize(input) as ImageEditParamsStreaming['size'],
+				stream: true,
+				partial_images: 1
 			}
-			const result = await this.client.images.edit(request)
+			const stream = await this.client.images.edit(request)
+			const outputs = await toImageResultsFromStream(stream)
 
-			return toImageResults(this.env, input, result)
+			return uploadImageResults(this.env, input, outputs)
 		}
 
-		const request: ImageGenerateParamsNonStreaming = {
+		const request: ImageGenerateParamsStreaming = {
 			model: this.model,
 			prompt: input.prompt,
 			n: input.numberOfImages,
 			moderation: toModeration(input.lowCensorship),
-			size: toOpenAIImageSize(input) as ImageGenerateParamsNonStreaming['size']
+			size: toOpenAIImageSize(input) as ImageGenerateParamsStreaming['size'],
+			stream: true,
+			partial_images: 1
 		}
-		const result = await this.client.images.generate(request)
+		const stream = await this.client.images.generate(request)
+		const outputs = await toImageResultsFromStream(stream)
 
-		return toImageResults(this.env, input, result)
+		return uploadImageResults(this.env, input, outputs)
 	}
 }
 
-async function toImageResults(
+async function toImageResultsFromStream(
+	stream: AsyncIterable<ImageGenStreamEvent | ImageEditStreamEvent>
+): Promise<AIImageResult[]> {
+	const outputs: AIImageResult[] = []
+	for await (const event of stream) {
+		switch (event.type) {
+			case 'image_generation.completed':
+			case 'image_edit.completed':
+				outputs.push({
+					imageBase64: event.b64_json,
+					mimeType: toMimeType(event.output_format)
+				})
+				break
+			case 'image_generation.partial_image':
+			case 'image_edit.partial_image':
+				break
+		}
+	}
+
+	return outputs
+}
+
+async function uploadImageResults(
 	env: Env,
 	input: AISimpleImageClientGenerateInput,
-	result: ImagesResponse
+	outputs: AIImageResult[]
 ): Promise<AIImageResult[]> {
-	const generated = result.data ?? []
-	const outputs: AIImageResult[] = []
-	for (const item of generated) {
-		const output: AIImageResult = {
-			imageBase64: item.b64_json ?? '',
-			mimeType: toMimeType(result.output_format)
-		}
+	if (!input.uploadToR2) {
+		return outputs
+	}
 
-		if (input.uploadToR2) {
-			const client = newR2Client(env as R2Env, input.userId)
-			output.r2 = await client.putImage({
-				dir: 'images',
-				imageBase64: output.imageBase64,
-				mimeType: output.mimeType
-			})
-		}
-
-		outputs.push(output)
+	const client = newR2Client(env as R2Env, input.userId)
+	for (const output of outputs) {
+		output.r2 = await client.putImage({
+			dir: 'images',
+			imageBase64: output.imageBase64,
+			mimeType: output.mimeType
+		})
 	}
 
 	return outputs
