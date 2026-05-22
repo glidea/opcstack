@@ -66,11 +66,13 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `SUPPORT_EMAIL`: Contact email used by legal pages
 - `BETTER_AUTH_SECRET`: Auth secret minimum 32 characters
 - `ADMIN_SECRET`: Admin password
+- `TURNSTILE_ENABLED`: Enables Cloudflare Turnstile for email auth. Local mode uses official Cloudflare test keys. Remote mode creates or reuses a Turnstile widget named `APP_NAME`
 
 **Feature flags**:
 - `EMAIL_ENABLED` / `EMAIL_SIGNUP_ENABLED`
 - `GOOGLE_AUTH_ENABLED`
 - `BETA_CODE_ENABLED`
+- `TURNSTILE_ENABLED`
 - `R2_ENABLED`
 - `CREDITS_SIGNUP_ENABLED` / `CREDITS_SIGNUP_AMOUNT`
 - `CREDITS_DAILY_CHECKIN_ENABLED` / `CREDITS_DAILY_CHECKIN_AMOUNT`
@@ -113,6 +115,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Middleware:
   - `authMiddleware`: injects `userId` into `ctx.variables`
   - Authenticated API routes accept Better Auth sessions from either Cookie or `Authorization: Bearer <token>`
+  - Turnstile uses Better Auth captcha plugin and protects email sign-up sign-in and password reset request endpoints
   - `adminSecretMiddleware`: validates admin password
   - `betaGateMiddleware`: beta code gate
   - `emailAuthMiddleware`: email auth gate

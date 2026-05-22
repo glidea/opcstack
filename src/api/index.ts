@@ -68,6 +68,8 @@ publicApi.post('/get_public_config', (ctx): Response => {
 	return ctx.json({
 		design_system: env.DESIGN_SYSTEM || 'apple-saas',
 		beta_code_enabled: String(env.BETA_CODE_ENABLED) === 'true',
+		turnstile_enabled: String(env.TURNSTILE_ENABLED) === 'true',
+		turnstile_site_key: env.TURNSTILE_SITE_KEY,
 		google_auth_enabled: String(env.GOOGLE_AUTH_ENABLED) === 'true',
 		email_enabled: String(env.EMAIL_ENABLED) === 'true',
 		email_signup_enabled: String(env.EMAIL_SIGNUP_ENABLED) === 'true',

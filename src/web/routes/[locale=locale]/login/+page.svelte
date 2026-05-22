@@ -29,5 +29,7 @@
 		emailEnabled={data.publicConfig.email_enabled}
 		emailSignupEnabled={data.publicConfig.email_signup_enabled}
 		refundHref={data.publicConfig.payment_enabled ? '/refund-policy' : undefined}
+		turnstileEnabled={data.publicConfig.turnstile_enabled}
+		turnstileSiteKey={data.publicConfig.turnstile_site_key}
 	/>
 </main>

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import { authCore } from './index'
 import { betterAuth } from 'better-auth'
-import { bearer, emailOTP } from 'better-auth/plugins'
+import { bearer, captcha, emailOTP } from 'better-auth/plugins'
 import { newEmailClients, type EmailSimpleSendInput } from '../../email'
 import type { Resend } from 'resend'
 
@@ -27,6 +27,9 @@ vi.mock('better-auth/plugins', () => {
 		}),
 		emailOTP: vi.fn((options) => {
 			return { id: 'email-otp', options }
+		}),
+		captcha: vi.fn((options) => {
+			return { id: 'captcha', options }
 		})
 	}
 })
@@ -228,6 +231,106 @@ describe('authCore email config mapping', () => {
 			hasEmailOtpPlugin:
 				options?.plugins?.some((plugin: { id?: string }) => plugin.id === 'email-otp') ?? false,
 			hasSendResetPassword: typeof options?.emailAndPassword?.sendResetPassword === 'function'
+		}
+	})
+})
+
+describe('authCore turnstile config mapping', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		vi.mocked(betterAuth).mockReturnValue({} as never)
+		vi.mocked(newEmailClients).mockReturnValue({
+			simple: {
+				send: createSendMock()
+			},
+			resend: {} as Resend
+		})
+	})
+
+	type GivenDetail = {
+		turnstileEnabled: string
+		turnstileSiteKey: string
+		turnstileSecretKey: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		hasCaptchaPlugin: boolean
+		provider: string
+		secretKey: string
+		endpoints: string[]
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'skip captcha when turnstile is disabled',
+			given: 'turnstile switch disabled',
+			when: 'building auth core',
+			then: 'captcha plugin is not registered',
+			givenDetail: {
+				turnstileEnabled: 'false',
+				turnstileSiteKey: '',
+				turnstileSecretKey: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				hasCaptchaPlugin: false,
+				provider: '',
+				secretKey: '',
+				endpoints: []
+			}
+		},
+		{
+			scenario: 'register turnstile captcha for auth endpoints',
+			given: 'turnstile switch enabled and keys configured',
+			when: 'building auth core',
+			then: 'captcha plugin protects email auth endpoints',
+			givenDetail: {
+				turnstileEnabled: 'true',
+				turnstileSiteKey: 'site-key',
+				turnstileSecretKey: 'secret-key'
+			},
+			whenDetail: {},
+			thenExpected: {
+				hasCaptchaPlugin: true,
+				provider: 'cloudflare-turnstile',
+				secretKey: 'secret-key',
+				endpoints: ['/sign-up/email', '/sign-in/email', '/email-otp/request-password-reset']
+			}
+		}
+	]
+
+	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
+		const env = createEnv({
+			emailEnabled: 'true',
+			emailSignupEnabled: 'true',
+			emailRequireVerification: 'true',
+			cooldownSeconds: '50',
+			emailResendApiKey: 'resend-api-key',
+			emailFrom: 'Auth <auth@mg.example.com>'
+		})
+		env.TURNSTILE_ENABLED = given.turnstileEnabled
+		env.TURNSTILE_SITE_KEY = given.turnstileSiteKey
+		env.TURNSTILE_SECRET_KEY = given.turnstileSecretKey
+
+		authCore(env, {} as never)
+		const options = vi.mocked(captcha).mock.calls[0]?.[0] as
+			| {
+					provider: string
+					secretKey: string
+					endpoints: string[]
+			  }
+			| undefined
+
+		const authOptions = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
+			plugins?: Array<{ id?: string }>
+		}
+
+		return {
+			hasCaptchaPlugin:
+				authOptions.plugins?.some((plugin: { id?: string }) => plugin.id === 'captcha') ?? false,
+			provider: options?.provider ?? '',
+			secretKey: options?.secretKey ?? '',
+			endpoints: options?.endpoints ?? []
 		}
 	})
 })

@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { resolveTurnstileConfig, selectTurnstileWidget } from './src/build/turnstile.mjs'
 
 const SVELTE_WORKER_PATH = '.svelte-kit/cloudflare/_worker.js'
 const SVELTE_SERVER_PATH = '.svelte-kit/output/server/index.js'
@@ -374,6 +375,45 @@ async function createKVNamespace(accountId, token, title) {
 	return cfApiRequest(token, 'POST', `/accounts/${accountId}/storage/kv/namespaces`, { title })
 }
 
+async function listTurnstileWidgets(accountId, token) {
+	const result = await cfApiRequest(
+		token,
+		'GET',
+		`/accounts/${accountId}/challenges/widgets?per_page=100&page=1`,
+		undefined
+	)
+	return Array.isArray(result) ? result : []
+}
+
+async function createTurnstileWidget(accountId, token, name, domain) {
+	return cfApiRequest(token, 'POST', `/accounts/${accountId}/challenges/widgets`, {
+		name,
+		domains: [domain],
+		mode: 'managed',
+		region: 'world'
+	})
+}
+
+async function ensureTurnstileWidget(accountId, token, appName, domain) {
+	let widgets = await listTurnstileWidgets(accountId, token)
+	let widget = selectTurnstileWidget(widgets, appName)
+	if (widget) {
+		console.log(`Turnstile widget '${appName}' already exists.`)
+		return widget
+	}
+
+	console.log(`Creating Turnstile widget '${appName}'...`)
+	await createTurnstileWidget(accountId, token, appName, domain)
+	widgets = await listTurnstileWidgets(accountId, token)
+	widget = selectTurnstileWidget(widgets, appName)
+	if (!widget) {
+		console.error('Failed to get Turnstile widget after creation')
+		process.exit(1)
+	}
+
+	return widget
+}
+
 async function enableD1ReadReplication(accountId, databaseId, token) {
 	await cfApiRequest(token, 'PUT', `/accounts/${accountId}/d1/database/${databaseId}`, {
 		read_replication: {
@@ -390,6 +430,7 @@ async function main() {
 	const queueNames = parseQueueNames(env.QUEUE_NAMES)
 	const cronExpressions = parseCronExpressions(env.CRONS)
 	const r2Enabled = env.R2_ENABLED === 'true'
+	const turnstileEnabled = env.TURNSTILE_ENABLED === 'true'
 
 	console.log(`\nPre-build script (${isRemote ? 'REMOTE' : 'LOCAL'} mode)\n`)
 
@@ -506,6 +547,27 @@ async function main() {
 
 		console.log(`KV namespace ID: ${kvNamespaceId}`)
 	}
+
+	let turnstileWidget
+	if (isRemote && turnstileEnabled) {
+		console.log('\nChecking Turnstile widget...')
+		turnstileWidget = await ensureTurnstileWidget(
+			accountId,
+			wranglerToken,
+			env.APP_NAME,
+			env.APP_DOMAIN
+		)
+		console.log(`Turnstile sitekey: ${turnstileWidget.sitekey}`)
+	}
+
+	const turnstileConfig = resolveTurnstileConfig({
+		enabled: env.TURNSTILE_ENABLED,
+		isRemote,
+		widget: turnstileWidget
+	})
+	env.TURNSTILE_ENABLED = turnstileConfig.enabled
+	env.TURNSTILE_SITE_KEY = turnstileConfig.siteKey
+	env.TURNSTILE_SECRET_KEY = turnstileConfig.secretKey
 
 	console.log('\nRendering configuration...')
 	env.D1_DATABASE_UUID = databaseId

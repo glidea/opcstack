@@ -1,6 +1,8 @@
 export type PublicConfig = {
 	design_system: string
 	beta_code_enabled: boolean
+	turnstile_enabled: boolean
+	turnstile_site_key: string
 	google_auth_enabled: boolean
 	email_enabled: boolean
 	email_signup_enabled: boolean

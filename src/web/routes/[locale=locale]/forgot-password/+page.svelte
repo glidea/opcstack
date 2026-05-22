@@ -46,6 +46,8 @@
 				onSuccess={handleSentSuccess}
 				loginHref={`/${data.locale}/login`}
 				emailUserActionCooldownSeconds={data.publicConfig.email_user_action_cooldown_seconds}
+				turnstileEnabled={data.publicConfig.turnstile_enabled}
+				turnstileSiteKey={data.publicConfig.turnstile_site_key}
 			/>
 		{/if}
 	{/if}

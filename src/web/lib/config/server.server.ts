@@ -22,6 +22,8 @@ export function getServerPublicConfig(): PublicConfig {
 	return {
 		design_system: serverConfig.DESIGN_SYSTEM || 'apple-saas',
 		beta_code_enabled: String(serverConfig.BETA_CODE_ENABLED) === 'true',
+		turnstile_enabled: String(serverConfig.TURNSTILE_ENABLED) === 'true',
+		turnstile_site_key: serverConfig.TURNSTILE_SITE_KEY,
 		google_auth_enabled: String(serverConfig.GOOGLE_AUTH_ENABLED) === 'true',
 		email_enabled: String(serverConfig.EMAIL_ENABLED) === 'true',
 		email_signup_enabled: String(serverConfig.EMAIL_SIGNUP_ENABLED) === 'true',

@@ -79,6 +79,8 @@
 				emailSignupEnabled={true}
 				registerHref="#"
 				forgotPasswordHref="#"
+				turnstileEnabled={false}
+				turnstileSiteKey=""
 			/>
 		</div>
 
@@ -90,6 +92,8 @@
 				emailSignupEnabled={true}
 				emailUserActionCooldownSeconds={60}
 				loginHref="#"
+				turnstileEnabled={false}
+				turnstileSiteKey=""
 			/>
 		</div>
 
@@ -98,6 +102,8 @@
 			<ForgotPasswordCard
 				emailUserActionCooldownSeconds={60}
 				loginHref="#"
+				turnstileEnabled={false}
+				turnstileSiteKey=""
 			/>
 		</div>
 

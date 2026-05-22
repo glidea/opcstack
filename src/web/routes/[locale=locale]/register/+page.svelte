@@ -47,6 +47,8 @@
 			emailSignupEnabled={data.publicConfig.email_signup_enabled}
 			emailUserActionCooldownSeconds={data.publicConfig.email_user_action_cooldown_seconds}
 			refundHref={data.publicConfig.payment_enabled ? '/refund-policy' : undefined}
+			turnstileEnabled={data.publicConfig.turnstile_enabled}
+			turnstileSiteKey={data.publicConfig.turnstile_site_key}
 		/>
 	{/if}
 </main>

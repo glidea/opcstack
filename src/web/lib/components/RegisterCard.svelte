@@ -8,6 +8,7 @@
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
 	import GoogleIcon from './GoogleIcon.svelte'
 	import LegalDisclosure from './LegalDisclosure.svelte'
+	import Turnstile from './Turnstile.svelte'
 
 	let {
 		onSuccess,
@@ -19,7 +20,9 @@
 		termsHref = '/terms',
 		privacyHref = '/privacy',
 		refundHref,
-		showLegal = true
+		showLegal = true,
+		turnstileEnabled = false,
+		turnstileSiteKey = ''
 	}: {
 		onSuccess?: (email: string) => void
 		loginHref?: string
@@ -31,19 +34,31 @@
 		privacyHref?: string
 		refundHref?: string
 		showLegal?: boolean
+		turnstileEnabled?: boolean
+		turnstileSiteKey?: string
 	} = $props()
 
 	let email = $state('')
 	let password = $state('')
 	let loading = $state(false)
 	let error = $state('')
+	let turnstileToken = $state('')
+	let turnstileRef: Turnstile | undefined = $state()
 
 	async function handleRegister(): Promise<void> {
+		if (turnstileEnabled && turnstileToken === '') {
+			error = $_('auth.error.turnstileRequired')
+			return
+		}
 		loading = true
 		error = ''
-		const result = await authClient.signUp.email({ email, password, name: email })
+		const result = await authClient.signUp.email(
+			{ email, password, name: email },
+			buildCaptchaFetchOptions()
+		)
 		if (result.error) {
 			loading = false
+			turnstileRef?.reset()
 			error = resolveEmailError(result.error, $_('auth.register.submit'))
 			return
 		}
@@ -80,8 +95,24 @@
 				return $_('auth.error.emailActionRateLimited', {
 					values: { seconds: emailUserActionCooldownSeconds }
 				})
+			case 'MISSING_RESPONSE':
+				return $_('auth.error.turnstileRequired')
+			case 'VERIFICATION_FAILED':
+				return $_('auth.error.turnstileFailed')
 			default:
 				return authError.message ?? fallback
+		}
+	}
+
+	function buildCaptchaFetchOptions(): { headers: { 'x-captcha-response': string } } | undefined {
+		if (!turnstileEnabled) {
+			return undefined
+		}
+
+		return {
+			headers: {
+				'x-captcha-response': turnstileToken
+			}
 		}
 	}
 </script>
@@ -122,6 +153,14 @@
 				<FieldLabel for="register-password">{$_('auth.register.password')}</FieldLabel>
 				<Input id="register-password" type="password" autocomplete="new-password" bind:value={password} required />
 			</Field>
+			{#if turnstileEnabled}
+				<Turnstile
+					bind:this={turnstileRef}
+					siteKey={turnstileSiteKey}
+					onToken={(token: string): void => { turnstileToken = token }}
+					onReset={(): void => { turnstileToken = '' }}
+				/>
+			{/if}
 			<Button type="submit" class="w-full" disabled={loading}>
 				{loading ? $_('auth.register.submitting') : $_('auth.register.submit')}
 			</Button>

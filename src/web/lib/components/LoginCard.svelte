@@ -8,6 +8,7 @@
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
 	import GoogleIcon from './GoogleIcon.svelte'
 	import LegalDisclosure from './LegalDisclosure.svelte'
+	import Turnstile from './Turnstile.svelte'
 
 	type EmailLoginResultData = {
 		token?: string
@@ -23,7 +24,9 @@
 		termsHref = '/terms',
 		privacyHref = '/privacy',
 		refundHref,
-		showLegal = true
+		showLegal = true,
+		turnstileEnabled = false,
+		turnstileSiteKey = ''
 	}: {
 		onSuccess?: () => void
 		registerHref?: string
@@ -35,20 +38,29 @@
 		privacyHref?: string
 		refundHref?: string
 		showLegal?: boolean
+		turnstileEnabled?: boolean
+		turnstileSiteKey?: string
 	} = $props()
 
 	let email = $state('')
 	let password = $state('')
 	let loading = $state(false)
 	let error = $state('')
+	let turnstileToken = $state('')
+	let turnstileRef: Turnstile | undefined = $state()
 
 	async function handleEmailLogin(): Promise<void> {
+		if (turnstileEnabled && turnstileToken === '') {
+			error = $_('auth.error.turnstileRequired')
+			return
+		}
 		loading = true
 		error = ''
-		const result = await authClient.signIn.email({ email, password })
+		const result = await authClient.signIn.email({ email, password }, buildCaptchaFetchOptions())
 		loading = false
 		if (result.error) {
-			error = result.error.message ?? $_('auth.login.submit')
+			turnstileRef?.reset()
+			error = resolveCaptchaError(result.error, $_('auth.login.submit'))
 			return
 		}
 		const data = result.data as EmailLoginResultData | null
@@ -63,6 +75,34 @@
 
 	async function handleGoogleLogin(): Promise<void> {
 		await authClient.signIn.social({ provider: 'google' })
+	}
+
+	type AuthClientError = {
+		code?: string
+		message?: string
+	}
+
+	function buildCaptchaFetchOptions(): { headers: { 'x-captcha-response': string } } | undefined {
+		if (!turnstileEnabled) {
+			return undefined
+		}
+
+		return {
+			headers: {
+				'x-captcha-response': turnstileToken
+			}
+		}
+	}
+
+	function resolveCaptchaError(authError: AuthClientError, fallback: string): string {
+		switch (authError.code) {
+			case 'MISSING_RESPONSE':
+				return $_('auth.error.turnstileRequired')
+			case 'VERIFICATION_FAILED':
+				return $_('auth.error.turnstileFailed')
+			default:
+				return authError.message ?? fallback
+		}
 	}
 </script>
 
@@ -103,6 +143,14 @@
 				<FieldLabel for="login-password">{$_('auth.login.password')}</FieldLabel>
 				<Input id="login-password" type="password" autocomplete="current-password" bind:value={password} required />
 			</Field>
+			{#if turnstileEnabled}
+				<Turnstile
+					bind:this={turnstileRef}
+					siteKey={turnstileSiteKey}
+					onToken={(token: string): void => { turnstileToken = token }}
+					onReset={(): void => { turnstileToken = '' }}
+				/>
+			{/if}
 			<Button type="submit" class="w-full" disabled={loading}>
 				{loading ? $_('auth.login.submitting') : $_('auth.login.submit')}
 			</Button>

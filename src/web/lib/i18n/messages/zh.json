@@ -29,6 +29,8 @@
 	"auth.error.emailSignupDisabled": "邮箱注册已关闭。",
 	"auth.error.emailDomainNotAllowed": "当前邮箱域名不允许注册。",
 	"auth.error.emailActionRateLimited": "请在 {seconds} 秒后重试。",
+	"auth.error.turnstileRequired": "请完成人机验证",
+	"auth.error.turnstileFailed": "人机验证失败，请重试",
 	"auth.forgotPassword.title": "忘记密码",
 	"auth.forgotPassword.subtitle": "输入邮箱，我们将发送重置验证码",
 	"auth.forgotPassword.email": "邮箱",

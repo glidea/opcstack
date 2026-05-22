@@ -6,30 +6,42 @@
 	import { Field, FieldLabel } from '$web/ui/field'
 	import { Input } from '$web/ui/input'
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
+	import Turnstile from './Turnstile.svelte'
 
 	let {
 		onSuccess,
 		loginHref = '/login',
-		emailUserActionCooldownSeconds
+		emailUserActionCooldownSeconds,
+		turnstileEnabled = false,
+		turnstileSiteKey = ''
 	}: {
 		onSuccess?: (email: string) => void
 		loginHref?: string
 		emailUserActionCooldownSeconds: number
+		turnstileEnabled?: boolean
+		turnstileSiteKey?: string
 	} = $props()
 
 	let email = $state('')
 	let loading = $state(false)
 	let error = $state('')
+	let turnstileToken = $state('')
+	let turnstileRef: Turnstile | undefined = $state()
 
 	async function handleSubmit(): Promise<void> {
+		if (turnstileEnabled && turnstileToken === '') {
+			error = $_('auth.error.turnstileRequired')
+			return
+		}
 		loading = true
 		error = ''
-		const result = await authClient.emailOtp.sendVerificationOtp({
-			email,
-			type: 'forget-password'
-		})
+		const result = await authClient.emailOtp.requestPasswordReset(
+			{ email },
+			buildCaptchaFetchOptions()
+		)
 		loading = false
 		if (result.error) {
+			turnstileRef?.reset()
 			error = resolveEmailError(result.error, $_('auth.forgotPassword.submit'))
 			return
 		}
@@ -49,8 +61,24 @@
 				return $_('auth.error.emailActionRateLimited', {
 					values: { seconds: emailUserActionCooldownSeconds }
 				})
+			case 'MISSING_RESPONSE':
+				return $_('auth.error.turnstileRequired')
+			case 'VERIFICATION_FAILED':
+				return $_('auth.error.turnstileFailed')
 			default:
 				return authError.message ?? fallback
+		}
+	}
+
+	function buildCaptchaFetchOptions(): { headers: { 'x-captcha-response': string } } | undefined {
+		if (!turnstileEnabled) {
+			return undefined
+		}
+
+		return {
+			headers: {
+				'x-captcha-response': turnstileToken
+			}
 		}
 	}
 </script>
@@ -72,6 +100,14 @@
 			<FieldLabel for="forgot-email">{$_('auth.forgotPassword.email')}</FieldLabel>
 			<Input id="forgot-email" type="email" autocomplete="email" bind:value={email} required />
 		</Field>
+		{#if turnstileEnabled}
+			<Turnstile
+				bind:this={turnstileRef}
+				siteKey={turnstileSiteKey}
+				onToken={(token: string): void => { turnstileToken = token }}
+				onReset={(): void => { turnstileToken = '' }}
+			/>
+		{/if}
 		<Button type="submit" class="w-full" disabled={loading}>
 			{loading ? $_('auth.forgotPassword.submitting') : $_('auth.forgotPassword.submit')}
 		</Button>

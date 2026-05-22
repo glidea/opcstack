@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { bearer, emailOTP } from 'better-auth/plugins'
+import { bearer, captcha, emailOTP } from 'better-auth/plugins'
 import type { AppDb } from '../../db'
 import { newEmailClients, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
@@ -11,7 +11,14 @@ export function authCore(env: Env, db: AppDb) {
   const aff = new AffService(db)
   const credits = new CreditsService(db)
   const emailOtpPlugin = buildEmailOtp(env)
-  const plugins = emailOtpPlugin ? [bearer(), emailOtpPlugin] : [bearer()]
+  const captchaPlugin = buildTurnstileCaptcha(env)
+  const plugins: AuthPlugin[] = [bearer()]
+  if (emailOtpPlugin) {
+    plugins.push(emailOtpPlugin)
+  }
+  if (captchaPlugin) {
+    plugins.push(captchaPlugin)
+  }
 
   return betterAuth({
     baseURL: env.APP_BASE_URL,
@@ -162,6 +169,18 @@ function buildEmailOtp(env: Env): ReturnType<typeof emailOTP> | undefined {
   })
 }
 
+function buildTurnstileCaptcha(env: Env): ReturnType<typeof captcha> | undefined {
+  if (env.TURNSTILE_ENABLED !== 'true') {
+    return undefined
+  }
+
+  return captcha({
+    provider: 'cloudflare-turnstile',
+    secretKey: env.TURNSTILE_SECRET_KEY,
+    endpoints: ['/sign-up/email', '/sign-in/email', '/email-otp/request-password-reset']
+  })
+}
+
 function buildEmailClient(env: Env): EmailClients['simple'] | undefined {
   if (env.EMAIL_ENABLED !== 'true') {
     return undefined
@@ -265,3 +284,8 @@ type AuthSocialProvidersConfig =
     }
   }
   | undefined
+
+type AuthPlugin =
+  | ReturnType<typeof bearer>
+  | ReturnType<typeof emailOTP>
+  | ReturnType<typeof captcha>

@@ -29,6 +29,8 @@
 	"auth.error.emailSignupDisabled": "Email signup is disabled.",
 	"auth.error.emailDomainNotAllowed": "This email domain is not allowed for signup.",
 	"auth.error.emailActionRateLimited": "Please try again in {seconds}s.",
+	"auth.error.turnstileRequired": "Complete the verification",
+	"auth.error.turnstileFailed": "Verification failed, try again",
 	"auth.forgotPassword.title": "Forgot password",
 	"auth.forgotPassword.subtitle": "Enter your email and we'll send you a reset code",
 	"auth.forgotPassword.email": "Email",
