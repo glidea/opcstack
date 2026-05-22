@@ -54,9 +54,10 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 - ✅ Queues（消息队列）
 - ✅ Cron（定时任务）
 - ✅ Email Sending（邮件发送）
+- ✅ Turnstile（人机验证 + 自动创建 widget）
 
 **开箱即用的核心功能**
-- ✅ 认证系统（邮箱 + Google + 内测码）
+- ✅ 认证系统（邮箱 + Google + 内测码 + Turnstile）
 - ✅ 积分系统（注册赠送 + 签到 + 邀请 + 兑换码 + 过期）
 - ✅ 用户反馈收集
 - ✅ 系统公告通知
@@ -69,6 +70,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 **约定大于配置**
 - 运行 `pnpm dev`，自动生成 wrangler.jsonc
 - 自动创建 D1、R2、KV、Queues
+- 开启 `TURNSTILE_ENABLED=true` 后，本地自动使用 Cloudflare 测试 key，远程部署自动创建或复用名为 `APP_NAME` 的 Turnstile widget
 - 自动执行 migration
 - 你只需配置少数几个环境变量，不需要到处配置！
 
@@ -92,7 +94,8 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 - Cloudflare KV（键值存储）
 - Cloudflare Queues（消息队列）
 - Cloudflare Cron（定时任务）
-- Resend Email Sending（邮件发送）
+- Cloudflare Turnstile（登录、注册、密码重置人机验证）
+- Resend / Cloudflare Email Sending（邮件发送）
 
 **AI 能力**
 - OpenAI SDK（Chat）
@@ -135,7 +138,40 @@ vim .env.dev # 配置
 pnpm dev
 ```
 
-### 3. 后续同步模板更新
+### 3. Turnstile 配置
+
+Turnstile 只需要一个开关：
+
+```env
+TURNSTILE_ENABLED=true
+```
+
+本地 `pnpm dev` 使用 Cloudflare 官方测试 key，不需要手动创建 widget。远程 `pnpm deploycf` 会用 `APP_NAME` 自动创建或复用 Turnstile widget，并把 `sitekey` 和 `secret` 写入生成的 `wrangler.jsonc`。
+
+### 4. 邮件发送配置
+
+邮箱注册、邮箱验证和找回密码会走 `EMAIL_PROVIDER`。
+
+使用 Resend：
+
+```env
+EMAIL_ENABLED=true
+EMAIL_PROVIDER=resend
+EMAIL_RESEND_API_KEY=re_xxx
+EMAIL_FROM=noreply@example.com
+```
+
+使用 Cloudflare Email Sending：
+
+```env
+EMAIL_ENABLED=true
+EMAIL_PROVIDER=cloudflare
+EMAIL_FROM=noreply@example.com
+```
+
+Cloudflare 模式要求发件域已启用 Email Routing。`wrangler.jsonc` 会由 `pnpm dev` 自动生成 `SEND_EMAIL` binding。
+
+### 5. 后续同步模板更新
 
 ```bash
 # 1. 推荐：Agent 自动更新，解决冲突，任意 Agent 对话中：
