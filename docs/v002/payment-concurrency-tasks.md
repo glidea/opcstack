@@ -122,17 +122,17 @@
 - 不处理退款
 
 ## TODO 清单
-- [ ] 1. 在 `src/payment/index.test.ts` 增加升级半完成重试测试
-- [ ] 2. 在 `src/payment/index.test.ts` 增加 credits diff 为 0 时不调用积分发放的测试
-- [ ] 3. 调整 `applySubscriptionUpgrade`，transaction 已存在时继续补齐 subscription 和 checkout
-- [ ] 4. 确认 checkout completed 后重复 webhook 不会重复发放积分
-- [ ] 5. 确认 webhook event 最后写入
+- [x] 1. 在 `src/payment/index.test.ts` 增加升级半完成重试测试
+- [x] 2. 在 `src/payment/index.test.ts` 增加 credits diff 为 0 时不调用积分发放的测试
+- [x] 3. 调整 `applySubscriptionUpgrade`，transaction 已存在时继续补齐 subscription 和 checkout
+- [x] 4. 确认 checkout completed 后重复 webhook 不会重复发放积分
+- [x] 5. 确认 webhook event 最后写入
 
 ## 验收测试步骤
-1. 运行 `pnpm test -- src/payment/index.test.ts`
-2. 升级半完成重试后用户订阅变为目标 plan
-3. 差额积分只发放一次
-4. credits diff 为 0 时不调用 `CreditsService.grant`
+1. [x] 运行 `pnpm test -- src/payment/index.test.ts`
+2. [x] 升级半完成重试后用户订阅变为目标 plan
+3. [x] 差额积分只发放一次
+4. [x] credits diff 为 0 时不调用 `CreditsService.grant`
 
 # Task-006: 修复退款、争议和支付失败状态推进
 

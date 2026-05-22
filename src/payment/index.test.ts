@@ -1171,6 +1171,143 @@ describe('PaymentService.processWebhook subscription retry recovery', () => {
 	})
 })
 
+describe('PaymentService.processWebhook subscription upgrade recovery', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		caseName: 'upgrade_half_completed' | 'zero_credits_diff'
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		transactions: number
+		checkoutStatus: string
+		subscriptionPlan: string
+		webhookEvents: number
+		grantCalls: number
+		grantSourceId: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'recover half completed subscription upgrade',
+			given: 'upgrade transaction exists but subscription, grant and checkout completion are missing',
+			when: 'same subscription_paid webhook retries',
+			then: 'upgrades subscription, grants diff credits and completes checkout',
+			givenDetail: {
+				caseName: 'upgrade_half_completed'
+			},
+			whenDetail: {},
+			thenExpected: {
+				transactions: 1,
+				checkoutStatus: 'completed',
+				subscriptionPlan: 'team',
+				webhookEvents: 1,
+				grantCalls: 1,
+				grantSourceId: 'pt_upgrade_1'
+			}
+		},
+		{
+			scenario: 'skip upgrade credit grant when credits diff is zero',
+			given: 'upgrade checkout target has same period credits amount',
+			when: 'processing subscription_paid webhook',
+			then: 'completes upgrade without calling credit grant',
+			givenDetail: {
+				caseName: 'zero_credits_diff'
+			},
+			whenDetail: {},
+			thenExpected: {
+				transactions: 1,
+				checkoutStatus: 'completed',
+				subscriptionPlan: 'pro',
+				webhookEvents: 1,
+				grantCalls: 0,
+				grantSourceId: ''
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const state = createMockState()
+		const service = createService(state)
+		const checkoutProductId = given.caseName === 'zero_credits_diff' ? 'pro_monthly' : 'team_monthly'
+		const providerPaymentId = given.caseName === 'zero_credits_diff' ? 'pay_upgrade_zero_1' : 'pay_upgrade_1'
+		const transactionId = given.caseName === 'zero_credits_diff' ? 'pt_upgrade_zero_1' : 'pt_upgrade_1'
+		state.checkoutOrders.push({
+			id: 'co_upgrade_1',
+			userId: 'u1',
+			type: 'subscription_upgrade',
+			status: 'pending',
+			productId: checkoutProductId,
+			provider: 'dodo',
+			providerProductId: 'dp_team_monthly',
+			providerCheckoutSessionId: null,
+			providerPaymentId: null,
+			checkoutUrl: null,
+			createdAt: 0,
+			updatedAt: 0
+		})
+		state.userSubscriptions.push({
+			userId: 'u1',
+			provider: 'dodo',
+			providerSubscriptionId: 'sub_1',
+			productId: 'pro_monthly',
+			subscriptionPlan: 'pro',
+			periodCreditsAmount: 3000,
+			currentPeriodStart: 0,
+			currentPeriodEnd: 2000,
+			status: 'active',
+			canceledAt: null,
+			createdAt: 0,
+			updatedAt: 0
+		})
+		state.paymentTransactions.push({
+			id: transactionId,
+			userId: 'u1',
+			checkoutOrderId: 'co_upgrade_1',
+			subscriptionId: 'u1',
+			type: 'subscription_upgrade',
+			status: 'paid',
+			productId: checkoutProductId,
+			provider: 'dodo',
+			providerPaymentId,
+			providerRefundId: null,
+			providerDisputeId: null,
+			amount: 3990,
+			currency: 'USD',
+			creditsGranted: given.caseName === 'zero_credits_diff' ? 0 : 3000,
+			creditsReversedAt: null,
+			paidAt: 1000,
+			refundedAt: null,
+			disputedAt: null,
+			createdAt: 1000,
+			updatedAt: 1000
+		})
+		state.queryQueue.paymentTransaction.push(state.paymentTransactions[0])
+		state.provider.unwrapWebhook.mockResolvedValue({
+			...createSubscriptionPaidEvent(),
+			webhookId: given.caseName === 'zero_credits_diff' ? 'evt_upgrade_zero_1' : 'evt_upgrade_1',
+			checkoutOrderId: 'co_upgrade_1',
+			providerPaymentId
+		})
+
+		await service.processWebhook('dodo', '{}', new Headers())
+		const grantInput = vi.mocked(creditServiceMocks.grant).mock.calls[0]?.[0] as
+			| { sourceId?: string }
+			| undefined
+
+		return {
+			transactions: state.paymentTransactions.length,
+			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
+			subscriptionPlan: state.userSubscriptions[0]?.subscriptionPlan ?? '',
+			webhookEvents: state.webhookEvents.length,
+			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length,
+			grantSourceId: grantInput?.sourceId ?? ''
+		}
+	})
+})
+
 type MockState = {
 	users: Array<{ id: string; email: string }>
 	checkoutOrders: Array<typeof checkoutOrder.$inferSelect>
