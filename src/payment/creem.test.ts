@@ -187,6 +187,10 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 	type ThenExpected = {
 		errorCode: string
 		eventType: string
+		providerPaymentId: string
+		providerRefundId: string
+		providerDisputeId: string
+		providerSubscriptionId: string
 		checkoutOrderId: string
 	}
 
@@ -201,8 +205,57 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 			},
 			order: {
 				id: 'ord_1',
+				transaction: 'txn_1',
 				amount: 1000,
 				currency: 'USD'
+			}
+		}
+	})
+	const subscriptionPaidBody = JSON.stringify({
+		id: 'evt_sub_1',
+		eventType: 'subscription.paid',
+		created_at: 1728734325927,
+		object: {
+			id: 'sub_1',
+			last_transaction_id: 'txn_sub_1',
+			metadata: {
+				checkout_order_id: 'co_sub_1'
+			},
+			product: {
+				price: 3000,
+				currency: 'USD'
+			},
+			current_period_start_date: '2026-01-01T00:00:00Z',
+			current_period_end_date: '2026-02-01T00:00:00Z'
+		}
+	})
+	const refundBody = JSON.stringify({
+		id: 'evt_refund_1',
+		eventType: 'refund.created',
+		created_at: 1728734325927,
+		object: {
+			id: 'rf_1',
+			transaction: 'txn_1',
+			subscription: 'sub_1',
+			amount: 1000,
+			currency: 'USD',
+			metadata: {
+				checkout_order_id: 'co_30'
+			}
+		}
+	})
+	const disputeBody = JSON.stringify({
+		id: 'evt_dispute_1',
+		eventType: 'dispute.created',
+		created_at: 1728734325927,
+		object: {
+			id: 'dp_1',
+			transaction: 'txn_1',
+			subscription: 'sub_1',
+			amount: 1000,
+			currency: 'USD',
+			metadata: {
+				checkout_order_id: 'co_30'
 			}
 		}
 	})
@@ -221,6 +274,70 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 			thenExpected: {
 				errorCode: '',
 				eventType: 'payment_succeeded',
+				providerPaymentId: 'txn_1',
+				providerRefundId: '',
+				providerDisputeId: '',
+				providerSubscriptionId: '',
+				checkoutOrderId: 'co_30'
+			}
+		},
+		{
+			scenario: 'map subscription.paid into subscription_paid',
+			given: 'valid subscription paid payload',
+			when: 'unwrapping creem webhook',
+			then: 'returns normalized subscription ids',
+			givenDetail: {
+				signature: signBody(subscriptionPaidBody, 'whsec'),
+				rawBody: subscriptionPaidBody
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				eventType: 'subscription_paid',
+				providerPaymentId: 'txn_sub_1',
+				providerRefundId: '',
+				providerDisputeId: '',
+				providerSubscriptionId: 'sub_1',
+				checkoutOrderId: 'co_sub_1'
+			}
+		},
+		{
+			scenario: 'map refund.created into refund_succeeded',
+			given: 'valid refund payload',
+			when: 'unwrapping creem webhook',
+			then: 'returns normalized refund ids',
+			givenDetail: {
+				signature: signBody(refundBody, 'whsec'),
+				rawBody: refundBody
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				eventType: 'refund_succeeded',
+				providerPaymentId: 'txn_1',
+				providerRefundId: 'rf_1',
+				providerDisputeId: '',
+				providerSubscriptionId: 'sub_1',
+				checkoutOrderId: 'co_30'
+			}
+		},
+		{
+			scenario: 'map dispute.created into dispute_opened',
+			given: 'valid dispute payload',
+			when: 'unwrapping creem webhook',
+			then: 'returns normalized dispute ids',
+			givenDetail: {
+				signature: signBody(disputeBody, 'whsec'),
+				rawBody: disputeBody
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				eventType: 'dispute_opened',
+				providerPaymentId: 'txn_1',
+				providerRefundId: '',
+				providerDisputeId: 'dp_1',
+				providerSubscriptionId: 'sub_1',
 				checkoutOrderId: 'co_30'
 			}
 		},
@@ -237,6 +354,10 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 			thenExpected: {
 				errorCode: 'CREEM_WEBHOOK_SIGNATURE_INVALID',
 				eventType: '',
+				providerPaymentId: '',
+				providerRefundId: '',
+				providerDisputeId: '',
+				providerSubscriptionId: '',
 				checkoutOrderId: ''
 			}
 		}
@@ -257,12 +378,20 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 			return {
 				errorCode: '',
 				eventType: event.type,
+				providerPaymentId: event.providerPaymentId ?? '',
+				providerRefundId: event.providerRefundId ?? '',
+				providerDisputeId: event.providerDisputeId ?? '',
+				providerSubscriptionId: event.providerSubscriptionId ?? '',
 				checkoutOrderId: event.checkoutOrderId ?? ''
 			}
 		} catch (error) {
 			return {
 				errorCode: error instanceof Error ? error.message : 'UNKNOWN',
 				eventType: '',
+				providerPaymentId: '',
+				providerRefundId: '',
+				providerDisputeId: '',
+				providerSubscriptionId: '',
 				checkoutOrderId: ''
 			}
 		}

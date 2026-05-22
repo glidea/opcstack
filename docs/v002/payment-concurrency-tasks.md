@@ -169,17 +169,17 @@ Dodo 和 Creem adapter 必须把 provider 原始事件转换成统一 `PaymentEv
 - 不调用真实 provider API
 
 ## TODO 清单
-- [ ] 1. 在 `src/payment/dodo.test.ts` 覆盖支付成功、订阅付款、退款、争议事件字段
-- [ ] 2. 在 `src/payment/creem.test.ts` 覆盖支付成功、订阅付款、退款、争议事件字段
-- [ ] 3. 确认 `providerPaymentId`、`providerRefundId`、`providerDisputeId` 映射正确
-- [ ] 4. 确认 adapter 不写业务状态
-- [ ] 5. 确认 `PaymentService` 只依赖 `PaymentEvent`
+- [x] 1. 在 `src/payment/dodo.test.ts` 覆盖支付成功、订阅付款、退款、争议事件字段
+- [x] 2. 在 `src/payment/creem.test.ts` 覆盖支付成功、订阅付款、退款、争议事件字段
+- [x] 3. 确认 `providerPaymentId`、`providerRefundId`、`providerDisputeId` 映射正确
+- [x] 4. 确认 adapter 不写业务状态
+- [x] 5. 确认 `PaymentService` 只依赖 `PaymentEvent`
 
 ## 验收测试步骤
-1. 运行 `pnpm test -- src/payment/dodo.test.ts src/payment/creem.test.ts`
-2. Dodo webhook 原始事件能转换为统一事件
-3. Creem webhook 原始事件能转换为统一事件
-4. 业务层没有 provider SDK 类型泄漏
+1. [x] 运行 `pnpm test -- src/payment/dodo.test.ts src/payment/creem.test.ts`
+2. [x] Dodo webhook 原始事件能转换为统一事件
+3. [x] Creem webhook 原始事件能转换为统一事件
+4. [x] 业务层没有 provider SDK 类型泄漏
 
 # Task-008: 支付并发一致性整体验收
 

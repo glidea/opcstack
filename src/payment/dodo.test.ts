@@ -186,6 +186,9 @@ describe('DodoPaymentProvider.unwrapWebhook', () => {
 	type ThenExpected = {
 		eventType: string
 		providerPaymentId: string
+		providerRefundId: string
+		providerDisputeId: string
+		providerSubscriptionId: string
 		checkoutOrderId: string
 		periodEnd: number
 	}
@@ -217,6 +220,9 @@ describe('DodoPaymentProvider.unwrapWebhook', () => {
 			thenExpected: {
 				eventType: 'payment_succeeded',
 				providerPaymentId: 'pay_1',
+				providerRefundId: '',
+				providerDisputeId: '',
+				providerSubscriptionId: '',
 				checkoutOrderId: 'co_3',
 				periodEnd: -1
 			}
@@ -231,7 +237,7 @@ describe('DodoPaymentProvider.unwrapWebhook', () => {
 					provider: 'dodo',
 					webhookId: 'subscription.renewed:sub_2:2026-01-01T00:00:00Z',
 					type: 'subscription_paid',
-					providerPaymentId: null,
+					providerPaymentId: 'pay_sub_2',
 					providerRefundId: null,
 					providerDisputeId: null,
 					providerSubscriptionId: 'sub_2',
@@ -246,9 +252,78 @@ describe('DodoPaymentProvider.unwrapWebhook', () => {
 			whenDetail: {},
 			thenExpected: {
 				eventType: 'subscription_paid',
-				providerPaymentId: '',
+				providerPaymentId: 'pay_sub_2',
+				providerRefundId: '',
+				providerDisputeId: '',
+				providerSubscriptionId: 'sub_2',
 				checkoutOrderId: 'co_4',
 				periodEnd: 1767225600
+			}
+		},
+		{
+			scenario: 'map refund.succeeded to refund_succeeded',
+			given: 'dodo refund webhook',
+			when: 'unwrapping webhook',
+			then: 'returns normalized refund ids',
+			givenDetail: {
+				webhookEvent: {
+					provider: 'dodo',
+					webhookId: 'refund.succeeded:rf_1:2026-01-01T00:00:00Z',
+					type: 'refund_succeeded',
+					providerPaymentId: 'pay_1',
+					providerRefundId: 'rf_1',
+					providerDisputeId: null,
+					providerSubscriptionId: null,
+					checkoutOrderId: 'co_3',
+					amount: 1234,
+					currency: 'USD',
+					periodStart: null,
+					periodEnd: null,
+					occurredAt: 1767225600
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				eventType: 'refund_succeeded',
+				providerPaymentId: 'pay_1',
+				providerRefundId: 'rf_1',
+				providerDisputeId: '',
+				providerSubscriptionId: '',
+				checkoutOrderId: 'co_3',
+				periodEnd: -1
+			}
+		},
+		{
+			scenario: 'map dispute.opened to dispute_opened',
+			given: 'dodo dispute webhook',
+			when: 'unwrapping webhook',
+			then: 'returns normalized dispute ids',
+			givenDetail: {
+				webhookEvent: {
+					provider: 'dodo',
+					webhookId: 'dispute.opened:dp_1:2026-01-01T00:00:00Z',
+					type: 'dispute_opened',
+					providerPaymentId: 'pay_1',
+					providerRefundId: null,
+					providerDisputeId: 'dp_1',
+					providerSubscriptionId: null,
+					checkoutOrderId: null,
+					amount: 1234,
+					currency: 'USD',
+					periodStart: null,
+					periodEnd: null,
+					occurredAt: 1767225600
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				eventType: 'dispute_opened',
+				providerPaymentId: 'pay_1',
+				providerRefundId: '',
+				providerDisputeId: 'dp_1',
+				providerSubscriptionId: '',
+				checkoutOrderId: '',
+				periodEnd: -1
 			}
 		}
 	]
@@ -270,6 +345,9 @@ describe('DodoPaymentProvider.unwrapWebhook', () => {
 		return {
 			eventType: event.type,
 			providerPaymentId: event.providerPaymentId ?? '',
+			providerRefundId: event.providerRefundId ?? '',
+			providerDisputeId: event.providerDisputeId ?? '',
+			providerSubscriptionId: event.providerSubscriptionId ?? '',
 			checkoutOrderId: event.checkoutOrderId ?? '',
 			periodEnd: event.periodEnd ?? -1
 		}
@@ -374,18 +452,49 @@ function toDodoWebhookEvent(event: PaymentEvent): unknown {
 		}
 	}
 
+	if (event.type === 'subscription_paid') {
+		return {
+			type: 'subscription.renewed',
+			timestamp: '2026-01-01T00:00:00Z',
+			data: {
+				payment_id: event.providerPaymentId,
+				subscription_id: event.providerSubscriptionId,
+				recurring_pre_tax_amount: event.amount,
+				currency: event.currency,
+				previous_billing_date: '2025-12-01T00:00:00Z',
+				next_billing_date: '2026-01-01T00:00:00Z',
+				metadata: {
+					checkout_order_id: event.checkoutOrderId
+				}
+			}
+		}
+	}
+
+	if (event.type === 'refund_succeeded') {
+		return {
+			type: 'refund.succeeded',
+			timestamp: '2026-01-01T00:00:00Z',
+			data: {
+				payment_id: event.providerPaymentId,
+				refund_id: event.providerRefundId,
+				amount: event.amount,
+				currency: event.currency,
+				metadata: {
+					checkout_order_id: event.checkoutOrderId
+				}
+			}
+		}
+	}
+
 	return {
-		type: 'subscription.renewed',
+		type: 'dispute.opened',
 		timestamp: '2026-01-01T00:00:00Z',
 		data: {
-			subscription_id: event.providerSubscriptionId,
-			recurring_pre_tax_amount: event.amount,
+			payment_id: event.providerPaymentId,
+			dispute_id: event.providerDisputeId,
+			amount: event.amount,
 			currency: event.currency,
-			previous_billing_date: '2025-12-01T00:00:00Z',
-			next_billing_date: '2026-01-01T00:00:00Z',
-			metadata: {
-				checkout_order_id: event.checkoutOrderId
-			}
+			metadata: {}
 		}
 	}
 }

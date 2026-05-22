@@ -243,7 +243,7 @@ function mapDodoWebhookEvent(event: DodoWebhookEvent): PaymentEvent {
 				provider: PAYMENT_PROVIDER_DODO,
 				webhookId,
 				type: eventType,
-				providerPaymentId: event.data.payment_id,
+				providerPaymentId: readDodoPaymentId(event.data),
 				providerRefundId: null,
 				providerDisputeId: null,
 				providerSubscriptionId: event.data.subscription_id ?? null,
@@ -259,7 +259,7 @@ function mapDodoWebhookEvent(event: DodoWebhookEvent): PaymentEvent {
 				provider: PAYMENT_PROVIDER_DODO,
 				webhookId,
 				type: eventType,
-				providerPaymentId: event.data.payment_id,
+				providerPaymentId: readDodoPaymentId(event.data),
 				providerRefundId: event.data.refund_id,
 				providerDisputeId: null,
 				providerSubscriptionId: null,
@@ -290,13 +290,13 @@ function mapDodoWebhookEvent(event: DodoWebhookEvent): PaymentEvent {
 		case DODO_EVENT_SUBSCRIPTION_RENEWED:
 		case DODO_EVENT_SUBSCRIPTION_CANCELLED:
 		case DODO_EVENT_SUBSCRIPTION_FAILED:
-		case DODO_EVENT_SUBSCRIPTION_EXPIRED:
-			return {
-				provider: PAYMENT_PROVIDER_DODO,
-				webhookId,
-				type: eventType,
-				providerPaymentId: null,
-				providerRefundId: null,
+			case DODO_EVENT_SUBSCRIPTION_EXPIRED:
+				return {
+					provider: PAYMENT_PROVIDER_DODO,
+					webhookId,
+					type: eventType,
+					providerPaymentId: readDodoPaymentId(event.data),
+					providerRefundId: null,
 				providerDisputeId: null,
 				providerSubscriptionId: event.data.subscription_id,
 				checkoutOrderId: event.data.metadata[DODO_METADATA_CHECKOUT_ORDER_ID] ?? null,
@@ -357,4 +357,12 @@ function buildDodoWebhookId(event: DodoWebhookEvent): string {
 
 function toUnixSeconds(raw: string): number {
 	return Math.floor(new Date(raw).getTime() / 1000)
+}
+
+function readDodoPaymentId(value: unknown): string | null {
+	if (typeof value !== 'object' || value === null) {
+		return null
+	}
+	const row = value as { payment_id?: unknown }
+	return typeof row.payment_id === 'string' ? row.payment_id : null
 }
