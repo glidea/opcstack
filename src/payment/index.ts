@@ -50,7 +50,6 @@ const PAYMENT_TRANSACTION_TYPE_SUBSCRIPTION_INITIAL = 'subscription_initial'
 const PAYMENT_TRANSACTION_TYPE_SUBSCRIPTION_UPGRADE = 'subscription_upgrade'
 const PAYMENT_TRANSACTION_TYPE_SUBSCRIPTION_RENEWAL = 'subscription_renewal'
 const PAYMENT_TRANSACTION_STATUS_PAID = 'paid'
-const PAYMENT_TRANSACTION_STATUS_FAILED = 'failed'
 const PAYMENT_TRANSACTION_STATUS_REFUNDED = 'refunded'
 const PAYMENT_TRANSACTION_STATUS_DISPUTED = 'disputed'
 
@@ -64,6 +63,9 @@ const PAYMENT_CREDIT_SOURCE_REFUND = 'payment_refund'
 
 const SUBSCRIPTION_GRACE_MS = 2 * 60 * 60 * 1000
 const CHECKOUT_ORDER_ID_PARAM = 'checkout_order_id'
+
+type PaymentTransactionRow = typeof paymentTransaction.$inferSelect
+type CheckoutOrderRow = typeof checkoutOrder.$inferSelect
 
 export type PaymentProviderMap = Record<PaymentProviderName, PaymentProvider>
 
@@ -526,7 +528,10 @@ export class PaymentService {
 			return
 		}
 
-		await this.processPaymentEvent(event)
+		const processed = await this.processPaymentEvent(event)
+		if (!processed) {
+			return
+		}
 
 		await this.db.insert(paymentWebhookEvent).values({
 			id: crypto.randomUUID(),
@@ -537,39 +542,32 @@ export class PaymentService {
 		})
 	}
 
-	private async processPaymentEvent(event: PaymentEvent): Promise<void> {
+	private async processPaymentEvent(event: PaymentEvent): Promise<boolean> {
 		switch (event.type) {
 			case PAYMENT_EVENT_TYPE_PAYMENT_SUCCEEDED:
-				await this.handlePaymentSucceeded(event)
-				return
+				return this.handlePaymentSucceeded(event)
 			case PAYMENT_EVENT_TYPE_PAYMENT_FAILED:
-				await this.handlePaymentFailed(event)
-				return
+				return this.handlePaymentFailed(event)
 			case PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAID:
-				await this.handleSubscriptionPaid(event)
-				return
+				return this.handleSubscriptionPaid(event)
 			case PAYMENT_EVENT_TYPE_REFUND_SUCCEEDED:
-				await this.handleRefundSucceeded(event)
-				return
+				return this.handleRefundSucceeded(event)
 			case PAYMENT_EVENT_TYPE_DISPUTE_OPENED:
-				await this.handleDisputeOpened(event)
-				return
+				return this.handleDisputeOpened(event)
 			case PAYMENT_EVENT_TYPE_SUBSCRIPTION_CANCEL_AT_PERIOD_END:
-				await this.handleSubscriptionStatusEvent(event, SUBSCRIPTION_STATUS_CANCEL_AT_PERIOD_END)
-				return
+				return this.handleSubscriptionStatusEvent(event, SUBSCRIPTION_STATUS_CANCEL_AT_PERIOD_END)
 			case PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE:
 			case PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED:
-				await this.handleSubscriptionStatusEvent(event, SUBSCRIPTION_STATUS_PAST_DUE)
-				return
+				return this.handleSubscriptionStatusEvent(event, SUBSCRIPTION_STATUS_PAST_DUE)
 		}
 	}
 
-	private async handlePaymentSucceeded(event: PaymentEvent): Promise<void> {
+	private async handlePaymentSucceeded(event: PaymentEvent): Promise<boolean> {
 		if (event.checkoutOrderId === null) {
 			logPaymentIgnored(event, {
 				reason: 'missing_checkout_order_id'
 			})
-			return
+			return false
 		}
 		const order = await this.db.query.checkoutOrder.findFirst({
 			where: eq(checkoutOrder.id, event.checkoutOrderId)
@@ -578,81 +576,43 @@ export class PaymentService {
 			logPaymentIgnored(event, {
 				reason: 'checkout_order_not_found'
 			})
-			return
+			return false
 		}
 
 		if (order.type === CHECKOUT_ORDER_TYPE_CREDITS_PURCHASE) {
-			if (order.status !== CHECKOUT_ORDER_STATUS_PENDING) {
-				return
-			}
-
-			await this.applyCreditsPurchase(order, event)
-			return
+			return this.applyCreditsPurchase(order, event)
 		}
 
-		await this.recordSubscriptionPaymentId(order, event)
-	}
-
-	private async recordSubscriptionPaymentId(
-		order: typeof checkoutOrder.$inferSelect,
-		event: PaymentEvent
-	): Promise<void> {
-		if (event.providerPaymentId === null) {
-			logPaymentIgnored(event, {
-				checkout_order_id: order.id,
-				reason: 'missing_provider_payment_id'
-			})
-			return
-		}
-
-		const nowMs = normalizeEventTimeMs(event.occurredAt)
-		await this.db
-			.update(checkoutOrder)
-			.set({
-				providerPaymentId: event.providerPaymentId,
-				updatedAt: nowMs
-			})
-			.where(eq(checkoutOrder.id, order.id))
-
-		const row = await this.db.query.paymentTransaction.findFirst({
-			where: eq(paymentTransaction.checkoutOrderId, order.id)
-		})
-		if (!row || row.providerPaymentId !== null) {
-			return
-		}
-
-		await this.db
-			.update(paymentTransaction)
-			.set({
-				providerPaymentId: event.providerPaymentId,
-				updatedAt: nowMs
-			})
-			.where(eq(paymentTransaction.id, row.id))
-		logPaymentStateTransition(event, {
+		logPaymentIgnored(event, {
 			checkout_order_id: order.id,
-			transaction_id: row.id,
-			state: 'provider_payment_id_recorded'
+			reason: 'subscription_payment_succeeded_ignored'
 		})
+		return true
 	}
 
-	private async handlePaymentFailed(event: PaymentEvent): Promise<void> {
+	private async handlePaymentFailed(event: PaymentEvent): Promise<boolean> {
 		if (event.checkoutOrderId === null) {
 			logPaymentIgnored(event, {
 				reason: 'missing_checkout_order_id'
 			})
-			return
+			return false
 		}
 
 		const order = await this.db.query.checkoutOrder.findFirst({
 			where: eq(checkoutOrder.id, event.checkoutOrderId)
 		})
-		if (!order || order.status !== CHECKOUT_ORDER_STATUS_PENDING) {
-			if (!order) {
-				logPaymentIgnored(event, {
-					reason: 'checkout_order_not_found'
-				})
-			}
-			return
+		if (!order) {
+			logPaymentIgnored(event, {
+				reason: 'checkout_order_not_found'
+			})
+			return false
+		}
+		if (order.status !== CHECKOUT_ORDER_STATUS_PENDING) {
+			logPaymentIgnored(event, {
+				checkout_order_id: order.id,
+				reason: 'checkout_order_not_pending'
+			})
+			return true
 		}
 
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
@@ -670,102 +630,46 @@ export class PaymentService {
 			from_status: order.status,
 			to_status: CHECKOUT_ORDER_STATUS_FAILED
 		})
-
-		if (event.providerPaymentId === null) {
-			logPaymentIgnored(event, {
-				checkout_order_id: order.id,
-				reason: 'missing_provider_payment_id'
-			})
-			return
-		}
-
-		const duplicated = await this.db.query.paymentTransaction.findFirst({
-			where: and(
-				eq(paymentTransaction.provider, event.provider),
-				eq(paymentTransaction.providerPaymentId, event.providerPaymentId)
-			)
-		})
-		if (duplicated) {
-			return
-		}
-
-		await this.db.insert(paymentTransaction).values({
-			id: crypto.randomUUID(),
-			userId: order.userId,
-			checkoutOrderId: order.id,
-			subscriptionId:
-				order.type === CHECKOUT_ORDER_TYPE_CREDITS_PURCHASE ? null : order.userId,
-			type: order.type,
-			status: PAYMENT_TRANSACTION_STATUS_FAILED,
-			productId: order.productId,
-			provider: event.provider,
-			providerPaymentId: event.providerPaymentId,
-			providerRefundId: null,
-			providerDisputeId: null,
-			amount: event.amount ?? 0,
-			currency: event.currency ?? '',
-			creditsGranted: 0,
-			creditsReversedAt: null,
-			paidAt: null,
-			refundedAt: null,
-			disputedAt: null
-		})
+		return true
 	}
 
-	private async handleSubscriptionPaid(event: PaymentEvent): Promise<void> {
-		const pendingOrder =
+	private async handleSubscriptionPaid(event: PaymentEvent): Promise<boolean> {
+		const checkout =
 			event.checkoutOrderId === null
 				? null
 				: await this.db.query.checkoutOrder.findFirst({
-					where: and(
-						eq(checkoutOrder.id, event.checkoutOrderId),
-						eq(checkoutOrder.status, CHECKOUT_ORDER_STATUS_PENDING)
-					)
+					where: eq(checkoutOrder.id, event.checkoutOrderId)
 				})
 
-		if (pendingOrder) {
-			switch (pendingOrder.type) {
+		if (checkout) {
+			switch (checkout.type) {
 				case CHECKOUT_ORDER_TYPE_SUBSCRIPTION_INITIAL:
-					await this.applySubscriptionInitial(pendingOrder, event)
-					return
+					return this.applySubscriptionInitial(checkout, event)
 				case CHECKOUT_ORDER_TYPE_SUBSCRIPTION_UPGRADE:
-					await this.applySubscriptionUpgrade(pendingOrder, event)
-					return
+					return this.applySubscriptionUpgrade(checkout, event)
 			}
 		}
 
-		await this.applySubscriptionRenewal(event)
+		return this.applySubscriptionRenewal(event)
 	}
 
-	private async handleRefundSucceeded(event: PaymentEvent): Promise<void> {
+	private async handleRefundSucceeded(event: PaymentEvent): Promise<boolean> {
 		if (event.providerPaymentId === null || event.providerRefundId === null) {
 			logPaymentIgnored(event, {
 				reason: 'missing_refund_identity'
 			})
-			return
+			return false
 		}
 
-		const duplicated = await this.db.query.paymentTransaction.findFirst({
-			where: and(
-				eq(paymentTransaction.provider, event.provider),
-				eq(paymentTransaction.providerRefundId, event.providerRefundId)
-			)
-		})
-		if (duplicated) {
-			return
-		}
-
-		const row = await this.db.query.paymentTransaction.findFirst({
-			where: and(
-				eq(paymentTransaction.provider, event.provider),
-				eq(paymentTransaction.providerPaymentId, event.providerPaymentId)
-			)
-		})
+		const row = await this.findPaymentTransactionByProviderPaymentId(
+			event.provider,
+			event.providerPaymentId
+		)
 		if (!row) {
 			logPaymentIgnored(event, {
 				reason: 'payment_transaction_not_found'
 			})
-			return
+			return false
 		}
 
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
@@ -803,37 +707,26 @@ export class PaymentService {
 				})
 				.where(eq(paymentTransaction.id, row.id))
 		}
+		return true
 	}
 
-	private async handleDisputeOpened(event: PaymentEvent): Promise<void> {
+	private async handleDisputeOpened(event: PaymentEvent): Promise<boolean> {
 		if (event.providerPaymentId === null || event.providerDisputeId === null) {
 			logPaymentIgnored(event, {
 				reason: 'missing_dispute_identity'
 			})
-			return
+			return false
 		}
 
-		const duplicated = await this.db.query.paymentTransaction.findFirst({
-			where: and(
-				eq(paymentTransaction.provider, event.provider),
-				eq(paymentTransaction.providerDisputeId, event.providerDisputeId)
-			)
-		})
-		if (duplicated) {
-			return
-		}
-
-		const row = await this.db.query.paymentTransaction.findFirst({
-			where: and(
-				eq(paymentTransaction.provider, event.provider),
-				eq(paymentTransaction.providerPaymentId, event.providerPaymentId)
-			)
-		})
+		const row = await this.findPaymentTransactionByProviderPaymentId(
+			event.provider,
+			event.providerPaymentId
+		)
 		if (!row) {
 			logPaymentIgnored(event, {
 				reason: 'payment_transaction_not_found'
 			})
-			return
+			return false
 		}
 
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
@@ -852,14 +745,15 @@ export class PaymentService {
 			from_status: row.status,
 			to_status: PAYMENT_TRANSACTION_STATUS_DISPUTED
 		})
+		return true
 	}
 
-	private async handleSubscriptionStatusEvent(event: PaymentEvent, nextStatus: string): Promise<void> {
+	private async handleSubscriptionStatusEvent(event: PaymentEvent, nextStatus: string): Promise<boolean> {
 		if (event.providerSubscriptionId === null) {
 			logPaymentIgnored(event, {
 				reason: 'missing_provider_subscription_id'
 			})
-			return
+			return false
 		}
 		const row = await this.db.query.userSubscription.findFirst({
 			where: and(
@@ -871,7 +765,7 @@ export class PaymentService {
 			logPaymentIgnored(event, {
 				reason: 'subscription_not_found'
 			})
-			return
+			return false
 		}
 
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
@@ -889,53 +783,32 @@ export class PaymentService {
 			from_status: row.status,
 			to_status: nextStatus
 		})
+		return true
 	}
 
-	private async applyCreditsPurchase(
-		order: typeof checkoutOrder.$inferSelect,
-		event: PaymentEvent
-	): Promise<void> {
+	private async applyCreditsPurchase(order: CheckoutOrderRow, event: PaymentEvent): Promise<boolean> {
 		if (event.providerPaymentId === null || event.amount === null || event.currency === null) {
 			logPaymentIgnored(event, {
 				checkout_order_id: order.id,
 				reason: 'missing_payment_fields'
 			})
-			return
-		}
-		const duplicated = await this.db.query.paymentTransaction.findFirst({
-			where: and(
-				eq(paymentTransaction.provider, event.provider),
-				eq(paymentTransaction.providerPaymentId, event.providerPaymentId)
-			)
-		})
-		if (duplicated) {
-			return
+			return false
 		}
 
 		const product = this.getProduct(order.productId)
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
 		const creditsGranted = product.creditsAmount ?? 0
-		const transactionId = crypto.randomUUID()
-
-		await this.db.insert(paymentTransaction).values({
-			id: transactionId,
+		const transaction = await this.ensurePaymentTransaction({
+			event,
 			userId: order.userId,
 			checkoutOrderId: order.id,
 			subscriptionId: null,
 			type: PAYMENT_TRANSACTION_TYPE_CREDITS_PURCHASE,
-			status: PAYMENT_TRANSACTION_STATUS_PAID,
 			productId: order.productId,
-			provider: event.provider,
-			providerPaymentId: event.providerPaymentId,
-			providerRefundId: null,
-			providerDisputeId: null,
 			amount: event.amount,
 			currency: event.currency,
 			creditsGranted,
-			creditsReversedAt: null,
-			paidAt: nowMs,
-			refundedAt: null,
-			disputedAt: null
+			paidAt: nowMs
 		})
 
 		if (creditsGranted > 0) {
@@ -945,7 +818,7 @@ export class PaymentService {
 				type: CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE,
 				amount: creditsGranted,
 				sourceType: PAYMENT_CREDIT_SOURCE_TRANSACTION,
-				sourceId: transactionId,
+				sourceId: transaction.id,
 				description: 'Grant credits for payment purchase'
 			})
 		}
@@ -960,36 +833,90 @@ export class PaymentService {
 			.where(eq(checkoutOrder.id, order.id))
 		logPaymentStateTransition(event, {
 			checkout_order_id: order.id,
-			transaction_id: transactionId,
+			transaction_id: transaction.id,
 			user_id: order.userId,
 			from_status: order.status,
 			to_status: CHECKOUT_ORDER_STATUS_COMPLETED,
 			credits_granted: creditsGranted
 		})
+		return true
 	}
 
-	private async applySubscriptionInitial(
-		order: typeof checkoutOrder.$inferSelect,
+	private async ensurePaymentTransaction(input: {
 		event: PaymentEvent
-	): Promise<void> {
-		if (event.providerSubscriptionId === null) {
+		userId: string
+		checkoutOrderId: string | null
+		subscriptionId: string | null
+		type: string
+		productId: string
+		amount: number
+		currency: string
+		creditsGranted: number
+		paidAt: number
+	}): Promise<PaymentTransactionRow> {
+		const providerPaymentId = input.event.providerPaymentId
+		if (providerPaymentId === null) {
+			throw new PaymentServiceError('PAYMENT_PROVIDER_PAYMENT_ID_MISSING')
+		}
+
+		const existing = await this.findPaymentTransactionByProviderPaymentId(
+			input.event.provider,
+			providerPaymentId
+		)
+		if (existing) {
+			return existing
+		}
+
+		const transactionId = crypto.randomUUID()
+		await this.db.insert(paymentTransaction).values({
+			id: transactionId,
+			userId: input.userId,
+			checkoutOrderId: input.checkoutOrderId,
+			subscriptionId: input.subscriptionId,
+			type: input.type,
+			status: PAYMENT_TRANSACTION_STATUS_PAID,
+			productId: input.productId,
+			provider: input.event.provider,
+			providerPaymentId,
+			providerRefundId: null,
+			providerDisputeId: null,
+			amount: input.amount,
+			currency: input.currency,
+			creditsGranted: input.creditsGranted,
+			creditsReversedAt: null,
+			paidAt: input.paidAt,
+			refundedAt: null,
+			disputedAt: null
+		}).onConflictDoNothing({
+			target: [paymentTransaction.provider, paymentTransaction.providerPaymentId]
+		})
+
+		const row = await this.findPaymentTransactionByProviderPaymentId(input.event.provider, providerPaymentId)
+		if (!row) {
+			throw new PaymentServiceError('PAYMENT_TRANSACTION_NOT_FOUND')
+		}
+		return row
+	}
+
+	private async findPaymentTransactionByProviderPaymentId(
+		provider: PaymentProviderName,
+		providerPaymentId: string
+	): Promise<PaymentTransactionRow | undefined> {
+		return this.db.query.paymentTransaction.findFirst({
+			where: and(
+				eq(paymentTransaction.provider, provider),
+				eq(paymentTransaction.providerPaymentId, providerPaymentId)
+			)
+		})
+	}
+
+	private async applySubscriptionInitial(order: CheckoutOrderRow, event: PaymentEvent): Promise<boolean> {
+		if (event.providerSubscriptionId === null || event.providerPaymentId === null) {
 			logPaymentIgnored(event, {
 				checkout_order_id: order.id,
-				reason: 'missing_provider_subscription_id'
+				reason: 'missing_subscription_payment_identity'
 			})
-			return
-		}
-		const providerPaymentId = event.providerPaymentId ?? order.providerPaymentId
-		if (providerPaymentId !== null) {
-			const duplicated = await this.db.query.paymentTransaction.findFirst({
-				where: and(
-					eq(paymentTransaction.provider, event.provider),
-					eq(paymentTransaction.providerPaymentId, providerPaymentId)
-				)
-			})
-			if (duplicated) {
-				return
-			}
+			return false
 		}
 
 		const product = this.getProduct(order.productId)
@@ -1000,27 +927,17 @@ export class PaymentService {
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
 		const periodStart = event.periodStart ? normalizeEventTimeMs(event.periodStart) : nowMs
 		const periodEnd = event.periodEnd ? normalizeEventTimeMs(event.periodEnd) : nowMs
-		const transactionId = crypto.randomUUID()
-
-		await this.db.insert(paymentTransaction).values({
-			id: transactionId,
+		const transaction = await this.ensurePaymentTransaction({
+			event,
 			userId: order.userId,
 			checkoutOrderId: order.id,
 			subscriptionId: order.userId,
 			type: PAYMENT_TRANSACTION_TYPE_SUBSCRIPTION_INITIAL,
-			status: PAYMENT_TRANSACTION_STATUS_PAID,
 			productId: order.productId,
-			provider: event.provider,
-			providerPaymentId,
-			providerRefundId: null,
-			providerDisputeId: null,
 			amount: event.amount ?? 0,
 			currency: event.currency ?? '',
 			creditsGranted: product.periodCreditsAmount,
-			creditsReversedAt: null,
-			paidAt: nowMs,
-			refundedAt: null,
-			disputedAt: null
+			paidAt: nowMs
 		})
 
 		await this.db
@@ -1059,7 +976,7 @@ export class PaymentService {
 			type: CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE,
 			amount: product.periodCreditsAmount,
 			sourceType: PAYMENT_CREDIT_SOURCE_TRANSACTION,
-			sourceId: transactionId,
+			sourceId: transaction.id,
 			description: 'Grant credits for initial subscription period'
 		})
 
@@ -1067,27 +984,28 @@ export class PaymentService {
 			.update(checkoutOrder)
 			.set({
 				status: CHECKOUT_ORDER_STATUS_COMPLETED,
-				providerPaymentId,
+				providerPaymentId: event.providerPaymentId,
 				updatedAt: nowMs
 			})
 			.where(eq(checkoutOrder.id, order.id))
 		logPaymentStateTransition(event, {
 			checkout_order_id: order.id,
-			transaction_id: transactionId,
+			transaction_id: transaction.id,
 			user_id: order.userId,
 			from_status: order.status,
 			to_status: CHECKOUT_ORDER_STATUS_COMPLETED,
 			subscription_status: SUBSCRIPTION_STATUS_ACTIVE,
 			credits_granted: product.periodCreditsAmount
 		})
+		return true
 	}
 
-	private async applySubscriptionRenewal(event: PaymentEvent): Promise<void> {
-		if (event.providerSubscriptionId === null) {
+	private async applySubscriptionRenewal(event: PaymentEvent): Promise<boolean> {
+		if (event.providerSubscriptionId === null || event.providerPaymentId === null) {
 			logPaymentIgnored(event, {
-				reason: 'missing_provider_subscription_id'
+				reason: 'missing_subscription_payment_identity'
 			})
-			return
+			return false
 		}
 
 		const sub = await this.db.query.userSubscription.findFirst({
@@ -1100,54 +1018,22 @@ export class PaymentService {
 			logPaymentIgnored(event, {
 				reason: 'subscription_not_found'
 			})
-			return
-		}
-
-		if (event.providerPaymentId !== null) {
-			const duplicated = await this.db.query.paymentTransaction.findFirst({
-				where: and(
-					eq(paymentTransaction.provider, event.provider),
-					eq(paymentTransaction.providerPaymentId, event.providerPaymentId)
-				)
-			})
-			if (duplicated) {
-				return
-			}
+			return false
 		}
 
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
 		const periodEnd = event.periodEnd ? normalizeEventTimeMs(event.periodEnd) : sub.currentPeriodEnd
-		const maybeDuplicated = await this.db.query.paymentTransaction.findFirst({
-			where: and(
-				eq(paymentTransaction.subscriptionId, sub.userId),
-				eq(paymentTransaction.type, PAYMENT_TRANSACTION_TYPE_SUBSCRIPTION_RENEWAL),
-				eq(paymentTransaction.paidAt, periodEnd)
-			)
-		})
-		if (maybeDuplicated) {
-			return
-		}
-
-		const transactionId = crypto.randomUUID()
-		await this.db.insert(paymentTransaction).values({
-			id: transactionId,
+		const transaction = await this.ensurePaymentTransaction({
+			event,
 			userId: sub.userId,
 			checkoutOrderId: null,
 			subscriptionId: sub.userId,
 			type: PAYMENT_TRANSACTION_TYPE_SUBSCRIPTION_RENEWAL,
-			status: PAYMENT_TRANSACTION_STATUS_PAID,
 			productId: sub.productId,
-			provider: event.provider,
-			providerPaymentId: event.providerPaymentId,
-			providerRefundId: null,
-			providerDisputeId: null,
 			amount: event.amount ?? 0,
 			currency: event.currency ?? '',
 			creditsGranted: sub.periodCreditsAmount,
-			creditsReversedAt: null,
-			paidAt: periodEnd,
-			refundedAt: null,
-			disputedAt: null
+			paidAt: periodEnd
 		})
 
 		const credits = new CreditsService(this.db)
@@ -1156,7 +1042,7 @@ export class PaymentService {
 			type: CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE,
 			amount: sub.periodCreditsAmount,
 			sourceType: PAYMENT_CREDIT_SOURCE_TRANSACTION,
-			sourceId: transactionId,
+			sourceId: transaction.id,
 			description: 'Grant credits for subscription renewal'
 		})
 
@@ -1173,42 +1059,28 @@ export class PaymentService {
 			})
 			.where(eq(userSubscription.userId, sub.userId))
 		logPaymentStateTransition(event, {
-			transaction_id: transactionId,
+			transaction_id: transaction.id,
 			user_id: sub.userId,
 			from_status: sub.status,
 			to_status: SUBSCRIPTION_STATUS_ACTIVE,
 			credits_granted: sub.periodCreditsAmount
 		})
+		return true
 	}
 
-	private async applySubscriptionUpgrade(
-		order: typeof checkoutOrder.$inferSelect,
-		event: PaymentEvent
-	): Promise<void> {
-		if (event.providerSubscriptionId === null) {
+	private async applySubscriptionUpgrade(order: CheckoutOrderRow, event: PaymentEvent): Promise<boolean> {
+		if (event.providerSubscriptionId === null || event.providerPaymentId === null) {
 			logPaymentIgnored(event, {
 				checkout_order_id: order.id,
-				reason: 'missing_provider_subscription_id'
+				reason: 'missing_subscription_payment_identity'
 			})
-			return
+			return false
 		}
 		const sub = await this.db.query.userSubscription.findFirst({
 			where: eq(userSubscription.userId, order.userId)
 		})
 		if (!sub) {
 			throw new PaymentServiceError('SUBSCRIPTION_NOT_FOUND')
-		}
-
-		if (event.providerPaymentId !== null) {
-			const duplicated = await this.db.query.paymentTransaction.findFirst({
-				where: and(
-					eq(paymentTransaction.provider, event.provider),
-					eq(paymentTransaction.providerPaymentId, event.providerPaymentId)
-				)
-			})
-			if (duplicated) {
-				return
-			}
 		}
 
 		const currentProduct = this.getProduct(sub.productId)
@@ -1223,27 +1095,17 @@ export class PaymentService {
 
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
 		const creditsDiff = Math.max(targetProduct.periodCreditsAmount - currentProduct.periodCreditsAmount, 0)
-		const transactionId = crypto.randomUUID()
-
-		await this.db.insert(paymentTransaction).values({
-			id: transactionId,
+		const transaction = await this.ensurePaymentTransaction({
+			event,
 			userId: sub.userId,
 			checkoutOrderId: order.id,
 			subscriptionId: sub.userId,
 			type: PAYMENT_TRANSACTION_TYPE_SUBSCRIPTION_UPGRADE,
-			status: PAYMENT_TRANSACTION_STATUS_PAID,
 			productId: targetProduct.productId,
-			provider: event.provider,
-			providerPaymentId: event.providerPaymentId,
-			providerRefundId: null,
-			providerDisputeId: null,
 			amount: event.amount ?? 0,
 			currency: event.currency ?? '',
 			creditsGranted: creditsDiff,
-			creditsReversedAt: null,
-			paidAt: nowMs,
-			refundedAt: null,
-			disputedAt: null
+			paidAt: nowMs
 		})
 
 		if (creditsDiff > 0) {
@@ -1253,7 +1115,7 @@ export class PaymentService {
 				type: CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE,
 				amount: creditsDiff,
 				sourceType: PAYMENT_CREDIT_SOURCE_TRANSACTION,
-				sourceId: transactionId,
+				sourceId: transaction.id,
 				description: 'Grant credits diff for subscription upgrade'
 			})
 		}
@@ -1284,12 +1146,13 @@ export class PaymentService {
 			.where(eq(checkoutOrder.id, order.id))
 		logPaymentStateTransition(event, {
 			checkout_order_id: order.id,
-			transaction_id: transactionId,
+			transaction_id: transaction.id,
 			user_id: sub.userId,
 			from_status: sub.status,
 			to_status: SUBSCRIPTION_STATUS_ACTIVE,
 			credits_granted: creditsDiff
 		})
+		return true
 	}
 
 	private getProvider(name: PaymentProviderName): PaymentProvider {

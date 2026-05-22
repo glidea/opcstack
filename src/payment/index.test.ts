@@ -355,16 +355,16 @@ describe('PaymentService.processWebhook', () => {
 			scenario: 'handle payment_failed for credits purchase',
 			given: 'pending credits checkout order exists',
 			when: 'processing payment_failed webhook',
-			then: 'writes failed transaction and marks checkout failed',
+			then: 'marks checkout failed without writing transaction',
 			givenDetail: {
 				eventType: 'payment_failed'
 			},
 			whenDetail: {},
 			thenExpected: {
-				transactions: 1,
+				transactions: 0,
 				checkoutStatus: 'failed',
 				subscriptionPlan: '',
-				failedStatus: 'failed',
+				failedStatus: '',
 				refundStatus: '',
 				disputeStatus: '',
 				webhookEvents: 1,
@@ -525,7 +525,7 @@ describe('PaymentService.processWebhook', () => {
 			event = {
 				...createSubscriptionPaidEvent(),
 				checkoutOrderId: 'co_upgrade_1',
-				providerPaymentId: null
+				providerPaymentId: 'pay_upgrade_1'
 			}
 		}
 
@@ -552,7 +552,7 @@ describe('PaymentService.processWebhook', () => {
 				createdAt: 1000,
 				updatedAt: 1000
 			})
-			state.queryQueue.paymentTransaction.push(undefined, state.paymentTransactions[0])
+			state.queryQueue.paymentTransaction.push(state.paymentTransactions[0])
 			event = createRefundEvent()
 		}
 
@@ -579,7 +579,7 @@ describe('PaymentService.processWebhook', () => {
 				createdAt: 1000,
 				updatedAt: 1000
 			})
-			state.queryQueue.paymentTransaction.push(undefined, state.paymentTransactions[0])
+			state.queryQueue.paymentTransaction.push(state.paymentTransactions[0])
 			event = createDisputeEvent()
 		}
 
@@ -636,7 +636,7 @@ describe('PaymentService.processWebhook subscription event boundary', () => {
 			thenExpected: {
 				transactions: 0,
 				checkoutStatus: 'pending',
-				checkoutProviderPaymentId: 'pay_1',
+				checkoutProviderPaymentId: '',
 				webhookEvents: 1,
 				grantCalls: 0
 			}
@@ -673,6 +673,265 @@ describe('PaymentService.processWebhook subscription event boundary', () => {
 			checkoutProviderPaymentId: state.checkoutOrders[0]?.providerPaymentId ?? '',
 			webhookEvents: state.webhookEvents.length,
 			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length
+		}
+	})
+})
+
+describe('PaymentService.processWebhook retry recovery', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		caseName: 'credits_purchase' | 'refund'
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		checkoutStatus: string
+		grantCalls: number
+		deductCalls: number
+		webhookEvents: number
+		creditsReversedAtSet: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'recover half completed credits purchase',
+			given: 'paid transaction exists but credit grant and checkout completion are missing',
+			when: 'same payment_succeeded webhook retries',
+			then: 'grants credits and completes checkout before marking webhook processed',
+			givenDetail: {
+				caseName: 'credits_purchase'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: 'completed',
+				grantCalls: 1,
+				deductCalls: 0,
+				webhookEvents: 1,
+				creditsReversedAtSet: false
+			}
+		},
+		{
+			scenario: 'recover half completed refund',
+			given: 'refund id exists but credits reversed marker is missing',
+			when: 'same refund_succeeded webhook retries',
+			then: 'deducts credits and sets reversed marker before marking webhook processed',
+			givenDetail: {
+				caseName: 'refund'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: '',
+				grantCalls: 0,
+				deductCalls: 1,
+				webhookEvents: 1,
+				creditsReversedAtSet: true
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const state = createMockState()
+		const service = createService(state)
+
+		if (given.caseName === 'credits_purchase') {
+			state.checkoutOrders.push({
+				id: 'co_1',
+				userId: 'u1',
+				type: 'credits_purchase',
+				status: 'pending',
+				productId: 'credits_1000',
+				provider: 'dodo',
+				providerProductId: 'dp_credits_1000',
+				providerCheckoutSessionId: 'cs_1',
+				providerPaymentId: null,
+				checkoutUrl: 'https://pay.example.com/cs_1',
+				createdAt: 0,
+				updatedAt: 0
+			})
+			state.paymentTransactions.push({
+				id: 'pt_1',
+				userId: 'u1',
+				checkoutOrderId: 'co_1',
+				subscriptionId: null,
+				type: 'credits_purchase',
+				status: 'paid',
+				productId: 'credits_1000',
+				provider: 'dodo',
+				providerPaymentId: 'pay_1',
+				providerRefundId: null,
+				providerDisputeId: null,
+				amount: 1000,
+				currency: 'USD',
+				creditsGranted: 1000,
+				creditsReversedAt: null,
+				paidAt: 1000,
+				refundedAt: null,
+				disputedAt: null,
+				createdAt: 1000,
+				updatedAt: 1000
+			})
+			state.queryQueue.paymentTransaction.push(state.paymentTransactions[0])
+			state.provider.unwrapWebhook.mockResolvedValue(createPaymentSucceededEvent())
+		}
+
+		if (given.caseName === 'refund') {
+			state.paymentTransactions.push({
+				id: 'pt_1',
+				userId: 'u1',
+				checkoutOrderId: 'co_1',
+				subscriptionId: null,
+				type: 'credits_purchase',
+				status: 'refunded',
+				productId: 'credits_1000',
+				provider: 'dodo',
+				providerPaymentId: 'pay_1',
+				providerRefundId: 'rf_1',
+				providerDisputeId: null,
+				amount: 1000,
+				currency: 'USD',
+				creditsGranted: 1000,
+				creditsReversedAt: null,
+				paidAt: 1000,
+				refundedAt: 2000,
+				disputedAt: null,
+				createdAt: 1000,
+				updatedAt: 2000
+			})
+			state.queryQueue.paymentTransaction.push(state.paymentTransactions[0])
+			state.provider.unwrapWebhook.mockResolvedValue(createRefundEvent())
+		}
+
+		await service.processWebhook('dodo', '{}', new Headers())
+
+		return {
+			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
+			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length,
+			deductCalls: vi.mocked(creditServiceMocks.deduct).mock.calls.length,
+			webhookEvents: state.webhookEvents.length,
+			creditsReversedAtSet: state.paymentTransactions[0]?.creditsReversedAt !== null
+		}
+	})
+})
+
+describe('PaymentService.processWebhook completion marker', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		caseName: 'missing_payment_identity' | 'grant_failure' | 'duplicated_webhook'
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		errorCode: string
+		webhookEvents: number
+		grantCalls: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'skip completion marker when required payment identity is missing',
+			given: 'credits purchase webhook has no provider payment id',
+			when: 'processing payment_succeeded webhook',
+			then: 'does not write webhook event',
+			givenDetail: {
+				caseName: 'missing_payment_identity'
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				webhookEvents: 0,
+				grantCalls: 0
+			}
+		},
+		{
+			scenario: 'skip completion marker when business processing fails',
+			given: 'credit grant throws during payment processing',
+			when: 'processing payment_succeeded webhook',
+			then: 'rethrows error and does not write webhook event',
+			givenDetail: {
+				caseName: 'grant_failure'
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: 'GRANT_FAILED',
+				webhookEvents: 0,
+				grantCalls: 1
+			}
+		},
+		{
+			scenario: 'skip business processing for completed webhook delivery',
+			given: 'webhook event already exists',
+			when: 'same webhook is delivered again',
+			then: 'does not run payment side effects again',
+			givenDetail: {
+				caseName: 'duplicated_webhook'
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				webhookEvents: 1,
+				grantCalls: 0
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const state = createMockState()
+		const service = createService(state)
+		state.checkoutOrders.push({
+			id: 'co_1',
+			userId: 'u1',
+			type: 'credits_purchase',
+			status: 'pending',
+			productId: 'credits_1000',
+			provider: 'dodo',
+			providerProductId: 'dp_credits_1000',
+			providerCheckoutSessionId: 'cs_1',
+			providerPaymentId: null,
+			checkoutUrl: 'https://pay.example.com/cs_1',
+			createdAt: 0,
+			updatedAt: 0
+		})
+
+		if (given.caseName === 'missing_payment_identity') {
+			state.provider.unwrapWebhook.mockResolvedValue({
+				...createPaymentSucceededEvent(),
+				providerPaymentId: null
+			})
+		}
+
+		if (given.caseName === 'grant_failure') {
+			vi.mocked(creditServiceMocks.grant).mockRejectedValue(new Error('GRANT_FAILED'))
+			state.provider.unwrapWebhook.mockResolvedValue(createPaymentSucceededEvent())
+		}
+
+		if (given.caseName === 'duplicated_webhook') {
+			state.webhookEvents.push({
+				id: 'pwe_1',
+				provider: 'dodo',
+				webhookId: 'evt_pay_1',
+				eventType: 'payment_succeeded',
+				processedAt: 1000
+			})
+			state.provider.unwrapWebhook.mockResolvedValue(createPaymentSucceededEvent())
+		}
+
+		try {
+			await service.processWebhook('dodo', '{}', new Headers())
+			return {
+				errorCode: '',
+				webhookEvents: state.webhookEvents.length,
+				grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length
+			}
+		} catch (error) {
+			return {
+				errorCode: error instanceof Error ? error.message : 'UNKNOWN',
+				webhookEvents: state.webhookEvents.length,
+				grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length
+			}
 		}
 	})
 })
@@ -871,7 +1130,9 @@ function createMockDb(state: MockState): AppDb {
 					}
 					if (table === paymentTransaction) {
 						state.paymentTransactions.push(payload as typeof paymentTransaction.$inferSelect)
-						return Promise.resolve()
+						return {
+							onConflictDoNothing: async (): Promise<void> => {}
+						}
 					}
 					if (table === paymentWebhookEvent) {
 						state.webhookEvents.push(payload as typeof paymentWebhookEvent.$inferSelect)
