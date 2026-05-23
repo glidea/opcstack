@@ -1,5 +1,7 @@
 import { execSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { createInterface } from 'node:readline/promises'
+import { stdin as input, stdout as output } from 'node:process'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const SVELTE_WORKER_PATH = '.svelte-kit/cloudflare/_worker.js'
@@ -7,6 +9,28 @@ const SVELTE_SERVER_PATH = '.svelte-kit/output/server/index.js'
 const SVELTE_MANIFEST_PATH = '.svelte-kit/cloudflare-tmp/manifest.js'
 const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA'
 const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
+const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
+const CLOUDFLARE_TOKEN_TEMPLATE_URL = buildCloudflareTokenTemplateUrl()
+
+function buildCloudflareTokenTemplateUrl() {
+	const permissions = [
+		{ key: 'memberships', type: 'read' },
+		{ key: 'workers_scripts', type: 'edit' },
+		{ key: 'workers_kv_storage', type: 'edit' },
+		{ key: 'workers_routes', type: 'edit' },
+		{ key: 'workers_r2', type: 'edit' },
+		{ key: 'd1', type: 'edit' },
+		{ key: 'queues', type: 'edit' },
+		{ key: 'turnstile', type: 'edit' }
+	]
+	const params = new URLSearchParams({
+		permissionGroupKeys: JSON.stringify(permissions),
+		accountId: '*',
+		zoneId: 'all',
+		name: 'OPCStack Deploy Token'
+	})
+	return `https://dash.cloudflare.com/profile/api-tokens?${params.toString()}`
+}
 
 function run(command, options = {}) {
 	console.log(`> ${command}`)
@@ -113,29 +137,6 @@ function selectTurnstileWidget(widgets, appName) {
 	}
 
 	return matches[0]
-}
-
-function exec(command, options = {}) {
-	console.log(`> ${command}`)
-	return execSync(command, { encoding: 'utf-8', ...options })
-}
-
-function extractValidJson(output) {
-	const arrMatch = output.match(/\[[\s\S]*?\]/)
-	if (arrMatch) {
-		return JSON.parse(arrMatch[0])
-	}
-
-	const objMatch = output.match(/\{[\s\S]*\}/)
-	if (objMatch) {
-		return JSON.parse(objMatch[0])
-	}
-
-	return undefined
-}
-
-function json(command, options = {}) {
-	return extractValidJson(exec(command, options))
 }
 
 function parseEnvFile(filePath) {
@@ -391,27 +392,6 @@ function parseCronExpressions(rawValue) {
 		.filter((value) => value !== '')
 }
 
-function getWranglerAuthToken() {
-	const auth = json('pnpm exec wrangler auth token --json')
-	if (!auth || typeof auth !== 'object') {
-		console.error('Failed to get wrangler auth token')
-		process.exit(1)
-	}
-
-	if (auth.type === 'api_key') {
-		console.error('Wrangler Global API Key is not supported for Bearer auth. Use wrangler login.')
-		process.exit(1)
-	}
-
-	const token = auth.token
-	if (!token || typeof token !== 'string') {
-		console.error('Failed to read token from wrangler auth token --json')
-		process.exit(1)
-	}
-
-	return token
-}
-
 async function cfApiRequest(token, method, path, body) {
 	const endpoint = `https://api.cloudflare.com/client/v4${path}`
 	const response = await fetch(endpoint, {
@@ -560,6 +540,70 @@ async function enableD1ReadReplication(accountId, databaseId, token) {
 	})
 }
 
+function readCachedCloudflareApiToken() {
+	if (!existsSync(CLOUDFLARE_TOKEN_CACHE_PATH)) {
+		return ''
+	}
+
+	return readFileSync(CLOUDFLARE_TOKEN_CACHE_PATH, 'utf-8').trim()
+}
+
+function writeCachedCloudflareApiToken(token) {
+	mkdirSync('.wrangler', { recursive: true })
+	writeFileSync(CLOUDFLARE_TOKEN_CACHE_PATH, `${token}\n`, { mode: 0o600 })
+}
+
+function isCI() {
+	return process.env.CI === 'true'
+}
+
+async function promptCloudflareApiToken() {
+	console.log('Cloudflare API token is required for remote deploy.')
+	console.log('Create a token with Account permissions:')
+	console.log('- Workers Scripts:Edit')
+	console.log('- Workers KV Storage:Edit')
+	console.log('- Workers Routes:Edit')
+	console.log('- Workers R2 Storage:Edit')
+	console.log('- D1:Edit')
+	console.log('- Queues:Edit')
+	console.log('- Turnstile:Edit')
+	console.log(`\nOpen: ${CLOUDFLARE_TOKEN_TEMPLATE_URL}\n`)
+
+	const rl = createInterface({ input, output })
+	const token = (await rl.question('Cloudflare API token: ')).trim()
+	rl.close()
+
+	if (token === '') {
+		console.error('CLOUDFLARE_API_TOKEN_MISSING')
+		process.exit(1)
+	}
+
+	writeCachedCloudflareApiToken(token)
+	console.log(`Cloudflare API token saved to ${CLOUDFLARE_TOKEN_CACHE_PATH}`)
+	return token
+}
+
+async function getCloudflareApiToken() {
+	if (process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_API_TOKEN.trim() !== '') {
+		console.log('Using Cloudflare API token from CLOUDFLARE_API_TOKEN')
+		return process.env.CLOUDFLARE_API_TOKEN.trim()
+	}
+
+	const cachedToken = readCachedCloudflareApiToken()
+	if (cachedToken !== '') {
+		console.log(`Using Cloudflare API token from ${CLOUDFLARE_TOKEN_CACHE_PATH}`)
+		return cachedToken
+	}
+
+	if (isCI()) {
+		console.error('Missing CLOUDFLARE_API_TOKEN')
+		console.error(`Create token: ${CLOUDFLARE_TOKEN_TEMPLATE_URL}`)
+		process.exit(1)
+	}
+
+	return promptCloudflareApiToken()
+}
+
 async function main() {
 	const isRemote = process.argv.slice(2).includes('--remote')
 	const env = loadEnv(isRemote)
@@ -580,31 +624,24 @@ async function main() {
 	const shardDatabaseIds = {}
 	let kvNamespaceId = '00000000000000000000000000000000'
 	let accountId = ''
-	let wranglerToken = ''
+	let cloudflareApiToken = ''
 
 	if (isRemote) {
-		console.log('\nResolving Wrangler auth token...')
-		try {
-			wranglerToken = getWranglerAuthToken()
-		} catch {
-			console.error(
-				"Wrangler is not ready. Ensure dependencies are installed and run 'pnpm exec wrangler login'."
-			)
-			process.exit(1)
-		}
-		console.log('Wrangler token resolved')
+		console.log('\nResolving Cloudflare API token...')
+		cloudflareApiToken = await getCloudflareApiToken()
+		process.env.CLOUDFLARE_API_TOKEN = cloudflareApiToken
 
 		console.log('\nResolving Cloudflare account...')
-		accountId = await getSingleCloudflareAccountId(wranglerToken)
+		accountId = await getSingleCloudflareAccountId(cloudflareApiToken)
 		console.log(`Account ID: ${accountId}`)
 
 		console.log('\nChecking D1 databases...')
-		let dbs = await listD1Databases(accountId, wranglerToken)
+		let dbs = await listD1Databases(accountId, cloudflareApiToken)
 		let existingDB = dbs.find((db) => db.name === metaDbName)
 		if (!existingDB) {
 			console.log(`Creating D1 database '${metaDbName}'...`)
-			await createD1Database(accountId, wranglerToken, metaDbName)
-			dbs = await listD1Databases(accountId, wranglerToken)
+			await createD1Database(accountId, cloudflareApiToken, metaDbName)
+			dbs = await listD1Databases(accountId, cloudflareApiToken)
 			existingDB = dbs.find((db) => db.name === metaDbName)
 		} else {
 			console.log(`Database '${metaDbName}' already exists.`)
@@ -622,8 +659,8 @@ async function main() {
 			let existingShardDB = dbs.find((db) => db.name === shard.databaseName)
 			if (!existingShardDB) {
 				console.log(`Creating D1 database '${shard.databaseName}'...`)
-				await createD1Database(accountId, wranglerToken, shard.databaseName)
-				dbs = await listD1Databases(accountId, wranglerToken)
+				await createD1Database(accountId, cloudflareApiToken, shard.databaseName)
+				dbs = await listD1Databases(accountId, cloudflareApiToken)
 				existingShardDB = dbs.find((db) => db.name === shard.databaseName)
 			} else {
 				console.log(`Database '${shard.databaseName}' already exists.`)
@@ -643,16 +680,16 @@ async function main() {
 
 	if (isRemote) {
 		console.log('\nEnabling D1 read replication...')
-		await enableD1ReadReplication(accountId, databaseId, wranglerToken)
+		await enableD1ReadReplication(accountId, databaseId, cloudflareApiToken)
 		for (const shard of shards) {
-			await enableD1ReadReplication(accountId, shardDatabaseIds[shard.id], wranglerToken)
+			await enableD1ReadReplication(accountId, shardDatabaseIds[shard.id], cloudflareApiToken)
 		}
 		console.log('D1 read replication enabled')
 	}
 
 	if (isRemote && queueNames.length > 0) {
 		console.log('\nChecking Queues...')
-		let queues = await listQueues(accountId, wranglerToken)
+		let queues = await listQueues(accountId, cloudflareApiToken)
 
 		for (const queueName of queueNames) {
 			const existingQueue = queues.find((queue) => {
@@ -664,21 +701,21 @@ async function main() {
 			}
 
 			console.log(`Creating Queue '${queueName}'...`)
-			await createQueue(accountId, wranglerToken, queueName)
+			await createQueue(accountId, cloudflareApiToken, queueName)
 			queues.push({ queue_name: queueName })
 		}
 	}
 
 	if (isRemote && r2Enabled) {
 		console.log('\nChecking R2 bucket...')
-		let buckets = await listR2Buckets(accountId, wranglerToken)
+		let buckets = await listR2Buckets(accountId, cloudflareApiToken)
 
 		const existingBucket = buckets.find((bucket) => {
 			return bucket.name === appName || bucket.bucket_name === appName
 		})
 		if (!existingBucket) {
 			console.log(`Creating R2 bucket '${appName}'...`)
-			await createR2Bucket(accountId, wranglerToken, appName)
+			await createR2Bucket(accountId, cloudflareApiToken, appName)
 		} else {
 			console.log(`R2 bucket '${appName}' already exists.`)
 		}
@@ -686,7 +723,7 @@ async function main() {
 
 	if (isRemote) {
 		console.log('\nChecking KV namespace...')
-		let namespaces = await listKVNamespaces(accountId, wranglerToken)
+		let namespaces = await listKVNamespaces(accountId, cloudflareApiToken)
 
 		let existingNamespace = namespaces.find((namespace) => {
 			return namespace.title === appName || namespace.name === appName
@@ -694,8 +731,8 @@ async function main() {
 
 		if (!existingNamespace) {
 			console.log(`Creating KV namespace '${appName}'...`)
-			await createKVNamespace(accountId, wranglerToken, appName)
-			namespaces = await listKVNamespaces(accountId, wranglerToken)
+			await createKVNamespace(accountId, cloudflareApiToken, appName)
+			namespaces = await listKVNamespaces(accountId, cloudflareApiToken)
 			existingNamespace = namespaces.find((namespace) => {
 				return namespace.title === appName || namespace.name === appName
 			})
@@ -717,7 +754,7 @@ async function main() {
 		console.log('\nChecking Turnstile widget...')
 		turnstileWidget = await ensureTurnstileWidget(
 			accountId,
-			wranglerToken,
+			cloudflareApiToken,
 			env.APP_NAME,
 			env.APP_DOMAIN
 		)

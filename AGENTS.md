@@ -57,6 +57,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Generates `wrangler.jsonc`
 - Creates D1 R2 KV and Queues in remote mode
 - Enables D1 read replication in remote mode
+- In local remote deploy, if `.wrangler/cloudflare-api-token` is missing, prints a Cloudflare API Token template link, prompts for the pasted token, and caches it locally
 - Generates and applies migrations
 
 ### 2. Environment Variables
@@ -375,6 +376,7 @@ Rules:
 - Canonical URLs use the app domain from `APP_DOMAIN` and must not point business pages to the OPCStack website
 - Test files: `src/**/*.test.ts` for unit tests and `e2e/**/*.test.ts` for E2E tests
 - Commands: `pnpm dev` local `pnpm deploycf` deploy `pnpm test` test
+- Do not create a separate file only to make a private component helper or type easier to test. Keep single-use helper functions and local types inside the owning component or module. Extract a file only when the logic is shared, owns an independent responsibility, or materially reduces complexity
 
 ### Frontend Design Contract
 

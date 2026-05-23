@@ -71,6 +71,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 - 运行 `pnpm dev`，自动生成 wrangler.jsonc
 - 自动创建 D1、R2、KV、Queues
 - 开启 `TURNSTILE_ENABLED=true` 后，本地自动使用 Cloudflare 测试 key，远程部署自动创建或复用名为 `APP_NAME` 的 Turnstile widget
+- 首次远程部署会提示创建 Cloudflare API Token，粘贴一次后缓存到 `.wrangler/cloudflare-api-token`
 - 自动执行 migration
 - 你只需配置少数几个环境变量，不需要到处配置！
 
@@ -147,6 +148,8 @@ TURNSTILE_ENABLED=true
 ```
 
 本地 `pnpm dev` 使用 Cloudflare 官方测试 key，不需要手动创建 widget。远程 `pnpm deploycf` 会用 `APP_NAME` 自动创建或复用 Turnstile widget，并把 `sitekey` 和 `secret` 写入生成的 `wrangler.jsonc`。
+
+首次远程部署如果没有 token，命令行会输出 Cloudflare API Token 创建链接。浏览器里确认创建后，把 token 粘贴回命令行即可继续部署。token 会保存到 `.wrangler/cloudflare-api-token`，该目录默认不会提交到 Git。
 
 ### 4. 邮件发送配置
 

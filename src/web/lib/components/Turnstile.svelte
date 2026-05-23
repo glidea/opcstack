@@ -1,6 +1,23 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
-	import type { TurnstileApi } from './turnstile'
+
+	type TurnstileApi = {
+		render: (
+			element: HTMLElement,
+			options: {
+				sitekey: string
+				callback: (token: string) => void
+				'expired-callback': () => void
+				'error-callback': () => void
+				size: 'flexible'
+			}
+		) => string
+		reset: (widgetId: string) => void
+	}
+
+	type TurnstileWindow = Window & {
+		turnstile?: TurnstileApi
+	}
 
 	let {
 		siteKey,
@@ -41,11 +58,16 @@
 	}
 
 	function readTurnstileApi(): TurnstileApi {
-		return window.turnstile
+		const browserWindow: TurnstileWindow = window as TurnstileWindow
+		if (!browserWindow.turnstile) {
+			throw new Error('Cloudflare Turnstile script is not loaded')
+		}
+		return browserWindow.turnstile
 	}
 
 	function loadTurnstileScript(): Promise<void> {
-		if (window.turnstile) {
+		const browserWindow: TurnstileWindow = window as TurnstileWindow
+		if (browserWindow.turnstile) {
 			return Promise.resolve()
 		}
 
