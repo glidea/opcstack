@@ -7,7 +7,7 @@ import {
 	type DeductCreditsInput,
 	type GrantCreditsInput
 } from './index'
-import type { AppDb, ShardDb } from '../db'
+import type { MetaDb, TenantShardDb } from '../db'
 
 describe('CreditRedemptionService.claimCode', () => {
 	type GivenDetail = {
@@ -430,7 +430,7 @@ type RedemptionMockState = {
 	updateCalled: boolean
 }
 
-type RedemptionMockDb = AppDb & {
+type RedemptionMockDb = MetaDb & {
 	_redemptionState: RedemptionMockState
 }
 
@@ -487,7 +487,7 @@ function createRedemptionMockDb(status: string, claimedBy: string | null): Redem
 	} as unknown as RedemptionMockDb
 }
 
-type MockDb = ShardDb & {
+type MockDb = TenantShardDb & {
 	_state: MockDbState
 }
 
@@ -664,8 +664,32 @@ type GrantSequenceMockState = {
 	duplicatedCalls: boolean[]
 }
 
-type GrantSequenceMockDb = ShardDb & {
+type GrantSequenceMockDb = TenantShardDb & {
 	_grantSequenceState: GrantSequenceMockState
+}
+
+type SummaryMockDb = TenantShardDb
+
+function createSummaryMockDb(userBalance: number | null): SummaryMockDb {
+	return {
+		query: {
+			creditBalance: {
+				findFirst: async (): Promise<{ balance: number } | undefined> => {
+					if (userBalance === null) {
+						return undefined
+					}
+					return {
+						balance: userBalance
+					}
+				}
+			},
+			creditTransaction: {
+				findFirst: async (): Promise<{ id: string } | undefined> => {
+					return undefined
+				}
+			}
+		}
+	} as unknown as SummaryMockDb
 }
 
 function createGrantSequenceMockDb(
@@ -818,6 +842,63 @@ describe('CreditsService.ensureEnough', () => {
 	})
 })
 
+describe('CreditsService.getSummary', () => {
+	type GivenDetail = {
+		userBalance: number | null
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		balance: number
+		dailyCheckedIn: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'return zero summary for user without balance row',
+			given: 'user has no credit balance row',
+			when: 'CreditsService.getSummary is called',
+			then: 'returns zero balance instead of missing user error',
+			givenDetail: {
+				userBalance: null
+			},
+			whenDetail: {},
+			thenExpected: {
+				balance: 0,
+				dailyCheckedIn: false
+			}
+		},
+		{
+			scenario: 'return existing balance in summary',
+			given: 'user has a credit balance row',
+			when: 'CreditsService.getSummary is called',
+			then: 'returns current balance',
+			givenDetail: {
+				userBalance: 120
+			},
+			whenDetail: {},
+			thenExpected: {
+				balance: 120,
+				dailyCheckedIn: false
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const db = createSummaryMockDb(given.userBalance)
+		const credits = new CreditsService(db)
+		const result = await credits.getSummary({
+			userId: 'u1',
+			nowMs: 1890000000000,
+			dailyCheckinAmount: 10
+		})
+
+		return {
+			balance: result.balance,
+			dailyCheckedIn: result.dailyCheckedIn
+		}
+	})
+})
+
 describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 	type GivenDetail = {
 		initialBalance: number
@@ -928,7 +1009,7 @@ type DeductMockState = {
 	balanceReads: number
 }
 
-type DeductMockDb = ShardDb & {
+type DeductMockDb = TenantShardDb & {
 	_deductState: DeductMockState
 }
 
@@ -1034,7 +1115,7 @@ type DeductSequenceMockState = {
 	duplicatedCalls: boolean[]
 }
 
-type DeductSequenceMockDb = ShardDb & {
+type DeductSequenceMockDb = TenantShardDb & {
 	_deductSequenceState: DeductSequenceMockState
 }
 
@@ -1121,7 +1202,7 @@ function createDeductSequenceMockDb(
 describe('CreditsService.expire', () => {
 	type GivenDetail = {
 		expiredEntries: Array<{ id: string; user_id: string; remaining_amount: number }>
-		users: Array<{ balance: number }>
+		entryInsertChanges: number[]
 		limit?: number
 	}
 	type WhenDetail = Record<string, never>
@@ -1130,6 +1211,7 @@ describe('CreditsService.expire', () => {
 		processedUsers: number
 		batchCalled: boolean
 		statementCount: number
+		sourceIds: string[]
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -1140,28 +1222,29 @@ describe('CreditsService.expire', () => {
 			then: 'no batch write happens',
 			givenDetail: {
 				expiredEntries: [],
-				users: []
+				entryInsertChanges: []
 			},
 			whenDetail: {},
 			thenExpected: {
 				processedEntries: 0,
 				processedUsers: 0,
 				batchCalled: false,
-				statementCount: 0
+				statementCount: 0,
+				sourceIds: []
 			}
 		},
 		{
-			scenario: 'process fixed number of expired entries and grouped users',
-			given: 'expired entries contain two users',
+			scenario: 'expire entries independently',
+			given: 'expired entries contain two users and inserts all succeed',
 			when: 'CreditsService.expire is called',
-			then: 'returns processed counts and runs one batch',
+			then: 'returns processed counts and uses one idempotency source per entry',
 			givenDetail: {
 				expiredEntries: [
 					{ id: 'e1', user_id: 'u1', remaining_amount: 3 },
 					{ id: 'e2', user_id: 'u1', remaining_amount: 2 },
 					{ id: 'e3', user_id: 'u2', remaining_amount: 5 }
 				],
-				users: [{ balance: 10 }, { balance: 8 }],
+				entryInsertChanges: [1, 1, 1],
 				limit: 20
 			},
 			whenDetail: {},
@@ -1169,13 +1252,36 @@ describe('CreditsService.expire', () => {
 				processedEntries: 3,
 				processedUsers: 2,
 				batchCalled: true,
-				statementCount: 7
+				statementCount: 9,
+				sourceIds: ['expired:e1', 'expired:e2', 'expired:e3']
+			}
+		},
+		{
+			scenario: 'skip duplicate expired entry writes',
+			given: 'expired entries were already claimed by another run',
+			when: 'CreditsService.expire is called',
+			then: 'does not count duplicated entries as processed',
+			givenDetail: {
+				expiredEntries: [
+					{ id: 'e1', user_id: 'u1', remaining_amount: 3 },
+					{ id: 'e2', user_id: 'u1', remaining_amount: 2 }
+				],
+				entryInsertChanges: [0, 1],
+				limit: 20
+			},
+			whenDetail: {},
+			thenExpected: {
+				processedEntries: 1,
+				processedUsers: 1,
+				batchCalled: true,
+				statementCount: 6,
+				sourceIds: ['expired:e1', 'expired:e2']
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
-		const db = createExpireMockDb(given.expiredEntries, given.users)
+		const db = createExpireMockDb(given.expiredEntries, given.entryInsertChanges)
 		const credits = new CreditsService(db)
 		const result = await credits.expire({
 			nowMs: 1890000000000,
@@ -1186,7 +1292,8 @@ describe('CreditsService.expire', () => {
 			processedEntries: result.processedEntries,
 			processedUsers: result.processedUsers,
 			batchCalled: db._expireState.batchCalled,
-			statementCount: db._expireState.statements.length
+			statementCount: db._expireState.statements.length,
+			sourceIds: db._expireState.sourceIds
 		}
 	})
 })
@@ -1195,6 +1302,7 @@ describe('CreditsService.cleanupTransactions', () => {
 	type GivenDetail = {
 		changes: number
 		retentionDays?: number
+		limit?: number
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -1224,7 +1332,8 @@ describe('CreditsService.cleanupTransactions', () => {
 			then: 'still returns affected rows',
 			givenDetail: {
 				changes: 2,
-				retentionDays: 30
+				retentionDays: 30,
+				limit: 50
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -1239,7 +1348,8 @@ describe('CreditsService.cleanupTransactions', () => {
 		const credits = new CreditsService(db)
 		const result = await credits.cleanupTransactions({
 			nowMs: 1890000000000,
-			retentionDays: given.retentionDays
+			retentionDays: given.retentionDays,
+			limit: given.limit
 		})
 		return {
 			deletedRows: result.deletedRows,
@@ -1251,19 +1361,21 @@ describe('CreditsService.cleanupTransactions', () => {
 type ExpireMockState = {
 	batchCalled: boolean
 	statements: unknown[]
+	sourceIds: string[]
 }
 
-type ExpireMockDb = ShardDb & {
+type ExpireMockDb = TenantShardDb & {
 	_expireState: ExpireMockState
 }
 
 function createExpireMockDb(
 	expiredEntries: Array<{ id: string; user_id: string; remaining_amount: number }>,
-	users: Array<{ balance: number }>
+	entryInsertChanges: number[]
 ): ExpireMockDb {
 	const state: ExpireMockState = {
 		batchCalled: false,
-		statements: []
+		statements: [],
+		sourceIds: []
 	}
 
 	return {
@@ -1271,26 +1383,8 @@ function createExpireMockDb(
 		all: async (): Promise<Array<{ id: string; user_id: string; remaining_amount: number }>> => {
 			return expiredEntries
 		},
-		select: (): {
-			from: (_table: unknown) => {
-				where: (_condition: unknown) => Promise<Array<{ balance: number }>>
-			}
-		} => {
-			return {
-				from: () => {
-					return {
-						where: async () => users
-					}
-				}
-			}
-		},
 		run: (payload: unknown): MockRawRunQuery => {
-			return createMockRawRunQuery(payload)
-		},
-		batch: async (statements: unknown[]): Promise<unknown[]> => {
-			state.batchCalled = true
-			state.statements = statements
-			return []
+			return createSqlMockRawRunQuery(payload)
 		},
 		$client: {
 			prepare: (query: string): { bind: (...params: unknown[]) => unknown } => {
@@ -1306,7 +1400,34 @@ function createExpireMockDb(
 			batch: async (statements: unknown[]): Promise<unknown[]> => {
 				state.batchCalled = true
 				state.statements = statements
-				return []
+				state.sourceIds = statements
+					.map((statement): string => {
+						const params = (statement as { params?: unknown[] }).params ?? []
+						const sourceId = params.find((param): param is string => {
+							return typeof param === 'string' && param.startsWith('expired:')
+						})
+						return sourceId ?? ''
+					})
+					.filter((sourceId): boolean => sourceId !== '')
+				return entryInsertChanges.flatMap((changes): Array<{ meta: { changes: number } }> => {
+					return [
+						{
+							meta: {
+								changes
+							}
+						},
+						{
+							meta: {
+								changes
+							}
+						},
+						{
+							meta: {
+								changes
+							}
+						}
+					]
+				})
 			}
 		}
 	} as unknown as ExpireMockDb
@@ -1314,21 +1435,24 @@ function createExpireMockDb(
 
 type CleanupMockState = {
 	called: boolean
+	query: string
 }
 
-type CleanupMockDb = ShardDb & {
+type CleanupMockDb = TenantShardDb & {
 	_cleanupState: CleanupMockState
 }
 
 function createCleanupMockDb(changes: number): CleanupMockDb {
 	const state: CleanupMockState = {
-		called: false
+		called: false,
+		query: ''
 	}
 
 	return {
 		_cleanupState: state,
-		run: async (): Promise<{ meta: { changes: number } }> => {
+		run: async (payload: unknown): Promise<{ meta: { changes: number } }> => {
 			state.called = true
+			state.query = readSqlText(payload)
 			return {
 				meta: {
 					changes
@@ -1336,4 +1460,44 @@ function createCleanupMockDb(changes: number): CleanupMockDb {
 			}
 		}
 	} as unknown as CleanupMockDb
+}
+
+function createSqlMockRawRunQuery(payload: unknown): MockRawRunQuery {
+	return {
+		getQuery: () => {
+			return {
+				sql: readSqlText(payload),
+				params: readSqlParams(payload)
+			}
+		}
+	}
+}
+
+function readSqlText(payload: unknown): string {
+	return readSqlChunks(payload)
+		.map((chunk): string => {
+			if (typeof chunk === 'string' || typeof chunk === 'number') {
+				return String(chunk)
+			}
+			const value = (chunk as { value?: string[] }).value
+			if (Array.isArray(value)) {
+				return value.join('')
+			}
+			return ''
+		})
+		.join('')
+}
+
+function readSqlParams(payload: unknown): unknown[] {
+	return readSqlChunks(payload).filter((chunk): boolean => {
+		return typeof chunk === 'string' || typeof chunk === 'number'
+	})
+}
+
+function readSqlChunks(payload: unknown): unknown[] {
+	const chunks = (payload as { queryChunks?: unknown[] }).queryChunks
+	if (Array.isArray(chunks)) {
+		return chunks
+	}
+	return []
 }

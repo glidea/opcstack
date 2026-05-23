@@ -1,8 +1,7 @@
 import { and, desc, eq, gte, isNotNull, isNull, lt, lte, sql, type SQL } from 'drizzle-orm'
-import { runRawD1Batch, type AppDb, type D1RawRunQuery, type ShardDb } from '../db'
+import { runRawD1Batch, type MetaDb, type D1RawRunQuery, type TenantShardDb } from '../db'
 import { creditRedemptionCode } from '../db/schema.meta'
 import { creditBalance, creditEntry, creditTransaction } from '../db/schema.shard'
-import { subtractUnits } from '../lib/decimal'
 
 export const CREDIT_TRANSACTION_TYPE_SIGNUP = 'signup'
 export const CREDIT_TRANSACTION_TYPE_DAILY_CHECKIN = 'daily_checkin'
@@ -156,6 +155,7 @@ export interface ExpireCreditsInput {
 export interface CleanupCreditTransactionsInput {
 	nowMs?: number
 	retentionDays?: number
+	limit?: number
 }
 
 export interface DailyCheckinResult {
@@ -223,9 +223,9 @@ export class CreditsError extends Error {
 }
 
 export class CreditRedemptionService {
-	private readonly db: AppDb
+	private readonly db: MetaDb
 
-	constructor(db: AppDb) {
+	constructor(db: MetaDb) {
 		this.db = db
 	}
 
@@ -420,9 +420,9 @@ export class CreditRedemptionService {
 }
 
 export class CreditsService {
-	private readonly db: ShardDb
+	private readonly db: TenantShardDb
 
-	constructor(db: ShardDb) {
+	constructor(db: TenantShardDb) {
 		this.db = db
 	}
 
@@ -551,7 +551,12 @@ export class CreditsService {
 	}
 
 	async getSummary(input: GetCreditSummaryInput): Promise<CreditSummary> {
-		const balanceRow = await this.findBalance(input.userId)
+		const balanceRow = await this.db.query.creditBalance.findFirst({
+			columns: {
+				balance: true
+			},
+			where: eq(creditBalance.userId, input.userId)
+		})
 		const nowMs: number = input.nowMs ?? Date.now()
 		const dayRange: { dayStartMs: number; dayEndMs: number } = getUtcDayRange(nowMs)
 		const checkedInRow = await this.db.query.creditTransaction.findFirst({
@@ -567,7 +572,7 @@ export class CreditsService {
 		})
 
 		return {
-			balance: balanceRow.balance,
+			balance: balanceRow?.balance ?? 0,
 			dailyCheckedIn: Boolean(checkedInRow),
 			dailyCheckinAmount: input.dailyCheckinAmount
 		}
@@ -831,22 +836,9 @@ export class CreditsService {
 			}
 		}
 
-		const userExpiredMap: Map<string, number> = new Map<string, number>()
-		for (const row of expiredEntries) {
-			const currentValue: number = userExpiredMap.get(row.user_id) ?? 0
-			userExpiredMap.set(row.user_id, currentValue + row.remaining_amount)
-		}
-
 		const statements: D1RawRunQuery[] = []
-		for (const [userId, expiredAmount] of userExpiredMap) {
-			const sourceId: string = `expire:${nowMs}:${userId}`
-			statements.push(
-				this.db.run(sql`
-          UPDATE credit_balances
-          SET balance = balance - ${expiredAmount}, updated_at = ${nowMs}
-          WHERE user_id = ${userId}
-        `)
-			)
+		for (const entry of expiredEntries) {
+			const transactionId: string = crypto.randomUUID()
 			statements.push(
 				this.db.run(sql`
           INSERT INTO credit_transactions (
@@ -862,51 +854,94 @@ export class CreditsService {
             created_at
           )
           SELECT
-            ${crypto.randomUUID()},
-            ${userId},
+            ${transactionId},
+            user_id,
             ${CREDIT_TRANSACTION_TYPE_EXPIRED},
-            ${-expiredAmount},
-            balance,
+            -remaining_amount,
+            (
+              SELECT balance - credit_entries.remaining_amount
+              FROM credit_balances
+              WHERE user_id = credit_entries.user_id
+            ),
             'expired',
-            ${sourceId},
+            ${`expired:${entry.id}`},
             'Credits expired',
             NULL,
             ${nowMs}
-          FROM credit_balances
-          WHERE user_id = ${userId}
+          FROM credit_entries
+          WHERE id = ${entry.id}
+            AND remaining_amount > 0
+          ON CONFLICT(source_type, source_id) DO NOTHING
         `)
 			)
-		}
-
-		for (const entry of expiredEntries) {
+			statements.push(
+				this.db.run(sql`
+          UPDATE credit_balances
+          SET
+            balance = balance + (
+              SELECT amount
+              FROM credit_transactions
+              WHERE id = ${transactionId}
+            ),
+            updated_at = ${nowMs}
+          WHERE user_id = ${entry.user_id}
+            AND EXISTS (
+              SELECT 1
+              FROM credit_transactions
+              WHERE id = ${transactionId}
+            )
+        `)
+			)
 			statements.push(
 				this.db.run(sql`
           UPDATE credit_entries
           SET remaining_amount = 0
           WHERE id = ${entry.id}
+            AND EXISTS (
+              SELECT 1
+              FROM credit_transactions
+              WHERE id = ${transactionId}
+            )
         `)
 			)
 		}
 
 		const firstStatement: D1RawRunQuery | undefined = statements[0]
+		let processedEntries: number = 0
+		const processedUserIds: Set<string> = new Set<string>()
 		if (firstStatement) {
-			await runRawD1Batch(this.db, [firstStatement, ...statements.slice(1)])
+			const results: D1Result[] = await runRawD1Batch(this.db, [firstStatement, ...statements.slice(1)])
+			let resultIndex: number = 0
+			for (const entry of expiredEntries) {
+				if (readBatchChanges(results[resultIndex]) > 0) {
+					processedEntries += 1
+					processedUserIds.add(entry.user_id)
+				}
+				resultIndex += 3
+			}
 		}
 
 		return {
-			processedEntries: expiredEntries.length,
-			processedUsers: userExpiredMap.size
+			processedEntries,
+			processedUsers: processedUserIds.size
 		}
 	}
 
 	async cleanupTransactions(input: CleanupCreditTransactionsInput): Promise<CleanupCreditTransactionsResult> {
 		const nowMs: number = input.nowMs ?? Date.now()
 		const retentionDays: number = resolveRetentionDays(input.retentionDays)
+		const limit: number = resolveCleanupLimit(input.limit)
 		const cutoff: number = nowMs - retentionDays * 24 * 60 * 60 * 1000
 
 		const result = await this.db.run(sql`
       DELETE FROM credit_transactions
-      WHERE created_at < ${cutoff}
+      WHERE id IN (
+        SELECT id
+        FROM credit_transactions
+        WHERE created_at < ${cutoff}
+        ORDER BY created_at ASC
+        LIMIT ${limit}
+      )
     `)
 
 		return {
@@ -955,6 +990,13 @@ function resolveExpireLimit(limit: number | undefined): number {
 		return 20
 	}
 	return Math.min(limit, 200)
+}
+
+function resolveCleanupLimit(limit: number | undefined): number {
+	if (!Number.isInteger(limit) || !limit || limit <= 0) {
+		return 500
+	}
+	return Math.min(limit, 5000)
 }
 
 function resolveRetentionDays(retentionDays: number | undefined): number {
