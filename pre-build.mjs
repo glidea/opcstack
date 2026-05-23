@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { createInterface } from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
@@ -10,21 +11,25 @@ const SVELTE_MANIFEST_PATH = '.svelte-kit/cloudflare-tmp/manifest.js'
 const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA'
 const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
 const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
+const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
+const CLOUDFLARE_TOKEN_PERMISSIONS = [
+	{ key: 'memberships', type: 'read' },
+	{ key: 'workers_scripts', type: 'edit' },
+	{ key: 'workers_kv_storage', type: 'edit' },
+	{ key: 'workers_routes', type: 'edit' },
+	{ key: 'workers_r2', type: 'edit' },
+	{ key: 'd1', type: 'edit' },
+	{ key: 'queues', type: 'edit' },
+	{ key: 'challenge_widgets', type: 'edit' }
+]
+const CLOUDFLARE_TOKEN_PERMISSION_FINGERPRINT = createHash('sha256')
+	.update(JSON.stringify(CLOUDFLARE_TOKEN_PERMISSIONS))
+	.digest('hex')
 const CLOUDFLARE_TOKEN_TEMPLATE_URL = buildCloudflareTokenTemplateUrl()
 
 function buildCloudflareTokenTemplateUrl() {
-	const permissions = [
-		{ key: 'memberships', type: 'read' },
-		{ key: 'workers_scripts', type: 'edit' },
-		{ key: 'workers_kv_storage', type: 'edit' },
-		{ key: 'workers_routes', type: 'edit' },
-		{ key: 'workers_r2', type: 'edit' },
-		{ key: 'd1', type: 'edit' },
-		{ key: 'queues', type: 'edit' },
-		{ key: 'turnstile', type: 'edit' }
-	]
 	const params = new URLSearchParams({
-		permissionGroupKeys: JSON.stringify(permissions),
+		permissionGroupKeys: JSON.stringify(CLOUDFLARE_TOKEN_PERMISSIONS),
 		accountId: '*',
 		zoneId: 'all',
 		name: 'OPCStack Deploy Token'
@@ -512,12 +517,16 @@ async function createTurnstileWidget(accountId, token, name, domain) {
 	})
 }
 
+async function getTurnstileWidget(accountId, token, sitekey) {
+	return cfApiRequest(token, 'GET', `/accounts/${accountId}/challenges/widgets/${sitekey}`, undefined)
+}
+
 async function ensureTurnstileWidget(accountId, token, appName, domain) {
 	let widgets = await listTurnstileWidgets(accountId, token)
 	let widget = selectTurnstileWidget(widgets, appName)
 	if (widget) {
 		console.log(`Turnstile widget '${appName}' already exists.`)
-		return widget
+		return getTurnstileWidget(accountId, token, widget.sitekey)
 	}
 
 	console.log(`Creating Turnstile widget '${appName}'...`)
@@ -529,7 +538,7 @@ async function ensureTurnstileWidget(accountId, token, appName, domain) {
 		process.exit(1)
 	}
 
-	return widget
+	return getTurnstileWidget(accountId, token, widget.sitekey)
 }
 
 async function enableD1ReadReplication(accountId, databaseId, token) {
@@ -545,12 +554,21 @@ function readCachedCloudflareApiToken() {
 		return ''
 	}
 
+	const cachedPermissions = existsSync(CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH)
+		? readFileSync(CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH, 'utf-8').trim()
+		: ''
+	if (cachedPermissions !== CLOUDFLARE_TOKEN_PERMISSION_FINGERPRINT) {
+		console.log('Cloudflare API token permissions changed. Create a new token.')
+		return ''
+	}
+
 	return readFileSync(CLOUDFLARE_TOKEN_CACHE_PATH, 'utf-8').trim()
 }
 
 function writeCachedCloudflareApiToken(token) {
 	mkdirSync('.wrangler', { recursive: true })
 	writeFileSync(CLOUDFLARE_TOKEN_CACHE_PATH, `${token}\n`, { mode: 0o600 })
+	writeFileSync(CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH, `${CLOUDFLARE_TOKEN_PERMISSION_FINGERPRINT}\n`, { mode: 0o600 })
 }
 
 function isCI() {
@@ -567,10 +585,10 @@ async function promptCloudflareApiToken() {
 	console.log('- D1:Edit')
 	console.log('- Queues:Edit')
 	console.log('- Turnstile:Edit')
-	console.log(`\nOpen: ${CLOUDFLARE_TOKEN_TEMPLATE_URL}\n`)
+	console.log(`\nOpen and create token: ${CLOUDFLARE_TOKEN_TEMPLATE_URL}\n`)
 
 	const rl = createInterface({ input, output })
-	const token = (await rl.question('Cloudflare API token: ')).trim()
+	const token = (await rl.question('Paste Cloudflare API token to here: ')).trim()
 	rl.close()
 
 	if (token === '') {

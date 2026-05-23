@@ -149,7 +149,7 @@ TURNSTILE_ENABLED=true
 
 本地 `pnpm dev` 使用 Cloudflare 官方测试 key，不需要手动创建 widget。远程 `pnpm deploycf` 会用 `APP_NAME` 自动创建或复用 Turnstile widget，并把 `sitekey` 和 `secret` 写入生成的 `wrangler.jsonc`。
 
-首次远程部署如果没有 token，命令行会输出 Cloudflare API Token 创建链接。浏览器里确认创建后，把 token 粘贴回命令行即可继续部署。token 会保存到 `.wrangler/cloudflare-api-token`，该目录默认不会提交到 Git。
+首次远程部署如果没有 token，命令行会输出 Cloudflare API Token 创建链接。浏览器里确认创建后，把 token 粘贴回命令行即可继续部署。token 会保存到 `.wrangler/cloudflare-api-token`，该目录默认不会提交到 Git。脚本会按所需 Cloudflare 权限范围生成本地指纹，后续权限范围变化时会自动要求重新粘贴 token 并覆盖旧缓存。
 
 ### 4. 邮件发送配置
 
