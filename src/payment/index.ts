@@ -1,6 +1,6 @@
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm'
-import { getShardDb, type AppDb } from '../db'
-import { getTenantD1, resolveUserShard } from '../db/shard-router'
+import type { MetaDb } from '../db'
+import { createTenantShardAccess } from '../db/shard-router'
 import { checkoutOrder, paymentTransaction, paymentWebhookEvent, userSubscription } from '../db/schema'
 import { user } from '../db/schema.auth'
 import {
@@ -198,14 +198,14 @@ export class PaymentServiceError extends Error {
 }
 
 export class PaymentService {
-	private readonly db: AppDb
+	private readonly db: MetaDb
 	private readonly config: PaymentConfig
 	private readonly providerRouter: PaymentProviderRouter
 	private readonly providers: PaymentProviderMap
 	private readonly creditsService: PaymentCreditsServiceFactory
 
 	constructor(
-		db: AppDb,
+		db: MetaDb,
 		config: PaymentConfig,
 		providerRouter: PaymentProviderRouter,
 		providers: PaymentProviderMap,
@@ -1266,7 +1266,7 @@ export class PaymentService {
 }
 
 export function newPaymentService(
-	db: AppDb,
+	db: MetaDb,
 	env: Env
 ): PaymentService {
 	const config = parsePaymentConfig(env)
@@ -1281,8 +1281,8 @@ export function newPaymentService(
 	}
 
 	return new PaymentService(db, config, providerRouter, providers, async (userId: string) => {
-		const resolved = await resolveUserShard(db, userId)
-		return new CreditsService(getShardDb(getTenantD1(env, resolved.bindingName)))
+		const tenant = await createTenantShardAccess(db, env).openUserDb(userId)
+		return new CreditsService(tenant.db)
 	})
 }
 

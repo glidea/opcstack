@@ -1,8 +1,8 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import { handleScheduled } from './index'
-import { getDb, getShardDb } from '../db'
-import { getTenantD1 } from '../db/shard-router'
+import { getMetaDb } from '../db'
+import { createTenantShardAccess } from '../db/shard-router'
 
 const creditsMock = vi.hoisted(() => {
 	return {
@@ -21,34 +21,29 @@ vi.mock('../credits', () => {
 
 vi.mock('../db', () => {
 	return {
-		getDb: vi.fn(),
-		getShardDb: vi.fn()
+		getMetaDb: vi.fn()
 	}
 })
 
 vi.mock('../db/shard-router', () => {
 	return {
-		getTenantD1: vi.fn()
+		createTenantShardAccess: vi.fn()
 	}
 })
 
 describe('handleScheduled', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
-		vi.mocked(getDb).mockReturnValue({
-			query: {
-				d1Shard: {
-					findMany: vi.fn().mockResolvedValue([
-						{
-							id: 'shard_0000',
-							bindingName: 'TENANT_DB_0000'
-						}
-					])
+		vi.mocked(getMetaDb).mockReturnValue({ name: 'meta-db' } as unknown as ReturnType<typeof getMetaDb>)
+		vi.mocked(createTenantShardAccess).mockReturnValue({
+			listShardDbs: vi.fn().mockResolvedValue([
+				{
+					shardId: 'shard_0000',
+					bindingName: 'TENANT_DB_0000',
+					db: { name: 'tenant-shard-db' }
 				}
-			}
-		} as unknown as ReturnType<typeof getDb>)
-		vi.mocked(getTenantD1).mockReturnValue({ name: 'd1' } as unknown as D1Database)
-		vi.mocked(getShardDb).mockReturnValue({ name: 'shard-db' } as unknown as ReturnType<typeof getShardDb>)
+			])
+		} as unknown as ReturnType<typeof createTenantShardAccess>)
 		vi.mocked(creditsMock.expire).mockResolvedValue({ processedEntries: 0, processedUsers: 0 })
 		vi.mocked(creditsMock.cleanupTransactions).mockResolvedValue({ deletedRows: 0 })
 	})
@@ -60,7 +55,7 @@ describe('handleScheduled', () => {
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		metaDbCalls: number
-		tenantD1Calls: number
+		listShardDbsCalls: number
 		expireCalls: number
 		cleanupCalls: number
 		cleanupRetentionDays: number
@@ -79,7 +74,7 @@ describe('handleScheduled', () => {
 			whenDetail: {},
 			thenExpected: {
 				metaDbCalls: 0,
-				tenantD1Calls: 0,
+				listShardDbsCalls: 0,
 				expireCalls: 0,
 				cleanupCalls: 0,
 				cleanupRetentionDays: 0
@@ -97,7 +92,7 @@ describe('handleScheduled', () => {
 			whenDetail: {},
 			thenExpected: {
 				metaDbCalls: 1,
-				tenantD1Calls: 1,
+				listShardDbsCalls: 1,
 				expireCalls: 1,
 				cleanupCalls: 1,
 				cleanupRetentionDays: 30
@@ -115,7 +110,7 @@ describe('handleScheduled', () => {
 			whenDetail: {},
 			thenExpected: {
 				metaDbCalls: 1,
-				tenantD1Calls: 1,
+				listShardDbsCalls: 1,
 				expireCalls: 1,
 				cleanupCalls: 1,
 				cleanupRetentionDays: 90
@@ -139,8 +134,9 @@ describe('handleScheduled', () => {
 			| { retentionDays?: number }
 			| undefined
 		return {
-			metaDbCalls: vi.mocked(getDb).mock.calls.length,
-			tenantD1Calls: vi.mocked(getTenantD1).mock.calls.length,
+			metaDbCalls: vi.mocked(getMetaDb).mock.calls.length,
+			listShardDbsCalls:
+				vi.mocked(createTenantShardAccess).mock.results[0]?.value.listShardDbs.mock.calls.length ?? 0,
 			expireCalls: vi.mocked(creditsMock.expire).mock.calls.length,
 			cleanupCalls: vi.mocked(creditsMock.cleanupTransactions).mock.calls.length,
 			cleanupRetentionDays: cleanupInput?.retentionDays ?? 0

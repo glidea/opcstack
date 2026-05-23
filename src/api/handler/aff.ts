@@ -3,8 +3,7 @@ import { z } from 'zod'
 import type { ApiEnv } from '..'
 import { AFF_CREDIT_SOURCE_INVITEE, AFF_CREDIT_SOURCE_INVITER, AffError, AffService } from '../../aff'
 import { CreditsService, type CreditTransactionType } from '../../credits'
-import { getShardDb } from '../../db'
-import { getTenantD1, resolveUserShard } from '../../db/shard-router'
+import { createTenantShardAccess } from '../../db/shard-router'
 import { parseDecimal } from '../../lib/decimal'
 import { parseRequest } from '../../lib/request'
 
@@ -107,8 +106,8 @@ async function grantAffCredits(
 	sourceType: CreditTransactionType,
 	affId: string
 ): Promise<void> {
-	const resolved = await resolveUserShard(ctx.get('metaDb'), userId)
-	const credits = new CreditsService(getShardDb(getTenantD1(ctx.env, resolved.bindingName)))
+	const tenant = await createTenantShardAccess(ctx.get('metaDb'), ctx.env).openUserDb(userId)
+	const credits = new CreditsService(tenant.db)
 	await credits.grant({
 		userId,
 		type: sourceType,

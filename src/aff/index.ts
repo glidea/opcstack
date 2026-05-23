@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm'
-import type { AppDb } from '../db'
+import type { MetaDb } from '../db'
 import { affReferral } from '../db/schema'
 import { user } from '../db/schema.auth'
 import {
@@ -49,9 +49,9 @@ export class AffError extends Error {
 }
 
 export class AffService {
-	private readonly db: AppDb
+	private readonly db: MetaDb
 
-	constructor(db: AppDb) {
+	constructor(db: MetaDb) {
 		this.db = db
 	}
 

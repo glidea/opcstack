@@ -9,8 +9,7 @@ import {
 	CreditsService,
 	type CreditTransactionItem
 } from '../../credits'
-import { getShardDb } from '../../db'
-import { getTenantD1, resolveUserShard } from '../../db/shard-router'
+import { createTenantShardAccess } from '../../db/shard-router'
 import { formatDecimal, parseDecimal } from '../../lib/decimal'
 import { PageRequestSchema, parseRequest } from '../../lib/request'
 
@@ -263,9 +262,8 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 	}
 
 	try {
-		const resolved = await resolveUserShard(ctx.get('metaDb'), req.user_id)
-		const d1 = getTenantD1(ctx.env, resolved.bindingName)
-		const credits = new CreditsService(getShardDb(d1))
+		const tenant = await createTenantShardAccess(ctx.get('metaDb'), ctx.env).openUserDb(req.user_id)
+		const credits = new CreditsService(tenant.db)
 		const result = await credits.grant({
 			userId: req.user_id,
 			type: CREDIT_TRANSACTION_TYPE_MANUAL_GRANT,

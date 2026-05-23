@@ -38,15 +38,15 @@ import {
 } from './handler/payment'
 import { readR2ObjectHandler } from './handler/r2'
 import { authCore } from './auth'
-import type { AppDb, ShardDb } from '../db'
+import type { MetaDb, TenantShardDb } from '../db'
 import { formatDecimal, parseDecimal } from '../lib/decimal'
 
 export type ApiEnv = {
 	Bindings: Env
 	Variables: {
 		userId: string
-		metaDb: AppDb
-		tenantDb: ShardDb
+		metaDb: MetaDb
+		tenantDb: TenantShardDb
 		tenantShardId: string
 	}
 }

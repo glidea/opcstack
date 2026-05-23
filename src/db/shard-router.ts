@@ -1,5 +1,5 @@
-import { eq, sql } from 'drizzle-orm'
-import type { AppDb } from '.'
+import { eq, inArray, sql } from 'drizzle-orm'
+import { getTenantShardDb, type MetaDb, type TenantShardDb } from '.'
 import { d1Shard, userShard } from './schema.meta'
 
 export type ResolvedUserShard = {
@@ -7,7 +7,90 @@ export type ResolvedUserShard = {
 	bindingName: string
 }
 
-export async function resolveUserShard(metaDb: AppDb, userId: string): Promise<ResolvedUserShard> {
+export type TenantShardInfo = {
+	shardId: string
+	bindingName: string
+}
+
+export type TenantShardClient = TenantShardInfo & {
+	db: TenantShardDb
+}
+
+export type TenantShardSession = TenantShardClient & {
+	session: D1DatabaseSession
+}
+
+export function createTenantShardAccess(metaDb: MetaDb, env: Env): TenantShardAccess {
+	return new TenantShardAccess(metaDb, env)
+}
+
+export class TenantShardAccess {
+	private readonly metaDb: MetaDb
+	private readonly env: Env
+
+	constructor(metaDb: MetaDb, env: Env) {
+		this.metaDb = metaDb
+		this.env = env
+	}
+
+	async resolveUser(userId: string): Promise<ResolvedUserShard> {
+		return resolveUserShard(this.metaDb, userId)
+	}
+
+	async openUserDb(userId: string): Promise<TenantShardClient> {
+		const resolved = await this.resolveUser(userId)
+		return this.openDb(resolved)
+	}
+
+	async openUserSession(
+		userId: string,
+		bookmark: D1SessionBookmark | D1SessionConstraint
+	): Promise<TenantShardSession> {
+		const resolved = await this.resolveUser(userId)
+		return this.openSession(resolved, bookmark)
+	}
+
+	openSession(
+		shard: TenantShardInfo,
+		bookmark: D1SessionBookmark | D1SessionConstraint
+	): TenantShardSession {
+		const d1 = getTenantD1Binding(this.env, shard.bindingName)
+		const session = d1.withSession(bookmark)
+		return {
+			...shard,
+			session,
+			db: getTenantShardDb(session)
+		}
+	}
+
+	async listShardDbs(): Promise<TenantShardClient[]> {
+		const shards = await this.listShards()
+		return shards.map((shard) => this.openDb(shard))
+	}
+
+	async listShards(): Promise<TenantShardInfo[]> {
+		const shards = await this.metaDb.query.d1Shard.findMany({
+			columns: {
+				id: true,
+				bindingName: true
+			},
+			where: inArray(d1Shard.status, ['active', 'draining'])
+		})
+		return shards.map((shard) => ({
+			shardId: shard.id,
+			bindingName: shard.bindingName
+		}))
+	}
+
+	openDb(shard: TenantShardInfo): TenantShardClient {
+		return {
+			...shard,
+			db: getTenantShardDb(getTenantD1Binding(this.env, shard.bindingName))
+		}
+	}
+}
+
+async function resolveUserShard(metaDb: MetaDb, userId: string): Promise<ResolvedUserShard> {
 	const existing = await metaDb.query.userShard.findFirst({
 		where: eq(userShard.userId, userId)
 	})
@@ -74,7 +157,7 @@ export async function resolveUserShard(metaDb: AppDb, userId: string): Promise<R
 	}
 }
 
-export function getTenantD1(env: Env, bindingName: string): D1Database {
+function getTenantD1Binding(env: Env, bindingName: string): D1Database {
 	const d1 = (env as unknown as Record<string, D1Database | undefined>)[bindingName]
 	if (!d1) {
 		throw new Error('TENANT_D1_BINDING_NOT_FOUND')

@@ -1,8 +1,6 @@
-import { inArray } from 'drizzle-orm'
 import { CreditsService } from '../credits'
-import { d1Shard } from '../db/schema.meta'
-import { getDb, getShardDb } from '../db'
-import { getTenantD1 } from '../db/shard-router'
+import { getMetaDb } from '../db'
+import { createTenantShardAccess } from '../db/shard-router'
 import { logInfo } from '../lib/log'
 
 export type ScheduledJobHandler = (
@@ -26,36 +24,31 @@ export async function handleScheduled(
 
 export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 	'*/10 * * * *': async (controller, env): Promise<void> => {
-		const db = getDb(env.META_DB)
+		const db = getMetaDb(env.META_DB)
 		const nowMs = controller.scheduledTime
 		const retentionDays = parseRetentionDays(env.CREDITS_HISTORY_RETENTION_DAYS)
-		const shards = await db.query.d1Shard.findMany({
-			columns: {
-				id: true,
-				bindingName: true
-			},
-			where: inArray(d1Shard.status, ['active', 'draining'])
-		})
+		const shards = await createTenantShardAccess(db, env).listShardDbs()
 
 		for (const shard of shards) {
-			const credits = new CreditsService(getShardDb(getTenantD1(env, shard.bindingName)))
+			const credits = new CreditsService(shard.db)
 
 			const expireResult = await credits.expire({
 				nowMs,
 				limit: 20
 			})
 			logInfo('Credits expire job finished', {
-				shard_id: shard.id,
+				shard_id: shard.shardId,
 				processed_entries: expireResult.processedEntries,
 				processed_users: expireResult.processedUsers
 			})
 
 			const cleanupResult = await credits.cleanupTransactions({
 				nowMs,
-				retentionDays
+				retentionDays,
+				limit: 100
 			})
 			logInfo('Credits cleanup job finished', {
-				shard_id: shard.id,
+				shard_id: shard.shardId,
 				deleted_rows: cleanupResult.deletedRows
 			})
 		}

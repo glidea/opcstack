@@ -4,14 +4,20 @@ import { tenantDbMiddleware } from './tenant-db'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 
+const shardRouterMocks = vi.hoisted(() => {
+	return {
+		resolveUser: vi.fn(),
+		openSession: vi.fn()
+	}
+})
+
 vi.mock('../../db/shard-router', () => {
 	return {
-		getTenantD1: vi.fn((env: Record<string, unknown>, bindingName: string) => {
-			return env[bindingName]
-		}),
-		resolveUserShard: vi.fn().mockResolvedValue({
-			shardId: 'shard_0000',
-			bindingName: 'TENANT_DB_0000'
+		createTenantShardAccess: vi.fn(() => {
+			return {
+				resolveUser: shardRouterMocks.resolveUser,
+				openSession: shardRouterMocks.openSession
+			}
 		})
 	}
 })
@@ -19,6 +25,10 @@ vi.mock('../../db/shard-router', () => {
 describe('tenantDbMiddleware', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+		shardRouterMocks.resolveUser.mockResolvedValue({
+			shardId: 'shard_0000',
+			bindingName: 'TENANT_DB_0000'
+		})
 	})
 
 	type GivenDetail = {
@@ -66,6 +76,17 @@ describe('tenantDbMiddleware', () => {
 			}
 		})
 		const state = createContextState(given.headers, withSession)
+		shardRouterMocks.openSession.mockImplementation(
+			(_shard: unknown, bookmark: string): Record<string, unknown> => {
+				const session = withSession(bookmark)
+				return {
+					shardId: 'shard_0000',
+					bindingName: 'TENANT_DB_0000',
+					session,
+					db: { name: 'tenant-shard-db' }
+				}
+			}
+		)
 		const ctx = createContext(state)
 
 		await tenantDbMiddleware(ctx, state.next)

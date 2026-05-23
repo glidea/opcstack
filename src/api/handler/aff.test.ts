@@ -21,14 +21,7 @@ const creditServiceMocks = vi.hoisted(() => {
 
 const shardRouterMocks = vi.hoisted(() => {
 	return {
-		getTenantD1: vi.fn(),
-		resolveUserShard: vi.fn()
-	}
-})
-
-const dbMocks = vi.hoisted(() => {
-	return {
-		getShardDb: vi.fn()
+		openUserDb: vi.fn()
 	}
 })
 
@@ -54,26 +47,20 @@ vi.mock('../../credits', async () => {
 
 vi.mock('../../db/shard-router', () => {
 	return {
-		getTenantD1: shardRouterMocks.getTenantD1,
-		resolveUserShard: shardRouterMocks.resolveUserShard
-	}
-})
-
-vi.mock('../../db', async () => {
-	const actual = await vi.importActual<typeof import('../../db')>('../../db')
-	return {
-		...actual,
-		getShardDb: dbMocks.getShardDb
+		createTenantShardAccess: vi.fn(() => {
+			return {
+				openUserDb: shardRouterMocks.openUserDb
+			}
+		})
 	}
 })
 
 beforeEach(() => {
-	shardRouterMocks.resolveUserShard.mockResolvedValue({
+	shardRouterMocks.openUserDb.mockResolvedValue({
 		shardId: 'shard_0000',
-		bindingName: 'TENANT_DB_0000'
+		bindingName: 'TENANT_DB_0000',
+		db: { name: 'tenant-db' }
 	})
-	shardRouterMocks.getTenantD1.mockReturnValue({ name: 'tenant-d1' })
-	dbMocks.getShardDb.mockReturnValue({ name: 'tenant-db' })
 	creditServiceMocks.grant.mockResolvedValue({
 		balance: 1,
 		entryId: 'entry-id',

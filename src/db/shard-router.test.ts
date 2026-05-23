@@ -1,8 +1,8 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { resolveUserShard } from './shard-router'
+import { createTenantShardAccess } from './shard-router'
 
-describe('resolveUserShard', () => {
+describe('TenantShardAccess.resolveUser', () => {
 	type GivenDetail = {
 		hasExistingUserShard: boolean
 		insertConflict: boolean
@@ -131,7 +131,7 @@ describe('resolveUserShard', () => {
 			})
 		}
 
-		const result = await resolveUserShard(db as never, 'user-1')
+		const result = await createTenantShardAccess(db as never, {} as never).resolveUser('user-1')
 
 		return {
 			shardId: result.shardId,
@@ -141,3 +141,155 @@ describe('resolveUserShard', () => {
 		}
 	})
 })
+
+describe('TenantShardAccess', () => {
+	type GivenDetail = {
+		action: 'openUserDb' | 'openUserSession' | 'listShardDbs'
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		shardId: string
+		dbCreated: boolean
+		sessionBookmark: string
+		listedShards: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'open user shard db',
+			given: 'user has a shard mapping',
+			when: 'opening the user tenant shard db',
+			then: 'returns the routed tenant shard drizzle client',
+			givenDetail: {
+				action: 'openUserDb'
+			},
+			whenDetail: {},
+			thenExpected: {
+				shardId: 'shard_0000',
+				dbCreated: true,
+				sessionBookmark: '',
+				listedShards: 0
+			}
+		},
+		{
+			scenario: 'open user shard session',
+			given: 'user has a shard mapping and bookmark',
+			when: 'opening the user tenant shard session',
+			then: 'returns a session backed tenant shard drizzle client',
+			givenDetail: {
+				action: 'openUserSession'
+			},
+			whenDetail: {},
+			thenExpected: {
+				shardId: 'shard_0000',
+				dbCreated: true,
+				sessionBookmark: 'bookmark-1',
+				listedShards: 0
+			}
+		},
+		{
+			scenario: 'list shard dbs',
+			given: 'active and draining shards exist',
+			when: 'listing tenant shard dbs',
+			then: 'returns every fan-out eligible tenant shard db',
+			givenDetail: {
+				action: 'listShardDbs'
+			},
+			whenDetail: {},
+			thenExpected: {
+				shardId: 'shard_0000',
+				dbCreated: true,
+				sessionBookmark: '',
+				listedShards: 2
+			}
+		}
+	]
+
+	runCases(cases, async (given): Promise<ThenExpected> => {
+		const state = createShardAccessState()
+		const access = createTenantShardAccess(state.db as never, state.env as never)
+
+		if (given.action === 'openUserDb') {
+			const tenant = await access.openUserDb('user-1')
+			return {
+				shardId: tenant.shardId,
+				dbCreated: tenant.db !== undefined,
+				sessionBookmark: '',
+				listedShards: 0
+			}
+		}
+
+		if (given.action === 'openUserSession') {
+			const tenant = await access.openUserSession('user-1', 'bookmark-1')
+			return {
+				shardId: tenant.shardId,
+				dbCreated: tenant.db !== undefined,
+				sessionBookmark: state.withSession.mock.calls[0]?.[0] ?? '',
+				listedShards: 0
+			}
+		}
+
+		const shards = await access.listShardDbs()
+		return {
+			shardId: shards[0]?.shardId ?? '',
+			dbCreated: shards.every((shard) => shard.db !== undefined),
+			sessionBookmark: '',
+			listedShards: shards.length
+		}
+	})
+})
+
+function createShardAccessState(): {
+	db: Record<string, unknown>
+	env: Record<string, unknown>
+	withSession: ReturnType<typeof vi.fn>
+} {
+	const withSession = vi.fn(() => {
+		return {
+			prepare: vi.fn(),
+			batch: vi.fn(),
+			getBookmark: vi.fn()
+		}
+	})
+
+	return {
+		db: {
+			query: {
+				userShard: {
+					findFirst: vi.fn().mockResolvedValue({
+						shardId: 'shard_0000'
+					})
+				},
+				d1Shard: {
+					findFirst: vi.fn().mockResolvedValue({
+						id: 'shard_0000',
+						bindingName: 'TENANT_DB_0000'
+					}),
+					findMany: vi.fn().mockResolvedValue([
+						{
+							id: 'shard_0000',
+							bindingName: 'TENANT_DB_0000'
+						},
+						{
+							id: 'shard_0001',
+							bindingName: 'TENANT_DB_0001'
+						}
+					])
+				}
+			}
+		},
+		env: {
+			TENANT_DB_0000: {
+				withSession,
+				prepare: vi.fn(),
+				batch: vi.fn()
+			},
+			TENANT_DB_0001: {
+				withSession: vi.fn(),
+				prepare: vi.fn(),
+				batch: vi.fn()
+			}
+		},
+		withSession
+	}
+}

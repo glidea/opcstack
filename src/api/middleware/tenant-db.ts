@@ -1,6 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
-import { getShardDb } from '../../db'
-import { getTenantD1, resolveUserShard } from '../../db/shard-router'
+import { createTenantShardAccess } from '../../db/shard-router'
 import type { ApiEnv } from '..'
 
 export const TENANT_DB_BOOKMARK_HEADER = 'x-d1-tenant-bookmark'
@@ -11,21 +10,22 @@ export const tenantDbMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
-	const resolved = await resolveUserShard(ctx.get('metaDb'), ctx.get('userId'))
-	const d1 = getTenantD1(ctx.env, resolved.bindingName)
+	const tenantShards = createTenantShardAccess(ctx.get('metaDb'), ctx.env)
+	const resolved = await tenantShards.resolveUser(ctx.get('userId'))
 	const cookieName = tenantBookmarkCookieName(resolved.shardId)
 	const headerBookmark = ctx.req.header(TENANT_DB_BOOKMARK_HEADER)
 	const cookieBookmark = readCookie(ctx.req.header('cookie'), cookieName)
 	const bookmark = resolveTenantBookmark(headerBookmark, cookieBookmark)
-	const session = d1.withSession(bookmark)
+	const tenant = tenantShards.openSession(resolved, bookmark)
+	const session = tenant.session
 
-	ctx.set('tenantDb', getShardDb(session))
-	ctx.set('tenantShardId', resolved.shardId)
+	ctx.set('tenantDb', tenant.db)
+	ctx.set('tenantShardId', tenant.shardId)
 
 	await next()
 
 	const nextBookmark = session.getBookmark()
-	ctx.res.headers.set(TENANT_DB_SHARD_HEADER, resolved.shardId)
+	ctx.res.headers.set(TENANT_DB_SHARD_HEADER, tenant.shardId)
 	if (!nextBookmark) {
 		return
 	}

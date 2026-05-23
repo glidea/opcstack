@@ -3,7 +3,7 @@ import { runCases, type TestCase } from '../testing/bdd'
 import { PaymentProviderRouter, type PaymentConfig } from './config'
 import { PaymentService, PaymentServiceError, type PaymentProviderMap } from './index'
 import type { PaymentEvent, PaymentProvider } from './index'
-import type { AppDb } from '../db'
+import type { MetaDb } from '../db'
 import {
 	checkoutOrder,
 	paymentTransaction,
@@ -1920,7 +1920,7 @@ function createService(
 	)
 }
 
-function createMockDb(state: MockState): AppDb {
+function createMockDb(state: MockState): MetaDb {
 	const db = {
 		query: {
 			user: {
@@ -2051,7 +2051,7 @@ function createMockDb(state: MockState): AppDb {
 			}
 		}
 	}
-	return db as unknown as AppDb
+	return db as unknown as MetaDb
 }
 
 function withCheckoutSnapshot(

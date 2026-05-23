@@ -1,14 +1,14 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer, captcha, emailOTP } from 'better-auth/plugins'
-import { getShardDb, type AppDb } from '../../db'
-import { getTenantD1, resolveUserShard } from '../../db/shard-router'
+import type { MetaDb } from '../../db'
+import { createTenantShardAccess } from '../../db/shard-router'
 import { newEmailClients, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
 import { parseDecimal } from '../../lib/decimal'
 
-export function authCore(env: Env, db: AppDb) {
+export function authCore(env: Env, db: MetaDb) {
   const aff = new AffService(db)
   const emailOtpPlugin = buildEmailOtp(env)
   const captchaPlugin = buildTurnstileCaptcha(env)
@@ -55,9 +55,8 @@ export function authCore(env: Env, db: AppDb) {
               return
             }
 
-            const resolved = await resolveUserShard(db, userId)
-            const d1 = getTenantD1(env, resolved.bindingName)
-            const credits = new CreditsService(getShardDb(d1))
+            const tenant = await createTenantShardAccess(db, env).openUserDb(userId)
+            const credits = new CreditsService(tenant.db)
             await credits.grant({
               userId,
               type: 'signup',
@@ -173,7 +172,7 @@ function buildEmailOtp(env: Env): ReturnType<typeof emailOTP> | undefined {
 }
 
 function buildTurnstileCaptcha(env: Env): ReturnType<typeof captcha> | undefined {
-  if (env.TURNSTILE_ENABLED !== 'true') {
+  if (String(env.TURNSTILE_ENABLED) !== 'true') {
     return undefined
   }
 

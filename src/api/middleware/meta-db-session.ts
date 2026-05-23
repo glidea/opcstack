@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
-import { getDb } from '../../db'
+import { getMetaDb } from '../../db'
 import type { ApiEnv } from '..'
 
 export const META_DB_BOOKMARK_HEADER = 'x-d1-meta-bookmark'
@@ -14,7 +14,7 @@ export const metaDbSessionMiddleware: MiddlewareHandler<ApiEnv> = async (
 	const cookieBookmark = readCookie(ctx.req.header('cookie'), META_DB_BOOKMARK_COOKIE)
 	const bookmark = resolveSessionBookmark(headerBookmark, cookieBookmark)
 	const session = ctx.env.META_DB.withSession(bookmark)
-	ctx.set('metaDb', getDb(session))
+	ctx.set('metaDb', getMetaDb(session))
 
 	await next()
 

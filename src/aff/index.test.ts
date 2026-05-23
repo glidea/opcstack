@@ -1,7 +1,7 @@
 import { describe } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import { AffError, AffService, type BindAffInput } from './index'
-import type { AppDb } from '../db'
+import type { MetaDb } from '../db'
 
 describe('AffService.getSummary', () => {
 	type GivenDetail = {
@@ -259,7 +259,7 @@ type AffMockState = {
 	insertedReferral: boolean
 }
 
-type AffMockDb = AppDb & {
+type AffMockDb = MetaDb & {
 	_state: AffMockState
 }
 

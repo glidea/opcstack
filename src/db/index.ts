@@ -6,23 +6,23 @@ import * as shardSchema from './schema.shard'
 export const dbSchema = { ...schema, ...authSchema }
 export const shardDbSchema = { ...shardSchema }
 
-export type AppDb = DrizzleD1Database<typeof dbSchema> & {
+export type MetaDb = DrizzleD1Database<typeof dbSchema> & {
 	$client: D1RequestDb
 }
-export type ShardDb = DrizzleD1Database<typeof shardDbSchema> & {
+export type TenantShardDb = DrizzleD1Database<typeof shardDbSchema> & {
 	$client: D1RequestDb
 }
 export type D1RequestDb = D1Database | D1DatabaseSession
-export type D1RawRunQuery = ReturnType<AppDb['run']> | ReturnType<ShardDb['run']>
+export type D1RawRunQuery = ReturnType<MetaDb['run']> | ReturnType<TenantShardDb['run']>
 type D1BatchDb = {
 	$client: D1RequestDb
 }
 
-export function getDb(db: D1RequestDb): AppDb {
+export function getMetaDb(db: D1RequestDb): MetaDb {
 	return drizzle(db as D1Database, { schema: dbSchema })
 }
 
-export function getShardDb(db: D1RequestDb): ShardDb {
+export function getTenantShardDb(db: D1RequestDb): TenantShardDb {
 	return drizzle(db as D1Database, { schema: shardDbSchema })
 }
 
