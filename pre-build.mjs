@@ -1,20 +1,118 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import {
-	buildD1DatabaseBindings,
-	buildShardDescriptors,
-	parseShardCount
-} from './src/build/shards.mjs'
-import { resolveTurnstileConfig, selectTurnstileWidget } from './src/build/turnstile.mjs'
 
 const SVELTE_WORKER_PATH = '.svelte-kit/cloudflare/_worker.js'
 const SVELTE_SERVER_PATH = '.svelte-kit/output/server/index.js'
 const SVELTE_MANIFEST_PATH = '.svelte-kit/cloudflare-tmp/manifest.js'
+const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA'
+const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
 
 function run(command, options = {}) {
 	console.log(`> ${command}`)
 	execSync(command, { stdio: 'inherit', ...options })
+}
+
+function parseShardCount(raw) {
+	if (raw === undefined || raw === '') {
+		return 1
+	}
+
+	const count = Number(raw)
+	if (!Number.isInteger(count) || count < 1) {
+		throw new Error('D1_SHARD_COUNT_INVALID')
+	}
+
+	return count
+}
+
+function buildShardDescriptors(appName, count) {
+	const shards = []
+	let index = 0
+	while (index < count) {
+		const suffix = shardSuffix(index)
+		shards.push({
+			id: `shard_${suffix}`,
+			bindingName: tenantBindingName(index),
+			databaseName: tenantDatabaseName(appName, index)
+		})
+		index += 1
+	}
+	return shards
+}
+
+function buildD1DatabaseBindings(appName, metaDatabaseId, shards, shardDatabaseIds = {}) {
+	const bindings = [
+		{
+			binding: 'META_DB',
+			database_name: `${appName}-meta`,
+			database_id: metaDatabaseId,
+			migrations_dir: 'src/db/meta-migrations'
+		}
+	]
+
+	for (const shard of shards) {
+		bindings.push({
+			binding: shard.bindingName,
+			database_name: shard.databaseName,
+			database_id: shardDatabaseIds[shard.id] ?? '00000000-0000-0000-0000-000000000000',
+			migrations_dir: 'src/db/shard-migrations'
+		})
+	}
+
+	return bindings
+}
+
+function tenantBindingName(index) {
+	return `TENANT_DB_${shardSuffix(index)}`
+}
+
+function tenantDatabaseName(appName, index) {
+	return `${appName}-shard-${shardSuffix(index)}`
+}
+
+function shardSuffix(index) {
+	return String(index).padStart(4, '0')
+}
+
+function resolveTurnstileConfig(input) {
+	if (input.enabled !== 'true') {
+		return {
+			enabled: 'false',
+			siteKey: '',
+			secretKey: ''
+		}
+	}
+
+	if (!input.isRemote) {
+		return {
+			enabled: 'true',
+			siteKey: TURNSTILE_TEST_SITE_KEY,
+			secretKey: TURNSTILE_TEST_SECRET_KEY
+		}
+	}
+
+	if (!input.widget) {
+		throw new Error('TURNSTILE_WIDGET_MISSING')
+	}
+
+	return {
+		enabled: 'true',
+		siteKey: input.widget.sitekey,
+		secretKey: input.widget.secret
+	}
+}
+
+function selectTurnstileWidget(widgets, appName) {
+	const matches = widgets.filter((widget) => {
+		return widget.name === appName
+	})
+
+	if (matches.length > 1) {
+		throw new Error('TURNSTILE_WIDGET_DUPLICATED')
+	}
+
+	return matches[0]
 }
 
 function exec(command, options = {}) {
