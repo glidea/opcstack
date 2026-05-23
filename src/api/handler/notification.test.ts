@@ -112,6 +112,8 @@ describe('listNotificationsHandler', () => {
 		total: number
 		metaReadQueryCalled: boolean
 		tenantReadQueryCalled: boolean
+		metaLimit: number
+		metaOffset: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -131,7 +133,9 @@ describe('listNotificationsHandler', () => {
 				items: [],
 				total: 0,
 				metaReadQueryCalled: false,
-				tenantReadQueryCalled: false
+				tenantReadQueryCalled: false,
+				metaLimit: 0,
+				metaOffset: 0
 			}
 		},
 		{
@@ -159,7 +163,9 @@ describe('listNotificationsHandler', () => {
 				],
 				total: 1,
 				metaReadQueryCalled: false,
-				tenantReadQueryCalled: true
+				tenantReadQueryCalled: true,
+				metaLimit: 20,
+				metaOffset: 0
 			}
 		},
 		{
@@ -178,7 +184,9 @@ describe('listNotificationsHandler', () => {
 				items: [],
 				total: 0,
 				metaReadQueryCalled: false,
-				tenantReadQueryCalled: true
+				tenantReadQueryCalled: true,
+				metaLimit: 0,
+				metaOffset: 0
 			}
 		}
 	]
@@ -207,13 +215,18 @@ describe('listNotificationsHandler', () => {
 
 		const res = await listNotificationsHandler(ctx)
 		const payload = (await res.json()) as { code?: string } & Partial<ListNotificationsResponse>
+		const findManyInput = metaDb.query.notification?.findMany.mock.calls[0]?.[0] as
+			| { limit?: number; offset?: number }
+			| undefined
 		return {
 			status: res.status,
 			code: payload.code ?? '',
 			items: payload.items ?? [],
 			total: payload.total ?? 0,
 			metaReadQueryCalled: Boolean(metaDb.query.notificationRead?.findMany.mock.calls.length),
-			tenantReadQueryCalled: Boolean(tenantDb.query.notificationRead?.findMany.mock.calls.length)
+			tenantReadQueryCalled: Boolean(tenantDb.query.notificationRead?.findMany.mock.calls.length),
+			metaLimit: findManyInput?.limit ?? 0,
+			metaOffset: findManyInput?.offset ?? 0
 		}
 	})
 })

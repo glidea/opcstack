@@ -1,7 +1,100 @@
 import { describe, expect } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { CreditsError, CreditsService, type DeductCreditsInput, type GrantCreditsInput } from './index'
-import type { ShardDb } from '../db'
+import {
+	CreditRedemptionService,
+	CreditsError,
+	CreditsService,
+	type DeductCreditsInput,
+	type GrantCreditsInput
+} from './index'
+import type { AppDb, ShardDb } from '../db'
+
+describe('CreditRedemptionService.claimCode', () => {
+	type GivenDetail = {
+		status: string
+		claimedBy: string | null
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		errorCode: string
+		codeId: string
+		updateCalled: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'claim unused code',
+			given: 'code is unused',
+			when: 'CreditRedemptionService.claimCode is called',
+			then: 'claims code in meta db',
+			givenDetail: {
+				status: 'unused',
+				claimedBy: null
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				codeId: 'code-id',
+				updateCalled: true
+			}
+		},
+		{
+			scenario: 'resume claimed code for same user',
+			given: 'code is already claimed by same user',
+			when: 'CreditRedemptionService.claimCode is called again',
+			then: 'returns claimed code without another meta update',
+			givenDetail: {
+				status: 'claimed',
+				claimedBy: 'u1'
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: '',
+				codeId: 'code-id',
+				updateCalled: false
+			}
+		},
+		{
+			scenario: 'reject claimed code for another user',
+			given: 'code is already claimed by another user',
+			when: 'CreditRedemptionService.claimCode is called',
+			then: 'returns code used',
+			givenDetail: {
+				status: 'claimed',
+				claimedBy: 'u2'
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: 'CREDIT_CODE_USED',
+				codeId: '',
+				updateCalled: false
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const db = createRedemptionMockDb(given.status, given.claimedBy)
+		const service = new CreditRedemptionService(db)
+		try {
+			const result = await service.claimCode({
+				userId: 'u1',
+				code: 'AAAA1111',
+				nowMs: 1890000000000
+			})
+			return {
+				errorCode: '',
+				codeId: result.id,
+				updateCalled: db._redemptionState.updateCalled
+			}
+		} catch (error) {
+			return {
+				errorCode: error instanceof CreditsError ? error.code : 'UNKNOWN',
+				codeId: '',
+				updateCalled: db._redemptionState.updateCalled
+			}
+		}
+	})
+})
 
 describe('CreditsService.grant', () => {
 	type GivenDetail = {
@@ -331,6 +424,67 @@ type MockDbState = {
 	batchItems: unknown[]
 	changes: number
 	balance: number
+}
+
+type RedemptionMockState = {
+	updateCalled: boolean
+}
+
+type RedemptionMockDb = AppDb & {
+	_redemptionState: RedemptionMockState
+}
+
+function createRedemptionMockDb(status: string, claimedBy: string | null): RedemptionMockDb {
+	const state: RedemptionMockState = {
+		updateCalled: false
+	}
+
+	return {
+		_redemptionState: state,
+		query: {
+			creditRedemptionCode: {
+				findMany: async (): Promise<
+					Array<{
+						id: string
+						amount: number
+						status: string
+						expiresAt: number | null
+						claimedBy: string | null
+					}>
+				> => {
+					return [
+						{
+							id: 'code-id',
+							amount: 100,
+							status,
+							expiresAt: null,
+							claimedBy
+						}
+					]
+				}
+			}
+		},
+		update: () => {
+			return {
+				set: () => {
+					return {
+						where: () => {
+							return {
+								run: async (): Promise<{ meta: { changes: number } }> => {
+									state.updateCalled = true
+									return {
+										meta: {
+											changes: 1
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	} as unknown as RedemptionMockDb
 }
 
 type MockDb = ShardDb & {

@@ -463,6 +463,7 @@ describe('redeemCreditCodeHandler', () => {
 		body: unknown
 		errorCode: string
 		grantError: string
+		duplicatedGrant: boolean
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -481,7 +482,8 @@ describe('redeemCreditCodeHandler', () => {
 			givenDetail: {
 				body: null,
 				errorCode: '',
-				grantError: ''
+				grantError: '',
+				duplicatedGrant: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -499,7 +501,8 @@ describe('redeemCreditCodeHandler', () => {
 			givenDetail: {
 				body: { code: 'AAAA1111' },
 				errorCode: 'CREDIT_CODE_USED',
-				grantError: ''
+				grantError: '',
+				duplicatedGrant: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -517,7 +520,8 @@ describe('redeemCreditCodeHandler', () => {
 			givenDetail: {
 				body: { code: 'AAAA1111' },
 				errorCode: 'INVALID_CREDIT_CODE',
-				grantError: ''
+				grantError: '',
+				duplicatedGrant: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -535,7 +539,27 @@ describe('redeemCreditCodeHandler', () => {
 			givenDetail: {
 				body: { code: 'AAAA1111' },
 				errorCode: '',
-				grantError: ''
+				grantError: '',
+				duplicatedGrant: false
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				amount: '100.000000',
+				markedGranted: true
+			}
+		},
+		{
+			scenario: 'resume pending redeem code successfully',
+			given: 'meta claim already exists and tenant grant is duplicated',
+			when: 'calling redeemCreditCodeHandler',
+			then: 'marks meta code granted and returns amount',
+			givenDetail: {
+				body: { code: 'AAAA1111' },
+				errorCode: '',
+				grantError: '',
+				duplicatedGrant: true
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -553,7 +577,8 @@ describe('redeemCreditCodeHandler', () => {
 			givenDetail: {
 				body: { code: 'AAAA1111' },
 				errorCode: '',
-				grantError: 'D1_DOWN'
+				grantError: 'D1_DOWN',
+				duplicatedGrant: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -583,7 +608,7 @@ describe('redeemCreditCodeHandler', () => {
 					entryId: 'e1',
 					transactionId: 't1',
 					entryRemainingAmount: 100_000_000,
-					duplicated: false
+					duplicated: given.duplicatedGrant
 				})
 			}
 		}

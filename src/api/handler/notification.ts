@@ -90,10 +90,19 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 		.select({ total: sql<number>`count(*)` })
 		.from(notification)
 		.where(where)
-	const rows = await db.query.notification.findMany({
-		where,
-		orderBy: [desc(notification.createdAt)]
-	})
+	const offset = (req.page - 1) * req.page_size
+	const rows =
+		req.read === undefined
+			? await db.query.notification.findMany({
+					where,
+					orderBy: [desc(notification.createdAt)],
+					limit: req.page_size,
+					offset
+				})
+			: await db.query.notification.findMany({
+					where,
+					orderBy: [desc(notification.createdAt)]
+				})
 
 	if (rows.length === 0) {
 		return ctx.json({ items: [], total: 0 } as ListNotificationsResponse)
@@ -131,10 +140,8 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 			}
 			return row.read === req.read
 		})
-	const offset = (req.page - 1) * req.page_size
-
 	return ctx.json({
-		items: items.slice(offset, offset + req.page_size),
+		items: req.read === undefined ? items : items.slice(offset, offset + req.page_size),
 		total: req.read === undefined ? Number(totalRows[0]?.total ?? 0) : items.length
 	} as ListNotificationsResponse)
 }

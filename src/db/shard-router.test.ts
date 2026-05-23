@@ -5,6 +5,7 @@ import { resolveUserShard } from './shard-router'
 describe('resolveUserShard', () => {
 	type GivenDetail = {
 		hasExistingUserShard: boolean
+		insertConflict: boolean
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -21,7 +22,8 @@ describe('resolveUserShard', () => {
 			when: 'resolving user shard',
 			then: 'returns mapped shard without creating a mapping',
 			givenDetail: {
-				hasExistingUserShard: true
+				hasExistingUserShard: true,
+				insertConflict: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -37,7 +39,8 @@ describe('resolveUserShard', () => {
 			when: 'resolving user shard',
 			then: 'assigns least used active shard',
 			givenDetail: {
-				hasExistingUserShard: false
+				hasExistingUserShard: false,
+				insertConflict: false
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -46,26 +49,65 @@ describe('resolveUserShard', () => {
 				insertedMapping: true,
 				updatedCount: true
 			}
+		},
+		{
+			scenario: 'return concurrently inserted shard mapping',
+			given: 'another request inserts the shard mapping first',
+			when: 'resolving user shard',
+			then: 'returns existing mapping without incrementing shard count',
+			givenDetail: {
+				hasExistingUserShard: false,
+				insertConflict: true
+			},
+			whenDetail: {},
+			thenExpected: {
+				shardId: 'shard_0000',
+				bindingName: 'TENANT_DB_0000',
+				insertedMapping: true,
+				updatedCount: false
+			}
 		}
 	]
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
-		const values = vi.fn().mockResolvedValue(undefined)
+		const run = vi.fn().mockResolvedValue({
+			meta: {
+				changes: given.insertConflict ? 0 : 1
+			}
+		})
+		const onConflictDoNothing = vi.fn(() => {
+			return {
+				run
+			}
+		})
+		const values = vi.fn(() => {
+			return {
+				onConflictDoNothing
+			}
+		})
 		const set = vi.fn(() => {
 			return {
 				where: vi.fn().mockResolvedValue(undefined)
 			}
 		})
+		const userShardRows = given.hasExistingUserShard
+			? [
+					{
+						shardId: 'shard_0001'
+					}
+				]
+			: given.insertConflict
+				? [
+						undefined,
+						{
+							shardId: 'shard_0000'
+						}
+					]
+				: [undefined]
 		const db = {
 			query: {
 				userShard: {
-					findFirst: vi.fn().mockResolvedValue(
-						given.hasExistingUserShard
-							? {
-									shardId: 'shard_0001'
-								}
-							: undefined
-					)
+					findFirst: vi.fn(() => Promise.resolve(userShardRows.shift()))
 				},
 				d1Shard: {
 					findFirst: vi.fn().mockResolvedValue(

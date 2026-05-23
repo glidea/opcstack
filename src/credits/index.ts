@@ -347,7 +347,8 @@ export class CreditRedemptionService {
 				id: true,
 				amount: true,
 				status: true,
-				expiresAt: true
+				expiresAt: true,
+				claimedBy: true
 			},
 			where: eq(creditRedemptionCode.code, normalizedCode),
 			limit: 1
@@ -356,13 +357,22 @@ export class CreditRedemptionService {
 		if (!row) {
 			throw new CreditsError('INVALID_CREDIT_CODE')
 		}
-		if (row.expiresAt !== null && row.expiresAt <= nowMs) {
-			throw new CreditsError('INVALID_CREDIT_CODE')
+		if (row.status === 'claimed') {
+			if (row.claimedBy === input.userId) {
+				return {
+					id: row.id,
+					amount: row.amount
+				}
+			}
+			throw new CreditsError('CREDIT_CODE_USED')
 		}
-		if (row.status === 'claimed' || row.status === 'granted') {
+		if (row.status === 'granted') {
 			throw new CreditsError('CREDIT_CODE_USED')
 		}
 		if (row.status !== 'unused') {
+			throw new CreditsError('INVALID_CREDIT_CODE')
+		}
+		if (row.expiresAt !== null && row.expiresAt <= nowMs) {
 			throw new CreditsError('INVALID_CREDIT_CODE')
 		}
 
