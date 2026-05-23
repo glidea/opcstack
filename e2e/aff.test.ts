@@ -11,6 +11,7 @@ type E2EEnv = {
 	E2E_EMAIL_SIGNUP_ENABLED?: string
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
 	E2E_EMAIL_FROM?: string
+	E2E_TURNSTILE_ENABLED?: string
 }
 
 interface PublicConfigResponse {
@@ -27,13 +28,16 @@ const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
-const isRemote: boolean = e2eEnv.E2E_REMOTE === '1'
+const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const affEnabled: boolean = e2eEnv.E2E_AFF_ENABLED === 'true'
 const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
 const emailFrom: string = e2eEnv.E2E_EMAIL_FROM ?? ''
-const canCreateUser: boolean = emailEnabled && emailSignupEnabled && !emailRequireVerification
+const turnstileEnabled: boolean = e2eEnv.E2E_TURNSTILE_ENABLED === 'true'
+const canUseDummyCaptcha: boolean = !isRemote || !turnstileEnabled
+const canCreateUser: boolean =
+	emailEnabled && emailSignupEnabled && !emailRequireVerification && canUseDummyCaptcha
 const canCreateLocalUser: boolean = !isRemote
 const canRunAffFlow: boolean = affEnabled && (canCreateUser || canCreateLocalUser)
 
@@ -212,18 +216,18 @@ describe('aff api e2e', () => {
 				}
 			},
 			{
-				scenario: 'invitee cannot bind twice',
+				scenario: 'invitee bind same code twice is idempotent',
 				given: 'invitee has already bound an aff code',
 				when: 'invitee binds the same aff code again',
-				then: 'returns already bound',
+				then: 'returns success without increasing count twice',
 				givenDetail: {},
 				whenDetail: {
 					action: 'bind_twice'
 				},
 				thenExpected: {
 					firstBindStatus: 200,
-					secondBindStatus: 409,
-					secondBindCode: 'AFF_ALREADY_BOUND',
+					secondBindStatus: 200,
+					secondBindCode: '',
 					invitedCount: 1
 				}
 			}
@@ -340,10 +344,18 @@ function readLocalD1SqlitePath(): string {
 	const files: string[] = readdirSync(dir).filter((file: string): boolean => {
 		return file.endsWith('.sqlite') && file !== 'metadata.sqlite'
 	})
-	if (files.length !== 1) {
-		throw new Error('LOCAL_D1_SQLITE_NOT_FOUND')
+	for (const file of files) {
+		const path: string = `${dir}/${file}`
+		const output: string = execFileSync(
+			'sqlite3',
+			[path, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'user';"],
+			{ encoding: 'utf-8' }
+		)
+		if (output.trim() === 'user') {
+			return path
+		}
 	}
-	return `${dir}/${files[0]}`
+	throw new Error('LOCAL_META_D1_SQLITE_NOT_FOUND')
 }
 
 function buildScenarioEmail(tag: string): string {

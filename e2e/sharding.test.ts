@@ -14,6 +14,7 @@ type E2EEnv = {
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
 	E2E_EMAIL_RESEND_API_KEY?: string
 	E2E_EMAIL_FROM?: string
+	E2E_TURNSTILE_ENABLED?: string
 }
 
 type AuthToken = {
@@ -75,7 +76,7 @@ const e2eEnv: E2EEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
-const isRemote: boolean = e2eEnv.E2E_REMOTE === '1'
+const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const adminSecret: string = e2eEnv.E2E_ADMIN_SECRET ?? ''
 const d1ShardCount: number = Number(e2eEnv.E2E_D1_SHARD_COUNT ?? '1')
 const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
@@ -83,6 +84,8 @@ const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
 const emailResendApiKey: string = e2eEnv.E2E_EMAIL_RESEND_API_KEY ?? ''
 const emailFrom: string = e2eEnv.E2E_EMAIL_FROM ?? ''
+const turnstileEnabled: boolean = e2eEnv.E2E_TURNSTILE_ENABLED === 'true'
+const canUseDummyCaptcha: boolean = !isRemote || !turnstileEnabled
 
 describe('tenant sharding e2e', () => {
 	beforeAll(async (): Promise<void> => {
@@ -149,7 +152,7 @@ describe('tenant sharding e2e', () => {
 		}
 	]
 
-	describe('authenticated shard flow', () => {
+	describe.skipIf(isRemote && !canUseDummyCaptcha)('authenticated shard flow', () => {
 		runCases(cases, async (): Promise<FlowThen> => {
 			assertShardE2EConfig()
 			const runId: string = String(Date.now())
@@ -305,6 +308,9 @@ function assertShardE2EConfig(): void {
 	}
 	if (!emailEnabled || !emailSignupEnabled) {
 		throw new Error('REMOTE_E2E_EMAIL_SIGNUP_REQUIRED')
+	}
+	if (!canUseDummyCaptcha) {
+		throw new Error('REMOTE_E2E_TURNSTILE_BLOCKS_SIGNUP')
 	}
 	if (emailRequireVerification && (emailResendApiKey === '' || emailFrom === '')) {
 		throw new Error('REMOTE_E2E_EMAIL_OTP_READER_REQUIRED')

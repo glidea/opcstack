@@ -4,28 +4,34 @@ import { runCases, type TestCase } from '../src/testing/bdd'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
+	E2E_REMOTE?: string
 	E2E_EMAIL_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
 	E2E_EMAIL_RESEND_API_KEY?: string
 	E2E_EMAIL_FROM?: string
+	E2E_TURNSTILE_ENABLED?: string
 }
 
 const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
+const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
 const emailResendApiKey: string = e2eEnv.E2E_EMAIL_RESEND_API_KEY ?? ''
 const emailFrom: string = e2eEnv.E2E_EMAIL_FROM ?? ''
+const turnstileEnabled: boolean = e2eEnv.E2E_TURNSTILE_ENABLED === 'true'
+const canUseDummyCaptcha: boolean = !isRemote || !turnstileEnabled
 const canRunEmailFlow: boolean =
 	emailEnabled &&
 	emailSignupEnabled &&
 	emailRequireVerification &&
 	emailResendApiKey !== '' &&
-	emailFrom !== ''
+	emailFrom !== '' &&
+	canUseDummyCaptcha
 
 describe('email auth e2e', () => {
 	beforeAll(async () => {

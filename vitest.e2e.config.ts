@@ -19,6 +19,7 @@ const emailUserActionCooldownSeconds =
 const emailSignupDomainAllowlist = readConfig('EMAIL_SIGNUP_DOMAIN_ALLOWLIST') ?? ''
 const emailResendApiKey = readConfig('EMAIL_RESEND_API_KEY') ?? ''
 const emailFrom = readConfig('EMAIL_FROM') ?? ''
+const turnstileEnabled = readConfig('TURNSTILE_ENABLED') ?? 'false'
 const paymentEnabled = readConfig('PAYMENT_ENABLED') ?? 'false'
 const paymentProvider = readConfig('PAYMENT_PROVIDER') ?? ''
 const paymentProducts = readConfig('PAYMENT_PRODUCTS') ?? ''
@@ -47,6 +48,7 @@ export default defineConfig({
 			E2E_EMAIL_SIGNUP_DOMAIN_ALLOWLIST: emailSignupDomainAllowlist,
 			E2E_EMAIL_RESEND_API_KEY: emailResendApiKey,
 			E2E_EMAIL_FROM: emailFrom,
+			E2E_TURNSTILE_ENABLED: turnstileEnabled,
 			E2E_PAYMENT_ENABLED: paymentEnabled,
 			E2E_PAYMENT_PROVIDER: paymentProvider,
 			E2E_PAYMENT_PRODUCTS: paymentProducts,
