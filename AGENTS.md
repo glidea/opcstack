@@ -70,6 +70,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `SUPPORT_EMAIL`: Contact email used by legal pages
 - `BETTER_AUTH_SECRET`: Auth secret minimum 32 characters
 - `ADMIN_SECRET`: Admin password
+- `R2_ORIGIN_SIGNING_SECRET`: HMAC secret used by internal R2 image origin requests
 - `D1_SHARD_COUNT`: Tenant Shard D1 count. Increasing it adds new shard bindings and new users can be assigned to the new shards
 - `TURNSTILE_ENABLED`: Enables Cloudflare Turnstile for email auth. Local mode uses official Cloudflare test keys. Remote mode creates or reuses a Turnstile widget named `APP_NAME`
 
@@ -174,6 +175,8 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 **API**:
 - `GET /api/r2/public/*`: public access
 - `GET /api/r2/private/*`: requires authenticated Better Auth session via Cookie or Bearer Token
+- `GET /api/r2/*?variant=small|medium`: returns fixed Cloudflare Image Transformations output
+- `GET /api/internal/r2_image_origin/*`: internal signed image origin for Cloudflare transformations only
 
 **Client**:
 ```ts

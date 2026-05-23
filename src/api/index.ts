@@ -36,7 +36,10 @@ import {
 	listPaymentTransactionsHandler,
 	upgradeSubscriptionHandler
 } from './handler/payment'
-import { readR2ObjectHandler } from './handler/r2'
+import {
+	readR2ImageOriginHandler,
+	readR2ObjectHandler
+} from './handler/r2'
 import { authCore } from './auth'
 import type { MetaDb, TenantShardDb } from '../db'
 import { formatDecimal, parseDecimal } from '../lib/decimal'
@@ -90,6 +93,7 @@ publicApi.post('/list_payment_products', listPaymentProductsHandler)
 publicApi.post('/webhook/dodo', dodoWebhookHandler)
 publicApi.post('/webhook/creem', creemWebhookHandler)
 publicApi.get('/r2/public/*', readR2ObjectHandler)
+publicApi.get('/internal/r2_image_origin/*', readR2ImageOriginHandler)
 
 const authOnlyApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 authOnlyApi.post('/bind_beta_code', authMiddleware, bindBetaCodeHandler)

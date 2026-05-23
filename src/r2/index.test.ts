@@ -1,4 +1,4 @@
-import { describe } from 'vitest'
+import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import { newR2Client } from './index'
 
@@ -7,6 +7,17 @@ type StoredObject = {
 	contentType: string
 	etag: string
 }
+
+type FetchCall = {
+	url: string
+	expires: string
+	hasSignature: boolean
+	image: RequestInitCfPropertiesImage
+}
+
+beforeEach(() => {
+	vi.unstubAllGlobals()
+})
 
 describe('newR2Client.put', () => {
 	type GivenDetail = Record<string, never>
@@ -293,6 +304,258 @@ describe('newR2Client.get', () => {
 	})
 })
 
+describe('newR2Client.getImageVariant', () => {
+	type GivenDetail = {
+		noSecret?: boolean
+		writeUserId?: string
+	}
+	type WhenDetail = {
+		readUserId?: string
+		key: string
+		preset: 'small' | 'medium'
+	}
+	type ThenExpected = {
+		status: string
+		contentType: string
+		fetchCalls: number
+		url: string
+		expires: string
+		hasSignature: boolean
+		width: number
+		fit: string
+		quality: number
+		format: string
+		error: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'throws when origin signing secret is missing',
+			given: 'r2 exists and signing secret is empty',
+			when: 'reading an image variant',
+			then: 'throws config error before fetching origin',
+			givenDetail: {
+				noSecret: true
+			},
+			whenDetail: {
+				key: 'public/images/a.png',
+				preset: 'small'
+			},
+			thenExpected: {
+				status: '',
+				contentType: '',
+				fetchCalls: 0,
+				url: '',
+				expires: '',
+				hasSignature: false,
+				width: 0,
+				fit: '',
+				quality: 0,
+				format: '',
+				error: 'R2_ORIGIN_SIGNING_SECRET_REQUIRED'
+			}
+		},
+		{
+			scenario: 'rejects private key for non owner',
+			given: 'a private object owned by another user',
+			when: 'reading variant with different user',
+			then: 'returns forbidden without fetching origin',
+			givenDetail: {
+				writeUserId: 'u1'
+			},
+			whenDetail: {
+				readUserId: 'u2',
+				key: 'private/u1/images/a.png',
+				preset: 'medium'
+			},
+			thenExpected: {
+				status: 'forbidden',
+				contentType: '',
+				fetchCalls: 0,
+				url: '',
+				expires: '',
+				hasSignature: false,
+				width: 0,
+				fit: '',
+				quality: 0,
+				format: '',
+				error: ''
+			}
+		},
+		{
+			scenario: 'rejects key without allowed prefix',
+			given: 'r2 exists',
+			when: 'reading variant for invalid key',
+			then: 'returns not found without fetching origin',
+			givenDetail: {},
+			whenDetail: {
+				key: 'images/a.png',
+				preset: 'medium'
+			},
+			thenExpected: {
+				status: 'not_found',
+				contentType: '',
+				fetchCalls: 0,
+				url: '',
+				expires: '',
+				hasSignature: false,
+				width: 0,
+				fit: '',
+				quality: 0,
+				format: '',
+				error: ''
+			}
+		},
+		{
+			scenario: 'fetches small variant through signed image origin',
+			given: 'a public image',
+			when: 'reading small variant',
+			then: 'uses fixed Cloudflare image options',
+			givenDetail: {},
+			whenDetail: {
+				key: 'public/images/a.png',
+				preset: 'small'
+			},
+			thenExpected: {
+				status: 'ok',
+				contentType: 'image/jpeg',
+				fetchCalls: 1,
+				url: 'http://localhost:5173/api/internal/r2_image_origin/public/images/a.png',
+				expires: '60',
+				hasSignature: true,
+				width: 320,
+				fit: 'scale-down',
+				quality: 75,
+				format: 'jpeg',
+				error: ''
+			}
+		}
+	]
+
+	runCases(cases, async (given, when) => {
+		const fetchCalls: FetchCall[] = []
+		vi.stubGlobal(
+			'fetch',
+			async (request: Request, init?: RequestInit<RequestInitCfProperties>): Promise<Response> => {
+				fetchCalls.push({
+					url: request.url,
+					expires: request.headers.get('x-r2-origin-expires') ?? '',
+					hasSignature: Boolean(request.headers.get('x-r2-origin-signature')),
+					image: init?.cf?.image ?? {}
+				})
+				return new Response('variant', {
+					status: 200,
+					headers: {
+						'content-type': 'image/jpeg',
+						etag: '"variant-etag"'
+					}
+				})
+			}
+		)
+		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+
+		const env = createEnv()
+		if (given.noSecret) {
+			const writableEnv = env as unknown as { R2_ORIGIN_SIGNING_SECRET: string }
+			writableEnv.R2_ORIGIN_SIGNING_SECRET = ''
+		}
+		if (given.writeUserId) {
+			const writer = newR2Client(env, given.writeUserId)
+			await writer.put({
+				dir: 'images',
+				filename: 'a.png',
+				contentType: 'image/png',
+				body: 'image'
+			})
+		}
+
+		try {
+			const client = newR2Client(env, when.readUserId)
+			const result = await client.getImageVariant(when.key, when.preset)
+			const call = fetchCalls[0]
+			return {
+				status: result.status,
+				contentType: result.status === 'ok' ? result.contentType : '',
+				fetchCalls: fetchCalls.length,
+				url: call?.url ?? '',
+				expires: call ? String(Number(call.expires) - 1767225600) : '',
+				hasSignature: call?.hasSignature ?? false,
+				width: call?.image.width ?? 0,
+				fit: call?.image.fit ?? '',
+				quality: Number(call?.image.quality ?? 0),
+				format: call?.image.format ?? '',
+				error: ''
+			}
+		} catch (error) {
+			return {
+				status: '',
+				contentType: '',
+				fetchCalls: fetchCalls.length,
+				url: '',
+				expires: '',
+				hasSignature: false,
+				width: 0,
+				fit: '',
+				quality: 0,
+				format: '',
+				error: error instanceof Error ? error.message : ''
+			}
+		}
+	})
+})
+
+describe('newR2Client.getImageVariantBytes', () => {
+	type GivenDetail = Record<string, never>
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: string
+		contentType: string
+		text: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'returns variant bytes',
+			given: 'a public image and transformed response',
+			when: 'reading variant bytes',
+			then: 'returns array buffer and content type',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: {
+				status: 'ok',
+				contentType: 'image/jpeg',
+				text: 'variant'
+			}
+		}
+	]
+
+	runCases(cases, async () => {
+		vi.stubGlobal('fetch', async (): Promise<Response> => {
+			return new Response('variant', {
+				status: 200,
+				headers: {
+					'content-type': 'image/jpeg'
+				}
+			})
+		})
+
+		const client = newR2Client(createEnv())
+		const result = await client.getImageVariantBytes('public/images/a.png', 'medium')
+		if (result.status !== 'ok') {
+			return {
+				status: result.status,
+				contentType: '',
+				text: ''
+			}
+		}
+		return {
+			status: result.status,
+			contentType: result.contentType,
+			text: await new Response(result.body).text()
+		}
+	})
+})
+
 function createEnv(): Env & { R2: R2Bucket } {
 	const objects: Map<string, StoredObject> = new Map()
 	const r2 = {
@@ -331,12 +594,14 @@ function createEnv(): Env & { R2: R2Bucket } {
 
 	return {
 		APP_BASE_URL: 'http://localhost:5173',
+		R2_ORIGIN_SIGNING_SECRET: 'test-secret',
 		R2: r2
 	} as unknown as Env & { R2: R2Bucket }
 }
 
 function createEnvWithoutR2(): Env {
 	return {
-		APP_BASE_URL: 'http://localhost:5173'
+		APP_BASE_URL: 'http://localhost:5173',
+		R2_ORIGIN_SIGNING_SECRET: 'test-secret'
 	} as unknown as Env
 }

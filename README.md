@@ -49,7 +49,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 **完整集成 Cloudflare 全家桶**
 - ✅ Workers（API + SSR）
 - ✅ D1（Meta DB + Tenant Shard DB + 自动 migration + 自动 read replication）
-- ✅ R2（对象存储 + 公私分离）
+- ✅ R2（对象存储 + 公私分离 + 固定图片变体）
 - ✅ KV（键值存储）
 - ✅ Queues（消息队列）
 - ✅ Cron（定时任务）
@@ -195,7 +195,29 @@ D1_SHARD_COUNT=1
 - Tenant Shard 表改 `src/db/schema.shard.ts`
 - 重启 `pnpm dev` 自动生成并应用 migration
 
-### 6. 测试
+### 6. R2 图片变体
+
+R2 图片读取仍然走原接口：
+
+```text
+GET /api/r2/public/images/a.png
+GET /api/r2/private/u1/images/a.png
+```
+
+需要压缩图时加固定变体：
+
+```text
+GET /api/r2/public/images/a.png?variant=small
+GET /api/r2/private/u1/images/a.png?variant=medium
+```
+
+只支持 `small` 和 `medium`，不开放动态尺寸。内部回源使用 HMAC，需要配置：
+
+```env
+R2_ORIGIN_SIGNING_SECRET=change-me-r2-origin-signing-secret
+```
+
+### 7. 测试
 
 ```bash
 pnpm test
@@ -205,7 +227,7 @@ pnpm test:e2e:remote
 
 远端 E2E 只验证已经部署好的环境，不会创建 D1、R2、KV、Queue，不会修改 shard 数，也不会执行 migration。
 
-### 7. 后续同步模板更新
+### 8. 后续同步模板更新
 
 ```bash
 # 1. 推荐：Agent 自动更新，解决冲突，任意 Agent 对话中：
