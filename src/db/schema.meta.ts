@@ -46,6 +46,8 @@ export const affReferral = sqliteTable(
 			.notNull()
 			.unique()
 			.references(() => user.id, { onDelete: 'cascade' }),
+		inviterGrantedAt: integer('inviter_granted_at'),
+		inviteeGrantedAt: integer('invitee_granted_at'),
 		createdAt: integer('created_at').notNull()
 	},
 	(table) => [

@@ -29,6 +29,14 @@ export interface BindAffResult {
 	affId: string
 	inviterUserId: string
 	inviteeUserId: string
+	inviterGrantedAt: number | null
+	inviteeGrantedAt: number | null
+}
+
+export interface MarkAffRewardGrantedInput {
+	affId: string
+	target: 'inviter' | 'invitee'
+	nowMs?: number
 }
 
 export class AffError extends Error {
@@ -121,24 +129,64 @@ export class AffService {
 		const nowMs: number = input.nowMs ?? Date.now()
 		const affId: string = crypto.randomUUID()
 
-		try {
-			await this.db.insert(affReferral).values({
-				id: affId,
-				inviterUserId: inviter.id,
-				inviteeUserId: input.inviteeUserId,
-				createdAt: nowMs
-			})
-		} catch (error) {
-			if (isAffAlreadyBoundError(error)) {
-				throw new AffError('AFF_ALREADY_BOUND')
-			}
-			throw error
+		const row = {
+			id: affId,
+			inviterUserId: inviter.id,
+			inviteeUserId: input.inviteeUserId,
+			inviterGrantedAt: null,
+			inviteeGrantedAt: null,
+			createdAt: nowMs
 		}
 
+		const result: D1Result = await this.db
+			.insert(affReferral)
+			.values(row)
+			.onConflictDoNothing()
+			.run()
+		if (readD1Changes(result) > 0) {
+			return {
+				affId,
+				inviterUserId: inviter.id,
+				inviteeUserId: input.inviteeUserId,
+				inviterGrantedAt: null,
+				inviteeGrantedAt: null
+			}
+		}
+
+		const existing = await this.db.query.affReferral.findFirst({
+			where: eq(affReferral.inviteeUserId, input.inviteeUserId)
+		})
+		if (!existing || existing.inviterUserId !== inviter.id) {
+			throw new AffError('AFF_ALREADY_BOUND')
+		}
 		return {
-			affId,
-			inviterUserId: inviter.id,
-			inviteeUserId: input.inviteeUserId
+			affId: existing.id,
+			inviterUserId: existing.inviterUserId,
+			inviteeUserId: existing.inviteeUserId,
+			inviterGrantedAt: existing.inviterGrantedAt,
+			inviteeGrantedAt: existing.inviteeGrantedAt
+		}
+	}
+
+	async markRewardGranted(input: MarkAffRewardGrantedInput): Promise<void> {
+		const nowMs: number = input.nowMs ?? Date.now()
+		switch (input.target) {
+			case 'inviter':
+				await this.db
+					.update(affReferral)
+					.set({
+						inviterGrantedAt: nowMs
+					})
+					.where(eq(affReferral.id, input.affId))
+				return
+			case 'invitee':
+				await this.db
+					.update(affReferral)
+					.set({
+						inviteeGrantedAt: nowMs
+					})
+					.where(eq(affReferral.id, input.affId))
+				return
 		}
 	}
 }
@@ -148,18 +196,7 @@ function generateAffCode(): string {
 	return raw.toUpperCase()
 }
 
-function isAffAlreadyBoundError(error: unknown): boolean {
-	if (!(error instanceof Error)) {
-		return false
-	}
-	const cause = readErrorCause(error)
-	return (
-		error.message.includes('aff_referrals_invitee_user_id_unique') ||
-		error.message.includes('UNIQUE constraint failed: aff_referrals.invitee_user_id') ||
-		isAffAlreadyBoundError(cause)
-	)
-}
-
-function readErrorCause(error: Error): unknown {
-	return (error as Error & { cause?: unknown }).cause
+function readD1Changes(result: unknown): number {
+	const row = result as { meta?: { changes?: number } }
+	return Number(row.meta?.changes ?? 0)
 }

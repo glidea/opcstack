@@ -79,8 +79,8 @@ describe('AffService.bind', () => {
 	type GivenDetail = {
 		inviterUserId: string | null
 		inviteeExists: boolean
-		batchErrorMessage: string
-		batchErrorCauseMessage: string
+		insertChanges: number
+		existingInviterUserId: string | null
 	}
 	type WhenDetail = {
 		affCode: string
@@ -101,8 +101,8 @@ describe('AffService.bind', () => {
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: true,
-				batchErrorMessage: '',
-				batchErrorCauseMessage: ''
+				insertChanges: 1,
+				existingInviterUserId: null
 			},
 			whenDetail: {
 				affCode: ' ',
@@ -122,8 +122,8 @@ describe('AffService.bind', () => {
 			givenDetail: {
 				inviterUserId: 'u1',
 				inviteeExists: true,
-				batchErrorMessage: '',
-				batchErrorCauseMessage: ''
+				insertChanges: 1,
+				existingInviterUserId: null
 			},
 			whenDetail: {
 				affCode: 'ABC12345',
@@ -143,8 +143,8 @@ describe('AffService.bind', () => {
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: false,
-				batchErrorMessage: '',
-				batchErrorCauseMessage: ''
+				insertChanges: 1,
+				existingInviterUserId: null
 			},
 			whenDetail: {
 				affCode: 'ABC12345',
@@ -157,15 +157,15 @@ describe('AffService.bind', () => {
 			}
 		},
 		{
-			scenario: 'reject duplicated binding',
-			given: 'insert aff referral violates unique invitee',
+			scenario: 'reject duplicated binding from another inviter',
+			given: 'invitee already bound to another inviter',
 			when: 'AffService.bind is called',
 			then: 'returns already bound',
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: true,
-				batchErrorMessage: 'UNIQUE constraint failed: aff_referrals.invitee_user_id',
-				batchErrorCauseMessage: ''
+				insertChanges: 0,
+				existingInviterUserId: 'u3'
 			},
 			whenDetail: {
 				affCode: 'ABC12345',
@@ -178,24 +178,24 @@ describe('AffService.bind', () => {
 			}
 		},
 		{
-			scenario: 'reject duplicated binding from wrapped D1 error',
-			given: 'drizzle wraps unique invitee error as cause',
+			scenario: 'resume existing binding from same inviter',
+			given: 'invitee already bound to this inviter',
 			when: 'AffService.bind is called',
-			then: 'returns already bound',
+			then: 'returns existing referral',
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: true,
-				batchErrorMessage: 'Failed query',
-				batchErrorCauseMessage: 'UNIQUE constraint failed: aff_referrals.invitee_user_id'
+				insertChanges: 0,
+				existingInviterUserId: 'u2'
 			},
 			whenDetail: {
 				affCode: 'ABC12345',
 				inviteeUserId: 'u1'
 			},
 			thenExpected: {
-				errorCode: 'AFF_ALREADY_BOUND',
+				errorCode: '',
 				insertedReferral: true,
-				inviterUserId: ''
+				inviterUserId: 'u2'
 			}
 		},
 		{
@@ -206,8 +206,8 @@ describe('AffService.bind', () => {
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: true,
-				batchErrorMessage: '',
-				batchErrorCauseMessage: ''
+				insertChanges: 1,
+				existingInviterUserId: null
 			},
 			whenDetail: {
 				affCode: 'ABC12345',
@@ -228,8 +228,8 @@ describe('AffService.bind', () => {
 			invitedCount: 0,
 			inviterUserId: given.inviterUserId,
 			inviteeExists: given.inviteeExists,
-			batchErrorMessage: given.batchErrorMessage,
-			batchErrorCauseMessage: given.batchErrorCauseMessage
+			insertChanges: given.insertChanges,
+			existingInviterUserId: given.existingInviterUserId
 		})
 		const aff = new AffService(db)
 		const input: BindAffInput = {
@@ -269,8 +269,8 @@ function createAffMockDb(input: {
 	invitedCount: number
 	inviterUserId?: string | null
 	inviteeExists?: boolean
-	batchErrorMessage?: string
-	batchErrorCauseMessage?: string
+	insertChanges?: number
+	existingInviterUserId?: string | null
 }): AffMockDb {
 	const state: AffMockState = {
 		insertedReferral: false
@@ -298,6 +298,20 @@ function createAffMockDb(input: {
 						affCode: input.affCode
 					}
 				}
+			},
+			affReferral: {
+				findFirst: async (): Promise<unknown> => {
+					if (!input.existingInviterUserId) {
+						return undefined
+					}
+					return {
+						id: 'existing-aff-id',
+						inviterUserId: input.existingInviterUserId,
+						inviteeUserId: 'u1',
+						inviterGrantedAt: null,
+						inviteeGrantedAt: null
+					}
+				}
 			}
 		},
 		select: (): {
@@ -314,17 +328,38 @@ function createAffMockDb(input: {
 			}
 		},
 		insert: (): {
-			values: (_row: unknown) => Promise<void>
+			values: (_row: unknown) => {
+				onConflictDoNothing: () => {
+					run: () => Promise<{ meta: { changes: number } }>
+				}
+			}
 		} => {
 			return {
-				values: async (): Promise<void> => {
+				values: () => {
 					state.insertedReferral = true
-					if (input.batchErrorMessage) {
-						const error = new Error(input.batchErrorMessage) as Error & { cause?: Error }
-						if (input.batchErrorCauseMessage) {
-							error.cause = new Error(input.batchErrorCauseMessage)
+					return {
+						onConflictDoNothing: () => {
+							return {
+								run: async () => {
+									return {
+										meta: {
+											changes: input.insertChanges ?? 1
+										}
+									}
+								}
+							}
 						}
-						throw error
+					}
+				}
+			}
+		},
+		update: () => {
+			return {
+				set: () => {
+					return {
+						where: async () => {
+							return
+						}
 					}
 				}
 			}

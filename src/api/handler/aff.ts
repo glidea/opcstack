@@ -60,8 +60,32 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 			inviteeUserId: ctx.get('userId'),
 			affCode: req.aff_code
 		})
-		await grantAffCredits(ctx, result.inviterUserId, inviterAmount, AFF_CREDIT_SOURCE_INVITER, result.affId)
-		await grantAffCredits(ctx, result.inviteeUserId, inviteeAmount, AFF_CREDIT_SOURCE_INVITEE, result.affId)
+		if (result.inviterGrantedAt === null) {
+			await grantAffCredits(
+				ctx,
+				result.inviterUserId,
+				inviterAmount,
+				AFF_CREDIT_SOURCE_INVITER,
+				result.affId
+			)
+			await aff.markRewardGranted({
+				affId: result.affId,
+				target: 'inviter'
+			})
+		}
+		if (result.inviteeGrantedAt === null) {
+			await grantAffCredits(
+				ctx,
+				result.inviteeUserId,
+				inviteeAmount,
+				AFF_CREDIT_SOURCE_INVITEE,
+				result.affId
+			)
+			await aff.markRewardGranted({
+				affId: result.affId,
+				target: 'invitee'
+			})
+		}
 		return ctx.json({})
 	} catch (error) {
 		if (error instanceof AffError) {

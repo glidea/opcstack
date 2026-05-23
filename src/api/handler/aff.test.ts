@@ -8,7 +8,8 @@ import type { ApiEnv } from '..'
 const affServiceMocks = vi.hoisted(() => {
 	return {
 		bind: vi.fn(),
-		getSummary: vi.fn()
+		getSummary: vi.fn(),
+		markRewardGranted: vi.fn()
 	}
 })
 
@@ -203,11 +204,14 @@ describe('bindAffHandler', () => {
 		inviterAmount: string
 		inviteeAmount: string
 		errorCode: string
+		inviterGrantedAt: number | null
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: number
 		code: string
+		grantCalls: number
+		markCalls: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -221,12 +225,15 @@ describe('bindAffHandler', () => {
 				body: { aff_code: 'ABCD1234' },
 				inviterAmount: '50',
 				inviteeAmount: '20',
-				errorCode: ''
+				errorCode: '',
+				inviterGrantedAt: null
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 200,
-				code: ''
+				code: '',
+				grantCalls: 0,
+				markCalls: 0
 			}
 		},
 		{
@@ -239,12 +246,15 @@ describe('bindAffHandler', () => {
 				body: null,
 				inviterAmount: '50',
 				inviteeAmount: '20',
-				errorCode: ''
+				errorCode: '',
+				inviterGrantedAt: null
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				code: 'INVALID_AFF_CODE'
+				code: 'INVALID_AFF_CODE',
+				grantCalls: 0,
+				markCalls: 0
 			}
 		},
 		{
@@ -257,12 +267,15 @@ describe('bindAffHandler', () => {
 				body: { aff_code: 'ABCD1234' },
 				inviterAmount: '50',
 				inviteeAmount: '20',
-				errorCode: 'AFF_ALREADY_BOUND'
+				errorCode: 'AFF_ALREADY_BOUND',
+				inviterGrantedAt: null
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 409,
-				code: 'AFF_ALREADY_BOUND'
+				code: 'AFF_ALREADY_BOUND',
+				grantCalls: 0,
+				markCalls: 0
 			}
 		},
 		{
@@ -275,12 +288,15 @@ describe('bindAffHandler', () => {
 				body: { aff_code: 'ABCD1234' },
 				inviterAmount: '50',
 				inviteeAmount: '20',
-				errorCode: 'INVALID_AFF_CODE'
+				errorCode: 'INVALID_AFF_CODE',
+				inviterGrantedAt: null
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				code: 'INVALID_AFF_CODE'
+				code: 'INVALID_AFF_CODE',
+				grantCalls: 0,
+				markCalls: 0
 			}
 		},
 		{
@@ -293,12 +309,36 @@ describe('bindAffHandler', () => {
 				body: { aff_code: 'ABCD1234' },
 				inviterAmount: '50',
 				inviteeAmount: '20',
-				errorCode: ''
+				errorCode: '',
+				inviterGrantedAt: null
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 200,
-				code: ''
+				code: '',
+				grantCalls: 2,
+				markCalls: 2
+			}
+		},
+		{
+			scenario: 'resume partially granted aff binding',
+			given: 'inviter reward was already granted',
+			when: 'calling bindAffHandler again',
+			then: 'only grants invitee reward',
+			givenDetail: {
+				enabled: 'true',
+				body: { aff_code: 'ABCD1234' },
+				inviterAmount: '50',
+				inviteeAmount: '20',
+				errorCode: '',
+				inviterGrantedAt: 1890000000000
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				grantCalls: 1,
+				markCalls: 1
 			}
 		}
 	]
@@ -310,9 +350,12 @@ describe('bindAffHandler', () => {
 			vi.mocked(affServiceMocks.bind).mockResolvedValue({
 				affId: 'aff-id',
 				inviterUserId: 'inviter',
-				inviteeUserId: 'u1'
+				inviteeUserId: 'u1',
+				inviterGrantedAt: given.inviterGrantedAt,
+				inviteeGrantedAt: null
 			})
 		}
+		vi.mocked(affServiceMocks.markRewardGranted).mockResolvedValue(undefined)
 
 		const ctx = createJsonContext({
 			env: {
@@ -328,7 +371,9 @@ describe('bindAffHandler', () => {
 		const payload = (await res.json()) as { code?: string }
 		return {
 			status: res.status,
-			code: payload.code ?? ''
+			code: payload.code ?? '',
+			grantCalls: creditServiceMocks.grant.mock.calls.length,
+			markCalls: affServiceMocks.markRewardGranted.mock.calls.length
 		}
 	})
 })

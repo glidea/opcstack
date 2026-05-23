@@ -133,7 +133,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Tenant Shard DB uses generated `TENANT_DB_0000..N` bindings
 - Get current user's Tenant Shard DB via `ctx.get('tenantDb')` request scoped
 - Tenant shard registry lives in Meta DB tables `d1_shards` and `user_shards`
-- `credit_redemption_codes` lives in Meta DB
+- `credit_redemption_codes` and `aff_referrals` live in Meta DB
 - `credit_balances` `credit_entries` `credit_transactions` `feedbacks` and `notification_reads` live in Tenant Shard DB
 - Payment orders transactions subscriptions and webhook events live in Meta DB
 - Modify Meta schema by editing `src/db/schema.meta.ts`
@@ -147,6 +147,11 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Credit grant and refund deduction must be source-idempotent and update `credit_balances.balance` with SQL arithmetic
 - Do not read `credit_balances.balance` in service code and then write a fixed calculated balance for credit grant or refund deduction
 - Cross-DB flows such as redemption code claim plus tenant credit grant use Meta claim state plus tenant idempotent `source_type + source_id`
+- There is no cross-DB transaction between Meta DB and Tenant Shard DB. Treat every Meta + Tenant flow as a resumable saga
+- Cross-DB flows must use Meta DB as the durable state source and Tenant Shard writes as idempotent side effects keyed by `source_type + source_id`
+- Cross-DB side effects must record completion in Meta DB after the Tenant write succeeds, for example `credit_redemption_codes.granted_at` or `aff_referrals.inviter_granted_at` / `invitee_granted_at`
+- When a cross-DB flow is retried, same-user or same-referral pending states must resume missing side effects instead of returning terminal errors such as `CREDIT_CODE_USED` or `AFF_ALREADY_BOUND`
+- Never implement cross-DB flows as Meta insert then Tenant writes without a resumable Meta status field. If a later write fails, the next request must be able to finish the missing work without duplicating credits
 
 **D1 Read Replication**:
 - Automatically enabled in remote mode
