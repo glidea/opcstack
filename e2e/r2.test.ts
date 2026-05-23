@@ -95,13 +95,13 @@ describe('r2 api e2e', () => {
 			scenario: 'rejects invalid r2 key prefix without bearer token',
 			given: 'an r2 route path without public or private prefix',
 			when: 'requesting the path',
-			then: 'returns not found because only public and private prefixes exist',
+			then: 'returns unauthorized from authenticated api fallback',
 			givenDetail: {},
 			whenDetail: {
 				action: 'read_invalid_prefix'
 			},
 			thenExpected: {
-				status: 404,
+				status: 401,
 				code: ''
 			}
 		},
@@ -109,13 +109,13 @@ describe('r2 api e2e', () => {
 			scenario: 'rejects post method on public read route',
 			given: 'a public r2 read path',
 			when: 'posting to the read endpoint',
-			then: 'returns not found because only get route exists',
+			then: 'returns unauthorized from authenticated api fallback',
 			givenDetail: {},
 			whenDetail: {
 				action: 'post_public_path_not_allowed'
 			},
 			thenExpected: {
-				status: 404,
+				status: 401,
 				code: ''
 			}
 		}

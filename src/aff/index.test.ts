@@ -80,6 +80,7 @@ describe('AffService.bind', () => {
 		inviterUserId: string | null
 		inviteeExists: boolean
 		batchErrorMessage: string
+		batchErrorCauseMessage: string
 	}
 	type WhenDetail = {
 		affCode: string
@@ -100,7 +101,8 @@ describe('AffService.bind', () => {
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: true,
-				batchErrorMessage: ''
+				batchErrorMessage: '',
+				batchErrorCauseMessage: ''
 			},
 			whenDetail: {
 				affCode: ' ',
@@ -120,7 +122,8 @@ describe('AffService.bind', () => {
 			givenDetail: {
 				inviterUserId: 'u1',
 				inviteeExists: true,
-				batchErrorMessage: ''
+				batchErrorMessage: '',
+				batchErrorCauseMessage: ''
 			},
 			whenDetail: {
 				affCode: 'ABC12345',
@@ -140,7 +143,8 @@ describe('AffService.bind', () => {
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: false,
-				batchErrorMessage: ''
+				batchErrorMessage: '',
+				batchErrorCauseMessage: ''
 			},
 			whenDetail: {
 				affCode: 'ABC12345',
@@ -160,7 +164,29 @@ describe('AffService.bind', () => {
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: true,
-				batchErrorMessage: 'UNIQUE constraint failed: aff_referrals.invitee_user_id'
+				batchErrorMessage: 'UNIQUE constraint failed: aff_referrals.invitee_user_id',
+				batchErrorCauseMessage: ''
+			},
+			whenDetail: {
+				affCode: 'ABC12345',
+				inviteeUserId: 'u1'
+			},
+			thenExpected: {
+				errorCode: 'AFF_ALREADY_BOUND',
+				insertedReferral: true,
+				inviterUserId: ''
+			}
+		},
+		{
+			scenario: 'reject duplicated binding from wrapped D1 error',
+			given: 'drizzle wraps unique invitee error as cause',
+			when: 'AffService.bind is called',
+			then: 'returns already bound',
+			givenDetail: {
+				inviterUserId: 'u2',
+				inviteeExists: true,
+				batchErrorMessage: 'Failed query',
+				batchErrorCauseMessage: 'UNIQUE constraint failed: aff_referrals.invitee_user_id'
 			},
 			whenDetail: {
 				affCode: 'ABC12345',
@@ -180,7 +206,8 @@ describe('AffService.bind', () => {
 			givenDetail: {
 				inviterUserId: 'u2',
 				inviteeExists: true,
-				batchErrorMessage: ''
+				batchErrorMessage: '',
+				batchErrorCauseMessage: ''
 			},
 			whenDetail: {
 				affCode: 'ABC12345',
@@ -201,7 +228,8 @@ describe('AffService.bind', () => {
 			invitedCount: 0,
 			inviterUserId: given.inviterUserId,
 			inviteeExists: given.inviteeExists,
-			batchErrorMessage: given.batchErrorMessage
+			batchErrorMessage: given.batchErrorMessage,
+			batchErrorCauseMessage: given.batchErrorCauseMessage
 		})
 		const aff = new AffService(db)
 		const input: BindAffInput = {
@@ -242,6 +270,7 @@ function createAffMockDb(input: {
 	inviterUserId?: string | null
 	inviteeExists?: boolean
 	batchErrorMessage?: string
+	batchErrorCauseMessage?: string
 }): AffMockDb {
 	const state: AffMockState = {
 		insertedReferral: false
@@ -291,7 +320,11 @@ function createAffMockDb(input: {
 				values: async (): Promise<void> => {
 					state.insertedReferral = true
 					if (input.batchErrorMessage) {
-						throw new Error(input.batchErrorMessage)
+						const error = new Error(input.batchErrorMessage) as Error & { cause?: Error }
+						if (input.batchErrorCauseMessage) {
+							error.cause = new Error(input.batchErrorCauseMessage)
+						}
+						throw error
 					}
 				}
 			}

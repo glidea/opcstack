@@ -1,8 +1,11 @@
+import { execFileSync } from 'node:child_process'
+import { readdirSync } from 'node:fs'
 import { beforeAll, describe } from 'vitest'
 import { runCases, type TestCase } from '../src/testing/bdd'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
+	E2E_REMOTE?: string
 	E2E_AFF_ENABLED?: string
 	E2E_EMAIL_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
@@ -24,13 +27,15 @@ const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
+const isRemote: boolean = e2eEnv.E2E_REMOTE === '1'
 const affEnabled: boolean = e2eEnv.E2E_AFF_ENABLED === 'true'
 const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
 const emailFrom: string = e2eEnv.E2E_EMAIL_FROM ?? ''
 const canCreateUser: boolean = emailEnabled && emailSignupEnabled && !emailRequireVerification
-const canRunAffFlow: boolean = affEnabled && canCreateUser
+const canCreateLocalUser: boolean = !isRemote
+const canRunAffFlow: boolean = affEnabled && (canCreateUser || canCreateLocalUser)
 
 describe('aff api e2e', () => {
 	beforeAll(async () => {
@@ -284,6 +289,10 @@ describe('aff api e2e', () => {
 })
 
 async function createUserToken(tag: string): Promise<string> {
+	if (!canCreateUser) {
+		return createLocalUserSession(tag)
+	}
+
 	const email: string = buildScenarioEmail(tag)
 	const password: string = 'Password123'
 	const signupRes: Response = await postJson('/api/auth/sign-up/email', {
@@ -304,6 +313,37 @@ async function createUserToken(tag: string): Promise<string> {
 		throw new Error(`failed to sign in test user: ${signInRes.status}`)
 	}
 	return payload.token
+}
+
+function createLocalUserSession(tag: string): string {
+	const now: number = Date.now()
+	const userId: string = `u_${tag}_${now}`.replace(/[^a-zA-Z0-9_]/g, '_')
+	const sessionId: string = `s_${tag}_${now}`.replace(/[^a-zA-Z0-9_]/g, '_')
+	const token: string = `t_${tag}_${now}`.replace(/[^a-zA-Z0-9_]/g, '_')
+	const affCodePrefix: string = tag.includes('invitee') ? 'I' : 'A'
+	const affCode: string = `${affCodePrefix}${String(now).slice(-7)}`
+	const email: string = `${userId}@example.com`
+	const expiresAt: number = now + 30 * 24 * 60 * 60 * 1000
+	const sql: string = [
+		'PRAGMA busy_timeout=5000;',
+		`INSERT INTO user (id, name, email, aff_code, email_verified, image, created_at, updated_at) VALUES ('${userId}', 'e2e-user', '${email}', '${affCode}', 1, NULL, ${now}, ${now});`,
+		`INSERT INTO session (id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id) VALUES ('${sessionId}', ${expiresAt}, '${token}', ${now}, ${now}, NULL, 'e2e', '${userId}');`
+	].join(' ')
+	execFileSync('sqlite3', [readLocalD1SqlitePath(), sql], {
+		stdio: 'ignore'
+	})
+	return token
+}
+
+function readLocalD1SqlitePath(): string {
+	const dir: string = '.wrangler/state/v3/d1/miniflare-D1DatabaseObject'
+	const files: string[] = readdirSync(dir).filter((file: string): boolean => {
+		return file.endsWith('.sqlite') && file !== 'metadata.sqlite'
+	})
+	if (files.length !== 1) {
+		throw new Error('LOCAL_D1_SQLITE_NOT_FOUND')
+	}
+	return `${dir}/${files[0]}`
 }
 
 function buildScenarioEmail(tag: string): string {
@@ -332,6 +372,7 @@ function extractEmailAddress(value: string): string {
 function buildHeaders(extra?: Record<string, string>): Headers {
 	const headers = new Headers({
 		'content-type': 'application/json',
+		'x-captcha-response': 'XXXX.DUMMY.TOKEN.XXXX',
 		origin: appOrigin,
 		referer: `${appOrigin}/`
 	})
@@ -349,9 +390,26 @@ function postJson(
 	body: unknown,
 	headers?: Record<string, string>
 ): Promise<Response> {
+	return postJsonOnce(path, body, headers).catch(async (): Promise<Response> => {
+		await sleep(100)
+		return postJsonOnce(path, body, headers)
+	})
+}
+
+function postJsonOnce(
+	path: string,
+	body: unknown,
+	headers?: Record<string, string>
+): Promise<Response> {
 	return fetch(`${appBaseUrl}${path}`, {
 		method: 'POST',
 		headers: buildHeaders(headers),
 		body: JSON.stringify(body)
+	})
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve: () => void): void => {
+		setTimeout(resolve, ms)
 	})
 }

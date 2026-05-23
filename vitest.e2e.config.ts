@@ -4,36 +4,38 @@ import { defineConfig } from 'vitest/config'
 const isRemote = process.env.E2E_REMOTE === '1'
 const envFile = isRemote ? '.env.prod' : '.env.dev'
 const envContent = readFileSync(envFile, 'utf-8')
-const appDomain = readEnv(envContent, 'APP_DOMAIN') ?? 'localhost'
+const appDomain = readConfig('APP_DOMAIN') ?? 'localhost'
 const appBaseUrl = resolveAppBaseUrl(appDomain, isRemote)
-const adminSecret = readEnv(envContent, 'ADMIN_SECRET') ?? 'admin-secret'
-const betterAuthSecret = readEnv(envContent, 'BETTER_AUTH_SECRET') ?? ''
-const betaEnabled = readEnv(envContent, 'BETA_CODE_ENABLED') ?? 'true'
-const googleEnabled = readEnv(envContent, 'GOOGLE_AUTH_ENABLED') ?? 'true'
-const r2Enabled = readEnv(envContent, 'R2_ENABLED') ?? 'false'
-const emailEnabled = readEnv(envContent, 'EMAIL_ENABLED') ?? 'false'
-const emailSignupEnabled = readEnv(envContent, 'EMAIL_SIGNUP_ENABLED') ?? 'false'
-const emailRequireVerification = readEnv(envContent, 'EMAIL_REQUIRE_VERIFICATION') ?? 'true'
+const adminSecret = readConfig('ADMIN_SECRET') ?? 'admin-secret'
+const betterAuthSecret = readConfig('BETTER_AUTH_SECRET') ?? ''
+const betaEnabled = readConfig('BETA_CODE_ENABLED') ?? 'true'
+const googleEnabled = readConfig('GOOGLE_AUTH_ENABLED') ?? 'true'
+const r2Enabled = readConfig('R2_ENABLED') ?? 'false'
+const emailEnabled = readConfig('EMAIL_ENABLED') ?? 'false'
+const emailSignupEnabled = readConfig('EMAIL_SIGNUP_ENABLED') ?? 'false'
+const emailRequireVerification = readConfig('EMAIL_REQUIRE_VERIFICATION') ?? 'true'
 const emailUserActionCooldownSeconds =
-	readEnv(envContent, 'EMAIL_USER_ACTION_COOLDOWN_SECONDS') ?? '50'
-const emailSignupDomainAllowlist = readEnv(envContent, 'EMAIL_SIGNUP_DOMAIN_ALLOWLIST') ?? ''
-const emailResendApiKey = readEnv(envContent, 'EMAIL_RESEND_API_KEY') ?? ''
-const emailFrom = readEnv(envContent, 'EMAIL_FROM') ?? ''
-const paymentEnabled = readEnv(envContent, 'PAYMENT_ENABLED') ?? 'false'
-const paymentProvider = readEnv(envContent, 'PAYMENT_PROVIDER') ?? ''
-const paymentProducts = readEnv(envContent, 'PAYMENT_PRODUCTS') ?? ''
-const paymentCreemWebhookSecret = readEnv(envContent, 'PAYMENT_CREEM_WEBHOOK_SECRET') ?? ''
-const affEnabled = readEnv(envContent, 'AFF_ENABLED') ?? 'false'
+	readConfig('EMAIL_USER_ACTION_COOLDOWN_SECONDS') ?? '50'
+const emailSignupDomainAllowlist = readConfig('EMAIL_SIGNUP_DOMAIN_ALLOWLIST') ?? ''
+const emailResendApiKey = readConfig('EMAIL_RESEND_API_KEY') ?? ''
+const emailFrom = readConfig('EMAIL_FROM') ?? ''
+const paymentEnabled = readConfig('PAYMENT_ENABLED') ?? 'false'
+const paymentProvider = readConfig('PAYMENT_PROVIDER') ?? ''
+const paymentProducts = readConfig('PAYMENT_PRODUCTS') ?? ''
+const paymentCreemWebhookSecret = readConfig('PAYMENT_CREEM_WEBHOOK_SECRET') ?? ''
+const affEnabled = readConfig('AFF_ENABLED') ?? 'false'
+const d1ShardCount = readConfig('D1_SHARD_COUNT') ?? '1'
 
 export default defineConfig({
 	test: {
 		globals: true,
 		include: ['e2e/**/*.test.ts'],
 		testTimeout: 30_000,
+		fileParallelism: false,
 		env: {
 			APP_BASE_URL: appBaseUrl,
-			E2E_ADMIN_SECRET: adminSecret,
 			E2E_REMOTE: isRemote ? '1' : '0',
+			E2E_ADMIN_SECRET: adminSecret,
 			E2E_BETTER_AUTH_SECRET: betterAuthSecret,
 			E2E_BETA_CODE_ENABLED: betaEnabled,
 			E2E_GOOGLE_AUTH_ENABLED: googleEnabled,
@@ -49,7 +51,8 @@ export default defineConfig({
 			E2E_PAYMENT_PROVIDER: paymentProvider,
 			E2E_PAYMENT_PRODUCTS: paymentProducts,
 			E2E_PAYMENT_CREEM_WEBHOOK_SECRET: paymentCreemWebhookSecret,
-			E2E_AFF_ENABLED: affEnabled
+			E2E_AFF_ENABLED: affEnabled,
+			E2E_D1_SHARD_COUNT: d1ShardCount
 		}
 	}
 })
@@ -78,6 +81,10 @@ function readLocalVitePort(): string {
 		}
 	} catch {}
 	return '5173'
+}
+
+function readConfig(name: string): string | undefined {
+	return process.env[name] ?? readEnv(envContent, name)
 }
 
 function readEnv(content: string, name: string): string | undefined {

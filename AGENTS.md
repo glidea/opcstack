@@ -57,7 +57,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Generates `wrangler.jsonc`
 - Creates D1 R2 KV and Queues in remote mode
 - Enables D1 read replication in remote mode
-- In local remote deploy, if `.wrangler/cloudflare-api-token` is missing, prints a Cloudflare API Token template link, prompts for the pasted token, and caches it locally
+- In local remote deploy, if `.wrangler/cloudflare-api-token` is missing or its required permission fingerprint changed, prints a Cloudflare API Token template link, prompts for the pasted token, and caches it locally
 - Generates and applies migrations
 
 ### 2. Environment Variables

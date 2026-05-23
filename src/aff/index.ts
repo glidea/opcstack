@@ -152,8 +152,14 @@ function isAffAlreadyBoundError(error: unknown): boolean {
 	if (!(error instanceof Error)) {
 		return false
 	}
+	const cause = readErrorCause(error)
 	return (
 		error.message.includes('aff_referrals_invitee_user_id_unique') ||
-		error.message.includes('UNIQUE constraint failed: aff_referrals.invitee_user_id')
+		error.message.includes('UNIQUE constraint failed: aff_referrals.invitee_user_id') ||
+		isAffAlreadyBoundError(cause)
 	)
+}
+
+function readErrorCause(error: Error): unknown {
+	return (error as Error & { cause?: unknown }).cause
 }

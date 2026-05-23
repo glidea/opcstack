@@ -104,6 +104,10 @@ function shardSuffix(index) {
 	return String(index).padStart(4, '0')
 }
 
+function localD1DatabaseId(index) {
+	return `00000000-0000-0000-0000-${String(index).padStart(12, '0')}`
+}
+
 function resolveTurnstileConfig(input) {
 	if (input.enabled !== 'true') {
 		return {
@@ -636,7 +640,7 @@ async function main() {
 
 	console.log(`\nPre-build script (${isRemote ? 'REMOTE' : 'LOCAL'} mode)\n`)
 
-	let databaseId = '00000000-0000-0000-0000-000000000000'
+	let databaseId = localD1DatabaseId(0)
 	const appName = env.APP_NAME
 	const metaDbName = `${env.APP_NAME}-meta`
 	const shardDatabaseIds = {}
@@ -692,8 +696,12 @@ async function main() {
 			shardDatabaseIds[shard.id] = existingShardDB.uuid
 		}
 	} else {
-		// Local mode can use a placeholder ID because D1 is addressed by name for local migrations
-		console.log(`Using local placeholder D1 database ID: ${databaseId}`)
+		console.log(`Using local Meta D1 database ID: ${databaseId}`)
+		let index = 0
+		for (const shard of shards) {
+			shardDatabaseIds[shard.id] = localD1DatabaseId(index + 1)
+			index += 1
+		}
 	}
 
 	if (isRemote) {
@@ -863,8 +871,7 @@ async function main() {
 	console.log('\nUpserting shard registry...')
 	const nowMs = Date.now()
 	for (const shard of shards) {
-		const shardDatabaseId =
-			shardDatabaseIds[shard.id] ?? '00000000-0000-0000-0000-000000000000'
+		const shardDatabaseId = shardDatabaseIds[shard.id] ?? localD1DatabaseId(0)
 		const sql = buildShardRegistryUpsertSql(shard, shardDatabaseId, nowMs)
 		run(`pnpm exec wrangler d1 execute ${metaDbName} ${migrateFlag} --command ${shellQuote(sql)}`)
 	}

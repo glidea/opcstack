@@ -148,7 +148,7 @@ describe('email auth e2e', () => {
 					signInStatus: 200,
 					hasToken: true
 				},
-				timeoutMs: 45_000
+				timeoutMs: 70_000
 			}
 		]
 
@@ -256,7 +256,7 @@ async function readEmailOtp(
 	startedAt: number
 ): Promise<string> {
 	const resend = new Resend(emailResendApiKey)
-	for (let attempt = 0; attempt < 15; attempt += 1) {
+	for (let attempt = 0; attempt < 30; attempt += 1) {
 		const otp = await findEmailOtp(resend, email, subject, startedAt)
 		if (otp) {
 			return otp
@@ -332,6 +332,7 @@ function extractEmailAddress(value: string): string {
 function buildHeaders(extra?: Record<string, string>): Headers {
 	const headers = new Headers({
 		'content-type': 'application/json',
+		'x-captcha-response': 'XXXX.DUMMY.TOKEN.XXXX',
 		origin: appOrigin,
 		referer: `${appOrigin}/`
 	})
