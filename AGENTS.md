@@ -70,6 +70,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `SUPPORT_EMAIL`: Contact email used by legal pages
 - `BETTER_AUTH_SECRET`: Auth secret minimum 32 characters
 - `ADMIN_SECRET`: Admin password
+- `D1_SHARD_COUNT`: Tenant Shard D1 count. Increasing it adds new shard bindings and new users can be assigned to the new shards
 - `TURNSTILE_ENABLED`: Enables Cloudflare Turnstile for email auth. Local mode uses official Cloudflare test keys. Remote mode creates or reuses a Turnstile widget named `APP_NAME`
 
 **Feature flags**:
@@ -346,8 +347,9 @@ Rules:
 
 ### Modify database
 
-1. Edit `src/db/schema.ts`
-2. Restart `pnpm dev` for auto generate and apply
+1. Edit `src/db/schema.meta.ts` for Meta DB tables
+2. Edit `src/db/schema.shard.ts` for Tenant Shard DB tables
+3. Restart `pnpm dev` for auto generate and apply Meta and Shard migrations
 
 ### Add a new queue
 
@@ -375,7 +377,8 @@ Rules:
 - R2 private path: `private/<userId>/*`
 - Canonical URLs use the app domain from `APP_DOMAIN` and must not point business pages to the OPCStack website
 - Test files: `src/**/*.test.ts` for unit tests and `e2e/**/*.test.ts` for E2E tests
-- Commands: `pnpm dev` local `pnpm deploycf` deploy `pnpm test` test
+- Commands: `pnpm dev` local `pnpm deploycf` deploy `pnpm test` unit and type tests `pnpm test:e2e` local E2E `pnpm test:e2e:remote` deployed runtime E2E
+- Remote E2E must only call HTTP APIs against an already deployed environment. It must not run `pnpm deploycf`, `pre-build.mjs`, migrations, D1/KV/R2/Queue creation, shard count changes, direct remote DB writes, or `d1_shards` writes
 - Do not create a separate file only to make a private component helper or type easier to test. Keep single-use helper functions and local types inside the owning component or module. Extract a file only when the logic is shared, owns an independent responsibility, or materially reduces complexity
 
 ### Frontend Design Contract

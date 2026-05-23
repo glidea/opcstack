@@ -2,7 +2,7 @@
 
 > Cloudflare 全家桶脚手架 - 零成本跑通 SaaS 业务
 
-一键启动，自动配置，完整集成 Workers + D1 + R2 + KV + Queues + Cron
+一键启动，自动配置，完整集成 Workers + D1 分片 + R2 + KV + Queues + Cron
 
 ---
 
@@ -48,7 +48,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 
 **完整集成 Cloudflare 全家桶**
 - ✅ Workers（API + SSR）
-- ✅ D1（数据库 + 自动 migration + 自动获得遍布全球的 read replication）
+- ✅ D1（Meta DB + Tenant Shard DB + 自动 migration + 自动 read replication）
 - ✅ R2（对象存储 + 公私分离）
 - ✅ KV（键值存储）
 - ✅ Queues（消息队列）
@@ -59,6 +59,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 **开箱即用的核心功能**
 - ✅ 认证系统（邮箱 + Google + 内测码 + Turnstile）
 - ✅ 积分系统（注册赠送 + 签到 + 邀请 + 兑换码 + 过期）
+- ✅ 支付系统（Dodo + Creem，支持一次性积分包和订阅）
 - ✅ 用户反馈收集
 - ✅ 系统公告通知
 - ✅ AI 能力（Chat + Image + TTS）
@@ -69,7 +70,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 
 **约定大于配置**
 - 运行 `pnpm dev`，自动生成 wrangler.jsonc
-- 自动创建 D1、R2、KV、Queues
+- 自动创建 Meta D1、Tenant Shard D1、R2、KV、Queues
 - 开启 `TURNSTILE_ENABLED=true` 后，本地自动使用 Cloudflare 测试 key，远程部署自动创建或复用名为 `APP_NAME` 的 Turnstile widget
 - 首次远程部署会提示创建 Cloudflare API Token，粘贴一次后缓存到 `.wrangler/cloudflare-api-token`
 - 自动执行 migration
@@ -82,7 +83,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 **后端**
 - Cloudflare Workers + Hono（API 框架）
 - Better Auth（认证）
-- Drizzle ORM + D1（数据库）
+- Drizzle ORM + D1（Meta DB + Tenant Shard DB）
 
 **前端**
 - 极致简单轻量的 SvelteKit + Tailwind CSS + shadcn UI
@@ -105,6 +106,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 
 **业务能力**
 - 积分系统（余额、明细、注册赠送、每日签到、邀请奖励、兑换码、后台补发、过期清理）
+- 支付系统（Dodo / Creem，支付 webhook，订阅状态，积分发放和退款扣回）
 - 用户反馈收集
 - 系统公告通知
 
@@ -174,7 +176,36 @@ EMAIL_FROM=noreply@example.com
 
 Cloudflare 模式要求发件域已启用 Email Routing。`wrangler.jsonc` 会由 `pnpm dev` 自动生成 `SEND_EMAIL` binding。
 
-### 5. 后续同步模板更新
+### 5. D1 分片配置
+
+OPC Stack 默认会创建一个 Meta DB 和一组 Tenant Shard DB：
+
+```env
+D1_SHARD_COUNT=1
+```
+
+- Meta DB 存认证、支付订单、兑换码、通知正文、分片注册表
+- Tenant Shard DB 存用户级数据，比如积分余额、积分流水、反馈、通知已读状态
+- `pnpm dev` 和 `pnpm deploycf` 会按 `D1_SHARD_COUNT` 生成 `TENANT_DB_0000` 这类 binding，并写入 Meta DB 的 `d1_shards`
+- 扩容时调大 `D1_SHARD_COUNT` 后重新部署，新增用户会路由到新 shard，已有用户保持原 shard
+
+修改数据库 schema 时：
+
+- Meta 表改 `src/db/schema.meta.ts`
+- Tenant Shard 表改 `src/db/schema.shard.ts`
+- 重启 `pnpm dev` 自动生成并应用 migration
+
+### 6. 测试
+
+```bash
+pnpm test
+pnpm test:e2e
+pnpm test:e2e:remote
+```
+
+远端 E2E 只验证已经部署好的环境，不会创建 D1、R2、KV、Queue，不会修改 shard 数，也不会执行 migration。
+
+### 7. 后续同步模板更新
 
 ```bash
 # 1. 推荐：Agent 自动更新，解决冲突，任意 Agent 对话中：
@@ -190,7 +221,6 @@ git rebase upstream/main
 ## 路线图
 
 - [ ] 落地页
-- [ ] 支付系统（Creem, Paypal 等个人资质友好渠道）
 - [ ] 管理后台
 - [ ] 指标监控告警
 - [ ] 用户私信通知
