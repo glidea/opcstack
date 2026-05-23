@@ -1,4 +1,4 @@
-import { describe, expect } from 'vitest'
+import { describe } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import {
 	parsePaymentConfig,
@@ -10,8 +10,7 @@ import {
 describe('parsePaymentConfig', () => {
 	type GivenDetail = {
 		paymentEnabled: string
-		providers: string
-		defaultProvider: string
+		provider: string
 		overrides: string
 		products: string
 	}
@@ -22,21 +21,57 @@ describe('parsePaymentConfig', () => {
 		errorCode: string
 		paymentEnabled: boolean
 		selectedProvider: PaymentProviderName | ''
+		providerCount: number
 		firstCreditsAmount: number
+		firstDodoKind: string
 	}
+
+	const remoteProducts = JSON.stringify([
+		{
+			product_id: 'p1',
+			type: 'one_time',
+			credits_amount: '1.23',
+			providers: {
+				creem: {
+					kind: 'remote_product',
+					product_id: 'prod_1'
+				}
+			}
+		}
+	])
+	const mixedProducts = JSON.stringify([
+		{
+			product_id: 'p1',
+			type: 'one_time',
+			credits_amount: '1.23',
+			providers: {
+				dodo: {
+					kind: 'inline_product',
+					name: '100 Credits',
+					description: '',
+					amount: 990,
+					currency: 'cny',
+					pay_type: 'native'
+				},
+				creem: {
+					kind: 'remote_product',
+					product_id: 'prod_1'
+				}
+			}
+		}
+	])
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'select default provider when country is missing',
-			given: 'default provider is creem and no country exists',
+			scenario: 'select configured provider when country is missing',
+			given: 'PAYMENT_PROVIDER is creem',
 			when: 'router selects provider',
-			then: 'returns default provider',
+			then: 'returns configured provider',
 			givenDetail: {
 				paymentEnabled: 'true',
-				providers: 'dodo;creem',
-				defaultProvider: 'creem',
+				provider: 'creem',
 				overrides: '[{"country":"CN","provider":"dodo"}]',
-				products: '[]'
+				products: mixedProducts
 			},
 			whenDetail: {
 				country: null
@@ -45,7 +80,9 @@ describe('parsePaymentConfig', () => {
 				errorCode: '',
 				paymentEnabled: true,
 				selectedProvider: 'creem',
-				firstCreditsAmount: 0
+				providerCount: 2,
+				firstCreditsAmount: 1_230_000,
+				firstDodoKind: 'inline_product'
 			}
 		},
 		{
@@ -55,10 +92,9 @@ describe('parsePaymentConfig', () => {
 			then: 'returns dodo',
 			givenDetail: {
 				paymentEnabled: 'true',
-				providers: 'dodo;creem',
-				defaultProvider: 'creem',
+				provider: 'creem',
 				overrides: '[{"country":"CN","provider":"dodo"}]',
-				products: '[]'
+				products: mixedProducts
 			},
 			whenDetail: {
 				country: 'CN'
@@ -67,19 +103,20 @@ describe('parsePaymentConfig', () => {
 				errorCode: '',
 				paymentEnabled: true,
 				selectedProvider: 'dodo',
-				firstCreditsAmount: 0
+				providerCount: 2,
+				firstCreditsAmount: 1_230_000,
+				firstDodoKind: 'inline_product'
 			}
 		},
 		{
-			scenario: 'parse payment enabled false',
-			given: 'PAYMENT_ENABLED is false',
+			scenario: 'allow disabled payment without products',
+			given: 'PAYMENT_ENABLED is false and products are empty',
 			when: 'config is parsed',
-			then: 'payment enabled becomes false',
+			then: 'payment disabled config is valid',
 			givenDetail: {
 				paymentEnabled: 'false',
-				providers: 'dodo;creem',
-				defaultProvider: 'creem',
-				overrides: '[]',
+				provider: 'creem',
+				overrides: '[{"country":"CN","provider":"dodo"}]',
 				products: '[]'
 			},
 			whenDetail: {
@@ -89,30 +126,79 @@ describe('parsePaymentConfig', () => {
 				errorCode: '',
 				paymentEnabled: false,
 				selectedProvider: 'creem',
-				firstCreditsAmount: 0
+				providerCount: 0,
+				firstCreditsAmount: 0,
+				firstDodoKind: ''
 			}
 		},
 		{
-			scenario: 'parse product credit amount as decimal units',
-			given: 'PAYMENT_PRODUCTS contains decimal credit amount',
+			scenario: 'reject provider not present in product providers',
+			given: 'PAYMENT_PROVIDER is dodo but products only contain creem',
 			when: 'config is parsed',
-			then: 'credit amount becomes units',
+			then: 'returns provider invalid error',
 			givenDetail: {
 				paymentEnabled: 'true',
-				providers: 'dodo;creem',
-				defaultProvider: 'creem',
+				provider: 'dodo',
 				overrides: '[]',
-				products:
-					'[{"product_id":"p1","credits_amount":"1.23","provider_product_ids":{"creem":"prod_1"}}]'
+				products: remoteProducts
 			},
 			whenDetail: {
 				country: null
 			},
 			thenExpected: {
-				errorCode: '',
-				paymentEnabled: true,
-				selectedProvider: 'creem',
-				firstCreditsAmount: 1_230_000
+				errorCode: 'PAYMENT_PROVIDER_INVALID',
+				paymentEnabled: false,
+				selectedProvider: '',
+				providerCount: 0,
+				firstCreditsAmount: 0,
+				firstDodoKind: ''
+			}
+		},
+		{
+			scenario: 'reject override provider not present in product providers',
+			given: 'CN override is dodo but products only contain creem',
+			when: 'config is parsed',
+			then: 'returns country override invalid error',
+			givenDetail: {
+				paymentEnabled: 'true',
+				provider: 'creem',
+				overrides: '[{"country":"CN","provider":"dodo"}]',
+				products: remoteProducts
+			},
+			whenDetail: {
+				country: null
+			},
+			thenExpected: {
+				errorCode: 'PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID',
+				paymentEnabled: false,
+				selectedProvider: '',
+				providerCount: 0,
+				firstCreditsAmount: 0,
+				firstDodoKind: ''
+			}
+		},
+		{
+			scenario: 'reject unknown product provider',
+			given: 'PAYMENT_PRODUCTS contains unknown provider',
+			when: 'config is parsed',
+			then: 'returns provider invalid error',
+			givenDetail: {
+				paymentEnabled: 'true',
+				provider: 'creem',
+				overrides: '[]',
+				products:
+					'[{"product_id":"p1","type":"one_time","providers":{"bad":{"kind":"remote_product","product_id":"prod_1"}}}]'
+			},
+			whenDetail: {
+				country: null
+			},
+			thenExpected: {
+				errorCode: 'PAYMENT_PROVIDER_INVALID',
+				paymentEnabled: false,
+				selectedProvider: '',
+				providerCount: 0,
+				firstCreditsAmount: 0,
+				firstDodoKind: ''
 			}
 		}
 	]
@@ -121,8 +207,7 @@ describe('parsePaymentConfig', () => {
 		try {
 			const config = parsePaymentConfig({
 				PAYMENT_ENABLED: given.paymentEnabled,
-				PAYMENT_PROVIDERS: given.providers,
-				PAYMENT_DEFAULT_PROVIDER: given.defaultProvider,
+				PAYMENT_PROVIDER: given.provider,
 				PAYMENT_PROVIDER_COUNTRY_OVERRIDES: given.overrides,
 				PAYMENT_PRODUCTS: given.products
 			} as unknown as Env)
@@ -136,14 +221,18 @@ describe('parsePaymentConfig', () => {
 				selectedProvider: router.select({
 					country: when.country
 				}),
-				firstCreditsAmount: config.products[0]?.creditsAmount ?? 0
+				providerCount: config.providers.length,
+				firstCreditsAmount: config.products[0]?.creditsAmount ?? 0,
+				firstDodoKind: config.products[0]?.providers.dodo?.kind ?? ''
 			}
 		} catch (error) {
 			return {
 				errorCode: error instanceof PaymentConfigError ? error.code : 'UNKNOWN',
 				paymentEnabled: false,
 				selectedProvider: '',
-				firstCreditsAmount: 0
+				providerCount: 0,
+				firstCreditsAmount: 0,
+				firstDodoKind: ''
 			}
 		}
 	})

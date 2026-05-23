@@ -20,8 +20,7 @@ const emailSignupDomainAllowlist = readEnv(envContent, 'EMAIL_SIGNUP_DOMAIN_ALLO
 const emailResendApiKey = readEnv(envContent, 'EMAIL_RESEND_API_KEY') ?? ''
 const emailFrom = readEnv(envContent, 'EMAIL_FROM') ?? ''
 const paymentEnabled = readEnv(envContent, 'PAYMENT_ENABLED') ?? 'false'
-const paymentProviders = readEnv(envContent, 'PAYMENT_PROVIDERS') ?? ''
-const paymentDefaultProvider = readEnv(envContent, 'PAYMENT_DEFAULT_PROVIDER') ?? ''
+const paymentProvider = readEnv(envContent, 'PAYMENT_PROVIDER') ?? ''
 const paymentProducts = readEnv(envContent, 'PAYMENT_PRODUCTS') ?? ''
 const paymentCreemWebhookSecret = readEnv(envContent, 'PAYMENT_CREEM_WEBHOOK_SECRET') ?? ''
 const affEnabled = readEnv(envContent, 'AFF_ENABLED') ?? 'false'
@@ -34,6 +33,7 @@ export default defineConfig({
 		env: {
 			APP_BASE_URL: appBaseUrl,
 			E2E_ADMIN_SECRET: adminSecret,
+			E2E_REMOTE: isRemote ? '1' : '0',
 			E2E_BETTER_AUTH_SECRET: betterAuthSecret,
 			E2E_BETA_CODE_ENABLED: betaEnabled,
 			E2E_GOOGLE_AUTH_ENABLED: googleEnabled,
@@ -46,8 +46,7 @@ export default defineConfig({
 			E2E_EMAIL_RESEND_API_KEY: emailResendApiKey,
 			E2E_EMAIL_FROM: emailFrom,
 			E2E_PAYMENT_ENABLED: paymentEnabled,
-			E2E_PAYMENT_PROVIDERS: paymentProviders,
-			E2E_PAYMENT_DEFAULT_PROVIDER: paymentDefaultProvider,
+			E2E_PAYMENT_PROVIDER: paymentProvider,
 			E2E_PAYMENT_PRODUCTS: paymentProducts,
 			E2E_PAYMENT_CREEM_WEBHOOK_SECRET: paymentCreemWebhookSecret,
 			E2E_AFF_ENABLED: affEnabled

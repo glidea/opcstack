@@ -107,7 +107,20 @@ describe('DodoPaymentProvider.createCheckout', () => {
 		})
 
 		const provider = new DodoPaymentProvider(client, 'whsec')
-		const result = await provider.createCheckout(given)
+		const result = await provider.createCheckout({
+			checkoutOrderId: given.checkoutOrderId,
+			providerConfig: {
+				kind: 'remote_product',
+				productId: given.providerProductId
+			},
+			productName: 'Product',
+			productDescription: null,
+			amount: 1000,
+			currency: 'USD',
+			customerEmail: given.customerEmail,
+			notifyUrl: 'https://app.example.com/api/webhook/dodo',
+			returnUrl: given.returnUrl
+		})
 		const payload = vi.mocked(client.checkoutSessions.create).mock.calls[0]?.[0]
 
 		return {

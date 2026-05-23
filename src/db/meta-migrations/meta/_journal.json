@@ -8,6 +8,13 @@
       "when": 1779459799637,
       "tag": "0000_spooky_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1779509575096,
+      "tag": "0001_smiling_mastermind",
+      "breakpoints": true
     }
   ]
 }

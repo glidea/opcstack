@@ -13,7 +13,8 @@ import {
 	PaymentProviderRouter,
 	type PaymentConfig,
 	type PaymentProductConfig,
-	type PaymentProviderName
+	type PaymentProviderName,
+	type PaymentProviderProductConfig
 } from './config'
 import {
 	PAYMENT_BILLING_MODE_ONE_TIME,
@@ -70,6 +71,17 @@ type CheckoutOrderRow = typeof checkoutOrder.$inferSelect
 export type PaymentCreditsServiceFactory = (userId: string) => Promise<CreditsService>
 
 export type PaymentProviderMap = Record<PaymentProviderName, PaymentProvider>
+
+interface ResolvedPaymentProduct {
+	product: PaymentProductConfig
+	providerConfig: PaymentProviderProductConfig
+	providerProductId: string
+	name: string
+	description: string | null
+	priceAmount: number
+	currency: string
+	billingMode: PaymentBillingMode
+}
 
 export interface ListPaymentProductsInput {
 	country: string | null
@@ -215,46 +227,28 @@ export class PaymentService {
 			country: input.country
 		})
 		const provider = this.getProvider(providerName)
-		const providerProductIds: string[] = this.config.products.map((item) => {
-			return this.getProviderProductId(item, providerName)
-		})
+		const items: PaymentProductItem[] = []
+		for (const product of this.config.products) {
+			if (!product.providers[providerName]) {
+				continue
+			}
+			const resolved = await this.resolveProduct(provider, product, providerName)
 
-		const providerProducts = await provider.listProducts({
-			providerProductIds
-		})
-		const providerProductById = new Map<string, (typeof providerProducts)[number]>()
-		for (const row of providerProducts) {
-			providerProductById.set(row.providerProductId, row)
+			items.push({
+				productId: product.productId,
+				type: resolved.billingMode,
+				name: resolved.name,
+				description: resolved.description,
+				priceAmount: resolved.priceAmount,
+				currency: resolved.currency,
+				creditsAmount: product.creditsAmount,
+				subscriptionPlan: product.subscriptionPlan,
+				upgradeRank: product.upgradeRank,
+				periodCreditsAmount: product.periodCreditsAmount
+			})
 		}
 
-		return this.config.products.map((row) => {
-			const providerProductId = this.getProviderProductId(row, providerName)
-			const providerProduct = providerProductById.get(providerProductId)
-			if (!providerProduct) {
-				throw new PaymentServiceError('PAYMENT_PROVIDER_PRODUCT_NOT_FOUND')
-			}
-
-			const expectedType: PaymentBillingMode =
-				row.subscriptionPlan === null
-					? PAYMENT_BILLING_MODE_ONE_TIME
-					: PAYMENT_BILLING_MODE_SUBSCRIPTION
-			if (providerProduct.billingMode !== expectedType) {
-				throw new PaymentServiceError('PAYMENT_PRODUCT_TYPE_MISMATCH')
-			}
-
-			return {
-				productId: row.productId,
-				type: providerProduct.billingMode,
-				name: providerProduct.name,
-				description: providerProduct.description,
-				priceAmount: providerProduct.priceAmount,
-				currency: providerProduct.currency,
-				creditsAmount: row.creditsAmount,
-				subscriptionPlan: row.subscriptionPlan,
-				upgradeRank: row.upgradeRank,
-				periodCreditsAmount: row.periodCreditsAmount
-			}
-		})
+		return items
 	}
 
 	async createPaymentCheckout(input: CreatePaymentCheckoutInput): Promise<CreatePaymentCheckoutResult> {
@@ -266,7 +260,8 @@ export class PaymentService {
 		const providerName = this.providerRouter.select({
 			country: input.country
 		})
-		const providerProductId = this.getProviderProductId(product, providerName)
+		const provider = this.getProvider(providerName)
+		const resolved = await this.resolveProduct(provider, product, providerName)
 
 		const checkoutOrderId = crypto.randomUUID()
 		const checkoutType =
@@ -280,20 +275,32 @@ export class PaymentService {
 			status: CHECKOUT_ORDER_STATUS_PENDING,
 			productId: product.productId,
 			provider: providerName,
-			providerProductId,
+			providerProductId: resolved.providerProductId,
+			productName: resolved.name,
+			productDescription: resolved.description,
+			amount: resolved.priceAmount,
+			currency: resolved.currency,
+			creditsAmount: product.creditsAmount,
+			subscriptionPlan: product.subscriptionPlan,
+			periodCreditsAmount: product.periodCreditsAmount,
 			providerCheckoutSessionId: null,
 			providerPaymentId: null,
 			checkoutUrl: null
 		})
 
-		const provider = this.getProvider(providerName)
 		const customerEmail = await this.getUserEmail(input.userId)
 		const returnPath = normalizeReturnPath(input.returnPath)
 		const returnUrl = buildReturnUrl(input.appDomain, returnPath, checkoutOrderId)
+		const notifyUrl = buildWebhookUrl(input.appDomain, providerName)
 		const created = await provider.createCheckout({
 			checkoutOrderId,
-			providerProductId,
+			providerConfig: resolved.providerConfig,
+			productName: resolved.name,
+			productDescription: resolved.description,
+			amount: resolved.priceAmount,
+			currency: resolved.currency,
 			customerEmail,
+			notifyUrl,
 			returnUrl
 		})
 
@@ -404,7 +411,7 @@ export class PaymentService {
 
 		const providerName = row.provider as PaymentProviderName
 		const provider = this.getProvider(providerName)
-		const providerProductId = this.getProviderProductId(targetProduct, providerName)
+		const resolved = await this.resolveProduct(provider, targetProduct, providerName)
 		const checkoutOrderId = crypto.randomUUID()
 
 		await this.db.insert(checkoutOrder).values({
@@ -414,7 +421,14 @@ export class PaymentService {
 			status: CHECKOUT_ORDER_STATUS_PENDING,
 			productId: targetProduct.productId,
 			provider: providerName,
-			providerProductId,
+			providerProductId: resolved.providerProductId,
+			productName: resolved.name,
+			productDescription: resolved.description,
+			amount: resolved.priceAmount,
+			currency: resolved.currency,
+			creditsAmount: targetProduct.creditsAmount,
+			subscriptionPlan: targetProduct.subscriptionPlan,
+			periodCreditsAmount: targetProduct.periodCreditsAmount,
 			providerCheckoutSessionId: null,
 			providerPaymentId: null,
 			checkoutUrl: null
@@ -423,7 +437,7 @@ export class PaymentService {
 		const changed = await provider.changeSubscriptionPlan({
 			checkoutOrderId,
 			providerSubscriptionId: row.providerSubscriptionId,
-			providerProductId
+			providerProductId: resolved.providerProductId
 		})
 
 		await this.db
@@ -800,9 +814,16 @@ export class PaymentService {
 			return false
 		}
 
-		const product = this.getProduct(order.productId)
+		if (!isPaymentAmountMatched(order, event)) {
+			logPaymentIgnored(event, {
+				checkout_order_id: order.id,
+				reason: 'payment_amount_mismatch'
+			})
+			return false
+		}
+
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
-		const creditsGranted = product.creditsAmount ?? 0
+		const creditsGranted = order.creditsAmount ?? 0
 		const transaction = await this.ensurePaymentTransaction({
 			event,
 			userId: order.userId,
@@ -810,8 +831,8 @@ export class PaymentService {
 			subscriptionId: null,
 			type: PAYMENT_TRANSACTION_TYPE_CREDITS_PURCHASE,
 			productId: order.productId,
-			amount: event.amount,
-			currency: event.currency,
+			amount: order.amount,
+			currency: order.currency,
 			creditsGranted,
 			paidAt: nowMs
 		})
@@ -924,8 +945,14 @@ export class PaymentService {
 			return false
 		}
 
-		const product = this.getProduct(order.productId)
-		if (product.subscriptionPlan === null || product.periodCreditsAmount === null) {
+		if (!isPaymentAmountMatched(order, event)) {
+			logPaymentIgnored(event, {
+				checkout_order_id: order.id,
+				reason: 'payment_amount_mismatch'
+			})
+			return false
+		}
+		if (order.subscriptionPlan === null || order.periodCreditsAmount === null) {
 			throw new PaymentServiceError('SUBSCRIPTION_PRODUCT_INVALID')
 		}
 
@@ -939,9 +966,9 @@ export class PaymentService {
 			subscriptionId: order.userId,
 			type: PAYMENT_TRANSACTION_TYPE_SUBSCRIPTION_INITIAL,
 			productId: order.productId,
-			amount: event.amount ?? 0,
-			currency: event.currency ?? '',
-			creditsGranted: product.periodCreditsAmount,
+			amount: order.amount,
+			currency: order.currency,
+			creditsGranted: order.periodCreditsAmount,
 			paidAt: nowMs
 		})
 
@@ -951,9 +978,9 @@ export class PaymentService {
 				userId: order.userId,
 				provider: event.provider,
 				providerSubscriptionId: event.providerSubscriptionId,
-				productId: product.productId,
-				subscriptionPlan: product.subscriptionPlan,
-				periodCreditsAmount: product.periodCreditsAmount,
+				productId: order.productId,
+				subscriptionPlan: order.subscriptionPlan,
+				periodCreditsAmount: order.periodCreditsAmount,
 				currentPeriodStart: periodStart,
 				currentPeriodEnd: periodEnd,
 				status: SUBSCRIPTION_STATUS_ACTIVE,
@@ -964,9 +991,9 @@ export class PaymentService {
 				set: {
 					provider: event.provider,
 					providerSubscriptionId: event.providerSubscriptionId,
-					productId: product.productId,
-					subscriptionPlan: product.subscriptionPlan,
-					periodCreditsAmount: product.periodCreditsAmount,
+					productId: order.productId,
+					subscriptionPlan: order.subscriptionPlan,
+					periodCreditsAmount: order.periodCreditsAmount,
 					currentPeriodStart: periodStart,
 					currentPeriodEnd: periodEnd,
 					status: SUBSCRIPTION_STATUS_ACTIVE,
@@ -979,7 +1006,7 @@ export class PaymentService {
 		await credits.grant({
 			userId: order.userId,
 			type: CREDIT_TRANSACTION_TYPE_PAYMENT_PURCHASE,
-			amount: product.periodCreditsAmount,
+			amount: order.periodCreditsAmount,
 			sourceType: PAYMENT_CREDIT_SOURCE_TRANSACTION,
 			sourceId: transaction.id,
 			description: 'Grant credits for initial subscription period'
@@ -1000,7 +1027,7 @@ export class PaymentService {
 			from_status: order.status,
 			to_status: CHECKOUT_ORDER_STATUS_COMPLETED,
 			subscription_status: SUBSCRIPTION_STATUS_ACTIVE,
-			credits_granted: product.periodCreditsAmount
+			credits_granted: order.periodCreditsAmount
 		})
 		return true
 	}
@@ -1081,6 +1108,17 @@ export class PaymentService {
 			})
 			return false
 		}
+		if (!isPaymentAmountMatched(order, event)) {
+			logPaymentIgnored(event, {
+				checkout_order_id: order.id,
+				reason: 'payment_amount_mismatch'
+			})
+			return false
+		}
+		if (order.subscriptionPlan === null || order.periodCreditsAmount === null) {
+			throw new PaymentServiceError('SUBSCRIPTION_PRODUCT_INVALID')
+		}
+
 		const sub = await this.db.query.userSubscription.findFirst({
 			where: eq(userSubscription.userId, order.userId)
 		})
@@ -1088,27 +1126,17 @@ export class PaymentService {
 			throw new PaymentServiceError('SUBSCRIPTION_NOT_FOUND')
 		}
 
-		const currentProduct = this.getProduct(sub.productId)
-		const targetProduct = this.getProduct(order.productId)
-		if (
-			currentProduct.periodCreditsAmount === null ||
-			targetProduct.periodCreditsAmount === null ||
-			targetProduct.subscriptionPlan === null
-		) {
-			throw new PaymentServiceError('SUBSCRIPTION_PRODUCT_INVALID')
-		}
-
 		const nowMs = normalizeEventTimeMs(event.occurredAt)
-		const creditsDiff = Math.max(targetProduct.periodCreditsAmount - currentProduct.periodCreditsAmount, 0)
+		const creditsDiff = Math.max(order.periodCreditsAmount - sub.periodCreditsAmount, 0)
 		const transaction = await this.ensurePaymentTransaction({
 			event,
 			userId: sub.userId,
 			checkoutOrderId: order.id,
 			subscriptionId: sub.userId,
 			type: PAYMENT_TRANSACTION_TYPE_SUBSCRIPTION_UPGRADE,
-			productId: targetProduct.productId,
-			amount: event.amount ?? 0,
-			currency: event.currency ?? '',
+			productId: order.productId,
+			amount: order.amount,
+			currency: order.currency,
 			creditsGranted: creditsDiff,
 			paidAt: nowMs
 		})
@@ -1128,9 +1156,9 @@ export class PaymentService {
 		await this.db
 			.update(userSubscription)
 			.set({
-				productId: targetProduct.productId,
-				subscriptionPlan: targetProduct.subscriptionPlan,
-				periodCreditsAmount: targetProduct.periodCreditsAmount,
+				productId: order.productId,
+				subscriptionPlan: order.subscriptionPlan,
+				periodCreditsAmount: order.periodCreditsAmount,
 				currentPeriodStart: event.periodStart
 					? normalizeEventTimeMs(event.periodStart)
 					: sub.currentPeriodStart,
@@ -1176,12 +1204,51 @@ export class PaymentService {
 		return row
 	}
 
-	private getProviderProductId(product: PaymentProductConfig, provider: PaymentProviderName): string {
-		const providerProductId = product.providerProductIds[provider]
-		if (!providerProductId) {
+	private async resolveProduct(
+		provider: PaymentProvider,
+		product: PaymentProductConfig,
+		providerName: PaymentProviderName
+	): Promise<ResolvedPaymentProduct> {
+		const providerConfig = product.providers[providerName]
+		if (!providerConfig) {
 			throw new PaymentServiceError('PAYMENT_PROVIDER_PRODUCT_ID_MISSING')
 		}
-		return providerProductId
+
+		switch (providerConfig.kind) {
+			case 'remote_product': {
+				const providerProducts = await provider.listProducts({
+					providerProductIds: [providerConfig.productId]
+				})
+				const providerProduct = providerProducts[0]
+				if (!providerProduct) {
+					throw new PaymentServiceError('PAYMENT_PROVIDER_PRODUCT_NOT_FOUND')
+				}
+				if (providerProduct.billingMode !== product.type) {
+					throw new PaymentServiceError('PAYMENT_PRODUCT_TYPE_MISMATCH')
+				}
+				return {
+					product,
+					providerConfig,
+					providerProductId: providerConfig.productId,
+					name: providerProduct.name,
+					description: providerProduct.description,
+					priceAmount: providerProduct.priceAmount,
+					currency: providerProduct.currency,
+					billingMode: providerProduct.billingMode
+				}
+			}
+			case 'inline_product':
+				return {
+					product,
+					providerConfig,
+					providerProductId: product.productId,
+					name: providerConfig.name,
+					description: providerConfig.description,
+					priceAmount: providerConfig.amount,
+					currency: providerConfig.currency,
+					billingMode: product.type
+				}
+		}
 	}
 
 	private async getUserEmail(userId: string): Promise<string> {
@@ -1241,6 +1308,13 @@ function buildReturnUrl(appDomain: string, returnPath: string, checkoutOrderId: 
 	return url.toString()
 }
 
+function buildWebhookUrl(appDomain: string, provider: PaymentProviderName): string {
+	const base = appDomain.startsWith('http://') || appDomain.startsWith('https://')
+		? appDomain
+		: `${getDefaultProtocol(appDomain)}://${appDomain}`
+	return new URL(`/api/webhook/${provider}`, base).toString()
+}
+
 function getDefaultProtocol(appDomain: string): string {
 	if (appDomain === 'localhost' || appDomain.startsWith('localhost:')) {
 		return 'http'
@@ -1249,6 +1323,10 @@ function getDefaultProtocol(appDomain: string): string {
 		return 'http'
 	}
 	return 'https'
+}
+
+function isPaymentAmountMatched(order: CheckoutOrderRow, event: PaymentEvent): boolean {
+	return event.amount === order.amount && event.currency === order.currency
 }
 
 function toPaymentEventLog(event: PaymentEvent): Record<string, unknown> {

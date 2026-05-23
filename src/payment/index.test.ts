@@ -35,10 +35,12 @@ describe('PaymentService.listPaymentProducts', () => {
 
 	type GivenDetail = {
 		paymentEnabled: boolean
+		withoutCurrentProvider: boolean
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		items: number
+		listProductCalls: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -48,11 +50,43 @@ describe('PaymentService.listPaymentProducts', () => {
 			when: 'listing products',
 			then: 'returns empty list',
 			givenDetail: {
-				paymentEnabled: false
+				paymentEnabled: false,
+				withoutCurrentProvider: false
 			},
 			whenDetail: {},
 			thenExpected: {
-				items: 0
+				items: 0,
+				listProductCalls: 0
+			}
+		},
+		{
+			scenario: 'return products supported by current provider',
+			given: 'current provider is dodo',
+			when: 'listing products',
+			then: 'returns dodo products',
+			givenDetail: {
+				paymentEnabled: true,
+				withoutCurrentProvider: false
+			},
+			whenDetail: {},
+			thenExpected: {
+				items: 3,
+				listProductCalls: 3
+			}
+		},
+		{
+			scenario: 'skip product without current provider config',
+			given: 'one product only supports creem',
+			when: 'listing products for dodo',
+			then: 'does not return that product',
+			givenDetail: {
+				paymentEnabled: true,
+				withoutCurrentProvider: true
+			},
+			whenDetail: {},
+			thenExpected: {
+				items: 2,
+				listProductCalls: 2
 			}
 		}
 	]
@@ -60,13 +94,15 @@ describe('PaymentService.listPaymentProducts', () => {
 	runCases(cases, async (given) => {
 		const state = createMockState()
 		const service = createService(state, {
-			enabled: given.paymentEnabled
+			enabled: given.paymentEnabled,
+			withoutCurrentProvider: given.withoutCurrentProvider
 		})
 		const rows = await service.listPaymentProducts({
 			country: 'CN'
 		})
 		return {
-			items: rows.length
+			items: rows.length,
+			listProductCalls: state.provider.listProducts.mock.calls.length
 		}
 	})
 })
@@ -88,6 +124,9 @@ describe('PaymentService.createPaymentCheckout', () => {
 		returnUrlOrigin: string
 		returnUrlPathname: string
 		returnUrlHasCheckoutOrderId: boolean
+		notifyUrlPathname: string
+		snapshotAmount: number
+		snapshotCreditsAmount: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -107,7 +146,10 @@ describe('PaymentService.createPaymentCheckout', () => {
 				checkoutUrl: 'https://pay.example.com/cs_1',
 				returnUrlOrigin: 'https://example.com',
 				returnUrlPathname: '/settings/billing',
-				returnUrlHasCheckoutOrderId: true
+				returnUrlHasCheckoutOrderId: true,
+				notifyUrlPathname: '/api/webhook/dodo',
+				snapshotAmount: 1000,
+				snapshotCreditsAmount: 1000
 			}
 		},
 		{
@@ -126,7 +168,10 @@ describe('PaymentService.createPaymentCheckout', () => {
 				checkoutUrl: 'https://pay.example.com/cs_1',
 				returnUrlOrigin: 'http://localhost',
 				returnUrlPathname: '/settings/billing',
-				returnUrlHasCheckoutOrderId: true
+				returnUrlHasCheckoutOrderId: true,
+				notifyUrlPathname: '/api/webhook/dodo',
+				snapshotAmount: 1000,
+				snapshotCreditsAmount: 1000
 			}
 		}
 	]
@@ -147,13 +192,17 @@ describe('PaymentService.createPaymentCheckout', () => {
 		})
 		const providerInput = state.provider.createCheckout.mock.calls[0]?.[0]
 		const returnUrl = new URL(providerInput.returnUrl)
+		const notifyUrl = new URL(providerInput.notifyUrl)
 		return {
 			status: state.checkoutOrders[0]?.status ?? '',
 			checkoutOrderCount: state.checkoutOrders.length,
 			checkoutUrl: result.checkoutUrl,
 			returnUrlOrigin: returnUrl.origin,
 			returnUrlPathname: returnUrl.pathname,
-			returnUrlHasCheckoutOrderId: returnUrl.searchParams.has('checkout_order_id')
+			returnUrlHasCheckoutOrderId: returnUrl.searchParams.has('checkout_order_id'),
+			notifyUrlPathname: notifyUrl.pathname,
+			snapshotAmount: state.checkoutOrders[0]?.amount ?? 0,
+			snapshotCreditsAmount: state.checkoutOrders[0]?.creditsAmount ?? 0
 		}
 	})
 })
@@ -671,6 +720,234 @@ describe('PaymentService.processWebhook subscription event boundary', () => {
 			transactions: state.paymentTransactions.length,
 			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
 			checkoutProviderPaymentId: state.checkoutOrders[0]?.providerPaymentId ?? '',
+			webhookEvents: state.webhookEvents.length,
+			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length
+		}
+	})
+})
+
+describe('PaymentService.processWebhook checkout snapshot boundary', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		caseName: 'amount_mismatch' | 'currency_mismatch' | 'changed_product_config'
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		checkoutStatus: string
+		transactions: number
+		transactionAmount: number
+		creditsGranted: number
+		webhookEvents: number
+		grantCalls: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'reject credits purchase when amount differs from checkout snapshot',
+			given: 'checkout snapshot amount is 1200 but webhook amount is 1000',
+			when: 'processing payment_succeeded webhook',
+			then: 'does not grant credits or complete checkout',
+			givenDetail: {
+				caseName: 'amount_mismatch'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: 'pending',
+				transactions: 0,
+				transactionAmount: 0,
+				creditsGranted: 0,
+				webhookEvents: 0,
+				grantCalls: 0
+			}
+		},
+		{
+			scenario: 'reject credits purchase when currency differs from checkout snapshot',
+			given: 'checkout snapshot currency is CNY but webhook currency is USD',
+			when: 'processing payment_succeeded webhook',
+			then: 'does not grant credits or complete checkout',
+			givenDetail: {
+				caseName: 'currency_mismatch'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: 'pending',
+				transactions: 0,
+				transactionAmount: 0,
+				creditsGranted: 0,
+				webhookEvents: 0,
+				grantCalls: 0
+			}
+		},
+		{
+			scenario: 'grant credits from checkout snapshot after product config changes',
+			given: 'checkout snapshot grants 2000 credits but current product config grants 1000',
+			when: 'processing payment_succeeded webhook',
+			then: 'uses checkout snapshot for transaction and grant',
+			givenDetail: {
+				caseName: 'changed_product_config'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: 'completed',
+				transactions: 1,
+				transactionAmount: 1000,
+				creditsGranted: 2000,
+				webhookEvents: 1,
+				grantCalls: 1
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const state = createMockState()
+		const service = createService(state)
+		state.checkoutOrders.push({
+			id: 'co_1',
+			userId: 'u1',
+			type: 'credits_purchase',
+			status: 'pending',
+			productId: 'credits_1000',
+			provider: 'dodo',
+			providerProductId: 'dp_credits_1000',
+			productName: 'Credits 1000',
+			productDescription: null,
+			amount: given.caseName === 'amount_mismatch' ? 1200 : 1000,
+			currency: given.caseName === 'currency_mismatch' ? 'CNY' : 'USD',
+			creditsAmount: given.caseName === 'changed_product_config' ? 2000 : 1000,
+			subscriptionPlan: null,
+			periodCreditsAmount: null,
+			providerCheckoutSessionId: 'cs_1',
+			providerPaymentId: null,
+			checkoutUrl: 'https://pay.example.com/cs_1',
+			createdAt: 0,
+			updatedAt: 0
+		})
+		state.provider.unwrapWebhook.mockResolvedValue(createPaymentSucceededEvent())
+
+		await service.processWebhook('dodo', '{}', new Headers())
+
+		return {
+			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
+			transactions: state.paymentTransactions.length,
+			transactionAmount: state.paymentTransactions[0]?.amount ?? 0,
+			creditsGranted: state.paymentTransactions[0]?.creditsGranted ?? 0,
+			webhookEvents: state.webhookEvents.length,
+			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length
+		}
+	})
+})
+
+describe('PaymentService.processWebhook subscription upgrade snapshot boundary', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = {
+		caseName: 'amount_mismatch' | 'changed_product_config'
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		checkoutStatus: string
+		transactions: number
+		transactionAmount: number
+		creditsGranted: number
+		subscriptionPeriodCreditsAmount: number
+		webhookEvents: number
+		grantCalls: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'reject subscription upgrade when amount differs from checkout snapshot',
+			given: 'upgrade checkout snapshot amount is 4990 but webhook amount is 3990',
+			when: 'processing subscription_paid webhook',
+			then: 'does not grant credits or complete checkout',
+			givenDetail: {
+				caseName: 'amount_mismatch'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: 'pending',
+				transactions: 0,
+				transactionAmount: 0,
+				creditsGranted: 0,
+				subscriptionPeriodCreditsAmount: 3000,
+				webhookEvents: 0,
+				grantCalls: 0
+			}
+		},
+		{
+			scenario: 'grant subscription upgrade diff from checkout snapshot after product config changes',
+			given: 'upgrade checkout snapshot target has 7000 credits but current product config has 6000',
+			when: 'processing subscription_paid webhook',
+			then: 'uses checkout snapshot for transaction, grant and subscription',
+			givenDetail: {
+				caseName: 'changed_product_config'
+			},
+			whenDetail: {},
+			thenExpected: {
+				checkoutStatus: 'completed',
+				transactions: 1,
+				transactionAmount: 3990,
+				creditsGranted: 4000,
+				subscriptionPeriodCreditsAmount: 7000,
+				webhookEvents: 1,
+				grantCalls: 1
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		const state = createMockState()
+		const service = createService(state)
+		state.checkoutOrders.push({
+			id: 'co_upgrade_1',
+			userId: 'u1',
+			type: 'subscription_upgrade',
+			status: 'pending',
+			productId: 'team_monthly',
+			provider: 'dodo',
+			providerProductId: 'dp_team_monthly',
+			productName: 'Team Monthly',
+			productDescription: null,
+			amount: given.caseName === 'amount_mismatch' ? 4990 : 3990,
+			currency: 'USD',
+			creditsAmount: null,
+			subscriptionPlan: 'team',
+			periodCreditsAmount: 7000,
+			providerCheckoutSessionId: null,
+			providerPaymentId: null,
+			checkoutUrl: null,
+			createdAt: 0,
+			updatedAt: 0
+		})
+		state.userSubscriptions.push({
+			userId: 'u1',
+			provider: 'dodo',
+			providerSubscriptionId: 'sub_1',
+			productId: 'pro_monthly',
+			subscriptionPlan: 'pro',
+			periodCreditsAmount: 3000,
+			currentPeriodStart: 0,
+			currentPeriodEnd: 2000,
+			status: 'active',
+			canceledAt: null,
+			createdAt: 0,
+			updatedAt: 0
+		})
+		state.provider.unwrapWebhook.mockResolvedValue(createSubscriptionPaidEvent())
+
+		await service.processWebhook('dodo', '{}', new Headers())
+
+		return {
+			checkoutStatus: state.checkoutOrders[0]?.status ?? '',
+			transactions: state.paymentTransactions.length,
+			transactionAmount: state.paymentTransactions[0]?.amount ?? 0,
+			creditsGranted: state.paymentTransactions[0]?.creditsGranted ?? 0,
+			subscriptionPeriodCreditsAmount: state.userSubscriptions[0]?.periodCreditsAmount ?? 0,
 			webhookEvents: state.webhookEvents.length,
 			grantCalls: vi.mocked(creditServiceMocks.grant).mock.calls.length
 		}
@@ -1242,6 +1519,13 @@ describe('PaymentService.processWebhook subscription upgrade recovery', () => {
 			productId: checkoutProductId,
 			provider: 'dodo',
 			providerProductId: 'dp_team_monthly',
+			productName: checkoutProductId,
+			productDescription: null,
+			amount: 3990,
+			currency: 'USD',
+			creditsAmount: null,
+			subscriptionPlan: given.caseName === 'zero_credits_diff' ? 'pro' : 'team',
+			periodCreditsAmount: given.caseName === 'zero_credits_diff' ? 3000 : 6000,
 			providerCheckoutSessionId: null,
 			providerPaymentId: null,
 			checkoutUrl: null,
@@ -1462,12 +1746,18 @@ describe('PaymentService.processWebhook refund and failure recovery', () => {
 
 type MockState = {
 	users: Array<{ id: string; email: string }>
-	checkoutOrders: Array<typeof checkoutOrder.$inferSelect>
+	checkoutOrders: Array<
+		Partial<typeof checkoutOrder.$inferSelect> &
+			Pick<
+				typeof checkoutOrder.$inferSelect,
+				'id' | 'userId' | 'type' | 'status' | 'productId' | 'provider' | 'providerProductId'
+			>
+	>
 	paymentTransactions: Array<typeof paymentTransaction.$inferSelect>
 	userSubscriptions: Array<typeof userSubscription.$inferSelect>
 	webhookEvents: Array<typeof paymentWebhookEvent.$inferSelect>
 	queryQueue: {
-		checkoutOrder: Array<typeof checkoutOrder.$inferSelect | undefined>
+		checkoutOrder: Array<(typeof checkoutOrder.$inferSelect) | undefined>
 		paymentTransaction: Array<typeof paymentTransaction.$inferSelect | undefined>
 		userSubscription: Array<typeof userSubscription.$inferSelect | undefined>
 		paymentWebhookEvent: Array<typeof paymentWebhookEvent.$inferSelect | undefined>
@@ -1498,6 +1788,7 @@ function createService(
 	state: MockState,
 	options?: {
 		enabled?: boolean
+		withoutCurrentProvider?: boolean
 	}
 ): PaymentService {
 	const config: PaymentConfig = {
@@ -1508,45 +1799,69 @@ function createService(
 		products: [
 			{
 				productId: 'credits_1000',
+				type: 'one_time',
 				creditsAmount: 1000,
 				subscriptionPlan: null,
 				upgradeRank: null,
 				periodCreditsAmount: null,
-				providerProductIds: {
-					dodo: 'dp_credits_1000',
-					creem: 'cp_credits_1000'
+				providers: {
+					dodo: {
+						kind: 'remote_product',
+						productId: 'dp_credits_1000'
+					},
+					creem: {
+						kind: 'remote_product',
+						productId: 'cp_credits_1000'
+					}
 				}
 			},
 			{
 				productId: 'pro_monthly',
+				type: 'subscription',
 				creditsAmount: null,
 				subscriptionPlan: 'pro',
 				upgradeRank: 20,
 				periodCreditsAmount: 3000,
-				providerProductIds: {
-					dodo: 'dp_pro_monthly',
-					creem: 'cp_pro_monthly'
+				providers: {
+					dodo: {
+						kind: 'remote_product',
+						productId: 'dp_pro_monthly'
+					},
+					creem: {
+						kind: 'remote_product',
+						productId: 'cp_pro_monthly'
+					}
 				}
 			},
 			{
 				productId: 'team_monthly',
+				type: 'subscription',
 				creditsAmount: null,
 				subscriptionPlan: 'team',
 				upgradeRank: 30,
 				periodCreditsAmount: 6000,
-				providerProductIds: {
-					dodo: 'dp_team_monthly',
-					creem: 'cp_team_monthly'
+				providers: {
+					dodo: {
+						kind: 'remote_product',
+						productId: 'dp_team_monthly'
+					},
+					creem: {
+						kind: 'remote_product',
+						productId: 'cp_team_monthly'
+					}
 				}
 			}
 		]
+	}
+	if (options?.withoutCurrentProvider === true) {
+		delete config.products[0]?.providers.dodo
 	}
 	const providerRouter = new PaymentProviderRouter({
 		defaultProvider: config.defaultProvider,
 		providerCountryOverrides: config.providerCountryOverrides
 	})
 
-	state.provider.listProducts.mockResolvedValue([
+	const providerProducts = [
 		{
 			providerProductId: 'dp_credits_1000',
 			name: 'Credits 1000',
@@ -1571,7 +1886,14 @@ function createService(
 			currency: 'USD',
 			billingMode: 'subscription'
 		}
-	])
+	]
+	state.provider.listProducts.mockImplementation(
+		async (input: { providerProductIds: string[] }): Promise<typeof providerProducts> => {
+			return providerProducts.filter((item) => {
+				return input.providerProductIds.includes(item.providerProductId)
+			})
+		}
+	)
 	state.provider.createCheckout.mockResolvedValue({
 		providerCheckoutSessionId: 'cs_1',
 		checkoutUrl: 'https://pay.example.com/cs_1'
@@ -1620,9 +1942,10 @@ function createMockDb(state: MockState): AppDb {
 				findFirst: async (): Promise<typeof checkoutOrder.$inferSelect | undefined> => {
 					if (state.queryQueue.checkoutOrder.length > 0) {
 						const queued = state.queryQueue.checkoutOrder.shift()
-						return queued
+						return queued ? withCheckoutSnapshot(queued) : undefined
 					}
-					return state.checkoutOrders[0]
+					const row = state.checkoutOrders[0]
+					return row ? withCheckoutSnapshot(row) : undefined
 				}
 			},
 			paymentTransaction: {
@@ -1657,7 +1980,13 @@ function createMockDb(state: MockState): AppDb {
 			return {
 				values: (payload: unknown): unknown => {
 					if (table === checkoutOrder) {
-						state.checkoutOrders.push(payload as typeof checkoutOrder.$inferSelect)
+						state.checkoutOrders.push(
+							payload as Partial<typeof checkoutOrder.$inferSelect> &
+								Pick<
+									typeof checkoutOrder.$inferSelect,
+									'id' | 'userId' | 'type' | 'status' | 'productId' | 'provider' | 'providerProductId'
+								>
+						)
 						return Promise.resolve()
 					}
 					if (table === paymentTransaction) {
@@ -1723,6 +2052,34 @@ function createMockDb(state: MockState): AppDb {
 		}
 	}
 	return db as unknown as AppDb
+}
+
+function withCheckoutSnapshot(
+	row: Partial<typeof checkoutOrder.$inferSelect> &
+		Pick<
+			typeof checkoutOrder.$inferSelect,
+			'id' | 'userId' | 'type' | 'status' | 'productId' | 'provider' | 'providerProductId'
+		>
+): typeof checkoutOrder.$inferSelect {
+	const amount = row.amount ?? (row.productId === 'credits_1000' ? 1000 : row.productId === 'pro_monthly' ? 1990 : 3990)
+	const periodCreditsAmount =
+		row.periodCreditsAmount ?? (row.productId === 'pro_monthly' ? 3000 : row.productId === 'team_monthly' ? 6000 : null)
+	return {
+		productName: row.productName ?? row.productId,
+		productDescription: row.productDescription ?? null,
+		amount,
+		currency: row.currency ?? 'USD',
+		creditsAmount: row.creditsAmount ?? (row.productId === 'credits_1000' ? 1000 : null),
+		subscriptionPlan:
+			row.subscriptionPlan ?? (row.productId === 'pro_monthly' ? 'pro' : row.productId === 'team_monthly' ? 'team' : null),
+		periodCreditsAmount,
+		providerCheckoutSessionId: row.providerCheckoutSessionId ?? null,
+		providerPaymentId: row.providerPaymentId ?? null,
+		checkoutUrl: row.checkoutUrl ?? null,
+		createdAt: row.createdAt ?? 0,
+		updatedAt: row.updatedAt ?? 0,
+		...row
+	}
 }
 
 function createProviderMock(): {

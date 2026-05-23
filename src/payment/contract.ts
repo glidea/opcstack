@@ -1,4 +1,4 @@
-import type { PaymentProviderName } from './config'
+import type { PaymentProviderName, PaymentProviderProductConfig } from './config'
 
 export const PAYMENT_BILLING_MODE_ONE_TIME = 'one_time'
 export const PAYMENT_BILLING_MODE_SUBSCRIPTION = 'subscription'
@@ -52,8 +52,13 @@ export interface ProviderProduct {
 
 export interface CreateCheckoutInput {
 	checkoutOrderId: string
-	providerProductId: string
+	providerConfig: PaymentProviderProductConfig
+	productName: string
+	productDescription: string | null
+	amount: number
+	currency: string
 	customerEmail: string
+	notifyUrl: string
 	returnUrl: string
 }
 

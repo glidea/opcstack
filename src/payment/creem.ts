@@ -176,9 +176,13 @@ export class CreemPaymentProvider implements PaymentProvider {
 	}
 
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
+		if (input.providerConfig.kind !== 'remote_product') {
+			throw new Error('PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID')
+		}
+
 		const checkout: CreemCheckout = await this.client.checkouts.create({
 			requestId: input.checkoutOrderId,
-			productId: input.providerProductId,
+			productId: input.providerConfig.productId,
 			units: 1,
 			customer: {
 				email: input.customerEmail

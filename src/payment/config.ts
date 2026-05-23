@@ -4,19 +4,40 @@ export const PAYMENT_PROVIDER_DODO = 'dodo'
 export const PAYMENT_PROVIDER_CREEM = 'creem'
 
 export type PaymentProviderName = typeof PAYMENT_PROVIDER_DODO | typeof PAYMENT_PROVIDER_CREEM
+export type PaymentProductType = 'one_time' | 'subscription'
 
 export interface PaymentProviderCountryOverride {
 	country: string
 	provider: PaymentProviderName
 }
 
+export interface RemotePaymentProviderProductConfig {
+	kind: 'remote_product'
+	productId: string
+}
+
+export interface InlinePaymentProviderProductConfig {
+	kind: 'inline_product'
+	name: string
+	description: string | null
+	amount: number
+	currency: string
+	payType: string | null
+	productCode: string | null
+}
+
+export type PaymentProviderProductConfig =
+	| RemotePaymentProviderProductConfig
+	| InlinePaymentProviderProductConfig
+
 export interface PaymentProductConfig {
 	productId: string
+	type: PaymentProductType
 	creditsAmount: number | null
 	subscriptionPlan: string | null
 	upgradeRank: number | null
 	periodCreditsAmount: number | null
-	providerProductIds: Partial<Record<PaymentProviderName, string>>
+	providers: Partial<Record<PaymentProviderName, PaymentProviderProductConfig>>
 }
 
 export interface PaymentConfig {
@@ -71,35 +92,32 @@ export class PaymentProviderRouter {
 }
 
 export function parsePaymentConfig(env: Env): PaymentConfig {
-	const providers = parseProviders(env.PAYMENT_PROVIDERS)
-	const defaultProvider = parseDefaultProvider(env.PAYMENT_DEFAULT_PROVIDER, providers)
+	const enabled = String(env.PAYMENT_ENABLED) === 'true'
+	const products = parseProducts(env.PAYMENT_PRODUCTS)
+	const providers = collectProviders(products)
+	if (!enabled && providers.length === 0) {
+		return {
+			enabled,
+			providers,
+			defaultProvider: toProviderName(env.PAYMENT_PROVIDER),
+			providerCountryOverrides: [],
+			products
+		}
+	}
+
+	const defaultProvider = parseDefaultProvider(env.PAYMENT_PROVIDER, providers)
 	const providerCountryOverrides = parseCountryOverrides(
 		env.PAYMENT_PROVIDER_COUNTRY_OVERRIDES,
 		providers
 	)
-	const products = parseProducts(env.PAYMENT_PRODUCTS)
 
 	return {
-		enabled: String(env.PAYMENT_ENABLED) === 'true',
+		enabled,
 		providers,
 		defaultProvider,
 		providerCountryOverrides,
 		products
 	}
-}
-
-function parseProviders(raw: string): PaymentProviderName[] {
-	const providers = raw
-		.split(';')
-		.map((item) => item.trim())
-		.filter((item) => item !== '')
-		.map((item) => toProviderName(item))
-
-	if (providers.length === 0) {
-		throw new PaymentConfigError('PAYMENT_PROVIDERS_INVALID')
-	}
-
-	return providers
 }
 
 function parseDefaultProvider(
@@ -108,7 +126,7 @@ function parseDefaultProvider(
 ): PaymentProviderName {
 	const value = toProviderName(raw.trim())
 	if (!providers.includes(value)) {
-		throw new PaymentConfigError('PAYMENT_DEFAULT_PROVIDER_INVALID')
+		throw new PaymentConfigError('PAYMENT_PROVIDER_INVALID')
 	}
 	return value
 }
@@ -148,11 +166,12 @@ function parseProducts(raw: string): PaymentProductConfig[] {
 
 	const value = JSON.parse(raw) as Array<{
 		product_id?: string
+		type?: string
 		credits_amount?: string
 		subscription_plan?: string
 		upgrade_rank?: number
 		period_credits_amount?: string
-		provider_product_ids?: Record<string, string>
+		providers?: Record<string, unknown>
 	}>
 	const products: PaymentProductConfig[] = []
 
@@ -162,35 +181,80 @@ function parseProducts(raw: string): PaymentProductConfig[] {
 			throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
 		}
 
-		const providerProductIds = parseProviderProductIds(item.provider_product_ids)
-
 		products.push({
 			productId,
+			type: parseProductType(item.type),
 			creditsAmount: toNullableCreditUnits(item.credits_amount),
 			subscriptionPlan: toNullableText(item.subscription_plan),
 			upgradeRank: toNullableInt(item.upgrade_rank),
 			periodCreditsAmount: toNullableCreditUnits(item.period_credits_amount),
-			providerProductIds
+			providers: parseProductProviders(item.providers)
 		})
 	}
 
 	return products
 }
 
-function parseProviderProductIds(
-	input: Record<string, string> | undefined
-): Partial<Record<PaymentProviderName, string>> {
+function parseProductProviders(
+	input: Record<string, unknown> | undefined
+): Partial<Record<PaymentProviderName, PaymentProviderProductConfig>> {
 	const source = input ?? {}
-	const result: Partial<Record<PaymentProviderName, string>> = {}
+	const result: Partial<Record<PaymentProviderName, PaymentProviderProductConfig>> = {}
 	for (const key in source) {
 		const provider = toProviderName(key)
-		const value = source[key]?.trim() ?? ''
-		if (value === '') {
+		const value = source[key]
+		if (!isRecord(value)) {
 			throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
 		}
-		result[provider] = value
+		result[provider] = parseProviderProductConfig(value)
 	}
 	return result
+}
+
+function parseProviderProductConfig(input: Record<string, unknown>): PaymentProviderProductConfig {
+	const kind = String(input['kind'] ?? '').trim()
+	switch (kind) {
+		case 'remote_product':
+			return {
+				kind,
+				productId: requireText(input['product_id'])
+			}
+		case 'inline_product':
+			return {
+				kind,
+				name: requireText(input['name']),
+				description: toNullableText(input['description']),
+				amount: requireInt(input['amount']),
+				currency: requireText(input['currency']).toUpperCase(),
+				payType: toNullableText(input['pay_type']),
+				productCode: toNullableText(input['product_code'])
+			}
+		default:
+			throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
+	}
+}
+
+function collectProviders(products: PaymentProductConfig[]): PaymentProviderName[] {
+	const providers: PaymentProviderName[] = []
+	for (const product of products) {
+		for (const key in product.providers) {
+			const provider = toProviderName(key)
+			if (!providers.includes(provider)) {
+				providers.push(provider)
+			}
+		}
+	}
+	return providers
+}
+
+function parseProductType(value: string | undefined): PaymentProductType {
+	switch (value) {
+		case 'one_time':
+		case 'subscription':
+			return value
+		default:
+			throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
+	}
 }
 
 function toProviderName(raw: string): PaymentProviderName {
@@ -211,6 +275,25 @@ function toNullableInt(value: number | undefined): number | null {
 	return value
 }
 
+function requireInt(value: unknown): number {
+	if (!Number.isInteger(value)) {
+		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
+	}
+	return value as number
+}
+
+function requireText(value: unknown): string {
+	const text = String(value ?? '').trim()
+	if (text === '') {
+		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
+	}
+	return text
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 function toNullableCreditUnits(value: string | undefined): number | null {
 	if (value === undefined) {
 		return null
@@ -222,11 +305,11 @@ function toNullableCreditUnits(value: string | undefined): number | null {
 	}
 }
 
-function toNullableText(value: string | undefined): string | null {
+function toNullableText(value: unknown): string | null {
 	if (value === undefined) {
 		return null
 	}
-	const text = value.trim()
+	const text = String(value).trim()
 	if (text === '') {
 		return null
 	}

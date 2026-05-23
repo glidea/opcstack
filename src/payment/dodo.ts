@@ -135,8 +135,12 @@ export class DodoPaymentProvider implements PaymentProvider {
 	}
 
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
+		if (input.providerConfig.kind !== 'remote_product') {
+			throw new Error('PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID')
+		}
+
 		const session: DodoCheckoutSessionResponse = await this.client.checkoutSessions.create({
-			product_cart: [{ product_id: input.providerProductId, quantity: 1 }],
+			product_cart: [{ product_id: input.providerConfig.productId, quantity: 1 }],
 			customer: { email: input.customerEmail },
 			return_url: input.returnUrl,
 			metadata: {

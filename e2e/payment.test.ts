@@ -1,4 +1,6 @@
 import { createHmac } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
+import { readdirSync } from 'node:fs'
 import { beforeAll, describe } from 'vitest'
 import { runCases, type TestCase } from '../src/testing/bdd'
 
@@ -15,12 +17,53 @@ interface ListResponse {
 	total: number
 }
 
+interface CreditSummaryResponse {
+	balance: string
+}
+
+interface PaymentTransactionListResponse {
+	items: Array<{
+		product_id: string
+		status: string
+		credits_granted: string
+	}>
+	total: number
+}
+
+interface LocalCreditsProduct {
+	productId: string
+	creditsAmount: string
+	providerProductId: string
+}
+
+interface LocalPaymentProductConfig {
+	product_id?: string
+	credits_amount?: string
+	providers?: {
+		creem?: LocalPaymentProviderProductConfig
+	}
+}
+
+interface LocalPaymentProviderProductConfig {
+	kind?: string
+	product_id?: string
+}
+
+interface LocalPaymentFixture {
+	token: string
+	userId: string
+	checkoutOrderId: string
+	webhookId: string
+	providerPaymentId: string
+	product: LocalCreditsProduct
+}
+
 type E2EEnv = {
 	APP_BASE_URL?: string
+	E2E_REMOTE?: string
 	E2E_ADMIN_SECRET?: string
 	E2E_PAYMENT_ENABLED?: string
-	E2E_PAYMENT_PROVIDERS?: string
-	E2E_PAYMENT_DEFAULT_PROVIDER?: string
+	E2E_PAYMENT_PROVIDER?: string
 	E2E_PAYMENT_PRODUCTS?: string
 	E2E_PAYMENT_CREEM_WEBHOOK_SECRET?: string
 }
@@ -28,20 +71,25 @@ type E2EEnv = {
 const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
+const isRemote: boolean = e2eEnv.E2E_REMOTE === '1'
 const adminSecret: string = e2eEnv.E2E_ADMIN_SECRET ?? ''
 const paymentEnabled: boolean = e2eEnv.E2E_PAYMENT_ENABLED === 'true'
-const paymentProviders: string = e2eEnv.E2E_PAYMENT_PROVIDERS ?? ''
-const paymentDefaultProvider: string = e2eEnv.E2E_PAYMENT_DEFAULT_PROVIDER ?? ''
+const paymentProvider: string = e2eEnv.E2E_PAYMENT_PROVIDER ?? ''
 const paymentProducts: string = e2eEnv.E2E_PAYMENT_PRODUCTS ?? ''
 const paymentCreemWebhookSecret: string = e2eEnv.E2E_PAYMENT_CREEM_WEBHOOK_SECRET ?? ''
 const hasPaymentConfig: boolean =
-	paymentProviders.trim() !== '' &&
-	paymentDefaultProvider.trim() !== '' &&
+	paymentProvider.trim() !== '' &&
 	paymentProducts.trim() !== ''
 const hasCreemWebhookConfig: boolean =
 	adminSecret !== '' &&
-	paymentProviders.split(';').includes('creem') &&
+	paymentProvider === 'creem' &&
 	paymentCreemWebhookSecret.trim() !== ''
+const localCreditsProduct: LocalCreditsProduct | null = readLocalCreditsProduct(paymentProducts)
+const canRunLocalPaymentWebhookFlow: boolean =
+	!isRemote && paymentEnabled && hasCreemWebhookConfig && localCreditsProduct !== null
+const expectedLocalCreditsAmount: string = normalizeCreditText(
+	localCreditsProduct?.creditsAmount ?? '0'
+)
 
 describe('payment api e2e', () => {
 	beforeAll(async () => {
@@ -375,14 +423,126 @@ describe('payment api e2e', () => {
 			}
 		})
 	})
+
+	describe.skipIf(!canRunLocalPaymentWebhookFlow)('local webhook payment grant flow', () => {
+		type LocalWebhookGiven = Record<string, never>
+		type LocalWebhookWhen = {
+			action: 'post_creem_checkout_completed_twice'
+		}
+		type LocalWebhookThen = {
+			beforeTransactionStatus: number
+			beforeTransactionTotal: number
+			firstWebhookStatus: number
+			secondWebhookStatus: number
+			afterStatus: number
+			afterBalance: string
+			transactionStatus: number
+			transactionTotal: number
+			transactionProductMatched: boolean
+			transactionPaid: boolean
+			transactionCreditsGranted: string
+		}
+
+		const localWebhookCases: TestCase<LocalWebhookGiven, LocalWebhookWhen, LocalWebhookThen>[] = [
+			{
+				scenario: 'creem checkout webhook grants credits once',
+				given: 'local user and pending checkout order',
+				when: 'posting the same checkout.completed webhook twice',
+				then: 'credits and payment transaction are created once',
+				givenDetail: {},
+				whenDetail: {
+					action: 'post_creem_checkout_completed_twice'
+				},
+				thenExpected: {
+					beforeTransactionStatus: 200,
+					beforeTransactionTotal: 0,
+					firstWebhookStatus: 200,
+					secondWebhookStatus: 200,
+					afterStatus: 200,
+					afterBalance: expectedLocalCreditsAmount,
+					transactionStatus: 200,
+					transactionTotal: 1,
+					transactionProductMatched: true,
+					transactionPaid: true,
+					transactionCreditsGranted: expectedLocalCreditsAmount
+				},
+				timeoutMs: 45_000
+			}
+		]
+
+		runCases(localWebhookCases, async (): Promise<LocalWebhookThen> => {
+			if (localCreditsProduct === null) {
+				throw new Error('LOCAL_PAYMENT_PRODUCT_NOT_FOUND')
+			}
+			const fixture: LocalPaymentFixture = createLocalPaymentFixture(
+				String(Date.now()),
+				localCreditsProduct
+			)
+			const beforeTransactionsRes: Response = await listPaymentTransactions(fixture.token)
+			const beforeTransactionsPayload =
+				(await beforeTransactionsRes.json()) as PaymentTransactionListResponse
+			const rawBody: string = buildCreemCheckoutCompletedWebhook(fixture)
+			const firstWebhook: Response = await postCreemWebhook(rawBody)
+			const secondWebhook: Response = await postCreemWebhook(rawBody)
+			const afterRes: Response = await postJson(
+				'/api/get_credit_summary',
+				{},
+				{
+					authorization: `Bearer ${fixture.token}`
+				}
+			)
+			const afterPayload = (await afterRes.json()) as CreditSummaryResponse
+			const transactionsRes: Response = await listPaymentTransactions(fixture.token)
+			const transactionsPayload =
+				(await transactionsRes.json()) as PaymentTransactionListResponse
+			const transaction = transactionsPayload.items[0]
+
+			return {
+				beforeTransactionStatus: beforeTransactionsRes.status,
+				beforeTransactionTotal: beforeTransactionsPayload.total,
+				firstWebhookStatus: firstWebhook.status,
+				secondWebhookStatus: secondWebhook.status,
+				afterStatus: afterRes.status,
+				afterBalance: afterPayload.balance,
+				transactionStatus: transactionsRes.status,
+				transactionTotal: transactionsPayload.total,
+				transactionProductMatched: transaction?.product_id === fixture.product.productId,
+				transactionPaid: transaction?.status === 'paid',
+				transactionCreditsGranted: transaction?.credits_granted ?? ''
+			}
+		})
+	})
 })
 
-function postJson(path: string, body: unknown): Promise<Response> {
+function listPaymentTransactions(token: string): Promise<Response> {
+	return postJson(
+		'/api/list_payment_transactions',
+		{
+			page: 1,
+			page_size: 20
+		},
+		{
+			authorization: `Bearer ${token}`
+		}
+	)
+}
+
+function postJson(
+	path: string,
+	body: unknown,
+	extraHeaders?: Record<string, string>
+): Promise<Response> {
+	const headers: Headers = new Headers({
+		'content-type': 'application/json'
+	})
+	if (extraHeaders) {
+		for (const [key, value] of Object.entries(extraHeaders)) {
+			headers.set(key, value)
+		}
+	}
 	return fetch(`${appBaseUrl}${path}`, {
 		method: 'POST',
-		headers: {
-			'content-type': 'application/json'
-		},
+		headers,
 		body: JSON.stringify(body)
 	})
 }
@@ -419,4 +579,107 @@ function postCreemWebhook(rawBody: string): Promise<Response> {
 
 function signCreemBody(rawBody: string): string {
 	return createHmac('sha256', paymentCreemWebhookSecret).update(rawBody).digest('hex')
+}
+
+function readLocalCreditsProduct(raw: string): LocalCreditsProduct | null {
+	if (raw.trim() === '') {
+		return null
+	}
+	const products = JSON.parse(raw) as LocalPaymentProductConfig[]
+	for (const product of products) {
+		const productId: string = product.product_id ?? ''
+		const creditsAmount: string = product.credits_amount ?? ''
+		const creemProvider: LocalPaymentProviderProductConfig | undefined =
+			product.providers?.creem
+		const providerProductId: string =
+			creemProvider?.kind === 'remote_product' ? (creemProvider.product_id ?? '') : ''
+		if (productId !== '' && creditsAmount !== '' && providerProductId !== '') {
+			return {
+				productId,
+				creditsAmount,
+				providerProductId
+			}
+		}
+	}
+	return null
+}
+
+function createLocalPaymentFixture(tag: string, product: LocalCreditsProduct): LocalPaymentFixture {
+	const now: number = Date.now()
+	const cleanTag: string = tag.replace(/[^a-zA-Z0-9_]/g, '_')
+	const userId: string = `u_payment_${cleanTag}`
+	const sessionId: string = `s_payment_${cleanTag}`
+	const token: string = `t_payment_${cleanTag}`
+	const checkoutOrderId: string = `co_payment_${cleanTag}`
+	const webhookId: string = `evt_payment_${cleanTag}`
+	const providerPaymentId: string = `txn_payment_${cleanTag}`
+	const email: string = `${userId}@example.com`
+	const expiresAt: number = now + 30 * 24 * 60 * 60 * 1000
+	const sql: string = [
+		'PRAGMA busy_timeout=5000;',
+		`INSERT INTO user (id, name, email, aff_code, email_verified, image, created_at, updated_at) VALUES (${sqlText(userId)}, 'e2e-user', ${sqlText(email)}, NULL, 1, NULL, ${now}, ${now});`,
+		`INSERT INTO session (id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id) VALUES (${sqlText(sessionId)}, ${expiresAt}, ${sqlText(token)}, ${now}, ${now}, NULL, 'e2e', ${sqlText(userId)});`,
+		`INSERT INTO checkout_orders (id, user_id, type, status, product_id, product_name, product_description, amount, currency, credits_amount, provider, provider_product_id, provider_checkout_session_id, provider_payment_id, checkout_url, created_at, updated_at) VALUES (${sqlText(checkoutOrderId)}, ${sqlText(userId)}, 'credits_purchase', 'pending', ${sqlText(product.productId)}, ${sqlText(product.productId)}, NULL, 1000, 'USD', ${creditsToUnits(product.creditsAmount)}, 'creem', ${sqlText(product.providerProductId)}, ${sqlText(`cs_${cleanTag}`)}, NULL, ${sqlText('https://example.com/checkout')}, ${now}, ${now});`
+	].join(' ')
+	execFileSync('sqlite3', [readLocalD1SqlitePath(), sql], {
+		stdio: 'ignore'
+	})
+
+	return {
+		token,
+		userId,
+		checkoutOrderId,
+		webhookId,
+		providerPaymentId,
+		product
+	}
+}
+
+function buildCreemCheckoutCompletedWebhook(fixture: LocalPaymentFixture): string {
+	return JSON.stringify({
+		id: fixture.webhookId,
+		eventType: 'checkout.completed',
+		created_at: Date.now(),
+		object: {
+			request_id: fixture.checkoutOrderId,
+			metadata: {
+				checkout_order_id: fixture.checkoutOrderId
+			},
+			order: {
+				transaction: fixture.providerPaymentId,
+				amount: 1000,
+				currency: 'USD'
+			}
+		}
+	})
+}
+
+function normalizeCreditText(value: string): string {
+	const parts: string[] = value.split('.')
+	const whole: string = parts[0]
+	const fraction: string = parts[1] ?? ''
+	return `${whole}.${fraction.padEnd(6, '0').slice(0, 6)}`
+}
+
+function creditsToUnits(value: string): number {
+	const normalized: string = normalizeCreditText(value)
+	const parts: string[] = normalized.split('.')
+	const whole: string = parts[0]
+	const fraction: string = parts[1] ?? '000000'
+	return Number(whole) * 1_000_000 + Number(fraction)
+}
+
+function readLocalD1SqlitePath(): string {
+	const dir: string = '.wrangler/state/v3/d1/miniflare-D1DatabaseObject'
+	const files: string[] = readdirSync(dir).filter((file: string): boolean => {
+		return file.endsWith('.sqlite') && file !== 'metadata.sqlite'
+	})
+	if (files.length !== 1) {
+		throw new Error('LOCAL_D1_SQLITE_NOT_FOUND')
+	}
+	return `${dir}/${files[0]}`
+}
+
+function sqlText(value: string): string {
+	return `'${value.replaceAll("'", "''")}'`
 }
