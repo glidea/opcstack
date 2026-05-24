@@ -70,6 +70,7 @@ export function authCore(env: Env, db: MetaDb) {
       }
     },
     emailVerification: {
+      sendOnSignUp: false,
       autoSignInAfterVerification: true
     },
     emailAndPassword: buildEmailAndPassword(env),

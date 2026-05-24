@@ -16,6 +16,7 @@
 		googleAuthEnabled,
 		emailEnabled,
 		emailSignupEnabled,
+		emailRequireVerification,
 		emailUserActionCooldownSeconds,
 		termsHref = '/terms',
 		privacyHref = '/privacy',
@@ -29,6 +30,7 @@
 		googleAuthEnabled: boolean
 		emailEnabled: boolean
 		emailSignupEnabled: boolean
+		emailRequireVerification: boolean
 		emailUserActionCooldownSeconds: number
 		termsHref?: string
 		privacyHref?: string
@@ -60,6 +62,11 @@
 			loading = false
 			turnstileRef?.reset()
 			error = resolveEmailError(result.error, $_('auth.register.submit'))
+			return
+		}
+		if (!emailRequireVerification) {
+			loading = false
+			onSuccess?.(email)
 			return
 		}
 		const otpResult = await authClient.emailOtp.sendVerificationOtp({

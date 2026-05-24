@@ -90,6 +90,7 @@
 				googleAuthEnabled={true}
 				emailEnabled={true}
 				emailSignupEnabled={true}
+				emailRequireVerification={true}
 				emailUserActionCooldownSeconds={60}
 				loginHref="#"
 				turnstileEnabled={false}

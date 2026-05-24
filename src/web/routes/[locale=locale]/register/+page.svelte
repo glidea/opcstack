@@ -45,6 +45,7 @@
 			googleAuthEnabled={data.publicConfig.google_auth_enabled}
 			emailEnabled={data.publicConfig.email_enabled}
 			emailSignupEnabled={data.publicConfig.email_signup_enabled}
+			emailRequireVerification={data.publicConfig.email_require_verification}
 			emailUserActionCooldownSeconds={data.publicConfig.email_user_action_cooldown_seconds}
 			refundHref={data.publicConfig.payment_enabled ? '/refund-policy' : undefined}
 			turnstileEnabled={data.publicConfig.turnstile_enabled}

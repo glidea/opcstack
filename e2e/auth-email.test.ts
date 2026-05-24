@@ -113,6 +113,8 @@ describe('email auth e2e', () => {
 		}
 		type FlowThen = {
 			signupStatus: number
+			sendOtpStatus: number
+			verifyEmailCount: number
 			wrongOtpStatus: number
 			otpStatus: number
 			signInStatus: number
@@ -131,6 +133,8 @@ describe('email auth e2e', () => {
 				},
 				thenExpected: {
 					signupStatus: 200,
+					sendOtpStatus: 200,
+					verifyEmailCount: 1,
 					wrongOtpStatus: 400,
 					otpStatus: 200,
 					signInStatus: 200,
@@ -149,6 +153,8 @@ describe('email auth e2e', () => {
 				},
 				thenExpected: {
 					signupStatus: 200,
+					sendOtpStatus: 200,
+					verifyEmailCount: 1,
 					wrongOtpStatus: 400,
 					otpStatus: 200,
 					signInStatus: 200,
@@ -199,6 +205,8 @@ describe('email auth e2e', () => {
 			const signInPayload = (await signInRes.json()) as { token?: string }
 			return {
 				signupStatus: baseResult.signupStatus,
+				sendOtpStatus: baseResult.sendOtpStatus,
+				verifyEmailCount: baseResult.verifyEmailCount,
 				wrongOtpStatus: wrongResetRes.status,
 				otpStatus: resetRes.status,
 				signInStatus: signInRes.status,
@@ -210,6 +218,8 @@ describe('email auth e2e', () => {
 
 async function signupVerifyAndSignIn(tag: string, password: string): Promise<{
 	signupStatus: number
+	sendOtpStatus: number
+	verifyEmailCount: number
 	wrongOtpStatus: number
 	otpStatus: number
 	signInStatus: number
@@ -225,6 +235,24 @@ async function signupVerifyAndSignIn(tag: string, password: string): Promise<{
 	if (!signupRes.ok) {
 		return {
 			signupStatus: signupRes.status,
+			sendOtpStatus: 0,
+			verifyEmailCount: 0,
+			wrongOtpStatus: 0,
+			otpStatus: 0,
+			signInStatus: 0,
+			hasToken: false
+		}
+	}
+
+	const sendOtpRes = await postJson('/api/auth/email-otp/send-verification-otp', {
+		email,
+		type: 'email-verification'
+	})
+	if (!sendOtpRes.ok) {
+		return {
+			signupStatus: signupRes.status,
+			sendOtpStatus: sendOtpRes.status,
+			verifyEmailCount: 0,
 			wrongOtpStatus: 0,
 			otpStatus: 0,
 			signInStatus: 0,
@@ -233,6 +261,7 @@ async function signupVerifyAndSignIn(tag: string, password: string): Promise<{
 	}
 
 	const otp = await readEmailOtp(email, 'Verify your email', signupStartedAt)
+	const verifyEmailCount = await countEmails(email, 'Verify your email', signupStartedAt)
 	const wrongOtp = otp === '000000' ? '999999' : '000000'
 	const wrongOtpRes = await postJson('/api/auth/email-otp/verify-email', {
 		email,
@@ -249,11 +278,33 @@ async function signupVerifyAndSignIn(tag: string, password: string): Promise<{
 	const signInPayload = (await signInRes.json()) as { token?: string }
 	return {
 		signupStatus: signupRes.status,
+		sendOtpStatus: sendOtpRes.status,
+		verifyEmailCount,
 		wrongOtpStatus: wrongOtpRes.status,
 		otpStatus: verifyRes.status,
 		signInStatus: signInRes.status,
 		hasToken: Boolean(signInPayload.token)
 	}
+}
+
+async function countEmails(email: string, subject: string, startedAt: number): Promise<number> {
+	const resend = new Resend(emailResendApiKey)
+	const listRes = await resend.emails.list({ limit: 100 })
+	const lowerEmail = email.toLowerCase()
+	return (
+		listRes.data?.data.filter((candidate) => {
+			const createdAt = Date.parse(candidate.created_at)
+			if (!Number.isFinite(createdAt) || createdAt < startedAt) {
+				return false
+			}
+			if (!candidate.subject.includes(subject)) {
+				return false
+			}
+			return candidate.to.some((to) => {
+				return to.toLowerCase() === lowerEmail
+			})
+		}).length ?? 0
+	)
 }
 
 async function readEmailOtp(

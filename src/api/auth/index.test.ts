@@ -371,6 +371,7 @@ describe('authCore email callbacks', () => {
 		otpDisableSignUp: boolean
 		otpSendVerificationOnSignUp: boolean
 		otpOverrideDefaultEmailVerification: boolean
+		emailVerificationSendOnSignUp: boolean
 		emailAutoSignInAfterVerification: boolean
 	}
 
@@ -402,6 +403,7 @@ describe('authCore email callbacks', () => {
 				otpDisableSignUp: true,
 				otpSendVerificationOnSignUp: false,
 				otpOverrideDefaultEmailVerification: true,
+				emailVerificationSendOnSignUp: false,
 				emailAutoSignInAfterVerification: true
 			}
 		}
@@ -484,10 +486,20 @@ describe('authCore email callbacks', () => {
 			otpDisableSignUp: emailOtpOptions?.disableSignUp ?? false,
 			otpSendVerificationOnSignUp: emailOtpOptions?.sendVerificationOnSignUp ?? true,
 			otpOverrideDefaultEmailVerification: emailOtpOptions?.overrideDefaultEmailVerification ?? false,
+			emailVerificationSendOnSignUp: readEmailVerificationSendOnSignUp(),
 			emailAutoSignInAfterVerification: readEmailAutoSignInAfterVerification()
 		}
 	})
 })
+
+function readEmailVerificationSendOnSignUp(): boolean {
+	const options = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
+		emailVerification?: {
+			sendOnSignUp?: boolean
+		}
+	}
+	return options.emailVerification?.sendOnSignUp ?? true
+}
 
 function readEmailAutoSignInAfterVerification(): boolean {
 	const options = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
