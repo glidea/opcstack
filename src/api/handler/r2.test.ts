@@ -3,7 +3,12 @@ import type { Context } from 'hono'
 import { runCases, type TestCase } from '../../testing/bdd'
 import type { ApiEnv } from '..'
 import { signR2Origin } from '../../r2'
-import { readR2ImageOriginHandler, readR2ObjectHandler, toR2Key } from './r2'
+import {
+	createR2UploadUrlHandler,
+	readR2ImageOriginHandler,
+	readR2ObjectHandler,
+	toR2Key
+} from './r2'
 
 beforeEach(() => {
 	vi.unstubAllGlobals()
@@ -143,7 +148,7 @@ describe('readR2ImageOriginHandler', () => {
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
 			scenario: 'rejects origin request without signature',
-			given: 'an origin request without hmac headers',
+			given: 'an origin request without hmac query',
 			when: 'reading r2 origin',
 			then: 'returns forbidden',
 			givenDetail: {
@@ -188,7 +193,7 @@ describe('readR2ImageOriginHandler', () => {
 		},
 		{
 			scenario: 'reads origin request with valid signature',
-			given: 'an origin request with valid hmac headers',
+			given: 'an origin request with valid hmac query',
 			when: 'reading r2 origin',
 			then: 'returns original r2 object',
 			givenDetail: {
@@ -207,23 +212,189 @@ describe('readR2ImageOriginHandler', () => {
 		const path = '/api/internal/r2_image_origin/public/images/a.png'
 		const expires = given.action === 'expired_signature' ? 1 : 4102444800
 		const headers = new Headers()
+		const query = new Map<string, string>()
 		if (given.action !== 'missing_signature') {
-			headers.set('x-r2-origin-expires', String(expires))
+			query.set('expires', String(expires))
 			if (given.action === 'wrong_signature') {
-				headers.set('x-r2-origin-signature', 'bad-signature')
+				query.set('signature', 'bad-signature')
 			} else {
-				headers.set(
-					'x-r2-origin-signature',
-					await signR2Origin('test-secret', 'GET', path, expires)
-				)
+				query.set('signature', await signR2Origin('test-secret', 'GET', path, expires))
 			}
 		}
 
-		const response = await readR2ImageOriginHandler(createContext(path, headers))
+		const response = await readR2ImageOriginHandler(createContext(path, headers, undefined, query))
 		return {
 			status: response.status,
 			contentType: response.headers.get('content-type') ?? '',
 			body: await response.text()
+		}
+	})
+})
+
+describe('createR2UploadUrlHandler', () => {
+	type GivenDetail = {
+		body: unknown
+		userId: string
+		noAccessKey?: boolean
+		allowedContentTypes?: string
+		maxBytes?: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: number
+		code: string
+		key: string
+		readUrl: string
+		hasUploadUrl: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'rejects invalid upload url request',
+			given: 'path is absolute',
+			when: 'creating upload url',
+			then: 'returns invalid request',
+			givenDetail: {
+				userId: 'u1',
+				body: {
+					path: '/avatars/me.png',
+					content_type: 'image/png',
+					size: 1024
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_REQUEST',
+				key: '',
+				readUrl: '',
+				hasUploadUrl: false
+			}
+		},
+		{
+			scenario: 'creates upload url for current user private path',
+			given: 'path and content type are valid',
+			when: 'creating upload url',
+			then: 'returns private key and signed upload url',
+			givenDetail: {
+				userId: 'u1',
+				body: {
+					path: 'avatars/me.png',
+					content_type: 'image/png',
+					size: 1024
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				key: 'private/u1/avatars/me.png',
+				readUrl: 'http://localhost:5173/api/r2/private/u1/avatars/me.png',
+				hasUploadUrl: true
+			}
+		},
+		{
+			scenario: 'fails when upload signing config is missing',
+			given: 'access key is empty',
+			when: 'creating upload url',
+			then: 'returns server error',
+			givenDetail: {
+				userId: 'u1',
+				noAccessKey: true,
+				body: {
+					path: 'avatars/me.png',
+					content_type: 'image/png',
+					size: 1024
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 500,
+				code: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED',
+				key: '',
+				readUrl: '',
+				hasUploadUrl: false
+			}
+		},
+		{
+			scenario: 'rejects disallowed upload content type',
+			given: 'content type is not configured as allowed',
+			when: 'creating upload url',
+			then: 'returns content type error',
+			givenDetail: {
+				userId: 'u1',
+				allowedContentTypes: 'image/png',
+				body: {
+					path: 'avatars/me.txt',
+					content_type: 'text/plain',
+					size: 1024
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED',
+				key: '',
+				readUrl: '',
+				hasUploadUrl: false
+			}
+		},
+		{
+			scenario: 'rejects upload size over limit',
+			given: 'size is greater than configured max bytes',
+			when: 'creating upload url',
+			then: 'returns size error',
+			givenDetail: {
+				userId: 'u1',
+				maxBytes: '100',
+				body: {
+					path: 'avatars/me.png',
+					content_type: 'image/png',
+					size: 101
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'R2_USER_UPLOAD_SIZE_TOO_LARGE',
+				key: '',
+				readUrl: '',
+				hasUploadUrl: false
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+		const env = createEnv()
+		if (given.noAccessKey) {
+			const writableEnv = env as unknown as { R2_ACCESS_KEY_ID: string }
+			writableEnv.R2_ACCESS_KEY_ID = ''
+		}
+		if (given.allowedContentTypes) {
+			const writableEnv = env as unknown as { R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: string }
+			writableEnv.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES = given.allowedContentTypes
+		}
+		if (given.maxBytes) {
+			const writableEnv = env as unknown as { R2_USER_UPLOAD_MAX_BYTES: string }
+			writableEnv.R2_USER_UPLOAD_MAX_BYTES = given.maxBytes
+		}
+
+		const response = await createR2UploadUrlHandler(
+			createJsonContext(given.userId, given.body, env)
+		)
+		const payload = (await response.json()) as {
+			code?: string
+			key?: string
+			read_url?: string
+			upload_url?: string
+		}
+		return {
+			status: response.status,
+			code: payload.code ?? '',
+			key: payload.key ?? '',
+			readUrl: payload.read_url ?? '',
+			hasUploadUrl: Boolean(payload.upload_url)
 		}
 	})
 })
@@ -234,7 +405,95 @@ type StoredObject = {
 	etag: string
 }
 
-function createContext(path: string, headers: Headers, variant?: string): Context<ApiEnv> {
+function createEnv(): Env & { R2: R2Bucket } {
+	const r2 = createR2Bucket()
+	return {
+		APP_NAME: 'opcstack',
+		APP_BASE_URL: 'http://localhost:5173',
+		R2_ACCOUNT_ID: 'abc',
+		R2_ACCESS_KEY_ID: 'access-key',
+		R2_SECRET_ACCESS_KEY: 'secret-key',
+		R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
+		R2_USER_UPLOAD_MAX_BYTES: '5242880',
+		R2_ORIGIN_SIGNING_SECRET: 'test-secret',
+		R2: r2
+	} as unknown as Env & { R2: R2Bucket }
+}
+
+function createJsonContext(
+	userId: string,
+	body: unknown,
+	env: Env & { R2: R2Bucket }
+): Context<ApiEnv> {
+	return {
+		env,
+		req: {
+			json: async <T>(): Promise<T> => {
+				return body as T
+			}
+		},
+		get: (key: string): unknown => {
+			if (key === 'userId') {
+				return userId
+			}
+			return undefined
+		},
+		json: (payload: unknown, status?: number): Response => {
+			return new Response(JSON.stringify(payload), {
+				status: status ?? 200,
+				headers: {
+					'content-type': 'application/json'
+				}
+			})
+		}
+	} as unknown as Context<ApiEnv>
+}
+
+function createContext(
+	path: string,
+	headers: Headers,
+	variant?: string,
+	query?: Map<string, string>
+): Context<ApiEnv> {
+	const r2 = createR2Bucket()
+
+	return {
+		env: {
+			APP_NAME: 'opcstack',
+			APP_BASE_URL: 'http://localhost:5173',
+			R2_ACCOUNT_ID: 'abc',
+			R2_ACCESS_KEY_ID: 'access-key',
+			R2_SECRET_ACCESS_KEY: 'secret-key',
+			R2_ORIGIN_SIGNING_SECRET: 'test-secret',
+			R2: r2
+		},
+		req: {
+			path,
+			header: (name: string): string | undefined => {
+				return headers.get(name) ?? undefined
+			},
+			query: (name: string): string | undefined => {
+				if (name === 'variant') {
+					return variant
+				}
+				return query?.get(name)
+			}
+		},
+		get: (): unknown => {
+			return undefined
+		},
+		json: (payload: unknown, status?: number): Response => {
+			return new Response(JSON.stringify(payload), {
+				status: status ?? 200,
+				headers: {
+					'content-type': 'application/json'
+				}
+			})
+		}
+	} as unknown as Context<ApiEnv>
+}
+
+function createR2Bucket(): R2Bucket {
 	const objects: Map<string, StoredObject> = new Map()
 	objects.set('public/images/a.png', {
 		body: 'image',
@@ -257,35 +516,5 @@ function createContext(path: string, headers: Headers, variant?: string): Contex
 			} as unknown as R2ObjectBody
 		}
 	} as R2Bucket
-
-	return {
-		env: {
-			APP_BASE_URL: 'http://localhost:5173',
-			R2_ORIGIN_SIGNING_SECRET: 'test-secret',
-			R2: r2
-		},
-		req: {
-			path,
-			header: (name: string): string | undefined => {
-				return headers.get(name) ?? undefined
-			},
-			query: (name: string): string | undefined => {
-				if (name === 'variant') {
-					return variant
-				}
-				return undefined
-			}
-		},
-		get: (): unknown => {
-			return undefined
-		},
-		json: (payload: unknown, status?: number): Response => {
-			return new Response(JSON.stringify(payload), {
-				status: status ?? 200,
-				headers: {
-					'content-type': 'application/json'
-				}
-			})
-		}
-	} as unknown as Context<ApiEnv>
+	return r2
 }

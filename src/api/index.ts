@@ -37,6 +37,7 @@ import {
 	upgradeSubscriptionHandler
 } from './handler/payment'
 import {
+	createR2UploadUrlHandler,
 	readR2ImageOriginHandler,
 	readR2ObjectHandler
 } from './handler/r2'
@@ -112,6 +113,7 @@ adminApi.post('/admin/list_payment_transactions', listAdminPaymentTransactionsHa
 const userApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 userApi.use('*', authMiddleware, betaGateMiddleware, tenantDbMiddleware)
 userApi.get('/r2/private/*', readR2ObjectHandler)
+userApi.post('/create_r2_upload_url', createR2UploadUrlHandler)
 userApi.post('/get_credit_summary', getCreditSummaryHandler)
 userApi.post(
 	'/list_credit_transactions',

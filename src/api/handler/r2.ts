@@ -1,12 +1,25 @@
 import type { Context } from 'hono'
+import { z } from 'zod'
 import type { ApiEnv } from '..'
 import { newR2Client, verifyR2Origin, type R2GetResult, type R2ImageVariantPreset } from '../../r2'
+import { parseRequest } from '../../lib/request'
 
 const R2_ROUTE_PREFIX = '/api/r2/'
 const R2_IMAGE_ORIGIN_ROUTE_PREFIX = '/api/internal/r2_image_origin/'
 
 const PUBLIC_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 const PRIVATE_CACHE_CONTROL = 'private, no-store'
+
+const CreateR2UploadUrlRequestSchema = z.object({
+	path: z.string().min(1).refine((path) => {
+		if (path.startsWith('/')) {
+			return false
+		}
+		return !path.split('/').includes('..')
+	}),
+	content_type: z.string().min(1),
+	size: z.number().int().min(1)
+})
 
 export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const key = toR2Key(ctx.req.path)
@@ -27,9 +40,45 @@ export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Respons
 	return toR2Response(ctx, result)
 }
 
+export async function createR2UploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const req = await parseRequest(ctx, CreateR2UploadUrlRequestSchema)
+	if (!req) {
+		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+	}
+
+	try {
+		const client = newR2Client(ctx.env, ctx.get('userId'))
+		const result = await client.createUploadUrl({
+			path: req.path,
+			contentType: req.content_type,
+			size: req.size
+		})
+		return ctx.json({
+			key: result.key,
+			upload_url: result.uploadUrl,
+			read_url: result.readUrl,
+			expires_at: result.expiresAt
+		})
+	} catch (error) {
+		if (error instanceof Error && error.message === 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED') {
+			return ctx.json({ code: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED' }, 500)
+		}
+		if (error instanceof Error && error.message === 'R2_NOT_CONFIGURED') {
+			return ctx.json({ code: 'R2_NOT_CONFIGURED' }, 500)
+		}
+		if (error instanceof Error && error.message === 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED') {
+			return ctx.json({ code: 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED' }, 400)
+		}
+		if (error instanceof Error && error.message === 'R2_USER_UPLOAD_SIZE_TOO_LARGE') {
+			return ctx.json({ code: 'R2_USER_UPLOAD_SIZE_TOO_LARGE' }, 400)
+		}
+		throw error
+	}
+}
+
 export async function readR2ImageOriginHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const expiresRaw = ctx.req.header('x-r2-origin-expires')
-	const signature = ctx.req.header('x-r2-origin-signature')
+	const expiresRaw = ctx.req.query('expires')
+	const signature = ctx.req.query('signature')
 	if (!expiresRaw || !signature) {
 		return ctx.json({}, 403)
 	}

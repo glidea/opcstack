@@ -4,6 +4,7 @@ const PRIVATE_PREFIX = 'private/'
 export interface R2Client {
 	put(input: R2PutInput): Promise<R2PutResult>
 	putImage(input: R2PutImageInput): Promise<R2PutResult>
+	createUploadUrl(input: R2CreateUploadUrlInput): Promise<R2CreateUploadUrlResult>
 	get(key: string): Promise<R2GetResult>
 	getImageVariant(key: string, preset: R2ImageVariantPreset): Promise<R2GetResult>
 	getImageVariantBytes(
@@ -29,6 +30,19 @@ export interface R2PutImageInput {
 	imageBase64: string
 	mimeType: string
 	filename?: string
+}
+
+export interface R2CreateUploadUrlInput {
+	path: string
+	contentType: string
+	size: number
+}
+
+export interface R2CreateUploadUrlResult {
+	key: string
+	uploadUrl: string
+	readUrl: string
+	expiresAt: number
 }
 
 export type R2GetResult =
@@ -58,6 +72,13 @@ export type R2ImageVariantBytesResult =
 type R2AccessResult = { status: 'ok' } | { status: 'forbidden' } | { status: 'not_found' }
 
 type R2Env = Env & { R2?: R2Bucket }
+
+type R2UploadSigningConfig = {
+	accountId: string
+	accessKeyId: string
+	secretAccessKey: string
+	bucket: string
+}
 
 export function newR2Client(env: R2Env, userId?: string): R2Client {
 	return new r2Client(env, userId)
@@ -108,6 +129,35 @@ class r2Client implements R2Client {
 		})
 	}
 
+	async createUploadUrl(input: R2CreateUploadUrlInput): Promise<R2CreateUploadUrlResult> {
+		if (!this.env.R2) {
+			throw new Error('R2_NOT_CONFIGURED')
+		}
+		if (!this.userId) {
+			throw new Error('R2_UPLOAD_USER_REQUIRED')
+		}
+		if (!isUploadPath(input.path)) {
+			throw new Error('R2_UPLOAD_PATH_INVALID')
+		}
+		if (!this.isUserUploadContentTypeAllowed(input.contentType)) {
+			throw new Error('R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED')
+		}
+		if (input.size > this.userUploadMaxBytes()) {
+			throw new Error('R2_USER_UPLOAD_SIZE_TOO_LARGE')
+		}
+
+		const config = this.uploadSigningConfig()
+		const key = `${PRIVATE_PREFIX}${this.userId}/${input.path}`
+		const expiresAt = Math.floor(Date.now() / 1000) + 60
+		const uploadUrl = await createR2PresignedPutUrl(config, key, input.contentType, expiresAt)
+		return {
+			key,
+			uploadUrl,
+			readUrl: `${trimRightSlash(this.env.APP_BASE_URL)}/api/r2/${key}`,
+			expiresAt
+		}
+	}
+
 	async get(key: string): Promise<R2GetResult> {
 		if (!this.env.R2) {
 			return { status: 'unavailable' }
@@ -150,12 +200,10 @@ class r2Client implements R2Client {
 		const originPath = `/api/internal/r2_image_origin/${key}`
 		const expires = Math.floor(Date.now() / 1000) + 60
 		const signature = await signR2Origin(secret, 'GET', originPath, expires)
-		const request = new Request(`${trimRightSlash(this.env.APP_BASE_URL)}${originPath}`, {
-			headers: {
-				'x-r2-origin-expires': String(expires),
-				'x-r2-origin-signature': signature
-			}
-		})
+		const url = new URL(`${trimRightSlash(this.env.APP_BASE_URL)}${originPath}`)
+		url.searchParams.set('expires', String(expires))
+		url.searchParams.set('signature', signature)
+		const request = new Request(url)
 		const response = await fetch(request, {
 			cf: {
 				image: toCfImageOptions(preset)
@@ -227,6 +275,73 @@ class r2Client implements R2Client {
 		}
 		return remaining.slice(0, index)
 	}
+
+	private uploadSigningConfig(): R2UploadSigningConfig {
+		if (
+			!this.env.R2_ACCOUNT_ID ||
+			!this.env.R2_ACCESS_KEY_ID ||
+			!this.env.R2_SECRET_ACCESS_KEY ||
+			!this.env.APP_NAME
+		) {
+			throw new Error('R2_UPLOAD_SIGNING_CONFIG_REQUIRED')
+		}
+
+		return {
+			accountId: this.env.R2_ACCOUNT_ID,
+			accessKeyId: this.env.R2_ACCESS_KEY_ID,
+			secretAccessKey: this.env.R2_SECRET_ACCESS_KEY,
+			bucket: this.env.APP_NAME
+		}
+	}
+
+	private isUserUploadContentTypeAllowed(contentType: string): boolean {
+		const allowedTypes = this.env.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES.split(';')
+		return allowedTypes.includes(contentType)
+	}
+
+	private userUploadMaxBytes(): number {
+		return Number(this.env.R2_USER_UPLOAD_MAX_BYTES)
+	}
+}
+
+async function createR2PresignedPutUrl(
+	config: R2UploadSigningConfig,
+	key: string,
+	contentType: string,
+	expiresAt: number
+): Promise<string> {
+	const now = new Date((expiresAt - 60) * 1000)
+	const date = awsDate(now)
+	const dateScope = date.slice(0, 8)
+	const credentialScope = `${dateScope}/auto/s3/aws4_request`
+	const host = `${config.accountId}.r2.cloudflarestorage.com`
+	const encodedKey = key.split('/').map(encodeURIComponent).join('/')
+	const path = `/${config.bucket}/${encodedKey}`
+	const params = new URLSearchParams()
+	params.set('X-Amz-Algorithm', 'AWS4-HMAC-SHA256')
+	params.set('X-Amz-Credential', `${config.accessKeyId}/${credentialScope}`)
+	params.set('X-Amz-Date', date)
+	params.set('X-Amz-Expires', '60')
+	params.set('X-Amz-SignedHeaders', 'content-type;host')
+
+	const canonicalRequest = [
+		'PUT',
+		path,
+		params.toString(),
+		`content-type:${contentType}\nhost:${host}\n`,
+		'content-type;host',
+		'UNSIGNED-PAYLOAD'
+	].join('\n')
+	const stringToSign = [
+		'AWS4-HMAC-SHA256',
+		date,
+		credentialScope,
+		await sha256Hex(canonicalRequest)
+	].join('\n')
+	const signingKey = await awsSigningKey(config.secretAccessKey, dateScope)
+	const signature = toHex(await hmacBytes(signingKey, stringToSign))
+	params.set('X-Amz-Signature', signature)
+	return `https://${host}${path}?${params.toString()}`
 }
 
 export async function signR2Origin(
@@ -272,6 +387,16 @@ function trimRightSlash(rawUrl: string): string {
 	return rawUrl
 }
 
+function isUploadPath(path: string): boolean {
+	if (path.length === 0) {
+		return false
+	}
+	if (path.startsWith('/')) {
+		return false
+	}
+	return !path.split('/').includes('..')
+}
+
 function extensionByMimeType(mimeType: string): string {
 	if (mimeType === 'image/jpeg') {
 		return 'jpg'
@@ -289,6 +414,38 @@ function toBytes(base64: string): Uint8Array {
 		bytes[i] = raw.charCodeAt(i)
 	}
 	return bytes
+}
+
+function awsDate(date: Date): string {
+	return date.toISOString().replaceAll('-', '').replaceAll(':', '').slice(0, 15) + 'Z'
+}
+
+async function sha256Hex(value: string): Promise<string> {
+	const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
+	return toHex(new Uint8Array(hash))
+}
+
+async function hmacBytes(key: Uint8Array, value: string): Promise<Uint8Array> {
+	const keyBytes = new Uint8Array(key)
+	const cryptoKey = await crypto.subtle.importKey(
+		'raw',
+		keyBytes.buffer,
+		{
+			name: 'HMAC',
+			hash: 'SHA-256'
+		},
+		false,
+		['sign']
+	)
+	const signature = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(value))
+	return new Uint8Array(signature)
+}
+
+async function awsSigningKey(secretAccessKey: string, dateScope: string): Promise<Uint8Array> {
+	const dateKey = await hmacBytes(new TextEncoder().encode(`AWS4${secretAccessKey}`), dateScope)
+	const regionKey = await hmacBytes(dateKey, 'auto')
+	const serviceKey = await hmacBytes(regionKey, 's3')
+	return hmacBytes(serviceKey, 'aws4_request')
 }
 
 function toCfImageOptions(preset: R2ImageVariantPreset): RequestInitCfPropertiesImage {

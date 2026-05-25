@@ -12,7 +12,9 @@ const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA'
 const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
 const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
+const R2_S3_TOKEN_CACHE_PATH = '.wrangler/r2-s3-token.json'
 const CLOUDFLARE_TOKEN_PERMISSIONS = [
+	{ key: 'api_tokens', type: 'edit' },
 	{ key: 'memberships', type: 'read' },
 	{ key: 'workers_scripts', type: 'edit' },
 	{ key: 'workers_kv_storage', type: 'edit' },
@@ -488,6 +490,87 @@ async function createR2Bucket(accountId, token, name) {
 	return cfApiRequest(token, 'POST', `/accounts/${accountId}/r2/buckets`, { name })
 }
 
+async function listPermissionGroups(token) {
+	const result = await cfApiRequest(token, 'GET', '/user/tokens/permission_groups', undefined)
+	return Array.isArray(result) ? result : []
+}
+
+async function createUserToken(token, body) {
+	return cfApiRequest(token, 'POST', '/user/tokens', body)
+}
+
+function readCachedR2S3Token(accountId, bucket) {
+	if (!existsSync(R2_S3_TOKEN_CACHE_PATH)) {
+		return null
+	}
+
+	const raw = readFileSync(R2_S3_TOKEN_CACHE_PATH, 'utf-8')
+	const token = JSON.parse(raw)
+	if (token.accountId !== accountId || token.bucket !== bucket) {
+		return null
+	}
+	if (!token.accessKeyId || !token.secretAccessKey) {
+		return null
+	}
+	return token
+}
+
+function writeCachedR2S3Token(token) {
+	mkdirSync('.wrangler', { recursive: true })
+	writeFileSync(R2_S3_TOKEN_CACHE_PATH, `${JSON.stringify(token, null, 2)}\n`, { mode: 0o600 })
+}
+
+function selectPermissionGroup(permissionGroups, permissionKey) {
+	const group = permissionGroups.find((item) => item?.key === permissionKey)
+	if (!group?.id) {
+		console.error(`Cloudflare permission group missing: ${permissionKey}`)
+		process.exit(1)
+	}
+	return group
+}
+
+async function ensureR2S3Token(accountId, token, bucket) {
+	const cachedToken = readCachedR2S3Token(accountId, bucket)
+	if (cachedToken) {
+		console.log(`Using cached R2 S3 token for bucket '${bucket}'`)
+		return cachedToken
+	}
+
+	console.log(`Creating R2 S3 token for bucket '${bucket}'...`)
+	const permissionGroups = await listPermissionGroups(token)
+	const r2WritePermission = selectPermissionGroup(permissionGroups, 'workers_r2')
+	const createdToken = await createUserToken(token, {
+		name: `OPCStack R2 Upload ${bucket}`,
+		policies: [
+			{
+				effect: 'allow',
+				resources: {
+					[`com.cloudflare.edge.r2.bucket.${accountId}_default_${bucket}`]: '*'
+				},
+				permission_groups: [
+					{
+						id: r2WritePermission.id
+					}
+				]
+			}
+		]
+	})
+
+	if (!createdToken?.id || !createdToken?.value) {
+		console.error('Failed to create R2 S3 token')
+		process.exit(1)
+	}
+
+	const r2Token = {
+		accountId,
+		bucket,
+		accessKeyId: createdToken.id,
+		secretAccessKey: createHash('sha256').update(createdToken.value).digest('hex')
+	}
+	writeCachedR2S3Token(r2Token)
+	return r2Token
+}
+
 async function listKVNamespaces(accountId, token) {
 	const result = await cfApiRequest(
 		token,
@@ -582,6 +665,7 @@ function isCI() {
 async function promptCloudflareApiToken() {
 	console.log('Cloudflare API token is required for remote deploy.')
 	console.log('Create a token with Account permissions:')
+	console.log('- API Tokens:Edit')
 	console.log('- Workers Scripts:Edit')
 	console.log('- Workers KV Storage:Edit')
 	console.log('- Workers Routes:Edit')
@@ -647,6 +731,7 @@ async function main() {
 	let kvNamespaceId = '00000000000000000000000000000000'
 	let accountId = ''
 	let cloudflareApiToken = ''
+	let r2S3Token = null
 
 	if (isRemote) {
 		console.log('\nResolving Cloudflare API token...')
@@ -745,6 +830,8 @@ async function main() {
 		} else {
 			console.log(`R2 bucket '${appName}' already exists.`)
 		}
+
+		r2S3Token = await ensureR2S3Token(accountId, cloudflareApiToken, appName)
 	}
 
 	if (isRemote) {
@@ -837,6 +924,9 @@ async function main() {
 
 	config.vars = config.vars || {}
 	config.vars.R2_ENABLED = r2Enabled ? 'true' : 'false'
+	config.vars.R2_ACCOUNT_ID = r2S3Token?.accountId || accountId || 'local'
+	config.vars.R2_ACCESS_KEY_ID = r2S3Token?.accessKeyId || 'local'
+	config.vars.R2_SECRET_ACCESS_KEY = r2S3Token?.secretAccessKey || 'local'
 	config.d1_databases = buildD1DatabaseBindings(appName, databaseId, shards, shardDatabaseIds)
 
 	if (r2Enabled) {
