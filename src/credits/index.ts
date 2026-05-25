@@ -37,6 +37,11 @@ export interface GrantCreditsInput {
 	nowMs?: number
 }
 
+export interface CreateCreditBalanceInput {
+	userId: string
+	nowMs?: number
+}
+
 export interface GrantCreditsResult {
 	balance: number
 	entryId: string
@@ -424,6 +429,15 @@ export class CreditsService {
 
 	constructor(db: TenantShardDb) {
 		this.db = db
+	}
+
+	async createBalance(input: CreateCreditBalanceInput): Promise<void> {
+		const nowMs: number = input.nowMs ?? Date.now()
+		await this.db.run(sql`
+        INSERT INTO credit_balances (user_id, balance, updated_at)
+        VALUES (${input.userId}, 0, ${nowMs})
+        ON CONFLICT(user_id) DO NOTHING
+      `)
 	}
 
 	async grant(input: GrantCreditsInput): Promise<GrantCreditsResult> {

@@ -41,6 +41,14 @@ export function authCore(env: Env, db: MetaDb) {
             }
           },
           after: async (createdUser: Record<string, unknown>): Promise<void> => {
+            const userId = String(createdUser['id'] ?? '')
+            if (userId === '') {
+              return
+            }
+
+            const tenant = await createTenantShardAccess(db, env).openUserDb(userId)
+            const credits = new CreditsService(tenant.db)
+            await credits.createBalance({ userId })
             if (!readCreditsSignupEnabled(env)) {
               return
             }
@@ -50,13 +58,6 @@ export function authCore(env: Env, db: MetaDb) {
               return
             }
 
-            const userId = String(createdUser['id'] ?? '')
-            if (userId === '') {
-              return
-            }
-
-            const tenant = await createTenantShardAccess(db, env).openUserDb(userId)
-            const credits = new CreditsService(tenant.db)
             await credits.grant({
               userId,
               type: 'signup',

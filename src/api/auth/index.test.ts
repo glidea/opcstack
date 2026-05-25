@@ -6,6 +6,20 @@ import { bearer, captcha, emailOTP } from 'better-auth/plugins'
 import { newEmailClients, type EmailSimpleSendInput } from '../../email'
 import type { Resend } from 'resend'
 
+const creditServiceMocks = vi.hoisted(() => {
+	return {
+		constructorArgs: [] as unknown[][],
+		createBalance: vi.fn(),
+		grant: vi.fn()
+	}
+})
+
+const shardRouterMocks = vi.hoisted(() => {
+	return {
+		openUserDb: vi.fn()
+	}
+})
+
 vi.mock('better-auth', () => {
 	return {
 		betterAuth: vi.fn()
@@ -37,6 +51,27 @@ vi.mock('better-auth/plugins', () => {
 vi.mock('../../email', () => {
 	return {
 		newEmailClients: vi.fn()
+	}
+})
+
+vi.mock('../../credits', async () => {
+	const actual = await vi.importActual<typeof import('../../credits')>('../../credits')
+	return {
+		...actual,
+		CreditsService: vi.fn().mockImplementation(function CreditsService(...args: unknown[]) {
+			creditServiceMocks.constructorArgs.push(args)
+			return creditServiceMocks
+		})
+	}
+})
+
+vi.mock('../../db/shard-router', () => {
+	return {
+		createTenantShardAccess: vi.fn(() => {
+			return {
+				openUserDb: shardRouterMocks.openUserDb
+			}
+		})
 	}
 })
 
@@ -492,6 +527,106 @@ describe('authCore email callbacks', () => {
 	})
 })
 
+describe('authCore user create hook', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		creditServiceMocks.constructorArgs = []
+		shardRouterMocks.openUserDb.mockResolvedValue({
+			shardId: 'shard_0001',
+			bindingName: 'TENANT_DB_0001',
+			db: { name: 'tenant-db' }
+		})
+		creditServiceMocks.createBalance.mockResolvedValue(undefined)
+		creditServiceMocks.grant.mockResolvedValue({
+			balance: 0,
+			entryId: '',
+			transactionId: '',
+			entryRemainingAmount: 0,
+			duplicated: false
+		})
+		vi.mocked(newEmailClients).mockReturnValue({
+			simple: {
+				send: createSendMock()
+			},
+			resend: {} as Resend
+		})
+		vi.mocked(betterAuth).mockImplementation((options) => {
+			return options as never
+		})
+	})
+
+	type GivenDetail = {
+		creditsSignupEnabled: string
+		creditsSignupAmount: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		openUserDbCalls: number
+		createBalanceCalls: number
+		grantCalls: number
+		createBalanceUserId: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'create zero credit balance when signup reward is disabled',
+			given: 'credits signup reward disabled',
+			when: 'better auth creates user',
+			then: 'tenant credit balance is initialized without grant transaction',
+			givenDetail: {
+				creditsSignupEnabled: 'false',
+				creditsSignupAmount: '0'
+			},
+			whenDetail: {},
+			thenExpected: {
+				openUserDbCalls: 1,
+				createBalanceCalls: 1,
+				grantCalls: 0,
+				createBalanceUserId: 'u1'
+			}
+		}
+	]
+
+	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
+		const env: Env = createEnv({
+			emailEnabled: 'true',
+			emailSignupEnabled: 'true',
+			emailRequireVerification: 'false',
+			cooldownSeconds: '50',
+			emailResendApiKey: 'resend-api-key',
+			emailFrom: 'Auth <auth@mg.example.com>'
+		})
+		type CreditSignupTestEnv = Omit<Env, 'CREDITS_SIGNUP_ENABLED' | 'CREDITS_SIGNUP_AMOUNT'> & {
+			CREDITS_SIGNUP_ENABLED: string
+			CREDITS_SIGNUP_AMOUNT: string
+		}
+		const testEnv = env as CreditSignupTestEnv
+		testEnv.CREDITS_SIGNUP_ENABLED = given.creditsSignupEnabled
+		testEnv.CREDITS_SIGNUP_AMOUNT = given.creditsSignupAmount
+
+		const auth = authCore(testEnv as unknown as Env, {} as never) as unknown as {
+			databaseHooks: {
+				user: {
+					create: {
+						after: (createdUser: Record<string, unknown>) => Promise<void>
+					}
+				}
+			}
+		}
+		await auth.databaseHooks.user.create.after({ id: 'u1' })
+
+		const createBalanceInput = creditServiceMocks.createBalance.mock.calls[0]?.[0] as
+			| { userId: string }
+			| undefined
+		return {
+			openUserDbCalls: shardRouterMocks.openUserDb.mock.calls.length,
+			createBalanceCalls: creditServiceMocks.createBalance.mock.calls.length,
+			grantCalls: creditServiceMocks.grant.mock.calls.length,
+			createBalanceUserId: createBalanceInput?.userId ?? ''
+		}
+	})
+})
+
 function readEmailVerificationSendOnSignUp(): boolean {
 	const options = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
 		emailVerification?: {
@@ -532,7 +667,9 @@ function createEnv(input: {
 		EMAIL_FROM: input.emailFrom,
 		EMAIL_SIGNUP_DOMAIN_ALLOWLIST: '',
 		BETA_CODE_ENABLED: 'false',
-		ADMIN_SECRET: 'admin-secret'
+		ADMIN_SECRET: 'admin-secret',
+		CREDITS_SIGNUP_ENABLED: 'false',
+		CREDITS_SIGNUP_AMOUNT: '0'
 	}
 	return env as unknown as Env
 }
