@@ -1,13 +1,19 @@
 import type { Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnv } from '..'
-import { newR2Client, verifyR2Origin, type R2GetResult, type R2ImageVariantPreset } from '../../r2'
+import {
+	newR2Client,
+	verifyR2Origin,
+	type R2GetResult,
+	type R2ImageVariantPreset
+} from '../../r2'
 import { parseRequest } from '../../lib/request'
 
 const R2_ROUTE_PREFIX = '/api/r2/'
 const R2_IMAGE_ORIGIN_ROUTE_PREFIX = '/api/internal/r2_image_origin/'
 
 const PUBLIC_CACHE_CONTROL = 'public, max-age=31536000, immutable'
+const TMP_PUBLIC_CACHE_CONTROL = 'public, max-age=300'
 const PRIVATE_CACHE_CONTROL = 'private, no-store'
 
 const CreateR2UploadUrlRequestSchema = z.object({
@@ -19,6 +25,10 @@ const CreateR2UploadUrlRequestSchema = z.object({
 	}),
 	content_type: z.string().min(1),
 	size: z.number().int().min(1)
+})
+
+const CreateR2TmpUploadUrlRequestSchema = CreateR2UploadUrlRequestSchema.extend({
+	visibility: z.enum(['public', 'private'])
 })
 
 export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Response> {
@@ -38,6 +48,43 @@ export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Respons
 
 	const result = await client.getImageVariant(key, variant)
 	return toR2Response(ctx, result)
+}
+
+export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const req = await parseRequest(ctx, CreateR2TmpUploadUrlRequestSchema)
+	if (!req) {
+		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+	}
+
+	try {
+		const client = newR2Client(ctx.env, ctx.get('userId'))
+		const result = await client.createTmpUploadUrl({
+			visibility: req.visibility,
+			path: req.path,
+			contentType: req.content_type,
+			size: req.size
+		})
+		return ctx.json({
+			key: result.key,
+			upload_url: result.uploadUrl,
+			read_url: result.readUrl,
+			expires_at: result.expiresAt
+		})
+	} catch (error) {
+		if (error instanceof Error && error.message === 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED') {
+			return ctx.json({ code: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED' }, 500)
+		}
+		if (error instanceof Error && error.message === 'R2_NOT_CONFIGURED') {
+			return ctx.json({ code: 'R2_NOT_CONFIGURED' }, 500)
+		}
+		if (error instanceof Error && error.message === 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED') {
+			return ctx.json({ code: 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED' }, 400)
+		}
+		if (error instanceof Error && error.message === 'R2_USER_UPLOAD_SIZE_TOO_LARGE') {
+			return ctx.json({ code: 'R2_USER_UPLOAD_SIZE_TOO_LARGE' }, 400)
+		}
+		throw error
+	}
 }
 
 export async function createR2UploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
@@ -149,9 +196,19 @@ function toR2Response(ctx: Context<ApiEnv>, result: R2GetResult): Response {
 	const headers = new Headers()
 	headers.set('content-type', result.contentType)
 	headers.set('etag', result.etag)
-	headers.set('cache-control', result.isPublic ? PUBLIC_CACHE_CONTROL : PRIVATE_CACHE_CONTROL)
+	headers.set('cache-control', cacheControlForR2Key(ctx.req.path, result.isPublic))
 	return new Response(result.body, {
 		status: 200,
 		headers
 	})
+}
+
+function cacheControlForR2Key(path: string, isPublic: boolean): string {
+	if (path.startsWith('/api/r2/tmp/public/')) {
+		return TMP_PUBLIC_CACHE_CONTROL
+	}
+	if (isPublic) {
+		return PUBLIC_CACHE_CONTROL
+	}
+	return PRIVATE_CACHE_CONTROL
 }

@@ -44,7 +44,7 @@ function run(command, options = {}) {
 	execSync(command, { stdio: 'inherit', ...options })
 }
 
-function parseShardCount(raw) {
+export function parseShardCount(raw) {
 	if (raw === undefined || raw === '') {
 		return 1
 	}
@@ -403,6 +403,67 @@ function parseCronExpressions(rawValue) {
 		.filter((value) => value !== '')
 }
 
+export function parseR2TmpLifecycleRules(rawValue) {
+	if (!rawValue) {
+		return []
+	}
+
+	const rules = []
+	const prefixes = new Set()
+	const parts = rawValue
+		.split(';')
+		.map((value) => value.trim())
+		.filter((value) => value !== '')
+
+	for (const part of parts) {
+		const separatorIndex = part.lastIndexOf(':')
+		if (separatorIndex === -1) {
+			throw new Error('R2_TMP_LIFECYCLE_RULE_INVALID')
+		}
+
+		const prefix = part.slice(0, separatorIndex).trim()
+		const expireDays = Number(part.slice(separatorIndex + 1).trim())
+		if (prefix !== 'tmp/public/' && prefix !== 'tmp/private/') {
+			throw new Error('R2_TMP_LIFECYCLE_PREFIX_INVALID')
+		}
+		if (!Number.isInteger(expireDays) || expireDays <= 0) {
+			throw new Error('R2_TMP_LIFECYCLE_DAYS_INVALID')
+		}
+		if (prefixes.has(prefix)) {
+			throw new Error('R2_TMP_LIFECYCLE_PREFIX_DUPLICATED')
+		}
+
+		prefixes.add(prefix)
+		rules.push({
+			id: `expire-${prefix.slice(0, -1).replaceAll('/', '-')}`,
+			prefix,
+			expireDays
+		})
+	}
+
+	return rules
+}
+
+export function buildR2LifecyclePayload(rules) {
+	return {
+		rules: rules.map((rule) => {
+			return {
+				id: rule.id,
+				enabled: true,
+				conditions: {
+					prefix: rule.prefix
+				},
+				deleteObjectsTransition: {
+					condition: {
+						type: 'Age',
+						maxAge: rule.expireDays * 24 * 60 * 60
+					}
+				}
+			}
+		})
+	}
+}
+
 async function cfApiRequest(token, method, path, body) {
 	const endpoint = `https://api.cloudflare.com/client/v4${path}`
 	const response = await fetch(endpoint, {
@@ -488,6 +549,15 @@ async function listR2Buckets(accountId, token) {
 
 async function createR2Bucket(accountId, token, name) {
 	return cfApiRequest(token, 'POST', `/accounts/${accountId}/r2/buckets`, { name })
+}
+
+async function putR2LifecycleRules(accountId, token, bucketName, rules) {
+	await cfApiRequest(
+		token,
+		'PUT',
+		`/accounts/${accountId}/r2/buckets/${bucketName}/lifecycle`,
+		buildR2LifecyclePayload(rules)
+	)
 }
 
 async function listPermissionGroups(token) {
@@ -718,6 +788,7 @@ async function main() {
 	const queueNames = parseQueueNames(env.QUEUE_NAMES)
 	const cronExpressions = parseCronExpressions(env.CRONS)
 	const r2Enabled = env.R2_ENABLED === 'true'
+	const r2TmpLifecycleRules = parseR2TmpLifecycleRules(env.R2_TMP_LIFECYCLE_RULES)
 	const turnstileEnabled = env.TURNSTILE_ENABLED === 'true'
 	const shardCount = parseShardCount(env.D1_SHARD_COUNT)
 	const shards = buildShardDescriptors(env.APP_NAME, shardCount)
@@ -829,6 +900,12 @@ async function main() {
 			await createR2Bucket(accountId, cloudflareApiToken, appName)
 		} else {
 			console.log(`R2 bucket '${appName}' already exists.`)
+		}
+
+		if (r2TmpLifecycleRules.length > 0) {
+			console.log('\nSyncing R2 tmp lifecycle rules...')
+			await putR2LifecycleRules(accountId, cloudflareApiToken, appName, r2TmpLifecycleRules)
+			console.log('R2 tmp lifecycle rules synced')
 		}
 
 		r2S3Token = await ensureR2S3Token(accountId, cloudflareApiToken, appName)
@@ -969,4 +1046,6 @@ async function main() {
 	console.log('\nPre-build completed\n')
 }
 
-await main()
+if (import.meta.url === `file://${process.argv[1]}`) {
+	await main()
+}

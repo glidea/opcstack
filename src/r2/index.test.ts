@@ -414,6 +414,121 @@ describe('newR2Client.createUploadUrl', () => {
 	})
 })
 
+describe('newR2Client.createTmpUploadUrl', () => {
+	type GivenDetail = {
+		userId?: string
+	}
+	type WhenDetail = {
+		visibility: 'public' | 'private'
+		path: string
+		contentType: string
+		size: number
+	}
+	type ThenExpected = {
+		key: string
+		readUrl: string
+		uploadPath: string
+		hasSignature: boolean
+		error: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'creates public tmp upload url',
+			given: 'a user r2 client',
+			when: 'creating tmp upload url with public visibility',
+			then: 'scopes key under tmp public user directory',
+			givenDetail: {
+				userId: 'u1'
+			},
+			whenDetail: {
+				visibility: 'public',
+				path: 'images/a.png',
+				contentType: 'image/png',
+				size: 1024
+			},
+			thenExpected: {
+				key: 'tmp/public/u1/images/a.png',
+				readUrl: 'http://localhost:5173/api/r2/tmp/public/u1/images/a.png',
+				uploadPath: '/opcstack/tmp/public/u1/images/a.png',
+				hasSignature: true,
+				error: ''
+			}
+		},
+		{
+			scenario: 'creates private tmp upload url',
+			given: 'a user r2 client',
+			when: 'creating tmp upload url with private visibility',
+			then: 'scopes key under tmp private user directory',
+			givenDetail: {
+				userId: 'u1'
+			},
+			whenDetail: {
+				visibility: 'private',
+				path: 'images/a.png',
+				contentType: 'image/png',
+				size: 1024
+			},
+			thenExpected: {
+				key: 'tmp/private/u1/images/a.png',
+				readUrl: 'http://localhost:5173/api/r2/tmp/private/u1/images/a.png',
+				uploadPath: '/opcstack/tmp/private/u1/images/a.png',
+				hasSignature: true,
+				error: ''
+			}
+		},
+		{
+			scenario: 'rejects tmp upload url without user id',
+			given: 'a public r2 client',
+			when: 'creating tmp upload url',
+			then: 'throws user required error',
+			givenDetail: {},
+			whenDetail: {
+				visibility: 'private',
+				path: 'images/a.png',
+				contentType: 'image/png',
+				size: 1024
+			},
+			thenExpected: {
+				key: '',
+				readUrl: '',
+				uploadPath: '',
+				hasSignature: false,
+				error: 'R2_UPLOAD_USER_REQUIRED'
+			}
+		}
+	]
+
+	runCases(cases, async (given, when) => {
+		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+		try {
+			const client = newR2Client(createEnv(), given.userId)
+			const result = await client.createTmpUploadUrl({
+				visibility: when.visibility,
+				path: when.path,
+				contentType: when.contentType,
+				size: when.size
+			})
+			const uploadUrl = new URL(result.uploadUrl)
+			return {
+				key: result.key,
+				readUrl: result.readUrl,
+				uploadPath: uploadUrl.pathname,
+				hasSignature: Boolean(uploadUrl.searchParams.get('X-Amz-Signature')),
+				error: ''
+			}
+		} catch (error) {
+			return {
+				key: '',
+				readUrl: '',
+				uploadPath: '',
+				hasSignature: false,
+				error: error instanceof Error ? error.message : ''
+			}
+		}
+	})
+})
+
 describe('newR2Client.get', () => {
 	type GivenDetail = {
 		noR2?: boolean
@@ -511,6 +626,47 @@ describe('newR2Client.get', () => {
 			}
 		},
 		{
+			scenario: 'reads tmp public key without owner',
+			given: 'an existing tmp public object',
+			when: 'reading with public client',
+			then: 'returns ok',
+			givenDetail: {
+				writeUserId: 'u1',
+				writeDir: 'tmp-public/images',
+				writeFilename: 'a.png',
+				writeBody: 'image',
+				writeContentType: 'image/png'
+			},
+			whenDetail: {
+				key: 'tmp/public/u1/images/a.png'
+			},
+			thenExpected: {
+				status: 'ok',
+				contentType: 'image/png'
+			}
+		},
+		{
+			scenario: 'rejects tmp private key for non-owner',
+			given: 'an existing tmp private object',
+			when: 'reading with another user',
+			then: 'returns forbidden',
+			givenDetail: {
+				writeUserId: 'u1',
+				writeDir: 'tmp-private/images',
+				writeFilename: 'a.png',
+				writeBody: 'image',
+				writeContentType: 'image/png'
+			},
+			whenDetail: {
+				readUserId: 'u2',
+				key: 'tmp/private/u1/images/a.png'
+			},
+			thenExpected: {
+				status: 'forbidden',
+				contentType: ''
+			}
+		},
+		{
 			scenario: 'returns not_found when key is missing',
 			given: 'no object at requested key',
 			when: 'reading key',
@@ -528,6 +684,7 @@ describe('newR2Client.get', () => {
 
 	runCases(cases, async (given, when) => {
 		const env = given.noR2 ? createEnvWithoutR2() : createEnv()
+		const r2Env = env as Env & { R2: R2Bucket }
 		if (
 			given.writeDir &&
 			given.writeFilename &&
@@ -535,12 +692,38 @@ describe('newR2Client.get', () => {
 			given.writeContentType
 		) {
 			const writer = newR2Client(env, given.writeUserId)
-			await writer.put({
-				dir: given.writeDir,
-				filename: given.writeFilename,
-				contentType: given.writeContentType,
-				body: given.writeBody
-			})
+			if (given.writeDir.startsWith('tmp-public/')) {
+				await writer.createTmpUploadUrl({
+					visibility: 'public',
+					path: `${given.writeDir.slice('tmp-public/'.length)}/${given.writeFilename}`,
+					contentType: given.writeContentType,
+					size: given.writeBody.length
+				})
+					await r2Env.R2.put(
+					`tmp/public/${given.writeUserId}/${given.writeDir.slice('tmp-public/'.length)}/${given.writeFilename}`,
+					given.writeBody,
+					{ httpMetadata: { contentType: given.writeContentType } }
+				)
+			} else if (given.writeDir.startsWith('tmp-private/')) {
+				await writer.createTmpUploadUrl({
+					visibility: 'private',
+					path: `${given.writeDir.slice('tmp-private/'.length)}/${given.writeFilename}`,
+					contentType: given.writeContentType,
+					size: given.writeBody.length
+				})
+					await r2Env.R2.put(
+					`tmp/private/${given.writeUserId}/${given.writeDir.slice('tmp-private/'.length)}/${given.writeFilename}`,
+					given.writeBody,
+					{ httpMetadata: { contentType: given.writeContentType } }
+				)
+			} else {
+				await writer.put({
+					dir: given.writeDir,
+					filename: given.writeFilename,
+					contentType: given.writeContentType,
+					body: given.writeBody
+				})
+			}
 		}
 
 		const reader = newR2Client(env, when.readUserId)

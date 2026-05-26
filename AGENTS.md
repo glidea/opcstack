@@ -71,6 +71,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `BETTER_AUTH_SECRET`: Auth secret minimum 32 characters
 - `ADMIN_SECRET`: Admin password
 - `R2_ORIGIN_SIGNING_SECRET`: HMAC secret used by internal R2 image origin requests
+- `R2_TMP_LIFECYCLE_RULES`: R2 tmp object lifecycle rules for `tmp/public/` and `tmp/private/` only, for example `tmp/public/:7;tmp/private/:1`
 - `D1_SHARD_COUNT`: Tenant Shard D1 count. Increasing it adds new shard bindings and new users can be assigned to the new shards
 - `TURNSTILE_ENABLED`: Enables Cloudflare Turnstile for email auth. Local mode uses official Cloudflare test keys. Remote mode creates or reuses a Turnstile widget named `APP_NAME`
 
@@ -171,10 +172,16 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 **Conventions**:
 - Public: `public/*`
 - Private: `private/<userId>/*`
+- Temporary public: `tmp/public/<userId>/*`
+- Temporary private: `tmp/private/<userId>/*`
+- R2 Object Lifecycle retention may only be configured for `tmp/public/` and `tmp/private/`; do not configure lifecycle rules for persistent `public/` or `private/`
 
 **API**:
 - `GET /api/r2/public/*`: public access
 - `GET /api/r2/private/*`: requires authenticated Better Auth session via Cookie or Bearer Token
+- `GET /api/r2/tmp/public/*`: public access with short cache
+- `GET /api/r2/tmp/private/*`: requires authenticated Better Auth session via Cookie or Bearer Token
+- `POST /api/create_r2_tmp_upload_url`: authenticated presigned upload URL for temporary objects
 - `GET /api/r2/*?variant=small|medium`: returns fixed Cloudflare Image Transformations output
 - `GET /api/internal/r2_image_origin/*`: internal signed image origin for Cloudflare transformations only
 

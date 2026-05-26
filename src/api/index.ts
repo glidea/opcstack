@@ -37,6 +37,7 @@ import {
 	upgradeSubscriptionHandler
 } from './handler/payment'
 import {
+	createR2TmpUploadUrlHandler,
 	createR2UploadUrlHandler,
 	readR2ImageOriginHandler,
 	readR2ObjectHandler
@@ -94,6 +95,7 @@ publicApi.post('/list_payment_products', listPaymentProductsHandler)
 publicApi.post('/webhook/dodo', dodoWebhookHandler)
 publicApi.post('/webhook/creem', creemWebhookHandler)
 publicApi.get('/r2/public/*', readR2ObjectHandler)
+publicApi.get('/r2/tmp/public/*', readR2ObjectHandler)
 publicApi.get('/internal/r2_image_origin/*', readR2ImageOriginHandler)
 
 const authOnlyApi: Hono<ApiEnv> = new Hono<ApiEnv>()
@@ -113,7 +115,9 @@ adminApi.post('/admin/list_payment_transactions', listAdminPaymentTransactionsHa
 const userApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 userApi.use('*', authMiddleware, betaGateMiddleware, tenantDbMiddleware)
 userApi.get('/r2/private/*', readR2ObjectHandler)
+userApi.get('/r2/tmp/private/*', readR2ObjectHandler)
 userApi.post('/create_r2_upload_url', createR2UploadUrlHandler)
+userApi.post('/create_r2_tmp_upload_url', createR2TmpUploadUrlHandler)
 userApi.post('/get_credit_summary', getCreditSummaryHandler)
 userApi.post(
 	'/list_credit_transactions',

@@ -13,8 +13,47 @@ OPC Stack 使用 Cloudflare R2 作为对象存储，兼容 S3 API。
 
 - **公共文件**：`public/*`（任何人可访问）
 - **私有文件**：`private/<userId>/*`（仅所有者可访问）
+- **临时公共文件**：`tmp/public/<userId>/*`（任何人可访问，短缓存）
+- **临时私有文件**：`tmp/private/<userId>/*`（仅所有者可访问）
 
-## 上传文件
+## 临时文件生命周期
+
+临时文件使用 Cloudflare R2 Object Lifecycle 自动删除。只允许配置 `tmp/public/` 和 `tmp/private/`：
+
+```env
+R2_TMP_LIFECYCLE_RULES=tmp/public/:7;tmp/private/:1
+```
+
+不要给 `public/` 或 `private/` 配 retention，它们是持久对象命名空间。
+
+## 临时上传
+
+```typescript
+const response = await fetch('/api/create_r2_tmp_upload_url', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    visibility: 'private',
+    path: 'images/a.png',
+    content_type: 'image/png',
+    size: file.size
+  })
+})
+
+const upload = await response.json()
+await fetch(upload.upload_url, {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'image/png'
+  },
+  body: file
+})
+```
+
+## 上传持久文件
 
 ```typescript
 import { uploadFile } from '@/r2'

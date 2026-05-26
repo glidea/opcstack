@@ -4,6 +4,7 @@ import { runCases, type TestCase } from '../../testing/bdd'
 import type { ApiEnv } from '..'
 import { signR2Origin } from '../../r2'
 import {
+	createR2TmpUploadUrlHandler,
 	createR2UploadUrlHandler,
 	readR2ImageOriginHandler,
 	readR2ObjectHandler,
@@ -382,6 +383,113 @@ describe('createR2UploadUrlHandler', () => {
 
 		const response = await createR2UploadUrlHandler(
 			createJsonContext(given.userId, given.body, env)
+		)
+		const payload = (await response.json()) as {
+			code?: string
+			key?: string
+			read_url?: string
+			upload_url?: string
+		}
+		return {
+			status: response.status,
+			code: payload.code ?? '',
+			key: payload.key ?? '',
+			readUrl: payload.read_url ?? '',
+			hasUploadUrl: Boolean(payload.upload_url)
+		}
+	})
+})
+
+describe('createR2TmpUploadUrlHandler', () => {
+	type GivenDetail = {
+		body: unknown
+		userId: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: number
+		code: string
+		key: string
+		readUrl: string
+		hasUploadUrl: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'rejects invalid tmp upload visibility',
+			given: 'visibility is not public or private',
+			when: 'creating tmp upload url',
+			then: 'returns invalid request',
+			givenDetail: {
+				userId: 'u1',
+				body: {
+					visibility: 'shared',
+					path: 'images/a.png',
+					content_type: 'image/png',
+					size: 1024
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'INVALID_REQUEST',
+				key: '',
+				readUrl: '',
+				hasUploadUrl: false
+			}
+		},
+		{
+			scenario: 'creates tmp upload url for public tmp path',
+			given: 'visibility is public',
+			when: 'creating tmp upload url',
+			then: 'returns tmp public key and signed upload url',
+			givenDetail: {
+				userId: 'u1',
+				body: {
+					visibility: 'public',
+					path: 'images/a.png',
+					content_type: 'image/png',
+					size: 1024
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				key: 'tmp/public/u1/images/a.png',
+				readUrl: 'http://localhost:5173/api/r2/tmp/public/u1/images/a.png',
+				hasUploadUrl: true
+			}
+		},
+		{
+			scenario: 'creates tmp upload url for private tmp path',
+			given: 'visibility is private',
+			when: 'creating tmp upload url',
+			then: 'returns tmp private key and signed upload url',
+			givenDetail: {
+				userId: 'u1',
+				body: {
+					visibility: 'private',
+					path: 'images/a.png',
+					content_type: 'image/png',
+					size: 1024
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				key: 'tmp/private/u1/images/a.png',
+				readUrl: 'http://localhost:5173/api/r2/tmp/private/u1/images/a.png',
+				hasUploadUrl: true
+			}
+		}
+	]
+
+	runCases(cases, async (given) => {
+		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+		const response = await createR2TmpUploadUrlHandler(
+			createJsonContext(given.userId, given.body, createEnv())
 		)
 		const payload = (await response.json()) as {
 			code?: string

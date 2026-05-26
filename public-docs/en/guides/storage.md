@@ -13,8 +13,47 @@ OPC Stack uses Cloudflare R2 as object storage and it is S3 API compatible.
 
 - Public files: `public/*` and accessible to everyone
 - Private files: `private/<userId>/*` and only owner can access
+- Temporary public files: `tmp/public/<userId>/*` and accessible to everyone with short cache
+- Temporary private files: `tmp/private/<userId>/*` and only owner can access
 
-## Upload files
+## Temporary file lifecycle
+
+Temporary files use Cloudflare R2 Object Lifecycle for automatic deletion. Only `tmp/public/` and `tmp/private/` can be configured:
+
+```env
+R2_TMP_LIFECYCLE_RULES=tmp/public/:7;tmp/private/:1
+```
+
+Do not configure retention for `public/` or `private/`. They are persistent object namespaces.
+
+## Temporary upload
+
+```typescript
+const response = await fetch('/api/create_r2_tmp_upload_url', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    visibility: 'private',
+    path: 'images/a.png',
+    content_type: 'image/png',
+    size: file.size
+  })
+})
+
+const upload = await response.json()
+await fetch(upload.upload_url, {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'image/png'
+  },
+  body: file
+})
+```
+
+## Upload persistent files
 
 ```typescript
 import { uploadFile } from '@/r2'
