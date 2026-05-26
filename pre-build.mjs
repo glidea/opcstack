@@ -13,6 +13,7 @@ const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
 const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
 const R2_S3_TOKEN_CACHE_PATH = '.wrangler/r2-s3-token.json'
+const R2_BUCKET_WRITE_PERMISSION_NAME = 'Workers R2 Storage Bucket Item Write'
 const CLOUDFLARE_TOKEN_PERMISSIONS = [
 	{ key: 'api_tokens', type: 'edit' },
 	{ key: 'memberships', type: 'read' },
@@ -590,10 +591,10 @@ function writeCachedR2S3Token(token) {
 	writeFileSync(R2_S3_TOKEN_CACHE_PATH, `${JSON.stringify(token, null, 2)}\n`, { mode: 0o600 })
 }
 
-function selectPermissionGroup(permissionGroups, permissionKey) {
-	const group = permissionGroups.find((item) => item?.key === permissionKey)
+export function selectPermissionGroup(permissionGroups, permissionName) {
+	const group = permissionGroups.find((item) => item?.name === permissionName)
 	if (!group?.id) {
-		console.error(`Cloudflare permission group missing: ${permissionKey}`)
+		console.error(`Cloudflare permission group missing: ${permissionName}`)
 		process.exit(1)
 	}
 	return group
@@ -608,7 +609,7 @@ async function ensureR2S3Token(accountId, token, bucket) {
 
 	console.log(`Creating R2 S3 token for bucket '${bucket}'...`)
 	const permissionGroups = await listPermissionGroups(token)
-	const r2WritePermission = selectPermissionGroup(permissionGroups, 'workers_r2')
+	const r2WritePermission = selectPermissionGroup(permissionGroups, R2_BUCKET_WRITE_PERMISSION_NAME)
 	const createdToken = await createUserToken(token, {
 		name: `OPCStack R2 Upload ${bucket}`,
 		policies: [
