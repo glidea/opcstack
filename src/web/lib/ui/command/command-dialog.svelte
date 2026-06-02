@@ -37,6 +37,6 @@
 		{showCloseButton}
 		{portalProps}
 	>
-		<Command {...restProps} bind:value bind:ref {children} />
+		<Command class="bg-transparent" {...restProps} bind:value bind:ref {children} />
 	</Dialog.Content>
 </Dialog.Root>

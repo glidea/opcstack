@@ -47,14 +47,24 @@
 	--shadow-product: 3px 5px 30px rgba(0, 0, 0, 0.22);
 	--radius-surface: 14px;
 	--radius-surface-lg: 16px;
+	--control-edge: rgba(255, 255, 255, 0.2);
+	--control-edge-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+	--control-solid-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 34%), var(--primary);
+	--control-solid-inverse-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 34%), var(--foreground);
+	--control-outline-edge: rgba(0, 0, 0, 0.1);
+	--control-outline-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 
 	/* Liquid Glass material */
-	--glass-bg: rgba(255, 255, 255, 0.62);
-	--glass-border: rgba(255, 255, 255, 0.55);
-	--glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04), inset 0 0.5px 0 rgba(255, 255, 255, 0.8);
-	--glass-blur: 20px;
-	--glass-saturate: 1.6;
-	--glass-float-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+	--glass-bg: rgba(248, 250, 252, 0.56);
+	--glass-border: rgba(255, 255, 255, 0.82);
+	--glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+	--glass-blur: 28px;
+	--glass-saturate: 1.85;
+	--glass-float-shadow: 0 10px 36px rgba(0, 0, 0, 0.1), 0 2px 10px rgba(0, 0, 0, 0.05);
+	--glass-dark-bg: linear-gradient(135deg, rgba(48, 48, 52, 0.62), rgba(18, 18, 20, 0.48));
+	--glass-dark-border: rgba(255, 255, 255, 0.22);
+	--glass-dark-foreground: #f5f5f7;
+	--glass-dark-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.28), inset 10px 0 24px rgba(255, 255, 255, 0.04);
 	--header-glass-bg: rgba(255, 255, 255, 0.78);
 	--header-glass-blur: 24px;
 	--header-glass-saturate: 1.8;
@@ -106,6 +116,12 @@
 	--surface-border: rgba(255, 255, 255, 0.06);
 	--shadow-soft: none;
 	--shadow-mid: none;
+	--control-edge: rgba(255, 255, 255, 0.18);
+	--control-edge-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+	--control-solid-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 34%), var(--primary);
+	--control-solid-inverse-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 42%), var(--foreground);
+	--control-outline-edge: rgba(255, 255, 255, 0.14);
+	--control-outline-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 
 	/* Liquid Glass material - dark */
 	--glass-bg: rgba(40, 40, 44, 0.55);
@@ -114,6 +130,10 @@
 	--glass-blur: 20px;
 	--glass-saturate: 1.4;
 	--glass-float-shadow: 0 8px 32px rgba(0, 0, 0, 0.24), 0 2px 8px rgba(0, 0, 0, 0.16);
+	--glass-dark-bg: linear-gradient(135deg, rgba(54, 54, 58, 0.62), rgba(30, 30, 34, 0.5));
+	--glass-dark-border: rgba(255, 255, 255, 0.14);
+	--glass-dark-foreground: #f5f5f7;
+	--glass-dark-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(0, 0, 0, 0.32), inset 10px 0 24px rgba(255, 255, 255, 0.03);
 	--header-glass-bg: rgba(29, 29, 31, 0.72);
 	--header-glass-blur: 24px;
 	--header-glass-saturate: 1.4;
@@ -400,6 +420,40 @@
 		transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 		transition-duration: 0.3s;
 	}
+
+	.glass-overlay {
+		background: var(--glass-bg);
+		border-color: var(--glass-border);
+		box-shadow: var(--glass-shadow), var(--glass-float-shadow);
+		-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) contrast(1.04);
+		backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) contrast(1.04);
+	}
+
+	.glass-overlay-dark {
+		background: var(--glass-dark-bg);
+		border-color: var(--glass-dark-border);
+		color: var(--glass-dark-foreground);
+		box-shadow: var(--glass-dark-shadow), var(--glass-float-shadow);
+		-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+		backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+	}
+
+	.control-solid {
+		background: var(--control-solid-bg);
+	}
+
+	.control-solid-inverse {
+		background: var(--control-solid-inverse-bg);
+	}
+}
+
+:root:not([data-design="brutalism"]) [data-sonner-toast][data-styled="true"] {
+	background: var(--glass-dark-bg);
+	border-color: var(--glass-dark-border);
+	color: var(--glass-dark-foreground);
+	box-shadow: var(--glass-dark-shadow), var(--glass-float-shadow);
+	-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+	backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
 }
 
 /* Header button glass tint (apple-saas) — only for ghost/icon buttons, not primary/secondary */
@@ -467,6 +521,10 @@
 	--glass-blur: 0px;
 	--glass-saturate: 1;
 	--glass-float-shadow: 4px 4px 0 #000;
+	--glass-dark-bg: #ffffff;
+	--glass-dark-border: #000000;
+	--glass-dark-foreground: #000000;
+	--glass-dark-shadow: none;
 	--header-glass-bg: #ffffff;
 	--header-glass-blur: 0px;
 	--header-glass-saturate: 1;
