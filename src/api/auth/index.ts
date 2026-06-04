@@ -2,11 +2,14 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer, captcha, emailOTP } from 'better-auth/plugins'
 import type { MetaDb } from '../../db'
+import * as authSchema from '../../db/schema.auth'
 import { createTenantShardAccess } from '../../db/shard-router'
 import { newEmailClients, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
 import { parseDecimal } from '../../lib/decimal'
+
+const REGISTRATION_UTM_SOURCE_COOKIE = 'registration_utm_source'
 
 export function authCore(env: Env, db: MetaDb) {
   const aff = new AffService(db)
@@ -24,19 +27,32 @@ export function authCore(env: Env, db: MetaDb) {
     baseURL: env.APP_BASE_URL,
     secret: env.BETTER_AUTH_SECRET,
     trustedOrigins: ['*'],
-    database: drizzleAdapter(db, { provider: 'sqlite' }),
+    database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
     plugins,
+    user: {
+      additionalFields: {
+        registrationUtmSource: {
+          type: 'string',
+          required: false,
+          input: false,
+          returned: false
+        }
+      }
+    },
     databaseHooks: {
       user: {
         create: {
           before: async (
-            userData: Record<string, unknown>
+            userData: Record<string, unknown>,
+            context: AuthHookContext | null
           ): Promise<{ data: Record<string, unknown> }> => {
             const affCode = await aff.createCode()
+            const registrationUtmSource = readRegistrationUtmSource(context)
             return {
               data: {
                 ...userData,
-                affCode
+                affCode,
+                registrationUtmSource
               }
             }
           },
@@ -81,6 +97,23 @@ export function authCore(env: Env, db: MetaDb) {
       updateAge: 27 * 24 * 60 * 60
     }
   })
+}
+
+type AuthHookContext = {
+  headers?: Headers
+  request?: Request
+}
+
+function readRegistrationUtmSource(context: AuthHookContext | null): string | null {
+  const cookie = context?.headers?.get('cookie') ?? context?.request?.headers.get('cookie') ?? ''
+  const pairs = cookie.split(';')
+  for (const pair of pairs) {
+    const [rawName, rawValue] = pair.trim().split('=')
+    if (rawName === REGISTRATION_UTM_SOURCE_COOKIE) {
+      return decodeURIComponent(rawValue ?? '')
+    }
+  }
+  return null
 }
 
 function readCreditsSignupEnabled(env: Env): boolean {

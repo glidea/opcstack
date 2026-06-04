@@ -627,6 +627,85 @@ describe('authCore user create hook', () => {
 	})
 })
 
+describe('authCore registration attribution', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		vi.mocked(newEmailClients).mockReturnValue({
+			simple: {
+				send: createSendMock()
+			},
+			resend: {} as Resend
+		})
+		vi.mocked(betterAuth).mockImplementation((options) => {
+			return options as never
+		})
+	})
+
+	type GivenDetail = {
+		cookie: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		registrationUtmSource: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'persist registration utm source',
+			given: 'signup request has registration utm source cookie',
+			when: 'better auth creates user',
+			then: 'user create data includes registration utm source',
+			givenDetail: {
+				cookie: 'registration_utm_source=docs'
+			},
+			whenDetail: {},
+			thenExpected: {
+				registrationUtmSource: 'docs'
+			}
+		}
+	]
+
+	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
+		const auth = authCore(
+			createEnv({
+				emailEnabled: 'true',
+				emailSignupEnabled: 'true',
+				emailRequireVerification: 'false',
+				cooldownSeconds: '50',
+				emailResendApiKey: 'resend-api-key',
+				emailFrom: 'Auth <auth@mg.example.com>'
+			}),
+			{
+				query: {
+					user: {
+						findFirst: async (): Promise<undefined> => undefined
+					}
+				}
+			} as never
+		) as unknown as {
+			databaseHooks: {
+				user: {
+					create: {
+						before: (
+							userData: Record<string, unknown>,
+							context: { headers: Headers } | null
+						) => Promise<{ data: Record<string, unknown> }>
+					}
+				}
+			}
+		}
+
+		const result = await auth.databaseHooks.user.create.before(
+			{ id: 'u1', email: 'u1@example.com' },
+			{ headers: new Headers({ cookie: given.cookie }) }
+		)
+
+		return {
+			registrationUtmSource: String(result.data['registrationUtmSource'] ?? '')
+		}
+	})
+})
+
 function readEmailVerificationSendOnSignUp(): boolean {
 	const options = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
 		emailVerification?: {

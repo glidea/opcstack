@@ -7,6 +7,9 @@
 	import "../app.css";
 	import "$web/i18n";
 
+	const REGISTRATION_UTM_SOURCE_COOKIE = 'registration_utm_source';
+	const REGISTRATION_UTM_SOURCE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+
 	let {
 		data,
 		children,
@@ -22,8 +25,33 @@
 			document.documentElement.lang = data.locale;
 			const themeParam = $page.params.theme;
 			document.documentElement.dataset['design'] = themeParam || data.publicConfig.design_system;
+			persistRegistrationUtmSource($page.url.searchParams);
 		}
 	});
+
+	function persistRegistrationUtmSource(searchParams: URLSearchParams): void {
+		if (readCookie(REGISTRATION_UTM_SOURCE_COOKIE) !== '') {
+			return;
+		}
+
+		const utmSource = searchParams.get('utm_source') ?? '';
+		if (utmSource === '') {
+			return;
+		}
+
+		document.cookie = `${REGISTRATION_UTM_SOURCE_COOKIE}=${encodeURIComponent(utmSource)}; Path=/; Max-Age=${REGISTRATION_UTM_SOURCE_MAX_AGE_SECONDS}; SameSite=Lax`;
+	}
+
+	function readCookie(name: string): string {
+		const pairs = document.cookie.split(';');
+		for (const pair of pairs) {
+			const [rawName, rawValue] = pair.trim().split('=');
+			if (rawName === name) {
+				return rawValue ?? '';
+			}
+		}
+		return '';
+	}
 </script>
 
 <svelte:head>
