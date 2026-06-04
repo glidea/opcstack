@@ -4,11 +4,13 @@ import type { TenantShardDb } from '../../db'
 import type { R2ImageVariantPreset } from '../../r2'
 import { newGeminiNativeImageClient, newGeminiSimpleImageClient } from './gemini'
 import { newOpenAINativeImageClient, newOpenAISimpleImageClient } from './openai'
+import { newSeedDreamNativeImageClient, newSeedDreamSimpleImageClient } from './seedream'
 
 export interface AIImageClients {
 	simple: AISimpleImageClient
 	gemini?: GoogleGenAI
 	openai?: OpenAI
+	seedream?: OpenAI
 }
 
 export function newAIImageClients(
@@ -30,6 +32,12 @@ export function newAIImageClients(
 			openai: newOpenAINativeImageClient(env)
 		}
 	}
+	if (provider === 'seedream') {
+		return {
+			simple: newSeedDreamSimpleImageClient(env, userId, tenantDb, options),
+			seedream: newSeedDreamNativeImageClient(env)
+		}
+	}
 
 	throw new Error(`UNSUPPORTED_AI_PROVIDER: ${provider}`)
 }
@@ -41,9 +49,11 @@ export interface AISimpleImageClient {
 }
 
 export interface AISimpleImageClientOptions {
-	provider?: 'gemini' | 'openai'
+	provider?: AIImageProvider
 	model?: string
 }
+
+export type AIImageProvider = 'gemini' | 'openai' | 'seedream'
 
 export type AIImageAspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9'
 export type AIImageSize = '1K' | '2K' | '4K'
@@ -99,7 +109,7 @@ export interface AIImageTask {
 	id: string
 	userId: string
 	status: AIImageTaskStatus
-	provider: 'gemini' | 'openai'
+	provider: AIImageProvider
 	model?: string
 	prompt: string
 	numberOfImages?: number

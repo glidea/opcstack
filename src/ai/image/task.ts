@@ -5,6 +5,7 @@ import type {
 	AIImageReference,
 	AIImageResult,
 	AIImageTask,
+	AIImageProvider,
 	AIImageTaskStatus,
 	AISimpleImageClientGenerateInput
 } from '.'
@@ -19,7 +20,7 @@ export interface AIImageGenerateQueueMessage {
 export async function createAIImageTask(
 	env: Env,
 	db: TenantShardDb,
-	provider: 'gemini' | 'openai',
+	provider: AIImageProvider,
 	model: string,
 	userId: string,
 	input: AISimpleImageClientGenerateInput
@@ -91,7 +92,7 @@ export function toAIImageTask(row: AIImageTaskRow): AIImageTask {
 		id: row.id,
 		userId: row.userId,
 		status: row.status as AIImageTaskStatus,
-		provider: row.provider as 'gemini' | 'openai',
+		provider: row.provider as AIImageProvider,
 		model: row.model ?? undefined,
 		prompt: row.prompt,
 		numberOfImages: row.numberOfImages ?? undefined,
