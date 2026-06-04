@@ -71,6 +71,9 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `APP_CN_DOMAIN`: Optional China mainland access domain. When set, pre-build adds it as an extra Worker custom domain and Turnstile widget domain. It does not replace `APP_DOMAIN`
 - `SUPPORT_EMAIL`: Contact email used by legal pages
 - `BETTER_AUTH_SECRET`: Auth secret minimum 32 characters
+- `SUPER_ADMIN_EMAIL`: Single super admin user email
+- `SUPER_ADMIN_PASSWORD`: Password used by pre-build to create or update the super admin user
+- `ADMIN_API_TOKEN`: Machine token that represents the super admin user identity
 - `ADMIN_SECRET`: Admin password
 - `R2_ORIGIN_SIGNING_SECRET`: HMAC secret used by internal R2 image origin requests
 - `R2_TMP_LIFECYCLE_RULES`: R2 tmp object lifecycle rules for `tmp/public/` and `tmp/private/` only, for example `tmp/public/:7;tmp/private/:1`
