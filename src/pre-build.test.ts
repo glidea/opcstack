@@ -4,10 +4,24 @@ import { runCases, type TestCase } from './testing/bdd'
 
 type PreBuildModule = {
 	hashAdminPassword: (password: string) => string
+	readAdminConfig: (env: Record<string, string | undefined>) => AdminConfig
+	buildD1ExecuteCommand: (input: D1ExecuteCommandInput) => string
 	buildAdminUserUpsertSql: (input: AdminUserUpsertInput) => string
 	buildAdminCredentialAccountUpsertSql: (input: AdminCredentialAccountUpsertInput) => string
 	buildAdminUserShardEnsureSql: (input: AdminUserShardEnsureInput) => string
 	buildAdminCreditBalanceEnsureSql: (input: AdminCreditBalanceEnsureInput) => string
+}
+
+type AdminConfig = {
+	email: string
+	password: string
+}
+
+type D1ExecuteCommandInput = {
+	databaseName: string
+	migrateFlag: string
+	sql: string
+	json: boolean
 }
 
 type AdminUserUpsertInput = {
@@ -39,6 +53,141 @@ const modulePath: string = '../pre-build.mjs'
 const preBuild: PreBuildModule = (await import(modulePath)) as PreBuildModule
 
 describe('pre-build admin sync builders', () => {
+	type ConfigGiven = {
+		env: Record<string, string | undefined>
+	}
+	type ConfigWhen = Record<string, never>
+	type ConfigThen = {
+		email: string
+		password: string
+		error: string
+	}
+
+	const configCases: TestCase<ConfigGiven, ConfigWhen, ConfigThen>[] = [
+		{
+			scenario: 'read admin config',
+			given: 'configured email and password',
+			when: 'reading admin config',
+			then: 'returns explicit admin config',
+			givenDetail: {
+				env: {
+					SUPER_ADMIN_EMAIL: 'admin@example.com',
+					SUPER_ADMIN_PASSWORD: 'Pwd123456'
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				email: 'admin@example.com',
+				password: 'Pwd123456',
+				error: ''
+			}
+		},
+		{
+			scenario: 'reject missing admin email',
+			given: 'missing super admin email',
+			when: 'reading admin config',
+			then: 'throws config error',
+			givenDetail: {
+				env: {
+					SUPER_ADMIN_PASSWORD: 'Pwd123456'
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				email: '',
+				password: '',
+				error: 'SUPER_ADMIN_EMAIL_MISSING'
+			}
+		},
+		{
+			scenario: 'reject missing admin password',
+			given: 'missing super admin password',
+			when: 'reading admin config',
+			then: 'throws config error',
+			givenDetail: {
+				env: {
+					SUPER_ADMIN_EMAIL: 'admin@example.com'
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				email: '',
+				password: '',
+				error: 'SUPER_ADMIN_PASSWORD_MISSING'
+			}
+		}
+	]
+
+	runCases(configCases, (given) => {
+		try {
+			const config: AdminConfig = preBuild.readAdminConfig(given.env)
+			return {
+				email: config.email,
+				password: config.password,
+				error: ''
+			}
+		} catch (error) {
+			return {
+				email: '',
+				password: '',
+				error: error instanceof Error ? error.message : ''
+			}
+		}
+	})
+
+	type CommandGiven = {
+		input: D1ExecuteCommandInput
+	}
+	type CommandWhen = Record<string, never>
+	type CommandThen = {
+		command: string
+	}
+
+	const commandCases: TestCase<CommandGiven, CommandWhen, CommandThen>[] = [
+		{
+			scenario: 'build local d1 execute command',
+			given: 'local migrate flag and sql',
+			when: 'building d1 execute command',
+			then: 'uses local flag and shell quoted sql',
+			givenDetail: {
+				input: {
+					databaseName: 'opcstack-meta',
+					migrateFlag: '--local',
+					sql: "SELECT 'x'",
+					json: false
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				command: "pnpm exec wrangler d1 execute opcstack-meta --local --command 'SELECT '\\''x'\\'''"
+			}
+		},
+		{
+			scenario: 'build remote json d1 execute command',
+			given: 'remote migrate flag and sql',
+			when: 'building d1 execute command',
+			then: 'uses remote flag and json output',
+			givenDetail: {
+				input: {
+					databaseName: 'opcstack-meta',
+					migrateFlag: '--remote',
+					sql: 'SELECT id FROM "user"',
+					json: true
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				command: 'pnpm exec wrangler d1 execute opcstack-meta --remote --json --command \'SELECT id FROM "user"\''
+			}
+		}
+	]
+
+	runCases(commandCases, (given) => {
+		return {
+			command: preBuild.buildD1ExecuteCommand(given.input)
+		}
+	})
+
 	type HashGiven = {
 		password: string
 	}

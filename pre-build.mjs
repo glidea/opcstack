@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createInterface } from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
@@ -45,6 +45,11 @@ function buildCloudflareTokenTemplateUrl() {
 function run(command, options = {}) {
 	console.log(`> ${command}`)
 	execSync(command, { stdio: 'inherit', ...options })
+}
+
+function runOutput(command) {
+	console.log(`> ${command}`)
+	return execSync(command, { encoding: 'utf-8' })
 }
 
 export function parseShardCount(raw) {
@@ -375,6 +380,23 @@ function validateEmailConfig(env) {
 	}
 }
 
+export function readAdminConfig(env) {
+	const email = String(env.SUPER_ADMIN_EMAIL ?? '').trim().toLowerCase()
+	if (email === '') {
+		throw new Error('SUPER_ADMIN_EMAIL_MISSING')
+	}
+
+	const password = String(env.SUPER_ADMIN_PASSWORD ?? '')
+	if (password === '') {
+		throw new Error('SUPER_ADMIN_PASSWORD_MISSING')
+	}
+
+	return {
+		email,
+		password
+	}
+}
+
 function ensureSvelteWorkerBuild() {
 	if (
 		existsSync(SVELTE_WORKER_PATH) &&
@@ -450,6 +472,11 @@ function queueBindingName(queueName) {
 
 function shellQuote(value) {
 	return `'${String(value).replaceAll("'", "'\\''")}'`
+}
+
+export function buildD1ExecuteCommand(input) {
+	const jsonFlag = input.json ? ' --json' : ''
+	return `pnpm exec wrangler d1 execute ${input.databaseName} ${input.migrateFlag}${jsonFlag} --command ${shellQuote(input.sql)}`
 }
 
 function buildShardRegistryUpsertSql(shard, databaseId, nowMs) {
@@ -532,6 +559,87 @@ export function buildAdminCreditBalanceEnsureSql(input) {
 		`(${sqlString(input.userId)}, 0, ${input.nowMs})`,
 		'ON CONFLICT(user_id) DO NOTHING'
 	].join(' ')
+}
+
+function buildAdminUserSelectSql(email) {
+	return `SELECT id FROM "user" WHERE email = ${sqlString(email)}`
+}
+
+function readD1ExecuteValue(output, key) {
+	const executions = JSON.parse(output)
+	let index = executions.length - 1
+	while (index >= 0) {
+		const rows = executions[index]?.results
+		if (Array.isArray(rows) && rows.length > 0 && rows[0][key] !== undefined) {
+			return String(rows[0][key])
+		}
+		index -= 1
+	}
+	throw new Error(`D1_VALUE_MISSING_${key}`)
+}
+
+function createAdminAffCode() {
+	return randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase()
+}
+
+function syncSuperAdminUser(adminConfig, metaDbName, migrateFlag, shards) {
+	const nowMs = Date.now()
+	const passwordHash = hashAdminPassword(adminConfig.password)
+	run(buildD1ExecuteCommand({
+		databaseName: metaDbName,
+		migrateFlag,
+		sql: buildAdminUserUpsertSql({
+			email: adminConfig.email,
+			userId: randomUUID(),
+			affCode: createAdminAffCode(),
+			nowMs
+		}),
+		json: false
+	}))
+	run(buildD1ExecuteCommand({
+		databaseName: metaDbName,
+		migrateFlag,
+		sql: buildAdminCredentialAccountUpsertSql({
+			email: adminConfig.email,
+			passwordHash,
+			nowMs
+		}),
+		json: false
+	}))
+
+	const shardOutput = runOutput(buildD1ExecuteCommand({
+		databaseName: metaDbName,
+		migrateFlag,
+		sql: buildAdminUserShardEnsureSql({
+			email: adminConfig.email,
+			nowMs
+		}),
+		json: true
+	}))
+	const shardId = readD1ExecuteValue(shardOutput, 'shard_id')
+	const shard = shards.find((item) => {
+		return item.id === shardId
+	})
+	if (!shard) {
+		throw new Error('SUPER_ADMIN_SHARD_MISSING')
+	}
+
+	const userOutput = runOutput(buildD1ExecuteCommand({
+		databaseName: metaDbName,
+		migrateFlag,
+		sql: buildAdminUserSelectSql(adminConfig.email),
+		json: true
+	}))
+	const userId = readD1ExecuteValue(userOutput, 'id')
+	run(buildD1ExecuteCommand({
+		databaseName: shard.databaseName,
+		migrateFlag,
+		sql: buildAdminCreditBalanceEnsureSql({
+			userId,
+			nowMs
+		}),
+		json: false
+	}))
 }
 
 function parseCronExpressions(rawValue) {
@@ -980,6 +1088,7 @@ async function getCloudflareApiToken() {
 async function main() {
 	const isRemote = process.argv.slice(2).includes('--remote')
 	const env = loadEnv(isRemote)
+	const adminConfig = readAdminConfig(env)
 	resolveAppBase(env, isRemote)
 	resolveAppCnDomain(env)
 	validateEmailConfig(env)
@@ -1238,8 +1347,16 @@ async function main() {
 	for (const shard of shards) {
 		const shardDatabaseId = shardDatabaseIds[shard.id] ?? localD1DatabaseId(0)
 		const sql = buildShardRegistryUpsertSql(shard, shardDatabaseId, nowMs)
-		run(`pnpm exec wrangler d1 execute ${metaDbName} ${migrateFlag} --command ${shellQuote(sql)}`)
+		run(buildD1ExecuteCommand({
+			databaseName: metaDbName,
+			migrateFlag,
+			sql,
+			json: false
+		}))
 	}
+
+	console.log('\nSyncing super admin user...')
+	syncSuperAdminUser(adminConfig, metaDbName, migrateFlag, shards)
 
 	console.log('\nPre-build completed\n')
 }
