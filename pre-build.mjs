@@ -271,6 +271,38 @@ function resolveAppBase(env, isRemote) {
 	env.APP_BASE_HOST = domain
 }
 
+function resolveAppCnDomain(env) {
+	const rawDomain = env.APP_CN_DOMAIN || ''
+	const domain = normalizeDomain(rawDomain.trim())
+	env.APP_CN_DOMAIN = domain
+}
+
+export function buildWorkerRoutes(appBaseHost, appCnDomain) {
+	const routes = [
+		{
+			pattern: appBaseHost,
+			custom_domain: true
+		}
+	]
+
+	if (appCnDomain !== '') {
+		routes.push({
+			pattern: appCnDomain,
+			custom_domain: true
+		})
+	}
+
+	return routes
+}
+
+export function buildTurnstileDomains(appDomain, appCnDomain) {
+	const domains = [appDomain]
+	if (appCnDomain !== '') {
+		domains.push(appCnDomain)
+	}
+	return domains
+}
+
 function renderTemplate(template, env) {
 	return template.replace(/\{\{(\w+)\}\}/g, (_match, varName) => {
 		if (Object.prototype.hasOwnProperty.call(env, varName)) {
@@ -708,10 +740,10 @@ async function listTurnstileWidgets(accountId, token) {
 	return Array.isArray(result) ? result : []
 }
 
-async function createTurnstileWidget(accountId, token, name, domain) {
+async function createTurnstileWidget(accountId, token, name, domains) {
 	return cfApiRequest(token, 'POST', `/accounts/${accountId}/challenges/widgets`, {
 		name,
-		domains: [domain],
+		domains,
 		mode: 'managed',
 		region: 'world'
 	})
@@ -721,16 +753,44 @@ async function getTurnstileWidget(accountId, token, sitekey) {
 	return cfApiRequest(token, 'GET', `/accounts/${accountId}/challenges/widgets/${sitekey}`, undefined)
 }
 
-async function ensureTurnstileWidget(accountId, token, appName, domain) {
+async function updateTurnstileWidget(accountId, token, widget, domains) {
+	return cfApiRequest(token, 'PUT', `/accounts/${accountId}/challenges/widgets/${widget.sitekey}`, {
+		name: widget.name,
+		domains,
+		mode: widget.mode
+	})
+}
+
+function hasSameStringSet(actual, expected) {
+	if (!Array.isArray(actual) || actual.length !== expected.length) {
+		return false
+	}
+
+	for (const item of expected) {
+		if (!actual.includes(item)) {
+			return false
+		}
+	}
+
+	return true
+}
+
+async function ensureTurnstileWidget(accountId, token, appName, domains) {
 	let widgets = await listTurnstileWidgets(accountId, token)
 	let widget = selectTurnstileWidget(widgets, appName)
 	if (widget) {
 		console.log(`Turnstile widget '${appName}' already exists.`)
-		return getTurnstileWidget(accountId, token, widget.sitekey)
+		const existingWidget = await getTurnstileWidget(accountId, token, widget.sitekey)
+		if (hasSameStringSet(existingWidget.domains, domains)) {
+			return existingWidget
+		}
+
+		console.log(`Updating Turnstile widget '${appName}' domains...`)
+		return updateTurnstileWidget(accountId, token, existingWidget, domains)
 	}
 
 	console.log(`Creating Turnstile widget '${appName}'...`)
-	await createTurnstileWidget(accountId, token, appName, domain)
+	await createTurnstileWidget(accountId, token, appName, domains)
 	widgets = await listTurnstileWidgets(accountId, token)
 	widget = selectTurnstileWidget(widgets, appName)
 	if (!widget) {
@@ -829,6 +889,7 @@ async function main() {
 	const isRemote = process.argv.slice(2).includes('--remote')
 	const env = loadEnv(isRemote)
 	resolveAppBase(env, isRemote)
+	resolveAppCnDomain(env)
 	validateEmailConfig(env)
 	const queueNames = parseQueueNames(env.QUEUE_NAMES)
 	const cronExpressions = parseCronExpressions(env.CRONS)
@@ -994,7 +1055,7 @@ async function main() {
 			accountId,
 			cloudflareApiToken,
 			env.APP_NAME,
-			env.APP_DOMAIN
+			buildTurnstileDomains(env.APP_DOMAIN, env.APP_CN_DOMAIN)
 		)
 		console.log(`Turnstile sitekey: ${turnstileWidget.sitekey}`)
 	}
@@ -1048,6 +1109,7 @@ async function main() {
 	}
 
 	config.vars = config.vars || {}
+	config.routes = buildWorkerRoutes(env.APP_BASE_HOST, env.APP_CN_DOMAIN)
 	config.vars.R2_ENABLED = r2Enabled ? 'true' : 'false'
 	config.vars.R2_ACCOUNT_ID = r2S3Token?.accountId || accountId || 'local'
 	config.vars.R2_ACCESS_KEY_ID = r2S3Token?.accessKeyId || 'local'

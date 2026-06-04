@@ -43,6 +43,7 @@
         "APP_NAME": "{{APP_NAME}}",
         "APP_BASE_URL": "{{APP_BASE_URL}}",
         "APP_DOMAIN": "{{APP_DOMAIN}}",
+        "APP_CN_DOMAIN": "{{APP_CN_DOMAIN}}",
         "SUPPORT_EMAIL": "{{SUPPORT_EMAIL}}",
         "BETTER_AUTH_SECRET": "{{BETTER_AUTH_SECRET}}",
         "ADMIN_SECRET": "{{ADMIN_SECRET}}",

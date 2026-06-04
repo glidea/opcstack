@@ -68,6 +68,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 **Core variables**:
 - `APP_NAME`: Worker D1 R2 KV resource name
 - `APP_DOMAIN`: App domain local uses `localhost` production uses your domain or subdomain
+- `APP_CN_DOMAIN`: Optional China mainland access domain. When set, pre-build adds it as an extra Worker custom domain and Turnstile widget domain. It does not replace `APP_DOMAIN`
 - `SUPPORT_EMAIL`: Contact email used by legal pages
 - `BETTER_AUTH_SECRET`: Auth secret minimum 32 characters
 - `ADMIN_SECRET`: Admin password
