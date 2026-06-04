@@ -4,7 +4,7 @@ import { runCases, type TestCase } from '../src/testing/bdd'
 type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_REMOTE?: string
-	E2E_ADMIN_SECRET?: string
+	E2E_ADMIN_API_TOKEN?: string
 	E2E_EMAIL_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
@@ -28,7 +28,7 @@ const e2eEnv =
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
-const adminSecret: string = e2eEnv.E2E_ADMIN_SECRET ?? 'admin-secret'
+const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
 const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
@@ -57,7 +57,7 @@ describe('notification api e2e', () => {
 
 	const publicCases: TestCase<PublicGiven, PublicWhen, PublicThen>[] = [
 		{
-			scenario: 'create notification requires admin secret',
+			scenario: 'create notification requires admin api token',
 			given: 'no admin authorization header',
 			when: 'creating notification',
 			then: 'returns unauthorized',
@@ -147,7 +147,7 @@ describe('notification api e2e', () => {
 		const flowCases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 			{
 				scenario: 'admin creates global notification and user can read it',
-				given: 'admin secret and a signed in user',
+				given: 'admin api token and a signed in user',
 				when: 'creating listing and reading a notification',
 				then: 'notification read state changes from false to true',
 				givenDetail: {},
@@ -178,7 +178,7 @@ describe('notification api e2e', () => {
 					content
 				},
 				{
-					authorization: `Bearer ${adminSecret}`
+					authorization: `Bearer ${adminApiToken}`
 				}
 			)
 

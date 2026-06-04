@@ -29,7 +29,7 @@ interface ListBetaCodesResponse {
 
 type E2EEnv = {
 	APP_BASE_URL?: string
-	E2E_ADMIN_SECRET?: string
+	E2E_ADMIN_API_TOKEN?: string
 	E2E_BETA_CODE_ENABLED?: string
 	E2E_GOOGLE_AUTH_ENABLED?: string
 	E2E_EMAIL_ENABLED?: string
@@ -41,7 +41,7 @@ type E2EEnv = {
 const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
-const adminSecret: string = e2eEnv.E2E_ADMIN_SECRET ?? 'admin-secret'
+const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
 const expectedBetaEnabled: boolean = e2eEnv.E2E_BETA_CODE_ENABLED === 'true'
 const expectedGoogleEnabled: boolean = e2eEnv.E2E_GOOGLE_AUTH_ENABLED === 'true'
 const expectedEmailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
@@ -97,7 +97,7 @@ describe('beta code api e2e', () => {
 			}
 		},
 		{
-			scenario: 'rejects admin api without ADMIN_SECRET',
+			scenario: 'rejects admin api without admin api token',
 			given: 'no admin authorization header',
 			when: 'posting /api/admin/generate_beta_codes',
 			then: 'returns unauthorized',
@@ -161,7 +161,7 @@ describe('beta code api e2e', () => {
 	const flowCases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 		{
 			scenario: 'supports beta code admin flow and protects bind api by bearer auth',
-			given: 'admin secret and unauthenticated request',
+			given: 'admin api token and unauthenticated request',
 			when: 'generating listing and binding beta codes',
 			then: 'admin apis work and bind api rejects unauthenticated caller',
 			givenDetail: {},
@@ -181,7 +181,7 @@ describe('beta code api e2e', () => {
 			'/api/admin/generate_beta_codes',
 			{ count: 1 },
 			{
-				authorization: `Bearer ${adminSecret}`
+				authorization: `Bearer ${adminApiToken}`
 			}
 		)
 		const generatePayload = (await generateRes.json()) as GenerateBetaCodesResponse
@@ -194,7 +194,7 @@ describe('beta code api e2e', () => {
 			'/api/admin/list_beta_codes',
 			{},
 			{
-				authorization: `Bearer ${adminSecret}`
+				authorization: `Bearer ${adminApiToken}`
 			}
 		)
 		const listPayload = (await listRes.json()) as ListBetaCodesResponse

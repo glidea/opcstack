@@ -25,10 +25,10 @@ Listing notifications and marking them as read require a signed in user:
 Authorization: Bearer <session-token>
 ```
 
-Publishing notifications requires the admin secret:
+Publishing notifications requires the admin API token:
 
 ```http
-Authorization: Bearer <ADMIN_SECRET>
+Authorization: Bearer <ADMIN_API_TOKEN>
 ```
 
 ## Data model

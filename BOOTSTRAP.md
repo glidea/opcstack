@@ -130,7 +130,9 @@ After all information is collected run these actions:
    Update `.env.dev` using user input:
    - `APP_NAME`: user project name
    - `BETTER_AUTH_SECRET`: generate random string with 32+ characters
-   - `ADMIN_SECRET`: user admin password
+   - `SUPER_ADMIN_EMAIL`: super admin email
+   - `SUPER_ADMIN_PASSWORD`: super admin password
+   - `ADMIN_API_TOKEN`: machine token for admin APIs
    - `EMAIL_ENABLED`: set true or false from user choice
    - `EMAIL_SIGNUP_ENABLED`: set true or false from user choice
    - `EMAIL_RESEND_API_KEY`: user API key if email is enabled

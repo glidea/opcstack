@@ -102,7 +102,7 @@ describe('credits api e2e', () => {
 			}
 		},
 		{
-			scenario: 'admin grant requires admin secret',
+			scenario: 'admin grant requires admin api token',
 			given: 'no admin authorization header',
 			when: 'calling /api/admin/grant_credits',
 			then: 'returns unauthorized',

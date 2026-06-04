@@ -25,7 +25,7 @@ Authorization: Bearer <session-token>
 后台查看反馈需要管理员密钥：
 
 ```http
-Authorization: Bearer <ADMIN_SECRET>
+Authorization: Bearer <ADMIN_API_TOKEN>
 ```
 
 ## 数据模型

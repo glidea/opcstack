@@ -159,7 +159,7 @@ POST /api/admin/generate_credit_codes
 }
 ```
 
-该接口需要 `ADMIN_SECRET`。
+该接口需要 `ADMIN_API_TOKEN`。
 
 ### 查询兑换码
 
@@ -203,7 +203,7 @@ POST /api/admin/list_credit_codes
 }
 ```
 
-该接口需要 `ADMIN_SECRET`。
+该接口需要 `ADMIN_API_TOKEN`。
 
 ### 后台补发积分
 
@@ -223,7 +223,7 @@ POST /api/admin/grant_credits
 }
 ```
 
-该接口需要 `ADMIN_SECRET`。`source_id` 用于保证同一次补发不会重复入账。
+该接口需要 `ADMIN_API_TOKEN`。`source_id` 用于保证同一次补发不会重复入账。
 
 ## 注册赠送
 

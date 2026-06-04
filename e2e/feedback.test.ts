@@ -4,7 +4,7 @@ import { runCases, type TestCase } from '../src/testing/bdd'
 type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_REMOTE?: string
-	E2E_ADMIN_SECRET?: string
+	E2E_ADMIN_API_TOKEN?: string
 	E2E_EMAIL_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
@@ -17,7 +17,7 @@ const e2eEnv =
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
-const adminSecret: string = e2eEnv.E2E_ADMIN_SECRET ?? 'admin-secret'
+const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
 const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
@@ -60,7 +60,7 @@ describe('feedback api e2e', () => {
 			}
 		},
 		{
-			scenario: 'list feedbacks requires admin secret',
+			scenario: 'list feedbacks requires admin api token',
 			given: 'no admin authorization header',
 			when: 'listing feedbacks',
 			then: 'returns unauthorized',
@@ -109,7 +109,7 @@ describe('feedback api e2e', () => {
 		const flowCases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 			{
 				scenario: 'user submits feedback to tenant shard',
-				given: 'a signed in user and admin secret',
+				given: 'a signed in user and admin api token',
 				when: 'submitting feedback and listing globally',
 				then: 'submit succeeds and global list is not implemented',
 				givenDetail: {},
@@ -143,7 +143,7 @@ describe('feedback api e2e', () => {
 				'/api/admin/list_feedbacks',
 				{},
 				{
-					authorization: `Bearer ${adminSecret}`
+					authorization: `Bearer ${adminApiToken}`
 				}
 			)
 			const listPayload = (await listRes.json()) as { code: string }

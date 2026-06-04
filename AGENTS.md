@@ -74,7 +74,6 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `SUPER_ADMIN_EMAIL`: Single super admin user email
 - `SUPER_ADMIN_PASSWORD`: Password used by pre-build to create or update the super admin user
 - `ADMIN_API_TOKEN`: Machine token that represents the super admin user identity
-- `ADMIN_SECRET`: Admin password
 - `R2_ORIGIN_SIGNING_SECRET`: HMAC secret used by internal R2 image origin requests
 - `R2_TMP_LIFECYCLE_RULES`: R2 tmp object lifecycle rules for `tmp/public/` and `tmp/private/` only, for example `tmp/public/:7;tmp/private/:1`
 - `D1_SHARD_COUNT`: Tenant Shard D1 count. Increasing it adds new shard bindings and new users can be assigned to the new shards
@@ -133,7 +132,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
   - `authMiddleware`: injects `userId` into `ctx.variables`
   - Authenticated API routes accept Better Auth sessions from either Cookie or `Authorization: Bearer <token>`
   - Turnstile uses Better Auth captcha plugin and protects email sign-up sign-in and password reset request endpoints
-  - `adminSecretMiddleware`: validates admin password
+  - `adminUserMiddleware`: validates the super admin session or `ADMIN_API_TOKEN` and injects the super admin `userId`
   - `betaGateMiddleware`: beta code gate
   - `emailAuthMiddleware`: email auth gate
 

@@ -61,7 +61,7 @@ interface LocalPaymentFixture {
 type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_REMOTE?: string
-	E2E_ADMIN_SECRET?: string
+	E2E_ADMIN_API_TOKEN?: string
 	E2E_PAYMENT_ENABLED?: string
 	E2E_PAYMENT_PROVIDER?: string
 	E2E_PAYMENT_PRODUCTS?: string
@@ -72,7 +72,7 @@ const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const isRemote: boolean = e2eEnv.E2E_REMOTE === '1'
-const adminSecret: string = e2eEnv.E2E_ADMIN_SECRET ?? ''
+const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? ''
 const paymentEnabled: boolean = e2eEnv.E2E_PAYMENT_ENABLED === 'true'
 const paymentProvider: string = e2eEnv.E2E_PAYMENT_PROVIDER ?? ''
 const paymentProducts: string = e2eEnv.E2E_PAYMENT_PRODUCTS ?? ''
@@ -81,7 +81,7 @@ const hasPaymentConfig: boolean =
 	paymentProvider.trim() !== '' &&
 	paymentProducts.trim() !== ''
 const hasCreemWebhookConfig: boolean =
-	adminSecret !== '' &&
+	adminApiToken !== '' &&
 	paymentProvider === 'creem' &&
 	paymentCreemWebhookSecret.trim() !== ''
 const localCreditsProduct: LocalCreditsProduct | null = readLocalCreditsProduct(paymentProducts)
@@ -314,7 +314,7 @@ describe('payment api e2e', () => {
 		}
 	)
 
-	describe.skipIf(!(adminSecret !== '' && hasPaymentConfig))('return url behavior', () => {
+	describe.skipIf(!(adminApiToken !== '' && hasPaymentConfig))('return url behavior', () => {
 		type ReturnGiven = Record<string, never>
 		type ReturnWhen = {
 			action: 'visit_return_url'
@@ -552,7 +552,7 @@ async function listAdminPaymentTransactions(): Promise<{ status: number; total: 
 		method: 'POST',
 		headers: {
 			'content-type': 'application/json',
-			authorization: `Bearer ${adminSecret}`
+			authorization: `Bearer ${adminApiToken}`
 		},
 		body: JSON.stringify({
 			page: 1,

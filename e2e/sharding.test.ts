@@ -7,7 +7,7 @@ import { runCases, type TestCase } from '../src/testing/bdd'
 type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_REMOTE?: string
-	E2E_ADMIN_SECRET?: string
+	E2E_ADMIN_API_TOKEN?: string
 	E2E_D1_SHARD_COUNT?: string
 	E2E_EMAIL_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
@@ -77,7 +77,7 @@ const e2eEnv: E2EEnv =
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
-const adminSecret: string = e2eEnv.E2E_ADMIN_SECRET ?? ''
+const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? ''
 const d1ShardCount: number = Number(e2eEnv.E2E_D1_SHARD_COUNT ?? '1')
 const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
@@ -122,7 +122,7 @@ describe('tenant sharding e2e', () => {
 	const cases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 		{
 			scenario: 'tenant shard APIs keep user data on one shard',
-			given: 'a verified user and admin secret',
+			given: 'a verified user and admin api token',
 			when: 'using credits redemption code and notification read APIs',
 			then: 'responses carry one tenant shard and persisted tenant state',
 			givenDetail: {},
@@ -188,7 +188,7 @@ describe('tenant sharding e2e', () => {
 					amount: '3'
 				},
 				{
-					authorization: `Bearer ${adminSecret}`
+					authorization: `Bearer ${adminApiToken}`
 				}
 			)
 			const generated = (await generateRes.json()) as GenerateCreditCodesResponse
@@ -211,7 +211,7 @@ describe('tenant sharding e2e', () => {
 					code
 				},
 				{
-					authorization: `Bearer ${adminSecret}`
+					authorization: `Bearer ${adminApiToken}`
 				}
 			)
 			const listCodesPayload = (await listCodesRes.json()) as ListCreditCodesResponse
@@ -230,7 +230,7 @@ describe('tenant sharding e2e', () => {
 					target_user_id: auth.userId
 				},
 				{
-					authorization: `Bearer ${adminSecret}`
+					authorization: `Bearer ${adminApiToken}`
 				}
 			)
 			const createdNotification = (await createNotificationRes.json()) as CreateNotificationResponse
@@ -300,8 +300,8 @@ describe('tenant sharding e2e', () => {
 })
 
 function assertShardE2EConfig(): void {
-	if (adminSecret === '') {
-		throw new Error('E2E_ADMIN_SECRET_REQUIRED')
+	if (adminApiToken === '') {
+		throw new Error('E2E_ADMIN_API_TOKEN_REQUIRED')
 	}
 	if (!isRemote) {
 		return

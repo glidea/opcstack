@@ -159,7 +159,7 @@ Request:
 }
 ```
 
-This endpoint requires `ADMIN_SECRET`.
+This endpoint requires `ADMIN_API_TOKEN`.
 
 ### List credit codes
 
@@ -203,7 +203,7 @@ Response:
 }
 ```
 
-This endpoint requires `ADMIN_SECRET`.
+This endpoint requires `ADMIN_API_TOKEN`.
 
 ### Admin grant credits
 
@@ -223,7 +223,7 @@ Request:
 }
 ```
 
-This endpoint requires `ADMIN_SECRET`. `source_id` prevents duplicate grants for the same operation.
+This endpoint requires `ADMIN_API_TOKEN`. `source_id` prevents duplicate grants for the same operation.
 
 ## Signup reward
 

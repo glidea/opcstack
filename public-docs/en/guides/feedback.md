@@ -22,10 +22,10 @@ Submitting feedback requires a signed in user:
 Authorization: Bearer <session-token>
 ```
 
-Admin review requires the admin secret:
+Admin review requires the admin API token:
 
 ```http
-Authorization: Bearer <ADMIN_SECRET>
+Authorization: Bearer <ADMIN_API_TOKEN>
 ```
 
 ## Data model

@@ -28,7 +28,7 @@ Authorization: Bearer <session-token>
 后台发布公告需要管理员密钥：
 
 ```http
-Authorization: Bearer <ADMIN_SECRET>
+Authorization: Bearer <ADMIN_API_TOKEN>
 ```
 
 ## 数据模型

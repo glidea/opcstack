@@ -746,7 +746,6 @@ function createEnv(input: {
 		EMAIL_FROM: input.emailFrom,
 		EMAIL_SIGNUP_DOMAIN_ALLOWLIST: '',
 		BETA_CODE_ENABLED: 'false',
-		ADMIN_SECRET: 'admin-secret',
 		CREDITS_SIGNUP_ENABLED: 'false',
 		CREDITS_SIGNUP_AMOUNT: '0'
 	}
