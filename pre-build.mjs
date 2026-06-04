@@ -17,6 +17,8 @@ const R2_BUCKET_WRITE_PERMISSION_NAME = 'Workers R2 Storage Bucket Item Write'
 const CLOUDFLARE_TOKEN_PERMISSIONS = [
 	{ key: 'api_tokens', type: 'edit' },
 	{ key: 'memberships', type: 'read' },
+	{ key: 'zone', type: 'read' },
+	{ key: 'zone_settings', type: 'edit' },
 	{ key: 'workers_scripts', type: 'edit' },
 	{ key: 'workers_kv_storage', type: 'edit' },
 	{ key: 'workers_routes', type: 'edit' },
@@ -222,6 +224,21 @@ function readLocalVitePort() {
 
 function normalizeDomain(rawDomain) {
 	return rawDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '')
+}
+
+export function resolveCloudflareHost(rawDomain) {
+	const value = normalizeDomain(rawDomain.trim())
+	return new URL(`https://${value}`).hostname.toLowerCase()
+}
+
+export function selectCloudflareZone(zones, host) {
+	const matches = zones.filter((zone) => {
+		return host === zone.name || host.endsWith(`.${zone.name}`)
+	})
+	matches.sort((a, b) => {
+		return b.name.length - a.name.length
+	})
+	return matches[0]
 }
 
 function resolveAppBase(env, isRemote) {
@@ -552,6 +569,31 @@ async function createR2Bucket(accountId, token, name) {
 	return cfApiRequest(token, 'POST', `/accounts/${accountId}/r2/buckets`, { name })
 }
 
+async function listZones(accountId, token) {
+	const result = await cfApiRequest(
+		token,
+		'GET',
+		`/zones?account.id=${encodeURIComponent(accountId)}&per_page=50&page=1`,
+		undefined
+	)
+	return Array.isArray(result) ? result : []
+}
+
+async function enableImageTransformations(accountId, token, rawDomain) {
+	const host = resolveCloudflareHost(rawDomain)
+	const zones = await listZones(accountId, token)
+	const zone = selectCloudflareZone(zones, host)
+	if (!zone?.id) {
+		console.error(`Cloudflare zone not found for APP_DOMAIN ${host}`)
+		process.exit(1)
+	}
+
+	await cfApiRequest(token, 'PATCH', `/zones/${zone.id}/settings/transformations`, {
+		value: 'on'
+	})
+	console.log(`Image Transformations enabled for zone '${zone.name}'`)
+}
+
 async function putR2LifecycleRules(accountId, token, bucketName, rules) {
 	await cfApiRequest(
 		token,
@@ -735,8 +777,10 @@ function isCI() {
 
 async function promptCloudflareApiToken() {
 	console.log('Cloudflare API token is required for remote deploy.')
-	console.log('Create a token with Account permissions:')
+	console.log('Create a token with permissions:')
 	console.log('- API Tokens:Edit')
+	console.log('- Zone:Read')
+	console.log('- Zone Settings:Edit')
 	console.log('- Workers Scripts:Edit')
 	console.log('- Workers KV Storage:Edit')
 	console.log('- Workers Routes:Edit')
@@ -910,6 +954,9 @@ async function main() {
 		}
 
 		r2S3Token = await ensureR2S3Token(accountId, cloudflareApiToken, appName)
+
+		console.log('\nEnabling Image Transformations...')
+		await enableImageTransformations(accountId, cloudflareApiToken, env.APP_DOMAIN)
 	}
 
 	if (isRemote) {

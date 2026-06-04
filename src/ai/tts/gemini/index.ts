@@ -1,10 +1,13 @@
 import { GoogleGenAI, type GenerateContentResponse } from '@google/genai'
+import type { TenantShardDb } from '../../../db'
 import { newR2Client } from '../../../r2'
+import { createAITTSTask, getAITTSTask } from '../task'
 import type {
 	AISimpleTTSClient,
 	AISimpleTTSClientOptions,
 	AITTSSpeechInput,
-	AITTSResult
+	AITTSResult,
+	AITTSTask
 } from '..'
 
 type R2Env = Env & { R2: R2Bucket }
@@ -18,20 +21,31 @@ export function newGeminiNativeTTSClient(env: Env): GoogleGenAI {
 
 export function newGeminiSimpleTTSClient(
 	env: Env,
+	userId: string,
+	tenantDb: TenantShardDb,
 	options: AISimpleTTSClientOptions = {}
 ): AISimpleTTSClient {
-	return new geminiSimpleTTSClient(env, options)
+	return new geminiSimpleTTSClient(env, userId, tenantDb, options)
 }
 
 class geminiSimpleTTSClient implements AISimpleTTSClient {
 	private readonly client: GoogleGenAI
 	private readonly env: Env
 	private readonly model: string
+	private readonly userId: string
+	private readonly tenantDb: TenantShardDb
 
-	constructor(env: Env, options: AISimpleTTSClientOptions) {
+	constructor(
+		env: Env,
+		userId: string,
+		tenantDb: TenantShardDb,
+		options: AISimpleTTSClientOptions
+	) {
 		this.env = env
 		this.client = newGeminiNativeTTSClient(env)
 		this.model = options.model ?? env.TTS_GEMINI_MODEL
+		this.userId = userId
+		this.tenantDb = tenantDb
 	}
 
 	async generateSpeech(input: AITTSSpeechInput): Promise<AITTSResult> {
@@ -51,7 +65,15 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 			}
 		})
 
-		return toSpeechResult(this.env, input, result)
+		return toSpeechResult(this.env, this.userId, input, result)
+	}
+
+	async generateSpeechAsync(input: AITTSSpeechInput): Promise<AITTSTask> {
+		return createAITTSTask(this.env, this.tenantDb, 'gemini', this.model, this.userId, input)
+	}
+
+	async getTask(id: string): Promise<AITTSTask | undefined> {
+		return getAITTSTask(this.tenantDb, id)
 	}
 }
 
@@ -70,6 +92,7 @@ function validateInput(input: AITTSSpeechInput): void {
 
 async function toSpeechResult(
 	env: Env,
+	userId: string,
 	input: AITTSSpeechInput,
 	result: GenerateContentResponse
 ): Promise<AITTSResult> {
@@ -80,7 +103,7 @@ async function toSpeechResult(
 	}
 
 	if (input.uploadToR2) {
-		const client = newR2Client(env as R2Env, input.userId)
+		const client = newR2Client(env as R2Env, userId)
 		output.r2 = await client.put({
 			dir: 'audio',
 			body: toBytes(output.audioBase64),

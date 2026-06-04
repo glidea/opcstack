@@ -57,6 +57,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Generates `wrangler.jsonc`
 - Creates D1 R2 KV and Queues in remote mode
 - Enables D1 read replication in remote mode
+- Enables Cloudflare Image Transformations for the APP_DOMAIN zone in remote R2 mode
 - In local remote deploy, if `.wrangler/cloudflare-api-token` is missing or its required permission fingerprint changed, prints a Cloudflare API Token template link, prompts for the pasted token, and caches it locally
 - Generates and applies migrations
 
@@ -119,6 +120,11 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - OTP resend endpoint: `POST /api/auth/email-otp/send-verification-otp`
 - Password reset uses OTP endpoints under `/api/auth/email-otp/`
 - OTP sign-in is disabled; email auth remains password based
+- Registration attribution uses UTM naming
+- `user.registration_utm_source` records the first signup source from `utm_source`
+- Frontend should persist `utm_source` into `registration_utm_source` cookie before signup
+- Auth user creation reads `registration_utm_source` and writes it once when the user is created
+- Do not mix auth provider with registration source
 - Middleware:
   - `authMiddleware`: injects `userId` into `ctx.variables`
   - Authenticated API routes accept Better Auth sessions from either Cookie or `Authorization: Bearer <token>`
@@ -203,6 +209,7 @@ await client.putImage({ dir, imageBase64, mimeType, isPublic: true })
 5. Queue bindings are required runtime dependencies. Access fixed bindings directly, for example `env.Q_IMAGE_GENERATE.send(payload)`. Do not wrap them in optional casts or handwritten "not configured" guards
 6. A queue payload must not include a redundant `type` field when the queue has a single purpose. The queue name is already the message type
 7. AI image async queue name is `image-generate`, binding is `Q_IMAGE_GENERATE`
+8. AI TTS async queue name is `tts-generate`, binding is `Q_TTS_GENERATE`
 
 **Scheduled jobs**:
 1. Configure: `CRONS=*/10 * * * *`
@@ -287,6 +294,12 @@ await client.putImage({ dir, imageBase64, mimeType, isPublic: true })
 - Async image tasks live in Tenant Shard DB table `ai_image_tasks`
 - Async image queue payload only carries task id and user id
 - Async image retry uses Cloudflare Queue `message.retry({ delaySeconds })`
+- Simple TTS client supports sync `generateSpeech` and async `generateSpeechAsync`
+- TTS client runtime identity and dependencies such as `userId` and `tenantDb` are required client constructor arguments, not generate input and not options. Options only carry optional provider/model
+- Async TTS tasks live in Tenant Shard DB table `ai_tts_tasks`
+- Async TTS queue name is `tts-generate`, binding is `Q_TTS_GENERATE`
+- Async TTS queue payload only carries task id and user id
+- Async TTS retry uses Cloudflare Queue `message.retry({ delaySeconds })`
 - Image references may use inline base64 or R2 key with optional image variant
 - R2 image upload dir is `r2UploadDir`; it is a relative directory, not a full R2 key
 - R2 generated image public upload flag is `r2UploadIsPublic`; default is private, set `true` only when explicitly needed

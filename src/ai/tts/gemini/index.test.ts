@@ -1,6 +1,7 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import { newGeminiSimpleTTSClient } from './index'
+import type { TenantShardDb } from '../../../db'
 import type { AITTSSpeechInput } from '..'
 
 type GenerateContentResponseLike = {
@@ -83,6 +84,7 @@ describe('newGeminiSimpleTTSClient.generateSpeech', () => {
 		promptContainsTranscript: boolean
 		r2PutCalls: number
 		r2Key: string
+		r2ClientUserId: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -123,7 +125,8 @@ describe('newGeminiSimpleTTSClient.generateSpeech', () => {
 				promptContainsInstruction: true,
 				promptContainsTranscript: true,
 				r2PutCalls: 0,
-				r2Key: ''
+				r2Key: '',
+				r2ClientUserId: ''
 			}
 		},
 		{
@@ -169,7 +172,8 @@ describe('newGeminiSimpleTTSClient.generateSpeech', () => {
 				promptContainsInstruction: false,
 				promptContainsTranscript: true,
 				r2PutCalls: 0,
-				r2Key: ''
+				r2Key: '',
+				r2ClientUserId: ''
 			}
 		},
 		{
@@ -213,7 +217,8 @@ describe('newGeminiSimpleTTSClient.generateSpeech', () => {
 				promptContainsInstruction: false,
 				promptContainsTranscript: true,
 				r2PutCalls: 1,
-				r2Key: 'public/audio/1.wav'
+				r2Key: 'public/audio/1.wav',
+				r2ClientUserId: 'u1'
 			}
 		}
 	]
@@ -226,7 +231,8 @@ describe('newGeminiSimpleTTSClient.generateSpeech', () => {
 		r2PutMock.mockResolvedValue(given.r2Result ?? { key: '', url: '' })
 
 		const env = createEnv(given.envModel)
-		const client = newGeminiSimpleTTSClient(env, { model: given.optionsModel })
+		const tenantDb: TenantShardDb = {} as TenantShardDb
+		const client = newGeminiSimpleTTSClient(env, 'u1', tenantDb, { model: given.optionsModel })
 		const output = await client.generateSpeech(when.input)
 
 		const generateArg = generateContentMock.mock.calls[0]?.[0] as
@@ -285,7 +291,8 @@ describe('newGeminiSimpleTTSClient.generateSpeech', () => {
 			promptContainsInstruction: prompt.includes('Instruction:'),
 			promptContainsTranscript: prompt.includes('Transcript:'),
 			r2PutCalls: r2PutMock.mock.calls.length,
-			r2Key: output.r2?.key ?? ''
+			r2Key: output.r2?.key ?? '',
+			r2ClientUserId: (newR2ClientMock.mock.calls[0]?.[1] as string | undefined) ?? ''
 		}
 	})
 })

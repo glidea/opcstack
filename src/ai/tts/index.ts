@@ -1,4 +1,5 @@
 import type { GoogleGenAI } from '@google/genai'
+import type { TenantShardDb } from '../../db'
 import { newGeminiNativeTTSClient, newGeminiSimpleTTSClient } from './gemini'
 
 export interface AITTSClients {
@@ -6,11 +7,16 @@ export interface AITTSClients {
 	gemini?: GoogleGenAI
 }
 
-export function newAITTSClients(env: Env, options: AISimpleTTSClientOptions = {}): AITTSClients {
+export function newAITTSClients(
+	env: Env,
+	userId: string,
+	tenantDb: TenantShardDb,
+	options: AISimpleTTSClientOptions = {}
+): AITTSClients {
 	const provider = options.provider ?? 'gemini'
 	if (provider === 'gemini') {
 		return {
-			simple: newGeminiSimpleTTSClient(env, options),
+			simple: newGeminiSimpleTTSClient(env, userId, tenantDb, options),
 			gemini: newGeminiNativeTTSClient(env)
 		}
 	}
@@ -20,6 +26,8 @@ export function newAITTSClients(env: Env, options: AISimpleTTSClientOptions = {}
 
 export interface AISimpleTTSClient {
 	generateSpeech(input: AITTSSpeechInput): Promise<AITTSResult>
+	generateSpeechAsync(input: AITTSSpeechInput): Promise<AITTSTask>
+	getTask(id: string): Promise<AITTSTask | undefined>
 }
 
 export interface AISimpleTTSClientOptions {
@@ -46,7 +54,6 @@ export interface AITTSSpeechInput {
 	speakers: AITTSSpeaker[]
 	lines: AITTSLine[]
 	uploadToR2?: boolean
-	userId?: string
 }
 
 export interface AITTSResult {
@@ -56,4 +63,26 @@ export interface AITTSResult {
 		key: string
 		url: string
 	}
+}
+
+export type AITTSTaskStatus = 'processing' | 'completed' | 'failed'
+
+export interface AITTSTask {
+	id: string
+	userId: string
+	status: AITTSTaskStatus
+	provider: 'gemini'
+	model?: string
+	instruction?: string
+	speakers: AITTSSpeaker[]
+	lines: AITTSLine[]
+	uploadToR2: boolean
+	result?: {
+		audio: AITTSResult
+	}
+	attemptCount: number
+	lastErrorMessage?: string
+	createdAt: number
+	updatedAt: number
+	completedAt?: number
 }

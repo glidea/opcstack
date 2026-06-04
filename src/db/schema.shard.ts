@@ -113,6 +113,31 @@ export const aiImageTask = sqliteTable(
 	]
 )
 
+export const aiTtsTask = sqliteTable(
+	'ai_tts_tasks',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id').notNull(),
+		status: text('status').notNull(),
+		provider: text('provider').notNull(),
+		model: text('model'),
+		instruction: text('instruction'),
+		speakersJson: text('speakers_json').notNull(),
+		linesJson: text('lines_json').notNull(),
+		uploadToR2: integer('upload_to_r2').notNull(),
+		resultJson: text('result_json'),
+		attemptCount: integer('attempt_count').notNull().default(0),
+		lastErrorMessage: text('last_error_message'),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull(),
+		completedAt: integer('completed_at')
+	},
+	(table) => [
+		index('ai_tts_tasks_user_id_created_at_idx').on(table.userId, table.createdAt),
+		index('ai_tts_tasks_user_id_status_idx').on(table.userId, table.status)
+	]
+)
+
 export type CreditBalance = typeof creditBalance.$inferSelect
 export type NewCreditBalance = typeof creditBalance.$inferInsert
 export type CreditEntry = typeof creditEntry.$inferSelect
@@ -125,3 +150,5 @@ export type NotificationRead = typeof notificationRead.$inferSelect
 export type NewNotificationRead = typeof notificationRead.$inferInsert
 export type AIImageTaskRow = typeof aiImageTask.$inferSelect
 export type NewAIImageTaskRow = typeof aiImageTask.$inferInsert
+export type AITTSTaskRow = typeof aiTtsTask.$inferSelect
+export type NewAITTSTaskRow = typeof aiTtsTask.$inferInsert
