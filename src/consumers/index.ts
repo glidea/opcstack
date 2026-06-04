@@ -1,3 +1,5 @@
+import { AI_IMAGE_QUEUE_NAME } from '../ai/image/task'
+import { handleAIImageQueue } from './ai-image'
 
 export type QueueConsumerHandler = (
 	batch: MessageBatch<unknown>,
@@ -20,5 +22,5 @@ export async function handleQueue(
 }
 
 export const queueHandlers: Record<string, QueueConsumerHandler> = {
-	// Add your queue handler.
+	[AI_IMAGE_QUEUE_NAME]: handleAIImageQueue
 }

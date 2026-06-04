@@ -21,6 +21,7 @@ export interface R2PutInput {
 	body: string | ArrayBuffer | Uint8Array | ReadableStream
 	contentType: string
 	filename?: string
+	isPublic?: boolean
 }
 
 export interface R2PutResult {
@@ -33,6 +34,7 @@ export interface R2PutImageInput {
 	imageBase64: string
 	mimeType: string
 	filename?: string
+	isPublic?: boolean
 }
 
 export interface R2CreateUploadUrlInput {
@@ -42,7 +44,7 @@ export interface R2CreateUploadUrlInput {
 }
 
 export interface R2CreateTmpUploadUrlInput {
-	visibility: R2TmpVisibility
+	isPublic: boolean
 	path: string
 	contentType: string
 	size: number
@@ -68,8 +70,6 @@ export type R2GetResult =
 	| { status: 'unavailable' }
 
 export type R2ImageVariantPreset = 'small' | 'medium'
-export type R2TmpVisibility = 'public' | 'private'
-
 export type R2ImageVariantBytesResult =
 	| {
 		status: 'ok'
@@ -110,7 +110,7 @@ class r2Client implements R2Client {
 		}
 
 		const filename = input.filename ?? `${Date.now()}-${crypto.randomUUID()}`
-		const key = this.buildKey(input.dir, filename)
+		const key = this.buildKey(input.dir, filename, input.isPublic)
 
 		await this.env.R2.put(key, input.body, {
 			httpMetadata: {
@@ -136,7 +136,8 @@ class r2Client implements R2Client {
 			dir: input.dir,
 			filename,
 			body: toBytes(input.imageBase64),
-			contentType: input.mimeType
+			contentType: input.mimeType,
+			isPublic: input.isPublic
 		})
 	}
 
@@ -173,9 +174,6 @@ class r2Client implements R2Client {
 		if (!this.env.R2) {
 			throw new Error('R2_NOT_CONFIGURED')
 		}
-		if (!this.userId) {
-			throw new Error('R2_UPLOAD_USER_REQUIRED')
-		}
 		if (!isUploadPath(input.path)) {
 			throw new Error('R2_UPLOAD_PATH_INVALID')
 		}
@@ -187,7 +185,15 @@ class r2Client implements R2Client {
 		}
 
 		const config = this.uploadSigningConfig()
-		const key = `${tmpPrefix(input.visibility)}${this.userId}/${input.path}`
+		let key: string
+		if (input.isPublic) {
+			key = `${TMP_PUBLIC_PREFIX}${input.path}`
+		} else {
+			if (!this.userId) {
+				throw new Error('R2_UPLOAD_USER_REQUIRED')
+			}
+			key = `${TMP_PRIVATE_PREFIX}${this.userId}/${input.path}`
+		}
 		const expiresAt = Math.floor(Date.now() / 1000) + 60
 		const uploadUrl = await createR2PresignedPutUrl(config, key, input.contentType, expiresAt)
 		return {
@@ -312,11 +318,15 @@ class r2Client implements R2Client {
 		return { status: 'not_found' }
 	}
 
-	private buildKey(dir: string, filename: string): string {
-		if (this.userId) {
-			return `${PRIVATE_PREFIX}${this.userId}/${dir}/${filename}`
+	private buildKey(dir: string, filename: string, isPublic?: boolean): string {
+		const resolvedIsPublic = isPublic ?? !this.userId
+		if (resolvedIsPublic) {
+			return `${PUBLIC_PREFIX}${dir}/${filename}`
 		}
-		return `${PUBLIC_PREFIX}${dir}/${filename}`
+		if (!this.userId) {
+			throw new Error('R2_PRIVATE_UPLOAD_USER_REQUIRED')
+		}
+		return `${PRIVATE_PREFIX}${this.userId}/${dir}/${filename}`
 	}
 
 	private privateOwner(key: string): string {
@@ -362,15 +372,6 @@ class r2Client implements R2Client {
 
 	private userUploadMaxBytes(): number {
 		return Number(this.env.R2_USER_UPLOAD_MAX_BYTES)
-	}
-}
-
-function tmpPrefix(visibility: R2TmpVisibility): string {
-	switch (visibility) {
-		case 'public':
-			return TMP_PUBLIC_PREFIX
-		case 'private':
-			return TMP_PRIVATE_PREFIX
 	}
 }
 

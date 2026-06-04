@@ -5,15 +5,19 @@ import type {
 	ImageGenerateParamsStreaming,
 	ImageGenStreamEvent
 } from 'openai/resources/images'
+import type { TenantShardDb } from '../../../db'
 import { newR2Client } from '../../../r2'
+import { resolveImageReferences } from '../reference'
+import { createAIImageTask, getAIImageTask } from '../task'
 import type {
 	AISimpleImageClient,
 	AIImageAspectRatio,
 	AISimpleImageClientGenerateInput,
 	AISimpleImageClientOptions,
 	AIImageSize,
-	AIImageReference,
-	AIImageResult
+	AIImageResult,
+	AIImageTask,
+	AIInlineImageReference
 } from '..'
 
 export function newOpenAINativeImageClient(env: Env): OpenAI {
@@ -25,9 +29,11 @@ export function newOpenAINativeImageClient(env: Env): OpenAI {
 
 export function newOpenAISimpleImageClient(
 	env: Env,
-	options: AISimpleImageClientOptions = {}
+	userId: string,
+	tenantDb: TenantShardDb,
+	options: AISimpleImageClientOptions
 ): AISimpleImageClient {
-	return new openAISimpleImageClient(env, options)
+	return new openAISimpleImageClient(env, userId, tenantDb, options)
 }
 
 type R2Env = Env & { R2: R2Bucket }
@@ -36,16 +42,26 @@ class openAISimpleImageClient implements AISimpleImageClient {
 	private readonly client: OpenAI
 	private readonly env: Env
 	private readonly model: string
+	private readonly userId: string
+	private readonly tenantDb: TenantShardDb
 
-	constructor(env: Env, options: AISimpleImageClientOptions) {
+	constructor(
+		env: Env,
+		userId: string,
+		tenantDb: TenantShardDb,
+		options: AISimpleImageClientOptions
+	) {
 		this.env = env
 		this.client = newOpenAINativeImageClient(env)
 		this.model = options.model ?? env.IMAGE_OPENAI_MODEL
+		this.userId = userId
+		this.tenantDb = tenantDb
 	}
 
 	async generate(input: AISimpleImageClientGenerateInput): Promise<AIImageResult[]> {
-		if (input.references && input.references.length > 0) {
-			const image = await toReferenceFiles(input.references)
+		const references = await resolveImageReferences(this.env, this.userId, input.references)
+		if (references.length > 0) {
+			const image = await toReferenceFiles(references)
 			const request: ImageEditParamsStreaming & { moderation?: 'low' | 'auto' } = {
 				model: this.model,
 				image,
@@ -59,7 +75,7 @@ class openAISimpleImageClient implements AISimpleImageClient {
 			const stream = await this.client.images.edit(request)
 			const outputs = await toImageResultsFromStream(stream)
 
-			return uploadImageResults(this.env, input, outputs)
+			return uploadImageResults(this.env, input, this.userId, outputs)
 		}
 
 		const request: ImageGenerateParamsStreaming = {
@@ -74,7 +90,15 @@ class openAISimpleImageClient implements AISimpleImageClient {
 		const stream = await this.client.images.generate(request)
 		const outputs = await toImageResultsFromStream(stream)
 
-		return uploadImageResults(this.env, input, outputs)
+		return uploadImageResults(this.env, input, this.userId, outputs)
+	}
+
+	async generateAsync(input: AISimpleImageClientGenerateInput): Promise<AIImageTask> {
+		return createAIImageTask(this.env, this.tenantDb, 'openai', this.model, this.userId, input)
+	}
+
+	async getTask(id: string): Promise<AIImageTask | undefined> {
+		return getAIImageTask(this.tenantDb, id)
 	}
 }
 
@@ -103,18 +127,20 @@ async function toImageResultsFromStream(
 async function uploadImageResults(
 	env: Env,
 	input: AISimpleImageClientGenerateInput,
+	userId: string,
 	outputs: AIImageResult[]
 ): Promise<AIImageResult[]> {
 	if (!input.uploadToR2) {
 		return outputs
 	}
 
-	const client = newR2Client(env as R2Env, input.userId)
+	const client = newR2Client(env as R2Env, userId)
 	for (const output of outputs) {
 		output.r2 = await client.putImage({
-			dir: 'images',
+			dir: input.r2UploadDir ?? 'images',
 			imageBase64: output.imageBase64,
-			mimeType: output.mimeType
+			mimeType: output.mimeType,
+			isPublic: input.r2UploadIsPublic
 		})
 	}
 
@@ -165,7 +191,7 @@ function toMimeType(format: string | undefined): string {
 	return 'image/png'
 }
 
-async function toReferenceFiles(references: AIImageReference[]): Promise<File[]> {
+async function toReferenceFiles(references: AIInlineImageReference[]): Promise<File[]> {
 	const files: File[] = []
 	for (const [index, reference] of references.entries()) {
 		const name = `image-${index + 1}.${toImageExt(reference.mimeType)}`

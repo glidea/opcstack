@@ -1,5 +1,7 @@
 import type { GoogleGenAI } from '@google/genai'
 import type OpenAI from 'openai'
+import type { TenantShardDb } from '../../db'
+import type { R2ImageVariantPreset } from '../../r2'
 import { newGeminiNativeImageClient, newGeminiSimpleImageClient } from './gemini'
 import { newOpenAINativeImageClient, newOpenAISimpleImageClient } from './openai'
 
@@ -9,17 +11,22 @@ export interface AIImageClients {
 	openai?: OpenAI
 }
 
-export function newAIImageClients(env: Env, options: AISimpleImageClientOptions = {}): AIImageClients {
+export function newAIImageClients(
+	env: Env,
+	userId: string,
+	tenantDb: TenantShardDb,
+	options: AISimpleImageClientOptions
+): AIImageClients {
 	const provider = options.provider ?? 'gemini'
 	if (provider === 'gemini') {
 		return {
-			simple: newGeminiSimpleImageClient(env, options),
+			simple: newGeminiSimpleImageClient(env, userId, tenantDb, options),
 			gemini: newGeminiNativeImageClient(env)
 		}
 	}
 	if (provider === 'openai') {
 		return {
-			simple: newOpenAISimpleImageClient(env, options),
+			simple: newOpenAISimpleImageClient(env, userId, tenantDb, options),
 			openai: newOpenAINativeImageClient(env)
 		}
 	}
@@ -29,6 +36,8 @@ export function newAIImageClients(env: Env, options: AISimpleImageClientOptions 
 
 export interface AISimpleImageClient {
 	generate(input: AISimpleImageClientGenerateInput): Promise<AIImageResult[]>
+	generateAsync(input: AISimpleImageClientGenerateInput): Promise<AIImageTask>
+	getTask(id: string): Promise<AIImageTask | undefined>
 }
 
 export interface AISimpleImageClientOptions {
@@ -39,9 +48,18 @@ export interface AISimpleImageClientOptions {
 export type AIImageAspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9'
 export type AIImageSize = '1K' | '2K' | '4K'
 
-export interface AIImageReference {
+export type AIImageReference = AIInlineImageReference | AIR2ImageReference
+
+export interface AIInlineImageReference {
 	imageBase64: string
 	mimeType: string
+}
+
+export interface AIR2ImageReference {
+	r2: {
+		key: string
+		variant?: R2ImageVariantPreset
+	}
 }
 
 export interface AISimpleImageClientGenerateInput {
@@ -60,9 +78,10 @@ export interface AISimpleImageClientGenerateInput {
 	lowCensorship?: boolean
 	// Upload generated images to R2 when true
 	uploadToR2?: boolean
-	// User id used for R2 path scoping
-	// Public is used when userId is undefined
-	userId?: string
+	// Relative R2 upload dir under public/ or private/{userId}/. Defaults to images
+	r2UploadDir?: string
+	// Generated image R2 public flag. Defaults to private
+	r2UploadIsPublic?: boolean
 }
 
 export interface AIImageResult {
@@ -72,4 +91,31 @@ export interface AIImageResult {
 		key: string
 		url: string
 	}
+}
+
+export type AIImageTaskStatus = 'processing' | 'completed' | 'failed'
+
+export interface AIImageTask {
+	id: string
+	userId: string
+	status: AIImageTaskStatus
+	provider: 'gemini' | 'openai'
+	model?: string
+	prompt: string
+	numberOfImages?: number
+	aspectRatio?: AIImageAspectRatio
+	imageSize?: AIImageSize
+	lowCensorship: boolean
+	uploadToR2: boolean
+	r2UploadDir?: string
+	r2UploadIsPublic: boolean
+	references: AIImageReference[]
+	result?: {
+		images: AIImageResult[]
+	}
+	attemptCount: number
+	lastErrorMessage?: string
+	createdAt: number
+	updatedAt: number
+	completedAt?: number
 }

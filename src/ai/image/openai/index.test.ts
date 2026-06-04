@@ -2,6 +2,7 @@ import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import { newOpenAINativeImageClient, newOpenAISimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput } from '..'
+import type { TenantShardDb } from '../../../db'
 
 type OpenAIImageResponse = {
 	type: 'image_generation.partial_image' | 'image_generation.completed' | 'image_edit.partial_image' | 'image_edit.completed'
@@ -20,6 +21,8 @@ const {
 	editMock,
 	toFileMock,
 	r2PutImageMock,
+	r2GetMock,
+	r2GetVariantBytesMock,
 	newR2ClientMock
 } = vi.hoisted(() => {
 	return {
@@ -28,6 +31,8 @@ const {
 		editMock: vi.fn(),
 		toFileMock: vi.fn(),
 		r2PutImageMock: vi.fn(),
+		r2GetMock: vi.fn(),
+		r2GetVariantBytesMock: vi.fn(),
 		newR2ClientMock: vi.fn()
 	}
 })
@@ -57,7 +62,9 @@ vi.mock('openai', () => {
 vi.mock('../../../r2', () => {
 	newR2ClientMock.mockImplementation(() => {
 		return {
-			putImage: r2PutImageMock
+			putImage: r2PutImageMock,
+			get: r2GetMock,
+			getImageVariantBytes: r2GetVariantBytesMock
 		}
 	})
 	return {
@@ -69,6 +76,7 @@ describe('newOpenAISimpleImageClient.generate', () => {
 	type GivenDetail = {
 		envModel: string
 		optionsModel?: string
+		optionsUserId?: string
 		generateEvents?: OpenAIImageResponse[]
 		editEvents?: OpenAIImageResponse[]
 		r2Results?: R2PutResult[]
@@ -92,6 +100,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 		editCalled: number
 		toFileCalls: number
 		r2PutCalls: number
+		firstR2PutDir: string
+		firstR2PutIsPublic: boolean
+		r2GetCalls: number
+		r2GetVariantBytesCalls: number
 		firstR2Key: string
 	}
 
@@ -132,6 +144,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 				editCalled: 0,
 				toFileCalls: 0,
 				r2PutCalls: 0,
+				firstR2PutDir: '',
+				firstR2PutIsPublic: false,
+				r2GetCalls: 0,
+				r2GetVariantBytesCalls: 0,
 				firstR2Key: ''
 			}
 		},
@@ -168,6 +184,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 				editCalled: 0,
 				toFileCalls: 0,
 				r2PutCalls: 0,
+				firstR2PutDir: '',
+				firstR2PutIsPublic: false,
+				r2GetCalls: 0,
+				r2GetVariantBytesCalls: 0,
 				firstR2Key: ''
 			}
 		},
@@ -207,6 +227,10 @@ describe('newOpenAISimpleImageClient.generate', () => {
 				editCalled: 1,
 				toFileCalls: 1,
 				r2PutCalls: 0,
+				firstR2PutDir: '',
+				firstR2PutIsPublic: false,
+				r2GetCalls: 0,
+				r2GetVariantBytesCalls: 0,
 				firstR2Key: ''
 			}
 		},
@@ -223,7 +247,9 @@ describe('newOpenAISimpleImageClient.generate', () => {
 			whenDetail: {
 				input: {
 					prompt: 'upload',
-					uploadToR2: true
+					uploadToR2: true,
+					r2UploadDir: 'custom/images',
+					r2UploadIsPublic: true
 				}
 			},
 			thenExpected: {
@@ -242,7 +268,50 @@ describe('newOpenAISimpleImageClient.generate', () => {
 				editCalled: 0,
 				toFileCalls: 0,
 				r2PutCalls: 1,
+				firstR2PutDir: 'custom/images',
+				firstR2PutIsPublic: true,
+				r2GetCalls: 0,
+				r2GetVariantBytesCalls: 0,
 				firstR2Key: 'public/images/1.png'
+			}
+		},
+		{
+			scenario: 'r2 reference reads origin image before edit',
+			given: 'edit response with one r2 source image',
+			when: 'editing with r2 reference',
+			then: 'loads origin bytes and converts to file',
+			givenDetail: {
+				envModel: 'env-model',
+				optionsUserId: 'u',
+				editEvents: [{ type: 'image_edit.completed', b64_json: 'e', output_format: 'png' }]
+			},
+			whenDetail: {
+				input: {
+					prompt: 'edit r2',
+					references: [{ r2: { key: 'private/u/ref.png' } }]
+				}
+			},
+			thenExpected: {
+				outputCount: 1,
+				firstMimeType: 'image/png',
+				modelUsed: 'env-model',
+				sizeInGenerate: '',
+				sizeInEdit: '1024x1024',
+				moderationInGenerate: '',
+				moderationInEdit: 'auto',
+				streamInGenerate: false,
+				streamInEdit: true,
+				partialImagesInGenerate: 0,
+				partialImagesInEdit: 1,
+				generateCalled: 0,
+				editCalled: 1,
+				toFileCalls: 1,
+				r2PutCalls: 0,
+				firstR2PutDir: '',
+				firstR2PutIsPublic: false,
+				r2GetCalls: 1,
+				r2GetVariantBytesCalls: 0,
+				firstR2Key: ''
 			}
 		}
 	]
@@ -260,9 +329,24 @@ describe('newOpenAISimpleImageClient.generate', () => {
 			r2Index += 1
 			return result ?? { key: '', url: '' }
 		})
+		r2GetMock.mockResolvedValue({
+			status: 'ok',
+			body: new ReadableStream<Uint8Array>({
+				start(controller): void {
+					controller.enqueue(new TextEncoder().encode('origin'))
+					controller.close()
+				}
+			}),
+			contentType: 'image/png'
+		})
+		r2GetVariantBytesMock.mockResolvedValue({
+			status: 'ok',
+			body: new TextEncoder().encode('variant').buffer,
+			contentType: 'image/png'
+		})
 
 		const env: Env = createEnv(given.envModel)
-		const client = newOpenAISimpleImageClient(env, {
+		const client = newOpenAISimpleImageClient(env, given.optionsUserId ?? 'u', {} as TenantShardDb, {
 			model: given.optionsModel
 		})
 		const outputs = await client.generate(when.input)
@@ -302,6 +386,12 @@ describe('newOpenAISimpleImageClient.generate', () => {
 			editCalled: editMock.mock.calls.length,
 			toFileCalls: toFileMock.mock.calls.length,
 			r2PutCalls: r2PutImageMock.mock.calls.length,
+			firstR2PutDir:
+				(r2PutImageMock.mock.calls[0]?.[0] as { dir?: string } | undefined)?.dir ?? '',
+			firstR2PutIsPublic:
+				(r2PutImageMock.mock.calls[0]?.[0] as { isPublic?: boolean } | undefined)?.isPublic ?? false,
+			r2GetCalls: r2GetMock.mock.calls.length,
+			r2GetVariantBytesCalls: r2GetVariantBytesMock.mock.calls.length,
 			firstR2Key: outputs[0]?.r2?.key ?? ''
 		}
 	})

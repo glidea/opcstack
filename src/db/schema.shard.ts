@@ -83,6 +83,36 @@ export const notificationRead = sqliteTable(
 	]
 )
 
+export const aiImageTask = sqliteTable(
+	'ai_image_tasks',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id').notNull(),
+		status: text('status').notNull(),
+		provider: text('provider').notNull(),
+		model: text('model'),
+		prompt: text('prompt').notNull(),
+		numberOfImages: integer('number_of_images'),
+		aspectRatio: text('aspect_ratio'),
+		imageSize: text('image_size'),
+		lowCensorship: integer('low_censorship').notNull(),
+		uploadToR2: integer('upload_to_r2').notNull(),
+		r2UploadDir: text('r2_upload_dir'),
+		r2UploadIsPublic: integer('r2_upload_is_public').notNull().default(0),
+		referencesJson: text('references_json').notNull(),
+		resultJson: text('result_json'),
+		attemptCount: integer('attempt_count').notNull().default(0),
+		lastErrorMessage: text('last_error_message'),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull(),
+		completedAt: integer('completed_at')
+	},
+	(table) => [
+		index('ai_image_tasks_user_id_created_at_idx').on(table.userId, table.createdAt),
+		index('ai_image_tasks_user_id_status_idx').on(table.userId, table.status)
+	]
+)
+
 export type CreditBalance = typeof creditBalance.$inferSelect
 export type NewCreditBalance = typeof creditBalance.$inferInsert
 export type CreditEntry = typeof creditEntry.$inferSelect
@@ -93,3 +123,5 @@ export type Feedback = typeof feedback.$inferSelect
 export type NewFeedback = typeof feedback.$inferInsert
 export type NotificationRead = typeof notificationRead.$inferSelect
 export type NewNotificationRead = typeof notificationRead.$inferInsert
+export type AIImageTaskRow = typeof aiImageTask.$inferSelect
+export type NewAIImageTaskRow = typeof aiImageTask.$inferInsert

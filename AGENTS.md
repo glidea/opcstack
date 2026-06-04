@@ -172,7 +172,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 **Conventions**:
 - Public: `public/*`
 - Private: `private/<userId>/*`
-- Temporary public: `tmp/public/<userId>/*`
+- Temporary public: `tmp/public/*`
 - Temporary private: `tmp/private/<userId>/*`
 - R2 Object Lifecycle retention may only be configured for `tmp/public/` and `tmp/private/`; do not configure lifecycle rules for persistent `public/` or `private/`
 
@@ -190,6 +190,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 import { newR2Client } from './src/r2'
 const client = newR2Client(env, userId)
 await client.putImage({ dir, imageBase64, mimeType })
+await client.putImage({ dir, imageBase64, mimeType, isPublic: true })
 ```
 
 ### 6. Queues and Scheduled Jobs
@@ -199,6 +200,9 @@ await client.putImage({ dir, imageBase64, mimeType })
 2. Handler: `queueHandlers` in `src/consumers/index.ts`
 3. Send: `env.Q_TASK_CHECK.send(payload)`
 4. Binding convention: `Q_<QUEUE_NAME_UPPER>`
+5. Queue bindings are required runtime dependencies. Access fixed bindings directly, for example `env.Q_IMAGE_GENERATE.send(payload)`. Do not wrap them in optional casts or handwritten "not configured" guards
+6. A queue payload must not include a redundant `type` field when the queue has a single purpose. The queue name is already the message type
+7. AI image async queue name is `image-generate`, binding is `Q_IMAGE_GENERATE`
 
 **Scheduled jobs**:
 1. Configure: `CRONS=*/10 * * * *`
@@ -215,7 +219,7 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Frontend loads public config through `getPublicConfig(fetchApi)` from `$web/config/client`
 - `+layout.server.ts` is the single source that calls `getPublicConfig(event.fetch)` and passes `data.publicConfig` to pages
 - Components and pages must not call `/api/get_public_config` directly unless they are replacing the layout-level state source
-- Public config controls feature visibility such as Google auth, email auth, email signup, email verification, user email action cooldown, credits, and payment
+- Public config controls feature display such as Google auth, email auth, email signup, email verification, user email action cooldown, credits, and payment
 
 ### 8. List API Contract
 
@@ -278,6 +282,14 @@ await client.putImage({ dir, imageBase64, mimeType })
 - Image: `src/ai/image/gemini/`
 - TTS: `src/ai/tts/gemini/`
 - Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `TTS_GEMINI_*`
+- Simple image client supports sync `generate` and async `generateAsync`
+- Image client runtime identity and dependencies such as `userId` and `tenantDb` are required client constructor arguments, not generate input and not options. Options only carry optional provider/model
+- Async image tasks live in Tenant Shard DB table `ai_image_tasks`
+- Async image queue payload only carries task id and user id
+- Async image retry uses Cloudflare Queue `message.retry({ delaySeconds })`
+- Image references may use inline base64 or R2 key with optional image variant
+- R2 image upload dir is `r2UploadDir`; it is a relative directory, not a full R2 key
+- R2 generated image public upload flag is `r2UploadIsPublic`; default is private, set `true` only when explicitly needed
 
 ### 12. Web SEO
 

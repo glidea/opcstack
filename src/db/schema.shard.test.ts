@@ -1,6 +1,7 @@
 import { describe } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import {
+	aiImageTask,
 	creditBalance,
 	creditEntry,
 	creditTransaction,
@@ -14,6 +15,7 @@ describe('schema.shard', () => {
 	type ThenExpected = {
 		hasCreditLedgerTables: boolean
 		hasTenantUserTables: boolean
+		hasAIImageTaskTable: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -26,7 +28,8 @@ describe('schema.shard', () => {
 			whenDetail: {},
 			thenExpected: {
 				hasCreditLedgerTables: true,
-				hasTenantUserTables: true
+				hasTenantUserTables: true,
+				hasAIImageTaskTable: true
 			}
 		}
 	]
@@ -37,7 +40,8 @@ describe('schema.shard', () => {
 				creditBalance !== undefined &&
 				creditEntry !== undefined &&
 				creditTransaction !== undefined,
-			hasTenantUserTables: feedback !== undefined && notificationRead !== undefined
+			hasTenantUserTables: feedback !== undefined && notificationRead !== undefined,
+			hasAIImageTaskTable: aiImageTask !== undefined
 		}
 	})
 })

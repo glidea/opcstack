@@ -2,6 +2,7 @@ import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import { newGeminiSimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput } from '..'
+import type { TenantShardDb } from '../../../db'
 
 type GenerateContentResponseLike = {
 	candidates?: Array<{
@@ -22,10 +23,12 @@ type R2PutResult = {
 	url: string
 }
 
-const { generateContentMock, r2PutImageMock, newR2ClientMock } = vi.hoisted(() => {
+const { generateContentMock, r2PutImageMock, r2GetMock, r2GetVariantBytesMock, newR2ClientMock } = vi.hoisted(() => {
 	return {
 		generateContentMock: vi.fn(),
 		r2PutImageMock: vi.fn(),
+		r2GetMock: vi.fn(),
+		r2GetVariantBytesMock: vi.fn(),
 		newR2ClientMock: vi.fn()
 	}
 })
@@ -54,7 +57,9 @@ vi.mock('@google/genai', () => {
 vi.mock('../../../r2', () => {
 	newR2ClientMock.mockImplementation(() => {
 		return {
-			putImage: r2PutImageMock
+			putImage: r2PutImageMock,
+			get: r2GetMock,
+			getImageVariantBytes: r2GetVariantBytesMock
 		}
 	})
 	return {
@@ -66,6 +71,7 @@ describe('newGeminiSimpleImageClient.generate', () => {
 	type GivenDetail = {
 		envModel: string
 		optionsModel?: string
+		optionsUserId?: string
 		generateContentResponse?: GenerateContentResponseLike
 		r2Results?: R2PutResult[]
 	}
@@ -84,6 +90,11 @@ describe('newGeminiSimpleImageClient.generate', () => {
 		responseModalityFirst: string
 		referencePartCount: number
 		r2PutCalls: number
+		firstR2PutDir: string
+		firstR2PutIsPublic: boolean
+		r2GetCalls: number
+		r2GetVariantBytesCalls: number
+		firstReferenceData: string
 		firstR2Key: string
 	}
 
@@ -95,6 +106,7 @@ describe('newGeminiSimpleImageClient.generate', () => {
 			then: 'returns two outputs and forwards size ratio and count',
 			givenDetail: {
 				envModel: 'env-model',
+				optionsUserId: 'u',
 				generateContentResponse: {
 					candidates: [
 						{
@@ -130,6 +142,11 @@ describe('newGeminiSimpleImageClient.generate', () => {
 				responseModalityFirst: 'IMAGE',
 				referencePartCount: 0,
 				r2PutCalls: 0,
+				firstR2PutDir: '',
+				firstR2PutIsPublic: false,
+				r2GetCalls: 0,
+				r2GetVariantBytesCalls: 0,
+				firstReferenceData: '',
 				firstR2Key: ''
 			}
 		},
@@ -171,6 +188,11 @@ describe('newGeminiSimpleImageClient.generate', () => {
 				responseModalityFirst: 'IMAGE',
 				referencePartCount: 1,
 				r2PutCalls: 0,
+				firstR2PutDir: '',
+				firstR2PutIsPublic: false,
+				r2GetCalls: 0,
+				r2GetVariantBytesCalls: 0,
+				firstReferenceData: 'ref',
 				firstR2Key: ''
 			}
 		},
@@ -209,6 +231,11 @@ describe('newGeminiSimpleImageClient.generate', () => {
 				responseModalityFirst: 'IMAGE',
 				referencePartCount: 0,
 				r2PutCalls: 0,
+				firstR2PutDir: '',
+				firstR2PutIsPublic: false,
+				r2GetCalls: 0,
+				r2GetVariantBytesCalls: 0,
+				firstReferenceData: '',
 				firstR2Key: ''
 			}
 		},
@@ -242,7 +269,9 @@ describe('newGeminiSimpleImageClient.generate', () => {
 				input: {
 					prompt: 'multi',
 					numberOfImages: 2,
-					uploadToR2: true
+					uploadToR2: true,
+					r2UploadDir: 'custom/images',
+					r2UploadIsPublic: true
 				}
 			},
 			thenExpected: {
@@ -257,7 +286,55 @@ describe('newGeminiSimpleImageClient.generate', () => {
 				responseModalityFirst: 'IMAGE',
 				referencePartCount: 0,
 				r2PutCalls: 2,
+				firstR2PutDir: 'custom/images',
+				firstR2PutIsPublic: true,
+				r2GetCalls: 0,
+				r2GetVariantBytesCalls: 0,
+				firstReferenceData: '',
 				firstR2Key: 'public/images/1.png'
+			}
+		},
+		{
+			scenario: 'r2 reference reads image variant before generate',
+			given: 'env model and one image response',
+			when: 'calling simple generate with r2 reference variant',
+			then: 'loads variant bytes and passes inline reference',
+			givenDetail: {
+				envModel: 'env-model',
+				generateContentResponse: {
+					candidates: [
+						{
+							content: {
+								parts: [{ inlineData: { data: 'z', mimeType: 'image/png' } }]
+							}
+						}
+					]
+				}
+			},
+			whenDetail: {
+				input: {
+					prompt: 'edit from r2',
+					references: [{ r2: { key: 'private/u/a.png', variant: 'small' } }]
+				}
+			},
+			thenExpected: {
+				outputCount: 1,
+				firstMimeType: 'image/png',
+				generateContentCalled: 1,
+				modelUsed: 'env-model',
+				aspectRatioInConfig: '1:1',
+				imageSizeInConfig: '',
+				personGenerationInConfig: 'absent',
+				candidateCountInConfig: 0,
+				responseModalityFirst: 'IMAGE',
+				referencePartCount: 1,
+				r2PutCalls: 0,
+				firstR2PutDir: '',
+				firstR2PutIsPublic: false,
+				r2GetCalls: 0,
+				r2GetVariantBytesCalls: 1,
+				firstReferenceData: 'dmFyaWFudA==',
+				firstR2Key: ''
 			}
 		}
 	]
@@ -274,9 +351,24 @@ describe('newGeminiSimpleImageClient.generate', () => {
 			r2Index += 1
 			return result ?? { key: '', url: '' }
 		})
+		r2GetMock.mockResolvedValue({
+			status: 'ok',
+			body: new ReadableStream<Uint8Array>({
+				start(controller): void {
+					controller.enqueue(new TextEncoder().encode('origin'))
+					controller.close()
+				}
+			}),
+			contentType: 'image/png'
+		})
+		r2GetVariantBytesMock.mockResolvedValue({
+			status: 'ok',
+			body: new TextEncoder().encode('variant').buffer,
+			contentType: 'image/png'
+		})
 
 		const env: Env = createEnv(given.envModel)
-		const client = newGeminiSimpleImageClient(env, {
+		const client = newGeminiSimpleImageClient(env, given.optionsUserId ?? 'u', {} as TenantShardDb, {
 			model: given.optionsModel
 		})
 		const outputs = await client.generate(when.input)
@@ -321,6 +413,13 @@ describe('newGeminiSimpleImageClient.generate', () => {
 			responseModalityFirst: responseModalities[0] ?? '',
 			referencePartCount: requestParts.filter((part) => part.inlineData !== undefined).length,
 			r2PutCalls: r2PutImageMock.mock.calls.length,
+			firstR2PutDir:
+				(r2PutImageMock.mock.calls[0]?.[0] as { dir?: string } | undefined)?.dir ?? '',
+			firstR2PutIsPublic:
+				(r2PutImageMock.mock.calls[0]?.[0] as { isPublic?: boolean } | undefined)?.isPublic ?? false,
+			r2GetCalls: r2GetMock.mock.calls.length,
+			r2GetVariantBytesCalls: r2GetVariantBytesMock.mock.calls.length,
+			firstReferenceData: requestParts.find((part) => part.inlineData !== undefined)?.inlineData?.data ?? '',
 			firstR2Key: outputs[0]?.r2?.key ?? ''
 		}
 	})

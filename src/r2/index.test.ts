@@ -95,6 +95,7 @@ describe('newR2Client.putImage', () => {
 		filename?: string
 		imageBase64: string
 		mimeType: string
+		isPublic?: boolean
 	}
 	type ThenExpected = {
 		key: string
@@ -138,6 +139,26 @@ describe('newR2Client.putImage', () => {
 				keyStartsWith: true,
 				keyEndsWith: true
 			}
+		},
+		{
+			scenario: 'uses public prefix for image upload when isPublic is true',
+			given: 'a private client with public upload',
+			when: 'uploading image with filename',
+			then: 'stores key under public prefix',
+			givenDetail: {},
+			whenDetail: {
+				userId: 'u1',
+				dir: 'system/images',
+				filename: 'a.png',
+				imageBase64: 'aA==',
+				mimeType: 'image/png',
+				isPublic: true
+			},
+			thenExpected: {
+				key: 'public/system/images/a.png',
+				keyStartsWith: true,
+				keyEndsWith: true
+			}
 		}
 	]
 
@@ -148,13 +169,16 @@ describe('newR2Client.putImage', () => {
 			dir: when.dir,
 			imageBase64: when.imageBase64,
 			mimeType: when.mimeType,
+			isPublic: when.isPublic,
 			...(when.filename ? { filename: when.filename } : {})
 		})
+		const prefix =
+			when.isPublic === true || !when.userId
+				? `public/${when.dir}/`
+				: `private/${when.userId}/${when.dir}/`
 		return {
 			key: when.filename ? result.key : '',
-			keyStartsWith: result.key.startsWith(
-				when.userId ? `private/${when.userId}/${when.dir}/` : `public/${when.dir}/`
-			),
+			keyStartsWith: result.key.startsWith(prefix),
 			keyEndsWith: result.key.endsWith(when.filename ? when.filename : '.webp')
 		}
 	})
@@ -419,7 +443,7 @@ describe('newR2Client.createTmpUploadUrl', () => {
 		userId?: string
 	}
 	type WhenDetail = {
-		visibility: 'public' | 'private'
+		isPublic: boolean
 		path: string
 		contentType: string
 		size: number
@@ -436,21 +460,21 @@ describe('newR2Client.createTmpUploadUrl', () => {
 		{
 			scenario: 'creates public tmp upload url',
 			given: 'a user r2 client',
-			when: 'creating tmp upload url with public visibility',
-			then: 'scopes key under tmp public user directory',
+			when: 'creating public tmp upload url',
+			then: 'scopes key under tmp public directory',
 			givenDetail: {
 				userId: 'u1'
 			},
 			whenDetail: {
-				visibility: 'public',
+				isPublic: true,
 				path: 'images/a.png',
 				contentType: 'image/png',
 				size: 1024
 			},
 			thenExpected: {
-				key: 'tmp/public/u1/images/a.png',
-				readUrl: 'http://localhost:5173/api/r2/tmp/public/u1/images/a.png',
-				uploadPath: '/opcstack/tmp/public/u1/images/a.png',
+				key: 'tmp/public/images/a.png',
+				readUrl: 'http://localhost:5173/api/r2/tmp/public/images/a.png',
+				uploadPath: '/opcstack/tmp/public/images/a.png',
 				hasSignature: true,
 				error: ''
 			}
@@ -458,13 +482,13 @@ describe('newR2Client.createTmpUploadUrl', () => {
 		{
 			scenario: 'creates private tmp upload url',
 			given: 'a user r2 client',
-			when: 'creating tmp upload url with private visibility',
+			when: 'creating private tmp upload url',
 			then: 'scopes key under tmp private user directory',
 			givenDetail: {
 				userId: 'u1'
 			},
 			whenDetail: {
-				visibility: 'private',
+				isPublic: false,
 				path: 'images/a.png',
 				contentType: 'image/png',
 				size: 1024
@@ -484,7 +508,7 @@ describe('newR2Client.createTmpUploadUrl', () => {
 			then: 'throws user required error',
 			givenDetail: {},
 			whenDetail: {
-				visibility: 'private',
+				isPublic: false,
 				path: 'images/a.png',
 				contentType: 'image/png',
 				size: 1024
@@ -504,7 +528,7 @@ describe('newR2Client.createTmpUploadUrl', () => {
 		try {
 			const client = newR2Client(createEnv(), given.userId)
 			const result = await client.createTmpUploadUrl({
-				visibility: when.visibility,
+				isPublic: when.isPublic,
 				path: when.path,
 				contentType: when.contentType,
 				size: when.size
@@ -638,7 +662,7 @@ describe('newR2Client.get', () => {
 				writeContentType: 'image/png'
 			},
 			whenDetail: {
-				key: 'tmp/public/u1/images/a.png'
+				key: 'tmp/public/images/a.png'
 			},
 			thenExpected: {
 				status: 'ok',
@@ -694,24 +718,24 @@ describe('newR2Client.get', () => {
 			const writer = newR2Client(env, given.writeUserId)
 			if (given.writeDir.startsWith('tmp-public/')) {
 				await writer.createTmpUploadUrl({
-					visibility: 'public',
+					isPublic: true,
 					path: `${given.writeDir.slice('tmp-public/'.length)}/${given.writeFilename}`,
 					contentType: given.writeContentType,
 					size: given.writeBody.length
 				})
-					await r2Env.R2.put(
-					`tmp/public/${given.writeUserId}/${given.writeDir.slice('tmp-public/'.length)}/${given.writeFilename}`,
+				await r2Env.R2.put(
+					`tmp/public/${given.writeDir.slice('tmp-public/'.length)}/${given.writeFilename}`,
 					given.writeBody,
 					{ httpMetadata: { contentType: given.writeContentType } }
 				)
 			} else if (given.writeDir.startsWith('tmp-private/')) {
 				await writer.createTmpUploadUrl({
-					visibility: 'private',
+					isPublic: false,
 					path: `${given.writeDir.slice('tmp-private/'.length)}/${given.writeFilename}`,
 					contentType: given.writeContentType,
 					size: given.writeBody.length
 				})
-					await r2Env.R2.put(
+				await r2Env.R2.put(
 					`tmp/private/${given.writeUserId}/${given.writeDir.slice('tmp-private/'.length)}/${given.writeFilename}`,
 					given.writeBody,
 					{ httpMetadata: { contentType: given.writeContentType } }

@@ -416,14 +416,14 @@ describe('createR2TmpUploadUrlHandler', () => {
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'rejects invalid tmp upload visibility',
-			given: 'visibility is not public or private',
+			scenario: 'rejects invalid tmp upload isPublic',
+			given: 'is_public is not boolean',
 			when: 'creating tmp upload url',
 			then: 'returns invalid request',
 			givenDetail: {
 				userId: 'u1',
 				body: {
-					visibility: 'shared',
+					is_public: 'yes',
 					path: 'images/a.png',
 					content_type: 'image/png',
 					size: 1024
@@ -440,13 +440,13 @@ describe('createR2TmpUploadUrlHandler', () => {
 		},
 		{
 			scenario: 'creates tmp upload url for public tmp path',
-			given: 'visibility is public',
+			given: 'is_public is true',
 			when: 'creating tmp upload url',
 			then: 'returns tmp public key and signed upload url',
 			givenDetail: {
 				userId: 'u1',
 				body: {
-					visibility: 'public',
+					is_public: true,
 					path: 'images/a.png',
 					content_type: 'image/png',
 					size: 1024
@@ -456,20 +456,20 @@ describe('createR2TmpUploadUrlHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				key: 'tmp/public/u1/images/a.png',
-				readUrl: 'http://localhost:5173/api/r2/tmp/public/u1/images/a.png',
+				key: 'tmp/public/images/a.png',
+				readUrl: 'http://localhost:5173/api/r2/tmp/public/images/a.png',
 				hasUploadUrl: true
 			}
 		},
 		{
 			scenario: 'creates tmp upload url for private tmp path',
-			given: 'visibility is private',
+			given: 'is_public is false',
 			when: 'creating tmp upload url',
 			then: 'returns tmp private key and signed upload url',
 			givenDetail: {
 				userId: 'u1',
 				body: {
-					visibility: 'private',
+					is_public: false,
 					path: 'images/a.png',
 					content_type: 'image/png',
 					size: 1024

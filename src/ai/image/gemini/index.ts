@@ -4,12 +4,17 @@ import {
 	type Part,
 	type GenerateContentResponse
 } from '@google/genai'
+import type { TenantShardDb } from '../../../db'
 import { newR2Client } from '../../../r2'
+import { resolveImageReferences } from '../reference'
+import { createAIImageTask, getAIImageTask } from '../task'
 import type {
 	AISimpleImageClientOptions,
 	AISimpleImageClientGenerateInput,
 	AIImageResult,
-	AISimpleImageClient
+	AISimpleImageClient,
+	AIImageTask,
+	AIInlineImageReference
 } from '..'
 
 export function newGeminiNativeImageClient(env: Env): GoogleGenAI {
@@ -21,9 +26,11 @@ export function newGeminiNativeImageClient(env: Env): GoogleGenAI {
 
 export function newGeminiSimpleImageClient(
 	env: Env,
-	options: AISimpleImageClientOptions = {}
+	userId: string,
+	tenantDb: TenantShardDb,
+	options: AISimpleImageClientOptions
 ): AISimpleImageClient {
-	return new geminiSimpleImageClient(env, options)
+	return new geminiSimpleImageClient(env, userId, tenantDb, options)
 }
 
 type R2Env = Env & { R2: R2Bucket }
@@ -32,20 +39,30 @@ class geminiSimpleImageClient implements AISimpleImageClient {
 	private readonly client: GoogleGenAI
 	private readonly env: Env
 	private readonly model: string
+	private readonly userId: string
+	private readonly tenantDb: TenantShardDb
 
-	constructor(env: Env, options: AISimpleImageClientOptions) {
+	constructor(
+		env: Env,
+		userId: string,
+		tenantDb: TenantShardDb,
+		options: AISimpleImageClientOptions
+	) {
 		this.env = env
 		this.client = newGeminiNativeImageClient(env)
 		this.model = options.model ?? env.IMAGE_GEMINI_MODEL
+		this.userId = userId
+		this.tenantDb = tenantDb
 	}
 
 	async generate(input: AISimpleImageClientGenerateInput): Promise<AIImageResult[]> {
+		const references = await resolveImageReferences(this.env, this.userId, input.references)
 		const result = await this.client.models.generateContent({
 			model: this.model,
 			contents: [
 				{
 					role: 'user',
-					parts: toRequestParts(input)
+					parts: toRequestParts(input, references)
 				}
 			],
 			config: {
@@ -59,13 +76,22 @@ class geminiSimpleImageClient implements AISimpleImageClient {
 			}
 		})
 
-		return toImageResults(this.env, input, result)
+		return toImageResults(this.env, input, this.userId, result)
+	}
+
+	async generateAsync(input: AISimpleImageClientGenerateInput): Promise<AIImageTask> {
+		return createAIImageTask(this.env, this.tenantDb, 'gemini', this.model, this.userId, input)
+	}
+
+	async getTask(id: string): Promise<AIImageTask | undefined> {
+		return getAIImageTask(this.tenantDb, id)
 	}
 }
 
 async function toImageResults(
 	env: Env,
 	input: AISimpleImageClientGenerateInput,
+	userId: string,
 	result: GenerateContentResponse
 ): Promise<AIImageResult[]> {
 	const outputs: AIImageResult[] = []
@@ -83,11 +109,12 @@ async function toImageResults(
 			}
 
 			if (input.uploadToR2) {
-				const client = newR2Client(env as R2Env, input.userId)
+				const client = newR2Client(env as R2Env, userId)
 				output.r2 = await client.putImage({
-					dir: 'images',
+					dir: input.r2UploadDir ?? 'images',
 					imageBase64: output.imageBase64,
-					mimeType: output.mimeType
+					mimeType: output.mimeType,
+					isPublic: input.r2UploadIsPublic
 				})
 			}
 
@@ -98,9 +125,11 @@ async function toImageResults(
 	return outputs
 }
 
-function toRequestParts(input: AISimpleImageClientGenerateInput): Part[] {
+function toRequestParts(
+	input: AISimpleImageClientGenerateInput,
+	references: AIInlineImageReference[]
+): Part[] {
 	const parts: Part[] = [{ text: input.prompt }]
-	const references = input.references ?? []
 	for (const reference of references) {
 		parts.push({
 			inlineData: {

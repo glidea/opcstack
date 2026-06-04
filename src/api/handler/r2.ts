@@ -28,7 +28,7 @@ const CreateR2UploadUrlRequestSchema = z.object({
 })
 
 const CreateR2TmpUploadUrlRequestSchema = CreateR2UploadUrlRequestSchema.extend({
-	visibility: z.enum(['public', 'private'])
+	is_public: z.boolean()
 })
 
 export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Response> {
@@ -59,7 +59,7 @@ export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise
 	try {
 		const client = newR2Client(ctx.env, ctx.get('userId'))
 		const result = await client.createTmpUploadUrl({
-			visibility: req.visibility,
+			isPublic: req.is_public,
 			path: req.path,
 			contentType: req.content_type,
 			size: req.size
