@@ -301,6 +301,78 @@ describe('adminUserMiddleware', () => {
 			setUserId: String(state.values['userId'] ?? '')
 		}
 	})
+
+	type IdentityGivenDetail = {
+		adminUserId: string
+		adminEmail: string
+	}
+	type IdentityWhenDetail = Record<string, never>
+	type IdentityThenExpected = {
+		tokenUserId: string
+		sessionUserId: string
+	}
+
+	const identityCases: TestCase<
+		IdentityGivenDetail,
+		IdentityWhenDetail,
+		IdentityThenExpected
+	>[] = [
+		{
+			scenario: 'resolve one admin identity',
+			given: 'the configured admin user exists and has a session',
+			when: 'admin api token and admin session are both accepted',
+			then: 'both paths set the same user id',
+			givenDetail: {
+				adminUserId: 'admin-user',
+				adminEmail: 'admin@example.com'
+			},
+			whenDetail: {},
+			thenExpected: {
+				tokenUserId: 'admin-user',
+				sessionUserId: 'admin-user'
+			}
+		}
+	]
+
+	runCases(identityCases, async (given) => {
+		vi.mocked(authCore).mockReturnValue({
+			api: {
+				getSession: vi.fn(async () => {
+					return {
+						user: {
+							id: given.adminUserId,
+							email: given.adminEmail
+						}
+					}
+				})
+			}
+		} as never)
+
+		const tokenState = createContextState(
+			'/api/admin/list_payment_transactions',
+			'Bearer admin-token'
+		)
+		tokenState.values['metaDb'] = {
+			query: {
+				user: {
+					findFirst: vi.fn(async () => {
+						return {
+							id: given.adminUserId
+						}
+					})
+				}
+			}
+		}
+		await adminUserMiddleware(createContext(tokenState), tokenState.next)
+
+		const sessionState = createContextState('/api/admin/list_payment_transactions')
+		await adminUserMiddleware(createContext(sessionState), sessionState.next)
+
+		return {
+			tokenUserId: String(tokenState.values['userId'] ?? ''),
+			sessionUserId: String(sessionState.values['userId'] ?? '')
+		}
+	})
 })
 
 type ContextState = {
