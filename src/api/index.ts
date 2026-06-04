@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { adminSecretMiddleware, authMiddleware } from './middleware/auth'
+import { adminUserMiddleware, authMiddleware } from './middleware/auth'
 import { emailAuthMiddleware } from './middleware/email-auth'
 import { betaGateMiddleware } from './middleware/beta-gate'
 import { metaDbSessionMiddleware } from './middleware/meta-db-session'
@@ -102,7 +102,7 @@ const authOnlyApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 authOnlyApi.post('/bind_beta_code', authMiddleware, bindBetaCodeHandler)
 
 const adminApi: Hono<ApiEnv> = new Hono<ApiEnv>()
-adminApi.use('/admin/*', adminSecretMiddleware)
+adminApi.use('/admin/*', adminUserMiddleware)
 adminApi.post('/admin/generate_beta_codes', generateBetaCodesHandler)
 adminApi.post('/admin/list_beta_codes', listBetaCodesHandler)
 adminApi.post('/admin/generate_credit_codes', generateCreditCodesHandler)

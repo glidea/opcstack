@@ -1,6 +1,8 @@
 import type { MiddlewareHandler } from 'hono'
 import type { ApiEnv } from '..'
 import { authCore } from '../auth'
+import { eq } from 'drizzle-orm'
+import { user } from '../../db/schema.auth'
 
 export const authMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
@@ -17,14 +19,35 @@ export const authMiddleware: MiddlewareHandler<ApiEnv> = async (
 	return next()
 }
 
-export const adminSecretMiddleware: MiddlewareHandler<ApiEnv> = async (
+export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
 	const authorization = ctx.req.header('authorization')
-	const adminSecret = ctx.env.ADMIN_SECRET
-	if (authorization !== `Bearer ${adminSecret}`) {
+	const adminEmail = ctx.env.SUPER_ADMIN_EMAIL.toLowerCase()
+
+	if (authorization === `Bearer ${ctx.env.ADMIN_API_TOKEN}`) {
+		const adminUser = await ctx.get('metaDb').query.user.findFirst({
+			columns: {
+				id: true
+			},
+			where: eq(user.email, adminEmail)
+		})
+		if (!adminUser) {
+			return ctx.json({ code: 'UNAUTHORIZED' }, 401)
+		}
+
+		ctx.set('userId', adminUser.id)
+		return next()
+	}
+
+	const session = await authCore(ctx.env, ctx.get('metaDb')).api.getSession({
+		headers: ctx.req.raw.headers
+	})
+	if (!session || session.user.email !== adminEmail) {
 		return ctx.json({ code: 'UNAUTHORIZED' }, 401)
 	}
+
+	ctx.set('userId', session.user.id)
 	return next()
 }

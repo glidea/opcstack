@@ -1,6 +1,6 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
-import { adminSecretMiddleware, authMiddleware } from './auth'
+import { adminUserMiddleware, authMiddleware } from './auth'
 import { authCore } from '../auth'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
@@ -142,75 +142,163 @@ describe('authMiddleware', () => {
 	})
 })
 
-describe('adminSecretMiddleware', () => {
+describe('adminUserMiddleware', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 	})
 
 	type GivenDetail = {
 		authorization?: string
-		adminSecret: string
+		adminUserId?: string
+		sessionUserId?: string
+		sessionUserEmail?: string
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: number
 		code: string
 		nextCalled: boolean
+		setUserId: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'reject when authorization header mismatches admin secret',
-			given: 'an invalid authorization header',
-			when: 'running admin secret middleware',
+			scenario: 'accept admin api token',
+			given: 'a matching admin api token and configured admin user',
+			when: 'running admin user middleware',
+			then: 'sets configured admin user id',
+			givenDetail: {
+				authorization: 'Bearer admin-token',
+				adminUserId: 'admin-user'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 0,
+				code: '',
+				nextCalled: true,
+				setUserId: 'admin-user'
+			}
+		},
+		{
+			scenario: 'reject admin api token without configured user',
+			given: 'a matching admin api token and missing configured admin user',
+			when: 'running admin user middleware',
 			then: 'returns unauthorized',
 			givenDetail: {
-				authorization: 'Bearer wrong',
-				adminSecret: 'secret'
+				authorization: 'Bearer admin-token'
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 401,
 				code: 'UNAUTHORIZED',
-				nextCalled: false
+				nextCalled: false,
+				setUserId: ''
 			}
 		},
 		{
-			scenario: 'accept when authorization header matches admin secret',
-			given: 'a valid admin authorization header',
-			when: 'running admin secret middleware',
-			then: 'calls next',
+			scenario: 'accept super admin session',
+			given: 'a session for configured super admin email',
+			when: 'running admin user middleware',
+			then: 'sets session user id',
 			givenDetail: {
-				authorization: 'Bearer secret',
-				adminSecret: 'secret'
+				sessionUserId: 'admin-user',
+				sessionUserEmail: 'admin@example.com'
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 0,
 				code: '',
-				nextCalled: true
+				nextCalled: true,
+				setUserId: 'admin-user'
+			}
+		},
+		{
+			scenario: 'reject non admin session',
+			given: 'a session for another email',
+			when: 'running admin user middleware',
+			then: 'returns unauthorized',
+			givenDetail: {
+				authorization: 'Bearer wrong',
+				sessionUserId: 'user-1',
+				sessionUserEmail: 'user@example.com'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 401,
+				code: 'UNAUTHORIZED',
+				nextCalled: false,
+				setUserId: ''
+			}
+		},
+		{
+			scenario: 'reject missing admin identity',
+			given: 'no admin token and no session',
+			when: 'running admin user middleware',
+			then: 'returns unauthorized',
+			givenDetail: {
+				authorization: 'Bearer wrong'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 401,
+				code: 'UNAUTHORIZED',
+				nextCalled: false,
+				setUserId: ''
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
+		const getSession = vi.fn(async () => {
+			if (!given.sessionUserId || !given.sessionUserEmail) {
+				return null
+			}
+			return {
+				user: {
+					id: given.sessionUserId,
+					email: given.sessionUserEmail
+				}
+			}
+		})
+		vi.mocked(authCore).mockReturnValue({
+			api: {
+				getSession
+			}
+		} as never)
+
 		const state = createContextState('/api/admin/generate_beta_codes', given.authorization)
-		state.env['ADMIN_SECRET'] = given.adminSecret
+		state.values['metaDb'] = {
+			query: {
+				user: {
+					findFirst: vi.fn(async () => {
+						if (!given.adminUserId) {
+							return null
+						}
+						return {
+							id: given.adminUserId,
+							email: 'admin@example.com'
+						}
+					})
+				}
+			}
+		}
 		const ctx = createContext(state)
-		const res = await adminSecretMiddleware(ctx, state.next)
+		const res = await adminUserMiddleware(ctx, state.next)
 
 		if (!res) {
 			return {
 				status: 0,
 				code: '',
-				nextCalled: state.nextCalled
+				nextCalled: state.nextCalled,
+				setUserId: String(state.values['userId'] ?? '')
 			}
 		}
 		const payload = (await res.json()) as { code?: string }
 		return {
 			status: res.status,
 			code: payload.code ?? '',
-			nextCalled: state.nextCalled
+			nextCalled: state.nextCalled,
+			setUserId: String(state.values['userId'] ?? '')
 		}
 	})
 })
@@ -235,7 +323,8 @@ function createContextState(
 		...(authorization !== undefined ? { authorization } : {}),
 		...(cookie !== undefined ? { cookie } : {}),
 		env: {
-			ADMIN_SECRET: 'admin-secret',
+			SUPER_ADMIN_EMAIL: 'admin@example.com',
+			ADMIN_API_TOKEN: 'admin-token',
 			BETA_CODE_ENABLED: 'true',
 			BETTER_AUTH_SECRET: 'secret',
 			APP_BASE_URL: 'http://localhost:5173'
