@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { createInterface } from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
@@ -469,6 +469,69 @@ function buildShardRegistryUpsertSql(shard, databaseId, nowMs) {
 
 function sqlString(value) {
 	return `'${String(value).replaceAll("'", "''")}'`
+}
+
+export function hashAdminPassword(password) {
+	const saltHex = randomBytes(8).toString('hex')
+	const digestHex = createHash('sha1').update(`${password}:${saltHex}`).digest('hex')
+	return `${saltHex}:${digestHex}`
+}
+
+export function buildAdminUserUpsertSql(input) {
+	return [
+		'INSERT INTO "user"',
+		'(id, name, email, aff_code, email_verified, created_at, updated_at)',
+		'VALUES',
+		`(${sqlString(input.userId)}, ${sqlString(input.email)}, ${sqlString(input.email)}, ${sqlString(input.affCode)}, 1, ${input.nowMs}, ${input.nowMs})`,
+		'ON CONFLICT(email) DO NOTHING'
+	].join(' ')
+}
+
+export function buildAdminCredentialAccountUpsertSql(input) {
+	const userIdSql = `(SELECT id FROM "user" WHERE email = ${sqlString(input.email)})`
+	return [
+		'UPDATE account SET',
+		`password = ${sqlString(input.passwordHash)},`,
+		`updated_at = ${input.nowMs}`,
+		`WHERE provider_id = 'credential' AND user_id = ${userIdSql};`,
+		'INSERT INTO account',
+		'(id, account_id, provider_id, user_id, password, created_at, updated_at)',
+		'SELECT',
+		`'credential:' || id, id, 'credential', id, ${sqlString(input.passwordHash)}, ${input.nowMs}, ${input.nowMs}`,
+		'FROM "user"',
+		`WHERE email = ${sqlString(input.email)}`,
+		`AND NOT EXISTS (SELECT 1 FROM account WHERE user_id = "user".id AND provider_id = 'credential')`
+	].join(' ')
+}
+
+export function buildAdminUserShardEnsureSql(input) {
+	const userIdSql = `(SELECT id FROM "user" WHERE email = ${sqlString(input.email)})`
+	return [
+		'INSERT INTO user_shards',
+		'(user_id, shard_id, created_at)',
+		'SELECT',
+		`${userIdSql}, id, ${input.nowMs}`,
+		'FROM d1_shards',
+		`WHERE status = 'active'`,
+		`AND NOT EXISTS (SELECT 1 FROM user_shards WHERE user_id = ${userIdSql})`,
+		'ORDER BY assigned_count ASC, id ASC',
+		'LIMIT 1;',
+		'UPDATE d1_shards SET',
+		`assigned_count = assigned_count + 1, updated_at = ${input.nowMs}`,
+		`WHERE id = (SELECT shard_id FROM user_shards WHERE user_id = ${userIdSql})`,
+		`AND EXISTS (SELECT 1 FROM user_shards WHERE user_id = ${userIdSql} AND created_at = ${input.nowMs});`,
+		`SELECT shard_id FROM user_shards WHERE user_id = ${userIdSql}`
+	].join(' ')
+}
+
+export function buildAdminCreditBalanceEnsureSql(input) {
+	return [
+		'INSERT INTO credit_balances',
+		'(user_id, balance, updated_at)',
+		'VALUES',
+		`(${sqlString(input.userId)}, 0, ${input.nowMs})`,
+		'ON CONFLICT(user_id) DO NOTHING'
+	].join(' ')
 }
 
 function parseCronExpressions(rawValue) {
