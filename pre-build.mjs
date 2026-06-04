@@ -415,6 +415,35 @@ function parseQueueNames(rawValue) {
 	return [...new Set(names)]
 }
 
+export function parseQueueMaxConcurrency(rawValue) {
+	if (!rawValue || rawValue.trim() === '') {
+		return undefined
+	}
+
+	const maxConcurrency = Number(rawValue)
+	if (!Number.isInteger(maxConcurrency) || maxConcurrency < 1 || maxConcurrency > 250) {
+		throw new Error('QUEUE_MAX_CONCURRENCY_INVALID')
+	}
+
+	return maxConcurrency
+}
+
+export function buildQueueConsumers(queueNames, rawMaxConcurrency) {
+	const maxConcurrency = parseQueueMaxConcurrency(rawMaxConcurrency)
+
+	return queueNames.map((queueName) => {
+		const consumer = {
+			queue: queueName
+		}
+
+		if (maxConcurrency !== undefined) {
+			consumer.max_concurrency = maxConcurrency
+		}
+
+		return consumer
+	})
+}
+
 function queueBindingName(queueName) {
 	return `Q_${queueName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`
 }
@@ -1094,11 +1123,7 @@ async function main() {
 					queue: queueName
 				}
 			}),
-			consumers: queueNames.map((queueName) => {
-				return {
-					queue: queueName
-				}
-			})
+			consumers: buildQueueConsumers(queueNames, env.QUEUE_MAX_CONCURRENCY)
 		}
 	}
 

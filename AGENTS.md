@@ -204,13 +204,14 @@ await client.putImage({ dir, imageBase64, mimeType, isPublic: true })
 
 **Queues**:
 1. Configure: `QUEUE_NAMES=task_check;notify`
-2. Handler: `queueHandlers` in `src/consumers/index.ts`
-3. Send: `env.Q_TASK_CHECK.send(payload)`
-4. Binding convention: `Q_<QUEUE_NAME_UPPER>`
-5. Queue bindings are required runtime dependencies. Access fixed bindings directly, for example `env.Q_IMAGE_GENERATE.send(payload)`. Do not wrap them in optional casts or handwritten "not configured" guards
-6. A queue payload must not include a redundant `type` field when the queue has a single purpose. The queue name is already the message type
-7. AI image async queue name is `image-generate`, binding is `Q_IMAGE_GENERATE`
-8. AI TTS async queue name is `tts-generate`, binding is `Q_TTS_GENERATE`
+2. Optional consumer concurrency limit: `QUEUE_MAX_CONCURRENCY=1`, valid range is 1-250. Empty means Cloudflare Queues automatic concurrency
+3. Handler: `queueHandlers` in `src/consumers/index.ts`
+4. Send: `env.Q_TASK_CHECK.send(payload)`
+5. Binding convention: `Q_<QUEUE_NAME_UPPER>`
+6. Queue bindings are required runtime dependencies. Access fixed bindings directly, for example `env.Q_IMAGE_GENERATE.send(payload)`. Do not wrap them in optional casts or handwritten "not configured" guards
+7. A queue payload must not include a redundant `type` field when the queue has a single purpose. The queue name is already the message type
+8. AI image async queue name is `image-generate`, binding is `Q_IMAGE_GENERATE`
+9. AI TTS async queue name is `tts-generate`, binding is `Q_TTS_GENERATE`
 
 **Scheduled jobs**:
 1. Configure: `CRONS=*/10 * * * *`

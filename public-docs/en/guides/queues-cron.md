@@ -16,12 +16,20 @@ OPC Stack supports Cloudflare Queues and Cron Triggers.
 Define queue names in `.env.dev` or `.env.prod`:
 
 ```bash
-QUEUES=task-check,email-send
+QUEUE_NAMES=task-check;email-send
 ```
 
 `pre-build.mjs` auto creates queues and generates bindings:
 - `task-check` -> `Q_TASK_CHECK`
 - `email-send` -> `Q_EMAIL_SEND`
+
+Limit consumer concurrency when needed:
+
+```bash
+QUEUE_MAX_CONCURRENCY=1
+```
+
+Empty `QUEUE_MAX_CONCURRENCY` keeps Cloudflare Queues automatic concurrency.
 
 ### Send messages
 

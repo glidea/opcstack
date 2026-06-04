@@ -16,12 +16,20 @@ OPC Stack 支持 Cloudflare Queues 和 Cron Triggers。
 在 `.env.dev` 或 `.env.prod` 中定义队列名称：
 
 ```bash
-QUEUES=task-check,email-send
+QUEUE_NAMES=task-check;email-send
 ```
 
 `pre-build.mjs` 会自动创建队列，并生成 Binding：
 - `task-check` → `Q_TASK_CHECK`
 - `email-send` → `Q_EMAIL_SEND`
+
+需要限制消费并发时配置：
+
+```bash
+QUEUE_MAX_CONCURRENCY=1
+```
+
+`QUEUE_MAX_CONCURRENCY` 为空时使用 Cloudflare Queues 自动并发。
 
 ### 发送消息
 
