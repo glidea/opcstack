@@ -7,7 +7,7 @@ export interface R2Client {
 	put(input: R2PutInput): Promise<R2PutResult>
 	putImage(input: R2PutImageInput): Promise<R2PutResult>
 	createUploadUrl(input: R2CreateUploadUrlInput): Promise<R2CreateUploadUrlResult>
-	createTmpUploadUrl(input: R2CreateTmpUploadUrlInput): Promise<R2CreateUploadUrlResult>
+	createReadUrl(input: R2CreateReadUrlInput): Promise<R2CreateReadUrlResult>
 	get(key: string): Promise<R2GetResult>
 	getImageVariant(key: string, preset: R2ImageVariantPreset): Promise<R2GetResult>
 	getImageVariantBytes(
@@ -17,11 +17,12 @@ export interface R2Client {
 }
 
 export interface R2PutInput {
+	isTmp?: boolean
+	isPublic?: boolean
 	dir: string
+	filename?: string
 	body: string | ArrayBuffer | Uint8Array | ReadableStream
 	contentType: string
-	filename?: string
-	isPublic?: boolean
 }
 
 export interface R2PutResult {
@@ -30,22 +31,19 @@ export interface R2PutResult {
 }
 
 export interface R2PutImageInput {
+	isTmp?: boolean
+	isPublic?: boolean
 	dir: string
+	filename?: string
 	imageBase64: string
 	mimeType: string
-	filename?: string
-	isPublic?: boolean
 }
 
 export interface R2CreateUploadUrlInput {
-	path: string
-	contentType: string
-	size: number
-}
-
-export interface R2CreateTmpUploadUrlInput {
-	isPublic: boolean
-	path: string
+	isTmp?: boolean
+	isPublic?: boolean
+	dir: string
+	filename: string
 	contentType: string
 	size: number
 }
@@ -53,6 +51,17 @@ export interface R2CreateTmpUploadUrlInput {
 export interface R2CreateUploadUrlResult {
 	key: string
 	uploadUrl: string
+	readUrl: string
+	expiresAt: number
+}
+
+export interface R2CreateReadUrlInput {
+	key: string
+	expiresAt: number
+}
+
+export interface R2CreateReadUrlResult {
+	key: string
 	readUrl: string
 	expiresAt: number
 }
@@ -110,7 +119,7 @@ class r2Client implements R2Client {
 		}
 
 		const filename = input.filename ?? `${Date.now()}-${crypto.randomUUID()}`
-		const key = this.buildKey(input.dir, filename, input.isPublic)
+		const key = this.buildKey(input.dir, filename, input.isPublic, input.isTmp)
 
 		await this.env.R2.put(key, input.body, {
 			httpMetadata: {
@@ -137,7 +146,8 @@ class r2Client implements R2Client {
 			filename,
 			body: toBytes(input.imageBase64),
 			contentType: input.mimeType,
-			isPublic: input.isPublic
+			isPublic: input.isPublic,
+			isTmp: input.isTmp
 		})
 	}
 
@@ -145,11 +155,12 @@ class r2Client implements R2Client {
 		if (!this.env.R2) {
 			throw new Error('R2_NOT_CONFIGURED')
 		}
-		if (!this.userId) {
-			throw new Error('R2_UPLOAD_USER_REQUIRED')
-		}
-		if (!isUploadPath(input.path)) {
+		const path = buildObjectPath(input.dir, input.filename)
+		if (!isUploadPath(path)) {
 			throw new Error('R2_UPLOAD_PATH_INVALID')
+		}
+		if (input.isPublic !== true && !this.userId) {
+			throw new Error('R2_UPLOAD_USER_REQUIRED')
 		}
 		if (!this.isUserUploadContentTypeAllowed(input.contentType)) {
 			throw new Error('R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED')
@@ -159,7 +170,7 @@ class r2Client implements R2Client {
 		}
 
 		const config = this.uploadSigningConfig()
-		const key = `${PRIVATE_PREFIX}${this.userId}/${input.path}`
+		const key = this.buildKey(input.dir, input.filename, input.isPublic, input.isTmp)
 		const expiresAt = Math.floor(Date.now() / 1000) + 60
 		const uploadUrl = await createR2PresignedPutUrl(config, key, input.contentType, expiresAt)
 		return {
@@ -170,37 +181,18 @@ class r2Client implements R2Client {
 		}
 	}
 
-	async createTmpUploadUrl(input: R2CreateTmpUploadUrlInput): Promise<R2CreateUploadUrlResult> {
-		if (!this.env.R2) {
-			throw new Error('R2_NOT_CONFIGURED')
+	async createReadUrl(input: R2CreateReadUrlInput): Promise<R2CreateReadUrlResult> {
+		const access = this.checkAccess(input.key)
+		if (access.status === 'forbidden') {
+			throw new Error('R2_READ_FORBIDDEN')
 		}
-		if (!isUploadPath(input.path)) {
-			throw new Error('R2_UPLOAD_PATH_INVALID')
+		if (access.status === 'not_found') {
+			throw new Error('R2_READ_PATH_INVALID')
 		}
-		if (!this.isUserUploadContentTypeAllowed(input.contentType)) {
-			throw new Error('R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED')
-		}
-		if (input.size > this.userUploadMaxBytes()) {
-			throw new Error('R2_USER_UPLOAD_SIZE_TOO_LARGE')
-		}
-
-		const config = this.uploadSigningConfig()
-		let key: string
-		if (input.isPublic) {
-			key = `${TMP_PUBLIC_PREFIX}${input.path}`
-		} else {
-			if (!this.userId) {
-				throw new Error('R2_UPLOAD_USER_REQUIRED')
-			}
-			key = `${TMP_PRIVATE_PREFIX}${this.userId}/${input.path}`
-		}
-		const expiresAt = Math.floor(Date.now() / 1000) + 60
-		const uploadUrl = await createR2PresignedPutUrl(config, key, input.contentType, expiresAt)
 		return {
-			key,
-			uploadUrl,
-			readUrl: `${trimRightSlash(this.env.APP_BASE_URL)}/api/r2/${key}`,
-			expiresAt
+			key: input.key,
+			readUrl: await createR2OriginReadUrl(this.env, input.key, input.expiresAt),
+			expiresAt: input.expiresAt
 		}
 	}
 
@@ -243,12 +235,8 @@ class r2Client implements R2Client {
 			throw new Error('R2_ORIGIN_SIGNING_SECRET_REQUIRED')
 		}
 
-		const originPath = `/api/internal/r2_image_origin/${key}`
 		const expires = Math.floor(Date.now() / 1000) + 60
-		const signature = await signR2Origin(secret, 'GET', originPath, expires)
-		const url = new URL(`${trimRightSlash(this.env.APP_BASE_URL)}${originPath}`)
-		url.searchParams.set('expires', String(expires))
-		url.searchParams.set('signature', signature)
+		const url = (await this.createReadUrl({ key, expiresAt: expires })).readUrl
 		const request = new Request(url)
 		const response = await fetch(request, {
 			cf: {
@@ -318,15 +306,25 @@ class r2Client implements R2Client {
 		return { status: 'not_found' }
 	}
 
-	private buildKey(dir: string, filename: string, isPublic?: boolean): string {
+	private buildKey(dir: string, filename: string, isPublic?: boolean, isTmp?: boolean): string {
 		const resolvedIsPublic = isPublic ?? !this.userId
+		const path = buildObjectPath(dir, filename)
+		if (isTmp) {
+			if (resolvedIsPublic) {
+				return `${TMP_PUBLIC_PREFIX}${path}`
+			}
+			if (!this.userId) {
+				throw new Error('R2_PRIVATE_UPLOAD_USER_REQUIRED')
+			}
+			return `${TMP_PRIVATE_PREFIX}${this.userId}/${path}`
+		}
 		if (resolvedIsPublic) {
-			return `${PUBLIC_PREFIX}${dir}/${filename}`
+			return `${PUBLIC_PREFIX}${path}`
 		}
 		if (!this.userId) {
 			throw new Error('R2_PRIVATE_UPLOAD_USER_REQUIRED')
 		}
-		return `${PRIVATE_PREFIX}${this.userId}/${dir}/${filename}`
+		return `${PRIVATE_PREFIX}${this.userId}/${path}`
 	}
 
 	private privateOwner(key: string): string {
@@ -415,6 +413,19 @@ async function createR2PresignedPutUrl(
 	return `https://${host}${path}?${params.toString()}`
 }
 
+async function createR2OriginReadUrl(
+	env: Pick<Env, 'APP_BASE_URL' | 'R2_ORIGIN_SIGNING_SECRET'>,
+	key: string,
+	expires: number
+): Promise<string> {
+	const originPath: string = `/api/internal/r2_image_origin/${key}`
+	const signature: string = await signR2Origin(env.R2_ORIGIN_SIGNING_SECRET, 'GET', originPath, expires)
+	const url = new URL(`${trimRightSlash(env.APP_BASE_URL)}${originPath}`)
+	url.searchParams.set('expires', String(expires))
+	url.searchParams.set('signature', signature)
+	return url.toString()
+}
+
 export async function signR2Origin(
 	secret: string,
 	method: string,
@@ -466,6 +477,13 @@ function isUploadPath(path: string): boolean {
 		return false
 	}
 	return !path.split('/').includes('..')
+}
+
+function buildObjectPath(dir: string, filename: string): string {
+	if (dir.length === 0) {
+		return filename
+	}
+	return `${dir}/${filename}`
 }
 
 function extensionByMimeType(mimeType: string): string {

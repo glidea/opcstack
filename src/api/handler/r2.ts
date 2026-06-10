@@ -4,6 +4,7 @@ import type { ApiEnv } from '..'
 import {
 	newR2Client,
 	verifyR2Origin,
+	type R2Client,
 	type R2GetResult,
 	type R2ImageVariantPreset
 } from '../../r2'
@@ -15,6 +16,7 @@ const R2_IMAGE_ORIGIN_ROUTE_PREFIX = '/api/internal/r2_image_origin/'
 const PUBLIC_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 const TMP_PUBLIC_CACHE_CONTROL = 'public, max-age=300'
 const PRIVATE_CACHE_CONTROL = 'private, no-store'
+const R2_WORKER_CACHE_HEADER = 'x-r2-worker-cache'
 
 const CreateR2UploadUrlRequestSchema = z.object({
 	path: z.string().min(1).refine((path) => {
@@ -32,13 +34,40 @@ const CreateR2TmpUploadUrlRequestSchema = CreateR2UploadUrlRequestSchema.extend(
 })
 
 export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const key = toR2Key(ctx.req.path)
-	const variant = ctx.req.query('variant')
-	const userId = ctx.get('userId') as string | undefined
-	const client = newR2Client(ctx.env, userId)
+	const key: string = toR2Key(ctx.req.path)
+	const variant: string | undefined = ctx.req.query('variant')
+	const userId: string | undefined = ctx.get('userId') as string | undefined
+	const client: R2Client = newR2Client(ctx.env, userId)
 
+	if (!isCacheableR2ReadPath(ctx.req.path)) {
+		const response: Response = await readR2Object(ctx, key, variant, client)
+		return withR2WorkerCacheHeader(response, 'bypass')
+	}
+
+	const cacheKey: Request = new Request(ctx.req.raw.url, {
+		method: 'GET'
+	})
+	const cache: Cache = defaultR2Cache()
+	const cachedResponse: Response | undefined = await cache.match(cacheKey)
+	if (cachedResponse) {
+		return withR2WorkerCacheHeader(cachedResponse, 'hit')
+	}
+
+	const response: Response = await readR2Object(ctx, key, variant, client)
+	if (response.status === 200) {
+		await cache.put(cacheKey, response.clone())
+	}
+	return withR2WorkerCacheHeader(response, 'miss')
+}
+
+async function readR2Object(
+	ctx: Context<ApiEnv>,
+	key: string,
+	variant: string | undefined,
+	client: R2Client
+): Promise<Response> {
 	if (!variant) {
-		const result = await client.get(key)
+		const result: R2GetResult = await client.get(key)
 		return toR2Response(ctx, result)
 	}
 
@@ -46,7 +75,7 @@ export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Respons
 		return ctx.json({}, 404)
 	}
 
-	const result = await client.getImageVariant(key, variant)
+	const result: R2GetResult = await client.getImageVariant(key, variant)
 	return toR2Response(ctx, result)
 }
 
@@ -58,9 +87,12 @@ export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise
 
 	try {
 		const client = newR2Client(ctx.env, ctx.get('userId'))
-		const result = await client.createTmpUploadUrl({
+		const path = splitUploadPath(req.path)
+		const result = await client.createUploadUrl({
 			isPublic: req.is_public,
-			path: req.path,
+			isTmp: true,
+			dir: path.dir,
+			filename: path.filename,
 			contentType: req.content_type,
 			size: req.size
 		})
@@ -95,8 +127,10 @@ export async function createR2UploadUrlHandler(ctx: Context<ApiEnv>): Promise<Re
 
 	try {
 		const client = newR2Client(ctx.env, ctx.get('userId'))
+		const path = splitUploadPath(req.path)
 		const result = await client.createUploadUrl({
-			path: req.path,
+			dir: path.dir,
+			filename: path.filename,
 			contentType: req.content_type,
 			size: req.size
 		})
@@ -156,6 +190,20 @@ export function toR2Key(path: string): string {
 	return path.slice(R2_ROUTE_PREFIX.length)
 }
 
+function splitUploadPath(path: string): { dir: string; filename: string } {
+	const index = path.lastIndexOf('/')
+	if (index === -1) {
+		return {
+			dir: '',
+			filename: path
+		}
+	}
+	return {
+		dir: path.slice(0, index),
+		filename: path.slice(index + 1)
+	}
+}
+
 function toR2OriginKey(path: string): string {
 	return path.slice(R2_IMAGE_ORIGIN_ROUTE_PREFIX.length)
 }
@@ -170,9 +218,45 @@ function isR2ImageVariantPreset(value: string): value is R2ImageVariantPreset {
 	}
 }
 
+function isCacheableR2ReadPath(path: string): boolean {
+	if (path.startsWith('/api/r2/public/')) {
+		return true
+	}
+	if (path.startsWith('/api/r2/tmp/public/')) {
+		return true
+	}
+	return false
+}
+
+function defaultR2Cache(): Cache {
+	const cacheStorage: CacheStorage & { default: Cache } = caches as CacheStorage & { default: Cache }
+	return cacheStorage.default
+}
+
+function withR2WorkerCacheHeader(
+	response: Response,
+	value: 'hit' | 'miss' | 'bypass'
+): Response {
+	const headers: Headers = new Headers(response.headers)
+	headers.set(R2_WORKER_CACHE_HEADER, value)
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers
+	})
+}
+
 function privateOwner(key: string): string | undefined {
 	if (!key.startsWith('private/')) {
-		return undefined
+		if (!key.startsWith('tmp/private/')) {
+			return undefined
+		}
+		const tmpRemaining = key.slice('tmp/private/'.length)
+		const tmpIndex = tmpRemaining.indexOf('/')
+		if (tmpIndex === -1) {
+			return tmpRemaining
+		}
+		return tmpRemaining.slice(0, tmpIndex)
 	}
 	const remaining = key.slice('private/'.length)
 	const index = remaining.indexOf('/')

@@ -405,8 +405,10 @@ describe('newR2Client.createUploadUrl', () => {
 
 		try {
 			const client = newR2Client(env, given.userId)
+			const path = splitPath(when.path)
 			const result = await client.createUploadUrl({
-				path: when.path,
+				dir: path.dir,
+				filename: path.filename,
 				contentType: when.contentType,
 				size: when.size
 			})
@@ -438,7 +440,7 @@ describe('newR2Client.createUploadUrl', () => {
 	})
 })
 
-describe('newR2Client.createTmpUploadUrl', () => {
+describe('newR2Client.createUploadUrl tmp', () => {
 	type GivenDetail = {
 		userId?: string
 	}
@@ -527,9 +529,12 @@ describe('newR2Client.createTmpUploadUrl', () => {
 		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
 		try {
 			const client = newR2Client(createEnv(), given.userId)
-			const result = await client.createTmpUploadUrl({
+			const path = splitPath(when.path)
+			const result = await client.createUploadUrl({
 				isPublic: when.isPublic,
-				path: when.path,
+				isTmp: true,
+				dir: path.dir,
+				filename: path.filename,
 				contentType: when.contentType,
 				size: when.size
 			})
@@ -717,29 +722,23 @@ describe('newR2Client.get', () => {
 		) {
 			const writer = newR2Client(env, given.writeUserId)
 			if (given.writeDir.startsWith('tmp-public/')) {
-				await writer.createTmpUploadUrl({
+				await writer.put({
 					isPublic: true,
-					path: `${given.writeDir.slice('tmp-public/'.length)}/${given.writeFilename}`,
+					isTmp: true,
+					dir: given.writeDir.slice('tmp-public/'.length),
+					filename: given.writeFilename,
 					contentType: given.writeContentType,
-					size: given.writeBody.length
+					body: given.writeBody
 				})
-				await r2Env.R2.put(
-					`tmp/public/${given.writeDir.slice('tmp-public/'.length)}/${given.writeFilename}`,
-					given.writeBody,
-					{ httpMetadata: { contentType: given.writeContentType } }
-				)
 			} else if (given.writeDir.startsWith('tmp-private/')) {
-				await writer.createTmpUploadUrl({
+				await writer.put({
 					isPublic: false,
-					path: `${given.writeDir.slice('tmp-private/'.length)}/${given.writeFilename}`,
+					isTmp: true,
+					dir: given.writeDir.slice('tmp-private/'.length),
+					filename: given.writeFilename,
 					contentType: given.writeContentType,
-					size: given.writeBody.length
+					body: given.writeBody
 				})
-				await r2Env.R2.put(
-					`tmp/private/${given.writeUserId}/${given.writeDir.slice('tmp-private/'.length)}/${given.writeFilename}`,
-					given.writeBody,
-					{ httpMetadata: { contentType: given.writeContentType } }
-				)
 			} else {
 				await writer.put({
 					dir: given.writeDir,
@@ -1077,4 +1076,18 @@ function createEnvWithoutR2(): Env {
 		R2_USER_UPLOAD_MAX_BYTES: '5242880',
 		R2_ORIGIN_SIGNING_SECRET: 'test-secret'
 	} as unknown as Env
+}
+
+function splitPath(path: string): { dir: string; filename: string } {
+	const index = path.lastIndexOf('/')
+	if (index === -1) {
+		return {
+			dir: '',
+			filename: path
+		}
+	}
+	return {
+		dir: path.slice(0, index),
+		filename: path.slice(index + 1)
+	}
 }

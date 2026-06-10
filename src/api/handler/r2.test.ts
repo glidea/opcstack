@@ -108,6 +108,7 @@ describe('readR2ObjectHandler', () => {
 	]
 
 	runCases(cases, async (_given, when) => {
+		stubCaches()
 		let imageWidth = 0
 		vi.stubGlobal(
 			'fetch',
@@ -131,6 +132,208 @@ describe('readR2ObjectHandler', () => {
 			contentType: response.headers.get('content-type') ?? '',
 			body: await response.text(),
 			width: imageWidth
+		}
+	})
+})
+
+describe('readR2ObjectHandler cache', () => {
+	type GivenDetail = {
+		path: string
+		userId?: string
+	}
+	type WhenDetail = {
+		readCount: number
+	}
+	type ThenExpected = {
+		firstStatus: number
+		secondStatus: number
+		firstCache: string
+		secondCache: string
+		r2GetCount: number
+		cacheMatchCount: number
+		cachePutCount: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'caches public object after miss',
+			given: 'an existing public object',
+			when: 'reading the same public url twice',
+			then: 'returns miss then hit without reading r2 again',
+			givenDetail: {
+				path: '/api/r2/public/images/a.png'
+			},
+			whenDetail: {
+				readCount: 2
+			},
+			thenExpected: {
+				firstStatus: 200,
+				secondStatus: 200,
+				firstCache: 'miss',
+				secondCache: 'hit',
+				r2GetCount: 1,
+				cacheMatchCount: 2,
+				cachePutCount: 1
+			}
+		},
+		{
+			scenario: 'bypasses cache for private object',
+			given: 'an existing private object',
+			when: 'reading the same private url twice',
+			then: 'returns bypass and reads r2 every time',
+			givenDetail: {
+				path: '/api/r2/private/u1/a.txt',
+				userId: 'u1'
+			},
+			whenDetail: {
+				readCount: 2
+			},
+			thenExpected: {
+				firstStatus: 200,
+				secondStatus: 200,
+				firstCache: 'bypass',
+				secondCache: 'bypass',
+				r2GetCount: 2,
+				cacheMatchCount: 0,
+				cachePutCount: 0
+			}
+		},
+		{
+			scenario: 'caches tmp public object after miss',
+			given: 'an existing tmp public object',
+			when: 'reading the same tmp public url twice',
+			then: 'returns miss then hit without reading r2 again',
+			givenDetail: {
+				path: '/api/r2/tmp/public/a.txt'
+			},
+			whenDetail: {
+				readCount: 2
+			},
+			thenExpected: {
+				firstStatus: 200,
+				secondStatus: 200,
+				firstCache: 'miss',
+				secondCache: 'hit',
+				r2GetCount: 1,
+				cacheMatchCount: 2,
+				cachePutCount: 1
+			}
+		}
+	]
+
+	runCases(cases, async (given, when) => {
+		const cacheStats = stubCaches()
+		let r2GetCount = 0
+		const r2 = createR2Bucket((): void => {
+			r2GetCount += 1
+		})
+		const env = createEnvWithR2(r2)
+		const responses: Response[] = []
+
+		for (let index = 0; index < when.readCount; index += 1) {
+			const response = await readR2ObjectHandler(
+				createContext(given.path, new Headers(), undefined, undefined, {
+					env,
+					userId: given.userId
+				})
+			)
+			responses.push(response)
+			await response.text()
+		}
+
+		const firstResponse = responses[0]
+		const secondResponse = responses[1]
+		if (!firstResponse || !secondResponse) {
+			throw new Error('TEST_RESPONSE_MISSING')
+		}
+		return {
+			firstStatus: firstResponse.status,
+			secondStatus: secondResponse.status,
+			firstCache: firstResponse.headers.get('x-r2-worker-cache') ?? '',
+			secondCache: secondResponse.headers.get('x-r2-worker-cache') ?? '',
+			r2GetCount,
+			cacheMatchCount: cacheStats.matchCount,
+			cachePutCount: cacheStats.putCount
+		}
+	})
+})
+
+describe('readR2ObjectHandler variant cache', () => {
+	type GivenDetail = Record<string, never>
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		smallFirstBody: string
+		mediumBody: string
+		smallSecondBody: string
+		smallFirstCache: string
+		mediumCache: string
+		smallSecondCache: string
+		imageFetchCount: number
+		cacheMatchCount: number
+		cachePutCount: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'caches image variants by full url',
+			given: 'an existing public image',
+			when: 'reading small medium then small variant',
+			then: 'keeps each variant as a different cache entry',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: {
+				smallFirstBody: 'variant-320',
+				mediumBody: 'variant-1024',
+				smallSecondBody: 'variant-320',
+				smallFirstCache: 'miss',
+				mediumCache: 'miss',
+				smallSecondCache: 'hit',
+				imageFetchCount: 2,
+				cacheMatchCount: 3,
+				cachePutCount: 2
+			}
+		}
+	]
+
+	runCases(cases, async () => {
+		const cacheStats = stubCaches()
+		let imageFetchCount = 0
+		vi.stubGlobal(
+			'fetch',
+			async (_request: Request, init?: RequestInit<RequestInitCfProperties>): Promise<Response> => {
+				imageFetchCount += 1
+				const width = init?.cf?.image?.width ?? 0
+				return new Response(`variant-${width}`, {
+					status: 200,
+					headers: {
+						'content-type': 'image/jpeg',
+						etag: `"variant-${width}"`
+					}
+				})
+			}
+		)
+
+		const env = createEnv()
+		const smallFirstResponse = await readR2ObjectHandler(
+			createContext('/api/r2/public/images/a.png', new Headers(), 'small', undefined, { env })
+		)
+		const mediumResponse = await readR2ObjectHandler(
+			createContext('/api/r2/public/images/a.png', new Headers(), 'medium', undefined, { env })
+		)
+		const smallSecondResponse = await readR2ObjectHandler(
+			createContext('/api/r2/public/images/a.png', new Headers(), 'small', undefined, { env })
+		)
+
+		return {
+			smallFirstBody: await smallFirstResponse.text(),
+			mediumBody: await mediumResponse.text(),
+			smallSecondBody: await smallSecondResponse.text(),
+			smallFirstCache: smallFirstResponse.headers.get('x-r2-worker-cache') ?? '',
+			mediumCache: mediumResponse.headers.get('x-r2-worker-cache') ?? '',
+			smallSecondCache: smallSecondResponse.headers.get('x-r2-worker-cache') ?? '',
+			imageFetchCount,
+			cacheMatchCount: cacheStats.matchCount,
+			cachePutCount: cacheStats.putCount
 		}
 	})
 })
@@ -513,8 +716,22 @@ type StoredObject = {
 	etag: string
 }
 
+type CreateContextOptions = {
+	env?: Env & { R2: R2Bucket }
+	userId?: string
+}
+
+type CacheStats = {
+	matchCount: number
+	putCount: number
+}
+
 function createEnv(): Env & { R2: R2Bucket } {
 	const r2 = createR2Bucket()
+	return createEnvWithR2(r2)
+}
+
+function createEnvWithR2(r2: R2Bucket): Env & { R2: R2Bucket } {
 	return {
 		APP_NAME: 'opcstack',
 		APP_BASE_URL: 'http://localhost:5173',
@@ -561,22 +778,16 @@ function createContext(
 	path: string,
 	headers: Headers,
 	variant?: string,
-	query?: Map<string, string>
+	query?: Map<string, string>,
+	options?: CreateContextOptions
 ): Context<ApiEnv> {
-	const r2 = createR2Bucket()
+	const env = options?.env ?? createEnv()
 
 	return {
-		env: {
-			APP_NAME: 'opcstack',
-			APP_BASE_URL: 'http://localhost:5173',
-			R2_ACCOUNT_ID: 'abc',
-			R2_ACCESS_KEY_ID: 'access-key',
-			R2_SECRET_ACCESS_KEY: 'secret-key',
-			R2_ORIGIN_SIGNING_SECRET: 'test-secret',
-			R2: r2
-		},
+		env,
 		req: {
 			path,
+			raw: new Request(createRequestUrl(env.APP_BASE_URL, path, variant, query)),
 			header: (name: string): string | undefined => {
 				return headers.get(name) ?? undefined
 			},
@@ -587,7 +798,10 @@ function createContext(
 				return query?.get(name)
 			}
 		},
-		get: (): unknown => {
+		get: (key: string): unknown => {
+			if (key === 'userId') {
+				return options?.userId
+			}
 			return undefined
 		},
 		json: (payload: unknown, status?: number): Response => {
@@ -601,16 +815,29 @@ function createContext(
 	} as unknown as Context<ApiEnv>
 }
 
-function createR2Bucket(): R2Bucket {
+function createR2Bucket(onGet?: (key: string) => void): R2Bucket {
 	const objects: Map<string, StoredObject> = new Map()
 	objects.set('public/images/a.png', {
 		body: 'image',
 		contentType: 'image/png',
 		etag: '"etag"'
 	})
+	objects.set('tmp/public/a.txt', {
+		body: 'tmp',
+		contentType: 'text/plain',
+		etag: '"tmp-etag"'
+	})
+	objects.set('private/u1/a.txt', {
+		body: 'private',
+		contentType: 'text/plain',
+		etag: '"private-etag"'
+	})
 
 	const r2 = {
 		get: async (key: string): Promise<R2ObjectBody | null> => {
+			if (onGet) {
+				onGet(key)
+			}
 			const item = objects.get(key)
 			if (!item) {
 				return null
@@ -625,4 +852,59 @@ function createR2Bucket(): R2Bucket {
 		}
 	} as R2Bucket
 	return r2
+}
+
+function createRequestUrl(
+	baseUrl: string,
+	path: string,
+	variant?: string,
+	query?: Map<string, string>
+): string {
+	const url = new URL(path, baseUrl)
+	if (variant) {
+		url.searchParams.set('variant', variant)
+	}
+	if (query) {
+		for (const entry of query.entries()) {
+			url.searchParams.set(entry[0], entry[1])
+		}
+	}
+	return url.toString()
+}
+
+function stubCaches(): CacheStats {
+	const responses: Map<string, Response> = new Map()
+	const stats: CacheStats = {
+		matchCount: 0,
+		putCount: 0
+	}
+	const cache = {
+		match: async (request: RequestInfo | URL): Promise<Response | undefined> => {
+			stats.matchCount += 1
+			const response = responses.get(cacheKey(request))
+			if (!response) {
+				return undefined
+			}
+			return response.clone()
+		},
+		put: async (request: RequestInfo | URL, response: Response): Promise<void> => {
+			stats.putCount += 1
+			responses.set(cacheKey(request), response.clone())
+		}
+	} as unknown as Cache
+
+	vi.stubGlobal('caches', {
+		default: cache
+	})
+	return stats
+}
+
+function cacheKey(request: RequestInfo | URL): string {
+	if (typeof request === 'string') {
+		return request
+	}
+	if (request instanceof URL) {
+		return request.toString()
+	}
+	return request.url
 }
