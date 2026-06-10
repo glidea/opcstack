@@ -76,7 +76,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `ADMIN_API_TOKEN`: Machine token that represents the super admin user identity
 - `R2_ORIGIN_SIGNING_SECRET`: HMAC secret used by internal R2 image origin requests
 - `R2_TMP_LIFECYCLE_RULES`: R2 tmp object lifecycle rules for `tmp/public/` and `tmp/private/` only, for example `tmp/public/:7;tmp/private/:1`
-- `D1_SHARD_COUNT`: Tenant Shard D1 count. Increasing it adds new shard bindings and new users can be assigned to the new shards
+- `D1_SHARDS`: Tenant Shard D1 region counts, for example `wnam:1;apac:2`. Supported regions are Cloudflare D1 location hints `wnam` Western North America, `enam` Eastern North America, `weur` Western Europe, `eeur` Eastern Europe, `apac` Asia Pacific, and `oc` Oceania
 - `TURNSTILE_ENABLED`: Enables Cloudflare Turnstile for email auth. Local mode uses official Cloudflare test keys. Remote mode creates or reuses a Turnstile widget named `APP_NAME`
 
 **Feature flags**:
@@ -141,9 +141,10 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - D1 with Drizzle ORM
 - Meta DB uses the `META_DB` binding
 - Get Meta DB via `ctx.get('metaDb')` request scoped
-- Tenant Shard DB uses generated `TENANT_DB_0000..N` bindings
+- Tenant Shard DB uses generated region bindings like `TENANT_DB_WNAM_0000` and `TENANT_DB_APAC_0000`
 - Get current user's Tenant Shard DB via `ctx.get('tenantDb')` request scoped
 - Tenant shard registry lives in Meta DB tables `d1_shards` and `user_shards`
+- `d1_shards.region` is the Cloudflare D1 location hint region. New users are assigned to the least loaded active shard in the Worker preferred region first, then fall back to any active shard. Existing users always use `user_shards`
 - `credit_redemption_codes` and `aff_referrals` live in Meta DB
 - `credit_balances` `credit_entries` `credit_transactions` `feedbacks` and `notification_reads` live in Tenant Shard DB
 - Payment orders transactions subscriptions and webhook events live in Meta DB

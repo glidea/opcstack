@@ -181,13 +181,15 @@ Cloudflare 模式要求发件域已启用 Email Routing。`wrangler.jsonc` 会�
 OPC Stack 默认会创建一个 Meta DB 和一组 Tenant Shard DB：
 
 ```env
-D1_SHARD_COUNT=1
+D1_SHARDS=wnam:1;apac:1
 ```
 
 - Meta DB 存认证、支付订单、兑换码、通知正文、分片注册表
 - Tenant Shard DB 存用户级数据，比如积分余额、积分流水、反馈、通知已读状态
-- `pnpm dev` 和 `pnpm deploycf` 会按 `D1_SHARD_COUNT` 生成 `TENANT_DB_0000` 这类 binding，并写入 Meta DB 的 `d1_shards`
-- 扩容时调大 `D1_SHARD_COUNT` 后重新部署，新增用户会路由到新 shard，已有用户保持原 shard
+- `D1_SHARDS` 的格式是 `region:count`，多个 region 用 `;` 分隔
+- region code 对应 Cloudflare D1 location hint：`wnam` Western North America，`enam` Eastern North America，`weur` Western Europe，`eeur` Eastern Europe，`apac` Asia Pacific，`oc` Oceania
+- `pnpm dev` 和 `pnpm deploycf` 会按 `D1_SHARDS` 生成 `TENANT_DB_WNAM_0000` 这类 binding，并写入 Meta DB 的 `d1_shards`
+- 扩容时增加对应 region 的数量后重新部署，新增用户会优先路由到 Worker 所在区域最近的 active shard，已有用户保持原 shard
 
 修改数据库 schema 时：
 

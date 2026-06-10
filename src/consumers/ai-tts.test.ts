@@ -44,6 +44,7 @@ vi.mock('../db', () => {
 
 vi.mock('../db/shard-router', () => {
 	return {
+		DEFAULT_D1_SHARD_REGION: 'wnam',
 		createTenantShardAccess: vi.fn()
 	}
 })

@@ -1,5 +1,10 @@
 import type { MiddlewareHandler } from 'hono'
-import { createTenantShardAccess } from '../../db/shard-router'
+import {
+	createTenantShardAccess,
+	type D1ShardRegion,
+	resolveD1ShardRegion,
+	type WorkerRegionSource
+} from '../../db/shard-router'
 import type { ApiEnv } from '..'
 
 export const TENANT_DB_BOOKMARK_HEADER = 'x-d1-tenant-bookmark'
@@ -11,7 +16,7 @@ export const tenantDbMiddleware: MiddlewareHandler<ApiEnv> = async (
 	next
 ): Promise<Response | void> => {
 	const tenantShards = createTenantShardAccess(ctx.get('metaDb'), ctx.env)
-	const resolved = await tenantShards.resolveUser(ctx.get('userId'))
+	const resolved = await tenantShards.resolveUser(ctx.get('userId'), readWorkerRegion(ctx.req.raw))
 	const cookieName = tenantBookmarkCookieName(resolved.shardId)
 	const headerBookmark = ctx.req.header(TENANT_DB_BOOKMARK_HEADER)
 	const cookieBookmark = readCookie(ctx.req.header('cookie'), cookieName)
@@ -39,6 +44,11 @@ export const tenantDbMiddleware: MiddlewareHandler<ApiEnv> = async (
 			shouldUseSecureCookie(ctx.env.APP_BASE_URL)
 		)
 	)
+}
+
+function readWorkerRegion(request: Request): D1ShardRegion {
+	const raw = request as Request & { cf?: WorkerRegionSource }
+	return resolveD1ShardRegion(raw.cf)
 }
 
 export function tenantBookmarkCookieName(shardId: string): string {

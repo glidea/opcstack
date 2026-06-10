@@ -15,6 +15,7 @@ export const d1Shard = sqliteTable('d1_shards', {
 	bindingName: text('binding_name').notNull().unique(),
 	databaseName: text('database_name').notNull().unique(),
 	databaseId: text('database_id').notNull(),
+	region: text('region').notNull(),
 	status: text('status').notNull(),
 	assignedCount: integer('assigned_count').notNull().default(0),
 	createdAt: integer('created_at').notNull(),

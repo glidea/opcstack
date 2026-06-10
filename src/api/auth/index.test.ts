@@ -67,6 +67,9 @@ vi.mock('../../credits', async () => {
 
 vi.mock('../../db/shard-router', () => {
 	return {
+		resolveD1ShardRegion: (): string => {
+			return 'wnam'
+		},
 		createTenantShardAccess: vi.fn(() => {
 			return {
 				openUserDb: shardRouterMocks.openUserDb

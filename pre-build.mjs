@@ -52,30 +52,38 @@ function runOutput(command) {
 	return execSync(command, { encoding: 'utf-8' })
 }
 
-export function parseShardCount(raw) {
+const D1_SHARD_REGIONS = ['wnam', 'enam', 'weur', 'eeur', 'apac', 'oc']
+
+function parseShardSpecs(raw) {
 	if (raw === undefined || raw === '') {
-		return 1
+		return [{ region: 'wnam', count: 1 }]
 	}
 
-	const count = Number(raw)
-	if (!Number.isInteger(count) || count < 1) {
-		throw new Error('D1_SHARD_COUNT_INVALID')
-	}
-
-	return count
+	return raw.split(';').map((segment) => {
+		const [rawRegion, rawCount] = segment.split(':')
+		const region = rawRegion.trim()
+		const count = Number(rawCount)
+		if (!D1_SHARD_REGIONS.includes(region) || !Number.isInteger(count) || count < 1) {
+			throw new Error('D1_SHARDS_INVALID')
+		}
+		return { region, count }
+	})
 }
 
-function buildShardDescriptors(appName, count) {
+function buildShardDescriptors(appName, specs) {
 	const shards = []
-	let index = 0
-	while (index < count) {
-		const suffix = shardSuffix(index)
-		shards.push({
-			id: `shard_${suffix}`,
-			bindingName: tenantBindingName(index),
-			databaseName: tenantDatabaseName(appName, index)
-		})
-		index += 1
+	for (const spec of specs) {
+		let index = 0
+		while (index < spec.count) {
+			const suffix = shardSuffix(index)
+			shards.push({
+				id: `shard_${spec.region}_${suffix}`,
+				bindingName: tenantBindingName(spec.region, index),
+				databaseName: tenantDatabaseName(appName, spec.region, index),
+				region: spec.region
+			})
+			index += 1
+		}
 	}
 	return shards
 }
@@ -102,12 +110,12 @@ function buildD1DatabaseBindings(appName, metaDatabaseId, shards, shardDatabaseI
 	return bindings
 }
 
-function tenantBindingName(index) {
-	return `TENANT_DB_${shardSuffix(index)}`
+function tenantBindingName(region, index) {
+	return `TENANT_DB_${region.toUpperCase()}_${shardSuffix(index)}`
 }
 
-function tenantDatabaseName(appName, index) {
-	return `${appName}-shard-${shardSuffix(index)}`
+function tenantDatabaseName(appName, region, index) {
+	return `${appName}-shard-${region}-${shardSuffix(index)}`
 }
 
 function shardSuffix(index) {
@@ -479,16 +487,27 @@ export function buildD1ExecuteCommand(input) {
 	return `pnpm exec wrangler d1 execute ${input.databaseName} ${input.migrateFlag}${jsonFlag} --command ${shellQuote(input.sql)}`
 }
 
+function buildD1CreatePayload(name, region) {
+	if (region === undefined || region === '') {
+		return { name }
+	}
+	return {
+		name,
+		primary_location_hint: region
+	}
+}
+
 function buildShardRegistryUpsertSql(shard, databaseId, nowMs) {
 	return [
 		'INSERT INTO d1_shards',
-		'(id, binding_name, database_name, database_id, status, assigned_count, created_at, updated_at)',
+		'(id, binding_name, database_name, database_id, region, status, assigned_count, created_at, updated_at)',
 		'VALUES',
-		`(${sqlString(shard.id)}, ${sqlString(shard.bindingName)}, ${sqlString(shard.databaseName)}, ${sqlString(databaseId)}, 'active', 0, ${nowMs}, ${nowMs})`,
+		`(${sqlString(shard.id)}, ${sqlString(shard.bindingName)}, ${sqlString(shard.databaseName)}, ${sqlString(databaseId)}, ${sqlString(shard.region)}, 'active', 0, ${nowMs}, ${nowMs})`,
 		'ON CONFLICT(id) DO UPDATE SET',
 		`binding_name = ${sqlString(shard.bindingName)},`,
 		`database_name = ${sqlString(shard.databaseName)},`,
 		`database_id = ${sqlString(databaseId)},`,
+		`region = ${sqlString(shard.region)},`,
 		"status = 'active',",
 		`updated_at = ${nowMs}`
 	].join(' ')
@@ -776,8 +795,8 @@ async function listD1Databases(accountId, token) {
 	return Array.isArray(result) ? result : []
 }
 
-async function createD1Database(accountId, token, name) {
-	return cfApiRequest(token, 'POST', `/accounts/${accountId}/d1/database`, { name })
+async function createD1Database(accountId, token, name, region) {
+	return cfApiRequest(token, 'POST', `/accounts/${accountId}/d1/database`, buildD1CreatePayload(name, region))
 }
 
 async function listQueues(accountId, token) {
@@ -1097,8 +1116,8 @@ async function main() {
 	const r2Enabled = env.R2_ENABLED === 'true'
 	const r2TmpLifecycleRules = parseR2TmpLifecycleRules(env.R2_TMP_LIFECYCLE_RULES)
 	const turnstileEnabled = env.TURNSTILE_ENABLED === 'true'
-	const shardCount = parseShardCount(env.D1_SHARD_COUNT)
-	const shards = buildShardDescriptors(env.APP_NAME, shardCount)
+	const shardSpecs = parseShardSpecs(env.D1_SHARDS)
+	const shards = buildShardDescriptors(env.APP_NAME, shardSpecs)
 
 	console.log(`\nPre-build script (${isRemote ? 'REMOTE' : 'LOCAL'} mode)\n`)
 
@@ -1144,7 +1163,7 @@ async function main() {
 			let existingShardDB = dbs.find((db) => db.name === shard.databaseName)
 			if (!existingShardDB) {
 				console.log(`Creating D1 database '${shard.databaseName}'...`)
-				await createD1Database(accountId, cloudflareApiToken, shard.databaseName)
+				await createD1Database(accountId, cloudflareApiToken, shard.databaseName, shard.region)
 				dbs = await listD1Databases(accountId, cloudflareApiToken)
 				existingShardDB = dbs.find((db) => db.name === shard.databaseName)
 			} else {

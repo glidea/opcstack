@@ -4,6 +4,7 @@ import { user } from './schema.auth'
 import {
 	checkoutOrder,
 	creditRedemptionCode,
+	d1Shard,
 	paymentTransaction,
 	userSubscription
 } from './schema.meta'
@@ -48,6 +49,15 @@ describe('schema.meta', () => {
 			givenDetail: { schema: 'meta-auth' },
 			whenDetail: { check: 'no-tenant-credit-ledger' },
 			thenExpected: { result: true }
+		},
+		{
+			scenario: 'tenant shard region metadata',
+			given: 'meta schema',
+			when: 'checking d1 shard fields',
+			then: 'd1 shard records own region',
+			givenDetail: { schema: 'meta' },
+			whenDetail: { check: 'd1-shard-region' },
+			thenExpected: { result: true }
 		}
 	]
 
@@ -80,6 +90,10 @@ describe('schema.meta', () => {
 						!metaExports.includes('creditTransaction')
 				}
 			}
+			case 'd1-shard-region':
+				return {
+					result: d1Shard.region !== undefined
+				}
 			default:
 				return { result: false }
 		}

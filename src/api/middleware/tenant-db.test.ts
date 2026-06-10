@@ -13,6 +13,9 @@ const shardRouterMocks = vi.hoisted(() => {
 
 vi.mock('../../db/shard-router', () => {
 	return {
+		resolveD1ShardRegion: (): string => {
+			return 'apac'
+		},
 		createTenantShardAccess: vi.fn(() => {
 			return {
 				resolveUser: shardRouterMocks.resolveUser,
@@ -40,6 +43,7 @@ describe('tenantDbMiddleware', () => {
 		withSessionBookmark: string
 		tenantDbSet: boolean
 		tenantShardId: string
+		resolvePreferredRegion: string
 		responseShard: string
 		responseBookmark: string
 	}
@@ -59,6 +63,7 @@ describe('tenantDbMiddleware', () => {
 				withSessionBookmark: 'first-primary',
 				tenantDbSet: true,
 				tenantShardId: 'shard_0000',
+				resolvePreferredRegion: 'apac',
 				responseShard: 'shard_0000',
 				responseBookmark: 'next-tenant'
 			}
@@ -95,6 +100,7 @@ describe('tenantDbMiddleware', () => {
 			withSessionBookmark: String(withSession.mock.calls[0]?.[0] ?? ''),
 			tenantDbSet: state.values['tenantDb'] !== undefined,
 			tenantShardId: String(state.values['tenantShardId'] ?? ''),
+			resolvePreferredRegion: String(shardRouterMocks.resolveUser.mock.calls[0]?.[1] ?? ''),
 			responseShard: state.response.headers.get('x-d1-tenant-shard') ?? '',
 			responseBookmark: state.response.headers.get('x-d1-tenant-bookmark') ?? ''
 		}
@@ -149,6 +155,11 @@ function createContext(state: ContextState): Context<ApiEnv> {
 	const ctx = {
 		env: state.env,
 		req: {
+			raw: {
+				cf: {
+					continent: 'AS'
+				}
+			},
 			header: (name: string): string | undefined => {
 				return state.headers.get(name) ?? undefined
 			}

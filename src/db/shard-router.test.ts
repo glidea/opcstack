@@ -1,11 +1,13 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { createTenantShardAccess } from './shard-router'
+import { createTenantShardAccess, type D1ShardRegion } from './shard-router'
 
 describe('TenantShardAccess.resolveUser', () => {
 	type GivenDetail = {
 		hasExistingUserShard: boolean
 		insertConflict: boolean
+		preferredRegion: D1ShardRegion
+		preferredRegionHasShard: boolean
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -23,7 +25,9 @@ describe('TenantShardAccess.resolveUser', () => {
 			then: 'returns mapped shard without creating a mapping',
 			givenDetail: {
 				hasExistingUserShard: true,
-				insertConflict: false
+				insertConflict: false,
+				preferredRegion: 'apac',
+				preferredRegionHasShard: true
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -40,12 +44,14 @@ describe('TenantShardAccess.resolveUser', () => {
 			then: 'assigns least used active shard',
 			givenDetail: {
 				hasExistingUserShard: false,
-				insertConflict: false
+				insertConflict: false,
+				preferredRegion: 'apac',
+				preferredRegionHasShard: true
 			},
 			whenDetail: {},
 			thenExpected: {
-				shardId: 'shard_0000',
-				bindingName: 'TENANT_DB_0000',
+				shardId: 'shard_apac_0000',
+				bindingName: 'TENANT_DB_APAC_0000',
 				insertedMapping: true,
 				updatedCount: true
 			}
@@ -57,7 +63,9 @@ describe('TenantShardAccess.resolveUser', () => {
 			then: 'returns existing mapping without incrementing shard count',
 			givenDetail: {
 				hasExistingUserShard: false,
-				insertConflict: true
+				insertConflict: true,
+				preferredRegion: 'apac',
+				preferredRegionHasShard: true
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -65,6 +73,25 @@ describe('TenantShardAccess.resolveUser', () => {
 				bindingName: 'TENANT_DB_0000',
 				insertedMapping: true,
 				updatedCount: false
+			}
+		},
+		{
+			scenario: 'fallback to global active shard',
+			given: 'user preferred region has no active shard',
+			when: 'resolving user shard',
+			then: 'assigns least used global active shard',
+			givenDetail: {
+				hasExistingUserShard: false,
+				insertConflict: false,
+				preferredRegion: 'apac',
+				preferredRegionHasShard: false
+			},
+			whenDetail: {},
+			thenExpected: {
+				shardId: 'shard_0000',
+				bindingName: 'TENANT_DB_0000',
+				insertedMapping: true,
+				updatedCount: true
 			}
 		}
 	]
@@ -104,23 +131,46 @@ describe('TenantShardAccess.resolveUser', () => {
 						}
 					]
 				: [undefined]
+		const selectedShardRows = given.insertConflict
+			? [
+					{
+						id: 'shard_apac_0000',
+						bindingName: 'TENANT_DB_APAC_0000'
+					},
+					{
+						id: 'shard_0000',
+						bindingName: 'TENANT_DB_0000'
+					}
+				]
+			: given.preferredRegionHasShard
+			? [
+					{
+						id: 'shard_apac_0000',
+						bindingName: 'TENANT_DB_APAC_0000'
+					}
+				]
+			: [
+					undefined,
+					{
+						id: 'shard_0000',
+						bindingName: 'TENANT_DB_0000'
+					}
+				]
 		const db = {
 			query: {
 				userShard: {
 					findFirst: vi.fn(() => Promise.resolve(userShardRows.shift()))
 				},
 				d1Shard: {
-					findFirst: vi.fn().mockResolvedValue(
-						given.hasExistingUserShard
-							? {
-									id: 'shard_0001',
-									bindingName: 'TENANT_DB_0001'
-								}
-							: {
-									id: 'shard_0000',
-									bindingName: 'TENANT_DB_0000'
-								}
-					)
+					findFirst: vi.fn(() => {
+						if (given.hasExistingUserShard) {
+							return Promise.resolve({
+								id: 'shard_0001',
+								bindingName: 'TENANT_DB_0001'
+							})
+						}
+						return Promise.resolve(selectedShardRows.shift())
+					})
 				}
 			},
 			insert: vi.fn(() => {
@@ -131,7 +181,10 @@ describe('TenantShardAccess.resolveUser', () => {
 			})
 		}
 
-		const result = await createTenantShardAccess(db as never, {} as never).resolveUser('user-1')
+		const result = await createTenantShardAccess(db as never, {} as never).resolveUser(
+			'user-1',
+			given.preferredRegion
+		)
 
 		return {
 			shardId: result.shardId,
@@ -210,7 +263,7 @@ describe('TenantShardAccess', () => {
 		const access = createTenantShardAccess(state.db as never, state.env as never)
 
 		if (given.action === 'openUserDb') {
-			const tenant = await access.openUserDb('user-1')
+			const tenant = await access.openUserDb('user-1', 'wnam')
 			return {
 				shardId: tenant.shardId,
 				dbCreated: tenant.db !== undefined,
@@ -220,7 +273,7 @@ describe('TenantShardAccess', () => {
 		}
 
 		if (given.action === 'openUserSession') {
-			const tenant = await access.openUserSession('user-1', 'bookmark-1')
+			const tenant = await access.openUserSession('user-1', 'wnam', 'bookmark-1')
 			return {
 				shardId: tenant.shardId,
 				dbCreated: tenant.db !== undefined,

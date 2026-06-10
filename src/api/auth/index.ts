@@ -3,7 +3,12 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer, captcha, emailOTP } from 'better-auth/plugins'
 import type { MetaDb } from '../../db'
 import * as authSchema from '../../db/schema.auth'
-import { createTenantShardAccess } from '../../db/shard-router'
+import {
+	createTenantShardAccess,
+	type D1ShardRegion,
+	resolveD1ShardRegion,
+	type WorkerRegionSource
+} from '../../db/shard-router'
 import { newEmailClients, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
@@ -56,13 +61,19 @@ export function authCore(env: Env, db: MetaDb) {
               }
             }
           },
-          after: async (createdUser: Record<string, unknown>): Promise<void> => {
+          after: async (
+            createdUser: Record<string, unknown>,
+            context: AuthHookContext | null
+          ): Promise<void> => {
             const userId = String(createdUser['id'] ?? '')
             if (userId === '') {
               return
             }
 
-            const tenant = await createTenantShardAccess(db, env).openUserDb(userId)
+            const tenant = await createTenantShardAccess(db, env).openUserDb(
+              userId,
+              readAuthRequestRegion(context)
+            )
             const credits = new CreditsService(tenant.db)
             await credits.createBalance({ userId })
             if (!readCreditsSignupEnabled(env)) {
@@ -102,6 +113,11 @@ export function authCore(env: Env, db: MetaDb) {
 type AuthHookContext = {
   headers?: Headers
   request?: Request
+}
+
+function readAuthRequestRegion(context: AuthHookContext | null): D1ShardRegion {
+  const request = context?.request as (Request & { cf?: WorkerRegionSource }) | undefined
+  return resolveD1ShardRegion(request?.cf)
 }
 
 function readRegistrationUtmSource(context: AuthHookContext | null): string | null {

@@ -1,6 +1,14 @@
-import { eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getTenantShardDb, type MetaDb, type TenantShardDb } from '.'
 import { d1Shard, userShard } from './schema.meta'
+
+export type D1ShardRegion = 'wnam' | 'enam' | 'weur' | 'eeur' | 'apac' | 'oc'
+
+export type WorkerRegionSource = {
+	continent?: string
+}
+
+export const DEFAULT_D1_SHARD_REGION: D1ShardRegion = 'wnam'
 
 export type ResolvedUserShard = {
 	shardId: string
@@ -24,6 +32,20 @@ export function createTenantShardAccess(metaDb: MetaDb, env: Env): TenantShardAc
 	return new TenantShardAccess(metaDb, env)
 }
 
+export function resolveD1ShardRegion(cf: WorkerRegionSource | undefined): D1ShardRegion {
+	const continent = cf?.continent ?? ''
+	switch (continent) {
+		case 'AS':
+			return 'apac'
+		case 'EU':
+			return 'weur'
+		case 'OC':
+			return 'oc'
+		default:
+			return DEFAULT_D1_SHARD_REGION
+	}
+}
+
 export class TenantShardAccess {
 	private readonly metaDb: MetaDb
 	private readonly env: Env
@@ -33,20 +55,21 @@ export class TenantShardAccess {
 		this.env = env
 	}
 
-	async resolveUser(userId: string): Promise<ResolvedUserShard> {
-		return resolveUserShard(this.metaDb, userId)
+	async resolveUser(userId: string, preferredRegion: D1ShardRegion): Promise<ResolvedUserShard> {
+		return resolveUserShard(this.metaDb, userId, preferredRegion)
 	}
 
-	async openUserDb(userId: string): Promise<TenantShardClient> {
-		const resolved = await this.resolveUser(userId)
+	async openUserDb(userId: string, preferredRegion: D1ShardRegion): Promise<TenantShardClient> {
+		const resolved = await this.resolveUser(userId, preferredRegion)
 		return this.openDb(resolved)
 	}
 
 	async openUserSession(
 		userId: string,
+		preferredRegion: D1ShardRegion,
 		bookmark: D1SessionBookmark | D1SessionConstraint
 	): Promise<TenantShardSession> {
-		const resolved = await this.resolveUser(userId)
+		const resolved = await this.resolveUser(userId, preferredRegion)
 		return this.openSession(resolved, bookmark)
 	}
 
@@ -90,7 +113,11 @@ export class TenantShardAccess {
 	}
 }
 
-async function resolveUserShard(metaDb: MetaDb, userId: string): Promise<ResolvedUserShard> {
+async function resolveUserShard(
+	metaDb: MetaDb,
+	userId: string,
+	preferredRegion: D1ShardRegion
+): Promise<ResolvedUserShard> {
 	const existing = await metaDb.query.userShard.findFirst({
 		where: eq(userShard.userId, userId)
 	})
@@ -107,10 +134,15 @@ async function resolveUserShard(metaDb: MetaDb, userId: string): Promise<Resolve
 		}
 	}
 
-	const shard = await metaDb.query.d1Shard.findFirst({
-		where: eq(d1Shard.status, 'active'),
-		orderBy: [d1Shard.assignedCount, d1Shard.id]
-	})
+	const shard =
+		(await metaDb.query.d1Shard.findFirst({
+			where: and(eq(d1Shard.status, 'active'), eq(d1Shard.region, preferredRegion)),
+			orderBy: [d1Shard.assignedCount, d1Shard.id]
+		})) ??
+		(await metaDb.query.d1Shard.findFirst({
+			where: eq(d1Shard.status, 'active'),
+			orderBy: [d1Shard.assignedCount, d1Shard.id]
+		}))
 	if (!shard) {
 		throw new Error('NO_ACTIVE_D1_SHARD')
 	}

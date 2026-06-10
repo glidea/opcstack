@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { getMetaDb } from '../db'
 import { aiImageTask } from '../db/schema.shard'
-import { createTenantShardAccess } from '../db/shard-router'
+import { createTenantShardAccess, DEFAULT_D1_SHARD_REGION } from '../db/shard-router'
 import { newAIImageClients } from '../ai/image'
 import { logError } from '../lib/log'
 import type {
@@ -29,7 +29,10 @@ async function handleAIImageMessage(
 ): Promise<void> {
 	const body = message.body
 	const metaDb = getMetaDb(env.META_DB)
-	const tenant = await createTenantShardAccess(metaDb, env).openUserDb(body.userId)
+	const tenant = await createTenantShardAccess(metaDb, env).openUserDb(
+		body.userId,
+		DEFAULT_D1_SHARD_REGION
+	)
 	const task = await tenant.db.query.aiImageTask.findFirst({
 		where: eq(aiImageTask.id, body.taskId)
 	})
