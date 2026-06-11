@@ -2,6 +2,11 @@ import type { GoogleGenAI } from '@google/genai'
 import type OpenAI from 'openai'
 import type { TenantShardDb } from '../../db'
 import type { R2ImageVariantPreset } from '../../r2'
+import {
+	newAliyunNativeImageClient,
+	newAliyunSimpleImageClient,
+	type AliyunNativeImageClient
+} from './aliyun'
 import { newGeminiNativeImageClient, newGeminiSimpleImageClient } from './gemini'
 import { newOpenAINativeImageClient, newOpenAISimpleImageClient } from './openai'
 import { newSeedDreamNativeImageClient, newSeedDreamSimpleImageClient } from './seedream'
@@ -14,12 +19,15 @@ export const GEMINI_IMAGE_MODEL_GEMINI_2_5_FLASH_IMAGE_PREVIEW =
 export const OPENAI_IMAGE_MODEL_GPT_IMAGE_2 = 'gpt-image-2'
 export const SEEDDREAM_MODEL_SEEDDREAM_5_0_260128 = 'doubao-seedream-5-0-260128'
 export const SEEDDREAM_MODEL_SEEDDREAM_5_0_LITE_260128 = 'doubao-seedream-5-0-lite-260128'
+export const ALIYUN_IMAGE_MODEL_QWEN_IMAGE_2_0_PRO = 'qwen-image-2.0-pro'
+export const ALIYUN_IMAGE_MODEL_Z_IMAGE_TURBO = 'z-image-turbo'
 
 export interface AIImageClients {
 	simple: AISimpleImageClient
 	gemini?: GoogleGenAI
 	openai?: OpenAI
 	seedream?: OpenAI
+	aliyun?: AliyunNativeImageClient
 }
 
 export function newAIImageClients(
@@ -47,6 +55,12 @@ export function newAIImageClients(
 			seedream: newSeedDreamNativeImageClient(env)
 		}
 	}
+	if (provider === 'aliyun') {
+		return {
+			simple: newAliyunSimpleImageClient(env, userId, tenantDb, options),
+			aliyun: newAliyunNativeImageClient(env)
+		}
+	}
 
 	throw new Error(`UNSUPPORTED_AI_PROVIDER: ${provider}`)
 }
@@ -62,7 +76,7 @@ export interface AISimpleImageClientOptions {
 	model?: string
 }
 
-export type AIImageProvider = 'gemini' | 'openai' | 'seedream'
+export type AIImageProvider = 'gemini' | 'openai' | 'seedream' | 'aliyun'
 
 export type AIImageAspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9'
 export type AIImageSize = '1K' | '2K' | '4K'

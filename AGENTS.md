@@ -303,11 +303,15 @@ await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, cont
 ### 11. AI Capabilities
 
 - Chat: `src/ai/chat/openai/`
-- Image: `src/ai/image/gemini/`
+- Image: `src/ai/image/gemini/` `src/ai/image/openai/` `src/ai/image/seedream/` `src/ai/image/aliyun/`
 - TTS: `src/ai/tts/gemini/`
-- Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `TTS_GEMINI_*`
+- Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `IMAGE_OPENAI_*` / `IMAGE_SEEDDREAM_*` / `IMAGE_ALIYUN_*` / `TTS_GEMINI_*`
 - Simple image client supports sync `generate` and async `generateAsync`
 - Image client runtime identity and dependencies such as `userId` and `tenantDb` are required client constructor arguments, not generate input and not options. Options only carry optional provider/model
+- Aliyun image provider name is `aliyun`; supported models are `qwen-image-2.0-pro` and `z-image-turbo`
+- Aliyun image provider calls DashScope HTTP API directly, downloads provider output URLs, and returns stable `imageBase64` results
+- Aliyun image provider does not support `4K` or `lowCensorship`; unsupported inputs throw instead of being silently ignored
+- Aliyun `z-image-turbo` does not support image references
 - Async image tasks live in Tenant Shard DB table `ai_image_tasks`
 - Async image queue payload only carries task id and user id
 - Async image retry uses Cloudflare Queue `message.retry({ delaySeconds })`
