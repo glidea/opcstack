@@ -25,6 +25,7 @@ type InsertedRow = {
 describe('createAITTSTask', () => {
 	type GivenDetail = {
 		input: AITTSSpeechInput
+		provider: 'gemini' | 'seed'
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -44,6 +45,7 @@ describe('createAITTSTask', () => {
 			when: 'creating tts task',
 			then: 'stores task fields and enqueues task id',
 			givenDetail: {
+				provider: 'gemini',
 				input: {
 					instruction: 'podcast style',
 					speakers: [
@@ -67,6 +69,29 @@ describe('createAITTSTask', () => {
 				lineCount: 2,
 				uploadToR2: true
 			}
+		},
+		{
+			scenario: 'creates seed processing task and sends queue message',
+			given: 'async seed input with one speaker',
+			when: 'creating tts task',
+			then: 'stores seed provider and enqueues task id',
+			givenDetail: {
+				provider: 'seed',
+				input: {
+					speakers: [{ name: 'Host', voiceName: 'zh_female_cancan_mars_bigtts' }],
+					lines: [{ speakerName: 'Host', text: 'Hello' }]
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 'processing',
+				provider: 'seed',
+				queueTaskId: 'created',
+				queueUserId: 'u1',
+				speakerCount: 1,
+				lineCount: 1,
+				uploadToR2: false
+			}
 		}
 	]
 
@@ -80,7 +105,7 @@ describe('createAITTSTask', () => {
 			}
 		} as unknown as Env
 
-		const task = await createAITTSTask(env, db, 'gemini', 'm1', 'u1', given.input)
+		const task = await createAITTSTask(env, db, given.provider, 'm1', 'u1', given.input)
 		const queueBody = sendMock.mock.calls[0]?.[0] as
 			| {
 					taskId?: string

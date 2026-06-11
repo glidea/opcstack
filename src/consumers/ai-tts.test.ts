@@ -106,6 +106,7 @@ describe('handleAITTSQueue', () => {
 		clientTenantDbPassed: boolean
 		generateUploadToR2: boolean
 		generateUserId: string
+		clientProvider: string
 		logErrorCalls: number
 		logTaskId: string
 		logAttemptCount: number
@@ -132,6 +133,7 @@ describe('handleAITTSQueue', () => {
 				clientTenantDbPassed: true,
 				generateUploadToR2: true,
 				generateUserId: '',
+				clientProvider: 'gemini',
 				logErrorCalls: 0,
 				logTaskId: '',
 				logAttemptCount: 0
@@ -158,6 +160,7 @@ describe('handleAITTSQueue', () => {
 				clientTenantDbPassed: true,
 				generateUploadToR2: true,
 				generateUserId: '',
+				clientProvider: 'gemini',
 				logErrorCalls: 1,
 				logTaskId: 't1',
 				logAttemptCount: 1
@@ -184,9 +187,42 @@ describe('handleAITTSQueue', () => {
 				clientTenantDbPassed: true,
 				generateUploadToR2: true,
 				generateUserId: '',
+				clientProvider: 'gemini',
 				logErrorCalls: 1,
 				logTaskId: 't1',
 				logAttemptCount: 3
+			}
+		},
+		{
+			scenario: 'completed seed task passes provider to client factory',
+			given: 'processing seed task and generate succeeds',
+			when: 'handling tts queue',
+			then: 'uses seed provider from task',
+			givenDetail: {
+				task: {
+					...createTask(0),
+					provider: 'seed',
+					speakersJson: JSON.stringify([
+						{ name: 'Host', voiceName: 'zh_female_cancan_mars_bigtts' }
+					])
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				ackCalls: 1,
+				retryCalls: 0,
+				retryDelaySeconds: 0,
+				statusWritten: 'completed',
+				hasResult: true,
+				lastErrorMessage: '',
+				clientUserId: 'u1',
+				clientTenantDbPassed: true,
+				generateUploadToR2: true,
+				generateUserId: '',
+				clientProvider: 'seed',
+				logErrorCalls: 0,
+				logTaskId: '',
+				logAttemptCount: 0
 			}
 		}
 	]
@@ -225,6 +261,9 @@ describe('handleAITTSQueue', () => {
 			| undefined
 		const clientUserId = vi.mocked(newAITTSClients).mock.calls[0]?.[1] as string | undefined
 		const clientTenantDb = vi.mocked(newAITTSClients).mock.calls[0]?.[2] as unknown
+		const clientOptions = vi.mocked(newAITTSClients).mock.calls[0]?.[3] as
+			| { provider?: string }
+			| undefined
 		const generateInput = mocks.generateSpeech.mock.calls[0]?.[0] as
 			| { userId?: string; uploadToR2?: boolean }
 			| undefined
@@ -247,6 +286,7 @@ describe('handleAITTSQueue', () => {
 			clientTenantDbPassed: clientTenantDb !== undefined,
 			generateUploadToR2: generateInput?.uploadToR2 ?? false,
 			generateUserId: generateInput?.userId ?? '',
+			clientProvider: clientOptions?.provider ?? '',
 			logErrorCalls: mocks.logError.mock.calls.length,
 			logTaskId: logFields?.taskId ?? '',
 			logAttemptCount: logFields?.attemptCount ?? 0

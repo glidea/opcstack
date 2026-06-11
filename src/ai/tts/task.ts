@@ -3,6 +3,7 @@ import { aiTtsTask, type AITTSTaskRow } from '../../db/schema.shard'
 import type { TenantShardDb } from '../../db'
 import type {
 	AITTSLine,
+	AITTSProvider,
 	AITTSResult,
 	AITTSSpeaker,
 	AITTSSpeechInput,
@@ -20,7 +21,7 @@ export interface AITTSGenerateQueueMessage {
 export async function createAITTSTask(
 	env: Env,
 	db: TenantShardDb,
-	provider: 'gemini',
+	provider: AITTSProvider,
 	model: string,
 	userId: string,
 	input: AITTSSpeechInput
@@ -81,7 +82,7 @@ export function toAITTSTask(row: AITTSTaskRow): AITTSTask {
 		id: row.id,
 		userId: row.userId,
 		status: row.status as AITTSTaskStatus,
-		provider: row.provider as 'gemini',
+		provider: row.provider as AITTSProvider,
 		model: row.model ?? undefined,
 		instruction: row.instruction ?? undefined,
 		speakers: JSON.parse(row.speakersJson) as AITTSSpeaker[],

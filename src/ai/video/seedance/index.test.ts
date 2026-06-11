@@ -1,12 +1,14 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import {
-	SEEDDANCE_MODEL_SEEDDANCE_2_0_260128,
-	SEEDDANCE_MODEL_SEEDDANCE_2_0_FAST_260128,
 	createSeedDanceProviderTask,
 	getSeedDanceProviderTask,
 	newSeedDanceSimpleVideoClient
 } from '.'
+import {
+	SEEDDANCE_MODEL_SEEDDANCE_2_0_260128,
+	SEEDDANCE_MODEL_SEEDDANCE_2_0_FAST_260128
+} from '..'
 import type { TenantShardDb } from '../../../db'
 
 type FetchCall = {

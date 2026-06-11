@@ -1,10 +1,12 @@
 import type { GoogleGenAI } from '@google/genai'
 import type { TenantShardDb } from '../../db'
 import { newGeminiNativeTTSClient, newGeminiSimpleTTSClient } from './gemini'
+import { newSeedSimpleTTSClient } from './seed'
 
 export const GEMINI_TTS_MODEL_GEMINI_3_1_FLASH_TTS_PREVIEW = 'gemini-3.1-flash-tts-preview'
 export const GEMINI_TTS_MODEL_GEMINI_2_5_FLASH_PREVIEW_TTS = 'gemini-2.5-flash-preview-tts'
 export const GEMINI_TTS_MODEL_GEMINI_2_5_PRO_PREVIEW_TTS = 'gemini-2.5-pro-preview-tts'
+export const SEED_TTS_MODEL_SEED_TTS_2_0_STANDARD = 'seed-tts-2.0-standard'
 
 export interface AITTSClients {
 	simple: AISimpleTTSClient
@@ -24,6 +26,11 @@ export function newAITTSClients(
 			gemini: newGeminiNativeTTSClient(env)
 		}
 	}
+	if (provider === 'seed') {
+		return {
+			simple: newSeedSimpleTTSClient(env, userId, tenantDb, options)
+		}
+	}
 
 	throw new Error(`UNSUPPORTED_AI_PROVIDER: ${provider}`)
 }
@@ -35,15 +42,15 @@ export interface AISimpleTTSClient {
 }
 
 export interface AISimpleTTSClientOptions {
-	provider?: 'gemini'
+	provider?: AITTSProvider
 	model?: string
 }
 
-export type GeminiTTSVoiceName = string
+export type AITTSProvider = 'gemini' | 'seed'
 
 export interface AITTSSpeaker {
 	name: string
-	voiceName: GeminiTTSVoiceName
+	voiceName: string
 	profile?: string
 	speechStyle?: string
 }
@@ -62,7 +69,7 @@ export interface AITTSSpeechInput {
 
 export interface AITTSResult {
 	audioBase64: string
-	mimeType: 'audio/wav'
+	mimeType: 'audio/wav' | 'audio/mpeg'
 	r2?: {
 		key: string
 		url: string
@@ -75,7 +82,7 @@ export interface AITTSTask {
 	id: string
 	userId: string
 	status: AITTSTaskStatus
-	provider: 'gemini'
+	provider: AITTSProvider
 	model?: string
 	instruction?: string
 	speakers: AITTSSpeaker[]
