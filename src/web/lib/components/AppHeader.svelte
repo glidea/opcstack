@@ -25,7 +25,7 @@
 </script>
 
 <header
-	class="sticky top-0 z-30 border-b border-[var(--glass-border)] bg-[var(--header-glass-bg)] shadow-[var(--glass-shadow)] backdrop-blur-[var(--header-glass-blur)] backdrop-saturate-[var(--header-glass-saturate)]"
+	class="sticky top-0 z-30 border-b border-[var(--glass-border)] bg-[var(--header-glass-bg)] shadow-[var(--header-glass-shadow)] backdrop-blur-[var(--header-glass-blur)] backdrop-saturate-[var(--header-glass-saturate)]"
 >
 	<div class="flex h-12 w-full items-center gap-4 px-6">
 		{#if showSidebarTrigger}

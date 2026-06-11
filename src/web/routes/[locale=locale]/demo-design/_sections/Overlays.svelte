@@ -8,7 +8,6 @@
 	import * as Sheet from "$web/ui/sheet";
 	import * as Drawer from "$web/ui/drawer";
 	import * as Popover from "$web/ui/popover";
-	import * as HoverCard from "$web/ui/hover-card";
 	import * as Tooltip from "$web/ui/tooltip";
 	import * as DropdownMenu from "$web/ui/dropdown-menu";
 	import * as ContextMenu from "$web/ui/context-menu";
@@ -170,29 +169,6 @@
 				</div>
 			</Popover.Content>
 		</Popover.Root>
-	</Block>
-
-	<!-- HoverCard -->
-	<Block title="HoverCard" span={2}>
-		<HoverCard.Root>
-			<HoverCard.Trigger>
-				{#snippet child({ props })}
-					<Button variant="link" {...props}>@opcstack</Button>
-				{/snippet}
-			</HoverCard.Trigger>
-			<HoverCard.Content>
-				<div class="flex gap-3">
-					<Avatar>
-						<AvatarFallback>OP</AvatarFallback>
-					</Avatar>
-					<div class="flex flex-col gap-1">
-						<p class="text-sm font-semibold">OPC Stack</p>
-						<p class="text-caption text-muted-foreground">Cloudflare SaaS scaffold. Zero cost to start.</p>
-						<p class="text-fine-print text-muted-foreground">Joined January 2025</p>
-					</div>
-				</div>
-			</HoverCard.Content>
-		</HoverCard.Root>
 	</Block>
 
 	<!-- Tooltip -->

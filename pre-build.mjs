@@ -820,6 +820,27 @@ async function createR2Bucket(accountId, token, name) {
 	return cfApiRequest(token, 'POST', `/accounts/${accountId}/r2/buckets`, { name })
 }
 
+function buildR2CorsPayload(appBaseUrl, appCnDomain) {
+	const origins = [appBaseUrl]
+	if (appCnDomain !== '') {
+		origins.push(`https://${appCnDomain}`)
+	}
+
+	return {
+		rules: [
+			{
+				id: 'opcstack-browser-upload',
+				allowed: {
+					methods: ['PUT'],
+					origins,
+					headers: ['content-type']
+				},
+				maxAgeSeconds: 3600
+			}
+		]
+	}
+}
+
 async function listZones(accountId, token) {
 	const result = await cfApiRequest(
 		token,
@@ -851,6 +872,15 @@ async function putR2LifecycleRules(accountId, token, bucketName, rules) {
 		'PUT',
 		`/accounts/${accountId}/r2/buckets/${bucketName}/lifecycle`,
 		buildR2LifecyclePayload(rules)
+	)
+}
+
+async function putR2CorsRules(accountId, token, bucketName, appBaseUrl, appCnDomain) {
+	await cfApiRequest(
+		token,
+		'PUT',
+		`/accounts/${accountId}/r2/buckets/${bucketName}/cors`,
+		buildR2CorsPayload(appBaseUrl, appCnDomain)
 	)
 }
 
@@ -1228,6 +1258,10 @@ async function main() {
 			console.log(`R2 bucket '${appName}' already exists.`)
 		}
 
+		console.log('\nSyncing R2 CORS rules...')
+		await putR2CorsRules(accountId, cloudflareApiToken, appName, env.APP_BASE_URL, env.APP_CN_DOMAIN)
+		console.log('R2 CORS rules synced')
+
 		if (r2TmpLifecycleRules.length > 0) {
 			console.log('\nSyncing R2 tmp lifecycle rules...')
 			await putR2LifecycleRules(accountId, cloudflareApiToken, appName, r2TmpLifecycleRules)
@@ -1352,7 +1386,8 @@ async function main() {
 	console.log('wrangler.jsonc generated successfully')
 
 	console.log('\nGenerating migrations...')
-	run('pnpm exec drizzle-kit generate')
+	run('pnpm exec drizzle-kit generate --config drizzle.meta.config.ts')
+	run('pnpm exec drizzle-kit generate --config drizzle.shard.config.ts')
 
 	console.log('\nApplying migrations...')
 	const migrateFlag = isRemote ? '--remote' : '--local'

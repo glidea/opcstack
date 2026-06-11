@@ -56,10 +56,13 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Loads environment variables `.env.dev` or `.env.prod`
 - Generates `wrangler.jsonc`
 - Creates D1 R2 KV and Queues in remote mode
+- Syncs R2 bucket CORS for browser presigned PUT uploads in remote R2 mode. Allowed origins are `APP_BASE_URL` and optional `APP_CN_DOMAIN`; allowed method is only `PUT`; allowed header is only `content-type`
 - Enables D1 read replication in remote mode
 - Enables Cloudflare Image Transformations for the APP_DOMAIN zone in remote R2 mode
 - In local remote deploy, if `.wrangler/cloudflare-api-token` is missing or its required permission fingerprint changed, prints a Cloudflare API Token template link, prompts for the pasted token, and caches it locally
 - Generates and applies migrations
+
+`pre-build.mjs` is operational automation. Do not add tests for this script unless explicitly requested.
 
 ### 2. Environment Variables
 
@@ -195,12 +198,21 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `GET /api/r2/*?variant=small|medium`: returns fixed Cloudflare Image Transformations output
 - `GET /api/internal/r2_image_origin/*`: internal signed image origin for Cloudflare transformations only
 
+**Cache**:
+- R2 reads are served through the Worker proxy
+- Use Cloudflare Cache API only for `public/*` and `tmp/public/*`
+- `private/*` and `tmp/private/*` must bypass Cache API
+- Use a single R2 bucket by default; do not add regional R2 buckets unless explicitly requested
+- Do not use an R2 Custom Domain as the default read path unless explicitly requested
+
 **Client**:
 ```ts
 import { newR2Client } from './src/r2'
 const client = newR2Client(env, userId)
 await client.putImage({ dir, imageBase64, mimeType })
 await client.putImage({ dir, imageBase64, mimeType, isPublic: true })
+await client.put({ isTmp: true, isPublic: false, dir, filename, body, contentType })
+await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, contentType, size })
 ```
 
 ### 6. Queues and Scheduled Jobs
@@ -305,6 +317,21 @@ await client.putImage({ dir, imageBase64, mimeType, isPublic: true })
 - Async TTS queue name is `tts-generate`, binding is `Q_TTS_GENERATE`
 - Async TTS queue payload only carries task id and user id
 - Async TTS retry uses Cloudflare Queue `message.retry({ delaySeconds })`
+- Video: `src/ai/video/seedance/`
+- Video provider is SeedDance on Volcengine Ark, provider name is `seedance`
+- Video generation is async only
+- Simple video client supports async `generate` and `getTask` only
+- `providerTaskId` is an internal `ai_video_tasks` cursor and must not be exposed in `AIVideoTask`
+- Video task table is `ai_video_tasks` in Tenant Shard DB
+- Video async queue name is `video-generate`, binding is `Q_VIDEO_GENERATE`
+- Video queue payload only carries task id and user id
+- Generated video output must be downloaded from provider and stored in R2
+- Video output upload must stream provider response body into R2, do not use arrayBuffer or base64
+- Video references do not expose arbitrary URL input
+- Video image references use R2 key
+- Video audio references use R2 key
+- Video video references use R2 key
+- First version does not implement video editing, extension, web search, return_last_frame, or asset ingestion as separate product APIs
 - Image references may use inline base64 or R2 key with optional image variant
 - R2 image upload dir is `r2UploadDir`; it is a relative directory, not a full R2 key
 - R2 generated image public upload flag is `r2UploadIsPublic`; default is private, set `true` only when explicitly needed
@@ -428,31 +455,24 @@ Rules:
 
 ### Frontend Design Contract
 
-- All pages must follow `DESIGN.md` as the visual authority
-- The active design style is determined by `DESIGN_SYSTEM` in `.env` (`apple-saas` or `brutalism`)
-- Follow the **Shared Rules** section of `DESIGN.md` unconditionally
-- Follow the **Style** section matching the active `DESIGN_SYSTEM` value for visual specifics (radius, shadows, press feedback, typography weight, color usage)
-- Pages must satisfy `DESIGN.md` Behavior & Accessibility Contract (1–9: reduce motion, color-is-never-alone, confirmation by default, modality, loading, empty states, form behavior, settings discipline)
-- **Compose existing primitives, do not invent new ones.** Before writing any `<button>`, `<input>`, `<dialog>`, `<table>`, or `bg-X border rounded` block, consult the Component Inventory below. If you find yourself rewriting visual styles already covered by a primitive, you are doing it wrong
-- Use semantic tokens from `src/web/app.css`; never hardcode hex in page files
-- Use typography utility classes: `text-hero-display` `text-display-lg` `text-display-md` `text-lead` `text-tagline` `text-caption` `text-fine-print`
-- Page layout rules:
-  - Document pages (docs/legal/blog): `max-w-3xl mx-auto px-6 py-16`
-  - Landing pages (home/product): full-width, sections control own max-width
-  - Workspace pages (dashboard): full-width with sidebar via SvelteKit layout nesting
-- Header height is 44px (`h-11`); all sticky/sidebar calculations reference this
-- Icons come from `lucide-svelte`
-- Route files compose layout and data; they do not define new visual styles
-- After frontend changes, verify at 375px and 1440px viewport
-- UI copy: titles, headings, descriptions, button labels, and placeholder text must not end with punctuation (no trailing period, comma, or full stop in any language)
+> Active style is controlled by `DESIGN_SYSTEM` in `.env`
+> Valid values: `apple-saas` (default) | `brutalism`
 
-### Component Inventory
+#### Component-first Principle
 
-When writing a page or feature, pick a component from this table — do not write the visual primitive yourself. Paths are `$web/ui/<dirname>` for primitives and `$web/components/<name>` for business components.
+Pages compose existing primitives; they do not invent new ones.
+
+Before writing `bg-X border rounded-lg p-Y` ask whether you are rebuilding `Card`, `Alert`, or `Empty`. Before writing `<button class="...">` use `Button`. Before writing `<dialog>` use `Dialog` or `AlertDialog`. Before writing `<div class="fixed bottom-4 right-4 bg-green-600">` use `toast.success(...)`.
+
+UI primitives live in `src/web/lib/ui/*` (alias `$web/ui/*`). Business-level composed components live in `src/web/lib/components/*` (alias `$web/components/*`).
+
+#### Component Inventory
+
+When writing a page or feature, pick a component from this table — do not write the visual primitive yourself.
 
 **UI primitives** (`$web/ui/*`)
 
-| 用途 / Intent                                                              | 组件 / Component                                                                                | 目录                                           |
+| Intent                                                                     | Component                                                                                       | Directory                                      |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | **Feedback**                                                               |                                                                                                 |                                                |
 | Non-blocking operation result (success/error/info/warning)                 | `toast`                                                                                         | `svelte-sonner` (Toaster registered in layout) |
@@ -463,10 +483,8 @@ When writing a page or feature, pick a component from this table — do not writ
 | Side-panel form (create/edit entity)                                       | `Sheet` family                                                                                  | `sheet`                                        |
 | Mobile bottom sheet                                                        | `Drawer` family                                                                                 | `drawer`                                       |
 | Single-element details / options                                           | `Popover` family                                                                                | `popover`                                      |
-| Hover info card                                                            | `HoverCard` family                                                                              | `hover-card`                                   |
 | Action menu (right-click style)                                            | `ContextMenu` family                                                                            | `context-menu`                                 |
 | Action menu (button-anchored)                                              | `DropdownMenu` family                                                                           | `dropdown-menu`                                |
-| Application menu bar (desktop apps)                                        | `Menubar` family                                                                                | `menubar`                                      |
 | Hover-triggered hint                                                       | `Tooltip` family                                                                                | `tooltip`                                      |
 | Cmd-K command palette                                                      | `Command` family                                                                                | `command`                                      |
 | **Forms & input**                                                          |                                                                                                 |                                                |
@@ -477,7 +495,6 @@ When writing a page or feature, pick a component from this table — do not writ
 | Input with prefix/suffix addon                                             | `InputGroup` family                                                                             | `input-group`                                  |
 | OTP / PIN input cells                                                      | `InputOtp` family                                                                               | `input-otp`                                    |
 | Custom-styled select                                                       | `Select` family                                                                                 | `select`                                       |
-| Native browser select (compact spaces)                                     | `NativeSelect` family                                                                           | `native-select`                                |
 | Single choice from few options                                             | `RadioGroup`                                                                                    | `radio-group`                                  |
 | Multi choice / single boolean                                              | `Checkbox`                                                                                      | `checkbox`                                     |
 | On/off toggle                                                              | `Switch`                                                                                        | `switch`                                       |
@@ -491,9 +508,9 @@ When writing a page or feature, pick a component from this table — do not writ
 | Joined button cluster                                                      | `ButtonGroup` family                                                                            | `button-group`                                 |
 | Keyboard shortcut display                                                  | `Kbd`, `KbdGroup`                                                                               | `kbd`                                          |
 | **Status & loading**                                                       |                                                                                                 |                                                |
-| Indeterminate spinner                                                      | `Spinner`                                                                                       | `spinner`                                      |
-| Skeleton placeholder                                                       | `Skeleton`                                                                                      | `skeleton`                                     |
-| Determinate progress bar                                                   | `Progress`                                                                                      | `progress`                                     |
+| Content structure known, waiting for data                                  | `Skeleton`                                                                                      | `skeleton`                                     |
+| Action waiting (form submit / mutation)                                    | `Spinner` (inline at the button)                                                                | `spinner`                                      |
+| Measurable file/batch progress                                             | `Progress`                                                                                      | `progress`                                     |
 | Empty state (icon + title + description + action)                          | `Empty`, `EmptyHeader`, `EmptyMedia`, `EmptyTitle`, `EmptyDescription`, `EmptyContent`          | `empty`                                        |
 | **Data display**                                                           |                                                                                                 |                                                |
 | Generic content container                                                  | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, `CardFooter`, `CardAction` | `card`                                         |
@@ -505,7 +522,6 @@ When writing a page or feature, pick a component from this table — do not writ
 | User avatar / fallback                                                     | `Avatar`, `AvatarImage`, `AvatarFallback`, `AvatarGroup`                                        | `avatar`                                       |
 | Charts (line/bar/area, monochrome)                                         | `Chart` family (uses `layerchart`)                                                              | `chart`                                        |
 | Long content scroll                                                        | `ScrollArea`                                                                                    | `scroll-area`                                  |
-| Collapsible single section                                                 | `Collapsible`                                                                                   | `collapsible`                                  |
 | FAQ-style accordion                                                        | `Accordion` family                                                                              | `accordion`                                    |
 | Image/video carousel                                                       | `Carousel` family                                                                               | `carousel`                                     |
 | Fixed aspect-ratio container                                               | `AspectRatio`                                                                                   | `aspect-ratio`                                 |
@@ -519,182 +535,139 @@ When writing a page or feature, pick a component from this table — do not writ
 
 **Business components** (`$web/components/*`)
 
-| 用途 / Intent                                | 组件                 |
-| -------------------------------------------- | -------------------- |
-| Login flow (email + Google + forgot link)    | `LoginCard`          |
-| Signup flow (email + Google)                 | `RegisterCard`       |
-| Forgot password (email submit)               | `ForgotPasswordCard` |
-| Reset password (OTP + new password)          | `ResetPasswordCard`  |
-| Email verification (OTP + resend)            | `OtpCard`            |
-| 6-digit OTP input cells                      | `OtpInput`           |
-| Application top header                       | `AppHeader`          |
-| Authenticated user menu (avatar + dropdown)  | `UserMenu`           |
-| Date range filter (used in lists/dashboards) | `DateRangeFilter`    |
-| Language switcher (zh / en)                  | `LocaleSwitcher`     |
-| Theme switcher (light / dark / system)       | `ThemeSwitcher`      |
-| Google brand SVG                             | `GoogleIcon`         |
+| Intent                                      | Component            |
+| ------------------------------------------- | -------------------- |
+| Login flow (email + Google + forgot link)   | `LoginCard`          |
+| Signup flow (email + Google)                | `RegisterCard`       |
+| Forgot password (email submit)              | `ForgotPasswordCard` |
+| Reset password (OTP + new password)         | `ResetPasswordCard`  |
+| Email verification (OTP + resend)           | `OtpCard`            |
+| 6-digit OTP input cells                     | `OtpInput`           |
+| Application top header                      | `AppHeader`          |
+| Authenticated user menu (avatar + dropdown) | `UserMenu`           |
+| Language switcher (zh / en)                 | `LocaleSwitcher`     |
+| Theme switcher (light / dark / system)      | `ThemeSwitcher`      |
+| Google brand SVG                            | `GoogleIcon`         |
 
 If you need an auth flow card, a header, or a user menu, **reuse the business component**. Don't reimplement.
 
-### Reference Patterns: Bad vs Good
+#### Token & Style Source of Truth
 
-These are the patterns AI agents tend to write incorrectly. Treat each ❌ as a code-review block; if you wrote one, replace it with the ✅ version.
+All concrete values (colors, radii, typography sizes, animations) live in `src/web/app.css`. Component-level sizes live in the component files themselves.
 
-**Buttons**
+**Do not duplicate concrete values in page files.** Use semantic tokens and utility classes:
+- Colors: `bg-primary`, `text-muted-foreground`, `border-input`, etc.
+- Typography: `text-hero-display`, `text-display-lg`, `text-display-md`, `text-lead`, `text-tagline`, `text-caption`, `text-fine-print`
+- Shadows: `shadow-product` (product imagery only), `shadow-glass-float` (floating overlays only)
 
-❌ Naked styling
-```svelte
-<button class="bg-black text-white px-4 py-2 rounded">Save</button>
-```
-✅
-```svelte
-<script>
-  import { Button } from '$web/ui/button'
-</script>
-<Button>Save</Button>
-```
+#### Page Layout Rules
 
-**Form fields**
+| Page type                        | Layout                                               |
+| -------------------------------- | ---------------------------------------------------- |
+| Document pages (docs/legal/blog) | Constrained readable document shell                  |
+| Landing pages (home/product)     | Full-width, sections control own max-width           |
+| Workspace pages (dashboard)      | Full-width with sidebar via SvelteKit layout nesting |
 
-❌ Placeholder as label, no autocomplete
-```svelte
-<input class="border rounded h-9 px-3" type="email" placeholder="Email" />
-```
-✅
-```svelte
-<script>
-  import { Field, FieldLabel, FieldError } from '$web/ui/field'
-  import { Input } from '$web/ui/input'
-</script>
-<Field>
-  <FieldLabel for="login-email">Email</FieldLabel>
-  <Input id="login-email" type="email" autocomplete="email" required />
-  <FieldError errors={emailErrors} />
-</Field>
-```
+Header height is 44px (`h-11`); all sticky/sidebar calculations reference this.
 
-**Cards / containers**
+#### Icons
 
-❌ Reinventing Card
-```svelte
-<div class="bg-white rounded-lg border border-black/10 p-4 space-y-2">
-  <h3 class="font-semibold">Title</h3>
-  <p class="text-sm text-gray-500">Body</p>
-</div>
-```
-✅
-```svelte
-<script>
-  import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$web/ui/card'
-</script>
-<Card>
-  <CardHeader>
-    <CardTitle>Title</CardTitle>
-    <CardDescription>Body</CardDescription>
-  </CardHeader>
-  <CardContent>...</CardContent>
-</Card>
-```
+All icons come from `lucide-svelte`. Do not introduce other icon libraries.
 
-**Operation-result feedback**
+#### UI Copy
 
-❌ Hand-rolled toast
-```svelte
-<div class="fixed bottom-4 right-4 bg-green-600 text-white p-3 rounded">Saved</div>
-```
-✅
-```ts
-import { toast } from 'svelte-sonner'
+Titles, headings, descriptions, button labels, and placeholder text must not end with punctuation (no trailing period, comma, or full stop in any language).
 
-toast.success('Saved')
+#### Behavior & Accessibility Contract
 
-// reversible action with domain-backed Undo (per DESIGN.md 3):
-toast.success('Item archived', {
-  action: { label: 'Undo', onClick: () => restore() }
-})
-```
+Every page must satisfy these rules regardless of active style.
 
-**Empty states**
+**1. Reduce Motion**
 
-❌ Bare placeholder
-```svelte
-<div class="flex flex-col items-center py-10 text-gray-500">
-  <p>No data yet</p>
-</div>
-```
-✅
-```svelte
-<script>
-  import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '$web/ui/empty'
-  import { Button } from '$web/ui/button'
-  import InboxIcon from '@lucide/svelte/icons/inbox'
-</script>
-<Empty>
-  <EmptyHeader>
-    <EmptyMedia variant="icon"><InboxIcon /></EmptyMedia>
-    <EmptyTitle>No projects yet</EmptyTitle>
-    <EmptyDescription>Create your first project to get started</EmptyDescription>
-  </EmptyHeader>
-  <EmptyContent>
-    <Button>Create project</Button>
-  </EmptyContent>
-</Empty>
-```
+When `prefers-reduced-motion: reduce` is active:
+- Drop motion-based press feedback (scale/translate), keep opacity/color change for affordance
+- Page transitions: replace position/scale with crossfade
+- Skeleton shimmer: switch to static placeholder color
 
-**Confirmation dialogs**
+**2. State Communication: Color Is Never Alone**
 
-❌ `confirm(...)` or hand-rolled modal
-```svelte
-<button onclick={() => { if (confirm('Delete?')) handleDelete() }}>Delete</button>
-```
-✅ (default for server-side delete and irreversible actions per DESIGN.md 3)
-```svelte
-<script>
-  import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '$web/ui/alert-dialog'
-  import { Button, buttonVariants } from '$web/ui/button'
-</script>
-<AlertDialog>
-  <AlertDialogTrigger><Button variant="destructive">Delete account</Button></AlertDialogTrigger>
-  <AlertDialogContent>
-    <AlertDialogHeader>
-      <AlertDialogTitle>Delete account</AlertDialogTitle>
-      <AlertDialogDescription>This permanently removes all your data. This cannot be undone</AlertDialogDescription>
-    </AlertDialogHeader>
-    <AlertDialogFooter>
-      <AlertDialogCancel>Cancel</AlertDialogCancel>
-      <AlertDialogAction class={buttonVariants({ variant: 'destructive' })} onclick={handleDelete}>Delete account</AlertDialogAction>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
-```
+Status must be conveyed by **icon + label + color** together.
 
-**Loading**
+| State   | Icon (lucide)    | Required label               |
+| ------- | ---------------- | ---------------------------- |
+| Success | `check-circle`   | "Saved", "Done", "Connected" |
+| Warning | `alert-triangle` | Specific consequence         |
+| Error   | `x-circle`       | What failed + how to fix     |
+| Info    | `info`           | Context                      |
 
-❌ Full-viewport spinner blocking the page
-```svelte
-{#if loading}
-  <div class="fixed inset-0 grid place-items-center bg-white/80">
-    <div class="animate-spin h-8 w-8 border-2 border-black border-t-transparent rounded-full" />
-  </div>
-{/if}
-```
-✅ — match treatment to expected duration (DESIGN.md 5)
-```svelte
-<script>
-  import { Skeleton } from '$web/ui/skeleton'
-  import { Spinner } from '$web/ui/spinner'
-  import { Progress } from '$web/ui/progress'
-</script>
+For form fields: error state = border + `aria-invalid="true"` + visible error message.
 
-{#if loading}
-  <!-- < 1s, list/dashboard layout -->
-  <Skeleton class="h-9 w-full" />
-  <!-- 1–10s, unknown duration, inline at the action -->
-  <Spinner />
-  <!-- > 10s or measurable progress -->
-  <Progress value={percent} />
-{/if}
-```
+**3. Destructive Actions: Confirmation by Default**
+
+Undo is only allowed when the domain model already supports reversal (local UI state, soft delete, archive, trash). Do not add server-side undo just to satisfy UI style.
+
+| Action type                                     | Pattern                                         |
+| ----------------------------------------------- | ----------------------------------------------- |
+| Local reversible action                         | Execute immediately + Toast with "Undo" (5–10s) |
+| Server-side delete without recovery model       | Confirmation dialog                             |
+| Archive, hide, unfollow with restore API        | Execute immediately + Toast with "Undo" (5–10s) |
+| Bulk delete (>10 items)                         | Confirmation dialog                             |
+| Permanent delete (account, billing, paid asset) | Confirmation dialog with typed confirmation     |
+| Send email, charge card, publish to public      | Confirmation dialog                             |
+| Logout, switch workspace                        | Inline button, no confirmation                  |
+
+Confirmation dialogs must use specific verbs ("Delete account", not "OK") and `destructive` button variant.
+
+**4. Modality Decision**
+
+| Need                            | Component                |
+| ------------------------------- | ------------------------ |
+| Critical warning, must respond  | `AlertDialog`            |
+| Multi-field create/edit form    | `Sheet` (side panel)     |
+| Detail/options for one item     | `Popover`                |
+| Contextual actions (3+ options) | `DropdownMenu`           |
+| Async result confirmation       | `toast`                  |
+| Field-level validation error    | Inline error under field |
+
+Rules:
+- Modal must always have close affordance (X + Esc + backdrop click for non-destructive)
+- Never stack modals
+- A dialog with only "OK" is almost always wrong — replace with toast or inline UI
+
+**5. Loading**
+
+Pick by scenario, not duration:
+- Content structure known → `Skeleton` matching final layout
+- Action waiting (form submit / mutation) → inline `Spinner` at the button
+- Measurable file/batch progress → `Progress`
+
+**6. Empty States**
+
+Every list/table/feed that can be empty must use `Empty` family with: icon (lucide, muted) + one-line explanation + one primary action.
+
+**7. Form Behavior Contract**
+
+- Correct `autocomplete` attributes on every input
+- Validate on blur, clear on change
+- Placeholder is hint, not label — every field has visible label above
+- Tab order matches visual order; Esc closes form/modal
+- Error state: border color + `aria-invalid` + specific actionable message
+- Error messages must not cause layout shift
+
+**8. Settings Discipline**
+
+Before adding a setting, ask: Can a smart default solve this? Can the system infer it? When justified: save on change, group by task, show current value at a glance.
+
+**9. Layout Stability: No Content Shift**
+
+| Scenario             | Approach                                                             |
+| -------------------- | -------------------------------------------------------------------- |
+| Image/media upload   | Reserve fixed-size placeholder (`aspect-ratio` or explicit `height`) |
+| New list item        | Append at end or insert outside viewport; never inject mid-view      |
+| Async loaded content | `Skeleton` placeholder sized to match final content                  |
+| Collapse/expand      | Animate with `grid-template-rows` or `max-height`; no instant pop    |
+
+Images must set `width` + `height` or `aspect-ratio`. Never use `auto` height for async content that expands the parent.
 
 ---
 

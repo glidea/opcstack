@@ -56,11 +56,12 @@
 
 	/* Liquid Glass material */
 	--glass-bg: rgba(248, 250, 252, 0.56);
-	--glass-border: rgba(255, 255, 255, 0.82);
-	--glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+	--glass-border: rgba(255, 255, 255, 0.6);
+	--glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 6px 16px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+	--header-glass-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 	--glass-blur: 28px;
 	--glass-saturate: 1.85;
-	--glass-float-shadow: 0 10px 36px rgba(0, 0, 0, 0.1), 0 2px 10px rgba(0, 0, 0, 0.05);
+	--glass-float-shadow: 0 6px 20px rgba(0, 0, 0, 0.07), 0 1px 6px rgba(0, 0, 0, 0.04);
 	--glass-dark-bg: linear-gradient(135deg, rgba(48, 48, 52, 0.62), rgba(18, 18, 20, 0.48));
 	--glass-dark-border: rgba(255, 255, 255, 0.22);
 	--glass-dark-foreground: #f5f5f7;
@@ -91,7 +92,7 @@
 	--secondary: #272729;
 	--secondary-foreground: #f5f5f7;
 	--muted: #272729;
-	--muted-foreground: #6e6e73;
+	--muted-foreground: #aeaeb2;
 	--accent: #333336;
 	--accent-foreground: #f5f5f7;
 	--destructive: #ff453a;
@@ -138,6 +139,7 @@
 	--header-glass-blur: 24px;
 	--header-glass-saturate: 1.4;
 	--header-glass-border: 0.5px solid rgba(255, 255, 255, 0.08);
+	--header-glass-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
 
 	/* Color temperature zones - dark */
 	--surface-warm: rgba(32, 30, 28, 1);
@@ -412,8 +414,8 @@
 
 	/* Spring animation curves */
 	.transition-spring {
-		transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-		transition-duration: 0.4s;
+		transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+		transition-duration: 0.2s;
 	}
 
 	.transition-spring-subtle {
@@ -457,12 +459,12 @@
 }
 
 /* Header button glass tint (apple-saas) — only for ghost/icon buttons, not primary/secondary */
-:root:not([data-design="brutalism"]) header [data-slot="button"]:not(.bg-primary):not(.bg-foreground):not(.bg-destructive\/10) {
+:root:not([data-design="brutalism"]) header [data-slot="button"]:not(.control-solid):not(.control-solid-inverse):not(.bg-destructive\/10) {
 	background: var(--header-btn-bg);
 	box-shadow: var(--header-btn-shadow);
 	border-radius: 6px;
 }
-:root:not([data-design="brutalism"]) header [data-slot="button"]:not(.bg-primary):not(.bg-foreground):not(.bg-destructive\/10):hover {
+:root:not([data-design="brutalism"]) header [data-slot="button"]:not(.control-solid):not(.control-solid-inverse):not(.bg-destructive\/10):hover {
 	background: var(--header-btn-bg-hover);
 }
 
@@ -618,13 +620,6 @@
 	box-shadow: var(--brutal-shadow-sm);
 }
 
-/* Badge */
-:root[data-design="brutalism"] [data-slot="badge"] {
-	border: 2px solid #000;
-	font-weight: 900;
-	text-transform: uppercase;
-}
-
 /* Focus ring */
 :root[data-design="brutalism"] :focus-visible {
 	outline: 4px solid #000000 !important;
@@ -703,7 +698,8 @@
 	border: 2px solid #000 !important;
 	border-radius: 0 !important;
 	box-shadow: 2px 2px 0 #000;
-	font-weight: 700;
+	font-weight: 900;
+	text-transform: uppercase;
 }
 
 /* Tabs */

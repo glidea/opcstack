@@ -8,7 +8,7 @@ export type WorkerRegionSource = {
 	continent?: string
 }
 
-const DEFAULT_D1_SHARD_REGION: D1ShardRegion = 'wnam'
+const DEFAULT_D1_SHARD_REGION: D1ShardRegion = 'apac'
 
 export type ResolvedUserShard = {
 	shardId: string

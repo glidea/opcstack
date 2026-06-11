@@ -7,8 +7,7 @@
 	import * as Breadcrumb from "$web/ui/breadcrumb";
 	import * as Pagination from "$web/ui/pagination";
 	import * as NavigationMenu from "$web/ui/navigation-menu";
-	import * as Menubar from "$web/ui/menubar";
-	import * as Sidebar from "$web/ui/sidebar";
+import * as Sidebar from "$web/ui/sidebar";
 	import * as Command from "$web/ui/command";
 	import { ScrollArea } from "$web/ui/scroll-area";
 
@@ -151,41 +150,6 @@
 				</NavigationMenu.Item>
 			</NavigationMenu.List>
 		</NavigationMenu.Root>
-	</Block>
-
-	<!-- Menubar -->
-	<Block title="Menubar" span={2}>
-		<Menubar.Root>
-			<Menubar.Menu>
-				<Menubar.Trigger>File</Menubar.Trigger>
-				<Menubar.Content>
-					<Menubar.Item>New Tab</Menubar.Item>
-					<Menubar.Item>New Window</Menubar.Item>
-					<Menubar.Separator />
-					<Menubar.Item>Share</Menubar.Item>
-					<Menubar.Separator />
-					<Menubar.Item>Print</Menubar.Item>
-				</Menubar.Content>
-			</Menubar.Menu>
-			<Menubar.Menu>
-				<Menubar.Trigger>Edit</Menubar.Trigger>
-				<Menubar.Content>
-					<Menubar.Item>Undo <Menubar.Shortcut>⌘Z</Menubar.Shortcut></Menubar.Item>
-					<Menubar.Item>Redo <Menubar.Shortcut>⌘⇧Z</Menubar.Shortcut></Menubar.Item>
-					<Menubar.Separator />
-					<Menubar.Item>Cut</Menubar.Item>
-					<Menubar.Item>Copy</Menubar.Item>
-					<Menubar.Item>Paste</Menubar.Item>
-				</Menubar.Content>
-			</Menubar.Menu>
-			<Menubar.Menu>
-				<Menubar.Trigger>View</Menubar.Trigger>
-				<Menubar.Content>
-					<Menubar.CheckboxItem checked>Show Toolbar</Menubar.CheckboxItem>
-					<Menubar.CheckboxItem>Show Sidebar</Menubar.CheckboxItem>
-				</Menubar.Content>
-			</Menubar.Menu>
-		</Menubar.Root>
 	</Block>
 
 	<!-- Sidebar mini -->

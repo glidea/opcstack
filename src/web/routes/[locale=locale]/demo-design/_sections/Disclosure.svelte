@@ -4,7 +4,6 @@
 	import Block from "./Block.svelte";
 
 	import * as Accordion from "$web/ui/accordion";
-	import * as Collapsible from "$web/ui/collapsible";
 	import * as Resizable from "$web/ui/resizable";
 	import * as Carousel from "$web/ui/carousel";
 	import { Calendar } from "$web/ui/calendar";
@@ -14,8 +13,7 @@
 	import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
 
 	let calValue: import("@internationalized/date").DateValue | undefined = $state(undefined);
-	let rangeValue: { start: import("@internationalized/date").DateValue | undefined; end: import("@internationalized/date").DateValue | undefined } = $state({ start: undefined, end: undefined });
-	let collapsibleOpen = $state(false);
+	let rangeValue: import("bits-ui").DateRange = $state({ start: undefined, end: undefined });
 </script>
 
 <Section
@@ -54,31 +52,6 @@
 				</Accordion.Item>
 			{/each}
 		</Accordion.Root>
-	</Block>
-
-	<!-- Collapsible -->
-	<Block title="Collapsible" span={2}>
-		<div class="w-full">
-			<Collapsible.Root bind:open={collapsibleOpen}>
-				<div class="flex items-center justify-between">
-					<span class="text-sm font-medium">Advanced options</span>
-					<Collapsible.Trigger>
-						{#snippet child({ props })}
-							<Button variant="ghost" size="icon-sm" {...props}>
-								<ChevronDownIcon class="size-4 transition-transform {collapsibleOpen ? 'rotate-180' : ''}" />
-							</Button>
-						{/snippet}
-					</Collapsible.Trigger>
-				</div>
-				<Collapsible.Content>
-					<div class="mt-3 flex flex-col gap-2 rounded-md border border-border p-3 text-caption text-muted-foreground">
-						<div>Custom domain: <code class="font-mono">app.example.com</code></div>
-						<div>Region: <code class="font-mono">auto</code></div>
-						<div>Log level: <code class="font-mono">warn</code></div>
-					</div>
-				</Collapsible.Content>
-			</Collapsible.Root>
-		</div>
 	</Block>
 
 	<!-- Resizable -->

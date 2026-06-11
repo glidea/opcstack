@@ -8,8 +8,7 @@
 	import { Textarea } from "$web/ui/textarea";
 	import { Label } from "$web/ui/label";
 	import * as Select from "$web/ui/select";
-	import * as NativeSelect from "$web/ui/native-select";
-	import { Checkbox } from "$web/ui/checkbox";
+import { Checkbox } from "$web/ui/checkbox";
 	import * as RadioGroup from "$web/ui/radio-group";
 	import { Switch } from "$web/ui/switch";
 	import { Slider } from "$web/ui/slider";
@@ -26,7 +25,6 @@
 
 	let textValue: string = $state("");
 	let textareaValue: string = $state("");
-	let nativeSelectValue: string = $state("space-gray");
 	let selectValue: string = $state("light");
 	let checkboxA: boolean = $state(true);
 	let checkboxB: boolean = $state(false);
@@ -74,20 +72,6 @@
 				bind:value={textareaValue}
 				rows={4}
 			/>
-		</div>
-	</Block>
-
-	<Block title={$_("designSystem.s3.b.nativeSelect")} span={2}>
-		<div class="space-y-2">
-			<Label for="demo-native-select">Finish</Label>
-			<NativeSelect.Root id="demo-native-select" bind:value={nativeSelectValue}>
-				<NativeSelect.Option value="space-gray">Space Gray</NativeSelect.Option>
-				<NativeSelect.Option value="silver">Silver</NativeSelect.Option>
-				<NativeSelect.OptGroup label="New">
-					<NativeSelect.Option value="cosmic-orange">Cosmic Orange</NativeSelect.Option>
-					<NativeSelect.Option value="deep-blue">Deep Blue</NativeSelect.Option>
-				</NativeSelect.OptGroup>
-			</NativeSelect.Root>
 		</div>
 	</Block>
 

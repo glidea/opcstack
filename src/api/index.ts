@@ -56,9 +56,6 @@ export type ApiEnv = {
 	}
 }
 
-export const api: Hono<ApiEnv> = new Hono<ApiEnv>()
-api.use('/api/*', metaDbSessionMiddleware)
-
 const publicApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 publicApi.use('/auth/*', emailAuthMiddleware)
 
@@ -136,6 +133,8 @@ userApi.post('/cancel_subscription', cancelSubscriptionHandler)
 userApi.post('/upgrade_subscription', upgradeSubscriptionHandler)
 userApi.post('/list_payment_transactions', listPaymentTransactionsHandler)
 
+export const api: Hono<ApiEnv> = new Hono<ApiEnv>()
+api.use('/api/*', metaDbSessionMiddleware)
 api.route('/api', publicApi)
 api.route('/api', authOnlyApi)
 api.route('/api', adminApi)

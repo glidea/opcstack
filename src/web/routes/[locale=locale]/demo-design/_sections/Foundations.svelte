@@ -27,10 +27,10 @@
 	];
 
 	const radii = [
-		{ name: "sm", value: "8px", cls: "rounded-sm" },
-		{ name: "md", value: "11px", cls: "rounded-md" },
-		{ name: "lg", value: "18px", cls: "rounded-lg" },
-		{ name: "xl", value: "18px", cls: "rounded-xl" },
+		{ name: "sm", value: "6px", cls: "rounded-sm" },
+		{ name: "md", value: "10px", cls: "rounded-md" },
+		{ name: "lg", value: "14px", cls: "rounded-lg" },
+		{ name: "xl", value: "16px", cls: "rounded-xl" },
 		{ name: "pill", value: "9999px", cls: "rounded-full" },
 	];
 

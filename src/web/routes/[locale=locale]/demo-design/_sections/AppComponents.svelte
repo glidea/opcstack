@@ -6,7 +6,6 @@
 	import ThemeSwitcher from "$web/components/ThemeSwitcher.svelte";
 	import LocaleSwitcher from "$web/components/LocaleSwitcher.svelte";
 	import GoogleIcon from "$web/components/GoogleIcon.svelte";
-	import DateRangeFilter from "$web/components/DateRangeFilter.svelte";
 	import OtpInput from "$web/components/OtpInput.svelte";
 	import OtpCard from "$web/components/OtpCard.svelte";
 	import LoginCard from "$web/components/LoginCard.svelte";
@@ -15,7 +14,6 @@
 	import ResetPasswordCard from "$web/components/ResetPasswordCard.svelte";
 	import { Button } from "$web/ui/button";
 
-	let dateRange: { start: import("@internationalized/date").DateValue | undefined; end: import("@internationalized/date").DateValue | undefined } = $state({ start: undefined, end: undefined });
 	let otpValue = $state("");
 </script>
 
@@ -49,16 +47,6 @@
 
 	<Block title="UserMenu" description="Only renders when session is active. Sign in to see it." span={1}>
 		<span class="text-caption text-muted-foreground">Requires active session — visible in the header after login.</span>
-	</Block>
-
-	<!-- DateRangeFilter -->
-	<Block title="DateRangeFilter" span={2}>
-		<DateRangeFilter
-			bind:value={dateRange}
-			placeholder="Select date range"
-			applyLabel="Apply"
-			clearLabel="Clear"
-		/>
 	</Block>
 
 	<!-- OtpInput standalone -->

@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1779459799637,
-      "tag": "0000_spooky_photon",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1779509575096,
-      "tag": "0001_smiling_mastermind",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1779510000000,
-      "tag": "0002_aff_reward_granted_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1781080134654,
-      "tag": "0004_d1_shard_region",
+      "when": 1781091660269,
+      "tag": "0000_complex_forge",
       "breakpoints": true
     }
   ]
