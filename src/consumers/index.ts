@@ -1,7 +1,9 @@
 import { AI_IMAGE_QUEUE_NAME } from '../ai/image/task'
 import { AI_TTS_QUEUE_NAME } from '../ai/tts/task'
+import { AI_VIDEO_QUEUE_NAME } from '../ai/video/task'
 import { handleAIImageQueue } from './ai-image'
 import { handleAITTSQueue } from './ai-tts'
+import { handleAIVideoQueue } from './ai-video'
 
 export type QueueConsumerHandler = (
 	batch: MessageBatch<unknown>,
@@ -25,5 +27,6 @@ export async function handleQueue(
 
 export const queueHandlers: Record<string, QueueConsumerHandler> = {
 	[AI_IMAGE_QUEUE_NAME]: handleAIImageQueue,
-	[AI_TTS_QUEUE_NAME]: handleAITTSQueue
+	[AI_TTS_QUEUE_NAME]: handleAITTSQueue,
+	[AI_VIDEO_QUEUE_NAME]: handleAIVideoQueue
 }

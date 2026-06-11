@@ -3,6 +3,7 @@ import { runCases, type TestCase } from '../testing/bdd'
 import {
 	aiImageTask,
 	aiTtsTask,
+	aiVideoTask,
 	creditBalance,
 	creditEntry,
 	creditTransaction,
@@ -18,6 +19,7 @@ describe('schema.shard', () => {
 		hasTenantUserTables: boolean
 		hasAIImageTaskTable: boolean
 		hasAITTSTaskTable: boolean
+		hasAIVideoTaskTable: boolean
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -32,7 +34,8 @@ describe('schema.shard', () => {
 				hasCreditLedgerTables: true,
 				hasTenantUserTables: true,
 				hasAIImageTaskTable: true,
-				hasAITTSTaskTable: true
+				hasAITTSTaskTable: true,
+				hasAIVideoTaskTable: true
 			}
 		}
 	]
@@ -45,7 +48,8 @@ describe('schema.shard', () => {
 				creditTransaction !== undefined,
 			hasTenantUserTables: feedback !== undefined && notificationRead !== undefined,
 			hasAIImageTaskTable: aiImageTask !== undefined,
-			hasAITTSTaskTable: aiTtsTask !== undefined
+			hasAITTSTaskTable: aiTtsTask !== undefined,
+			hasAIVideoTaskTable: aiVideoTask !== undefined
 		}
 	})
 })

@@ -138,6 +138,35 @@ export const aiTtsTask = sqliteTable(
 	]
 )
 
+export const aiVideoTask = sqliteTable(
+	'ai_video_tasks',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id').notNull(),
+		status: text('status').notNull(),
+		provider: text('provider').notNull(),
+		model: text('model'),
+		prompt: text('prompt').notNull(),
+		ratio: text('ratio'),
+		resolution: text('resolution'),
+		duration: integer('duration').notNull(),
+		r2UploadDir: text('r2_upload_dir'),
+		r2UploadIsPublic: integer('r2_upload_is_public').notNull().default(0),
+		referencesJson: text('references_json').notNull(),
+		providerTaskId: text('provider_task_id'),
+		resultJson: text('result_json'),
+		attemptCount: integer('attempt_count').notNull().default(0),
+		lastErrorMessage: text('last_error_message'),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull(),
+		completedAt: integer('completed_at')
+	},
+	(table) => [
+		index('ai_video_tasks_user_id_created_at_idx').on(table.userId, table.createdAt),
+		index('ai_video_tasks_user_id_status_idx').on(table.userId, table.status)
+	]
+)
+
 export type CreditBalance = typeof creditBalance.$inferSelect
 export type NewCreditBalance = typeof creditBalance.$inferInsert
 export type CreditEntry = typeof creditEntry.$inferSelect
@@ -152,3 +181,5 @@ export type AIImageTaskRow = typeof aiImageTask.$inferSelect
 export type NewAIImageTaskRow = typeof aiImageTask.$inferInsert
 export type AITTSTaskRow = typeof aiTtsTask.$inferSelect
 export type NewAITTSTaskRow = typeof aiTtsTask.$inferInsert
+export type AIVideoTaskRow = typeof aiVideoTask.$inferSelect
+export type NewAIVideoTaskRow = typeof aiVideoTask.$inferInsert
