@@ -445,6 +445,62 @@ function parseQueueNames(rawValue) {
 	return [...new Set(names)]
 }
 
+function parseDurableObjectNames(rawValue) {
+	if (!rawValue) {
+		return []
+	}
+
+	const names = rawValue
+		.split(';')
+		.map((name) => name.trim())
+		.filter((name) => name !== '')
+
+	for (const name of names) {
+		if (!/^[a-z][a-z0-9-]*$/.test(name)) {
+			throw new Error('DO_NAMES_INVALID')
+		}
+	}
+
+	return [...new Set(names)]
+}
+
+function durableObjectBindingName(name) {
+	return `DO_${name.replaceAll('-', '_').toUpperCase()}`
+}
+
+function durableObjectClassName(name) {
+	return `${name
+		.split('-')
+		.map((part) => {
+			return `${part[0].toUpperCase()}${part.slice(1)}`
+		})
+		.join('')}DO`
+}
+
+function buildDurableObjectConfig(names) {
+	const classes = names.map((name) => {
+		return {
+			bindingName: durableObjectBindingName(name),
+			className: durableObjectClassName(name)
+		}
+	})
+
+	return {
+		bindings: classes.map((item) => {
+			return {
+				name: item.bindingName,
+				class_name: item.className
+			}
+		}),
+		migration: {
+			tag: 'v1',
+			new_sqlite_classes: classes.map((item) => {
+				return item.className
+			})
+		}
+	}
+}
+
 export function parseQueueMaxConcurrency(rawValue) {
 	if (!rawValue || rawValue.trim() === '') {
 		return undefined
@@ -1142,6 +1198,7 @@ async function main() {
 	resolveAppCnDomain(env)
 	validateEmailConfig(env)
 	const queueNames = parseQueueNames(env.QUEUE_NAMES)
+	const durableObjectNames = parseDurableObjectNames(env.DO_NAMES)
 	const cronExpressions = parseCronExpressions(env.CRONS)
 	const r2Enabled = env.R2_ENABLED === 'true'
 	const r2TmpLifecycleRules = parseR2TmpLifecycleRules(env.R2_TMP_LIFECYCLE_RULES)
@@ -1356,6 +1413,14 @@ async function main() {
 		config.triggers = {
 			crons: cronExpressions
 		}
+	}
+
+	if (durableObjectNames.length > 0) {
+		const durableObjectConfig = buildDurableObjectConfig(durableObjectNames)
+		config.durable_objects = {
+			bindings: durableObjectConfig.bindings
+		}
+		config.migrations = [durableObjectConfig.migration]
 	}
 
 	config.vars = config.vars || {}

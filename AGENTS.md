@@ -17,6 +17,7 @@ HTTP Request
 
 Cron Trigger       -> src/jobs/index.ts
 Queue Consumer     -> src/consumers/index.ts
+Durable Object     -> src/do/
 ```
 
 ### Directory Responsibilities
@@ -37,6 +38,7 @@ src/
     shard-migrations/   # Auto generated Tenant Shard DB migrations
   jobs/index.ts         # Cron handlers
   consumers/index.ts    # Queue handlers
+  do/                   # Durable Object classes
   ai/                   # AI clients
   r2/index.ts           # R2 utility functions
 
@@ -57,6 +59,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - Generates `wrangler.jsonc`
 - Creates D1 R2 KV and Queues in remote mode
 - Syncs R2 bucket CORS for browser presigned PUT uploads in remote R2 mode. Allowed origins are `APP_BASE_URL` and optional `APP_CN_DOMAIN`; allowed method is only `PUT`; allowed header is only `content-type`
+- Generates Durable Object bindings and migrations from `DO_NAMES`
 - Enables D1 read replication in remote mode
 - Enables Cloudflare Image Transformations for the APP_DOMAIN zone in remote R2 mode
 - In local remote deploy, if `.wrangler/cloudflare-api-token` is missing or its required permission fingerprint changed, prints a Cloudflare API Token template link, prompts for the pasted token, and caches it locally
@@ -80,6 +83,7 @@ When running `pnpm dev` or `pnpm deploycf` it automatically:
 - `R2_ORIGIN_SIGNING_SECRET`: HMAC secret used by internal R2 image origin requests
 - `R2_TMP_LIFECYCLE_RULES`: R2 tmp object lifecycle rules for `tmp/public/` and `tmp/private/` only, for example `tmp/public/:7;tmp/private/:1`
 - `D1_SHARDS`: Tenant Shard D1 region counts, for example `wnam:1;apac:2`. Supported regions are Cloudflare D1 location hints `wnam` Western North America, `enam` Eastern North America, `weur` Western Europe, `eeur` Eastern Europe, `apac` Asia Pacific, and `oc` Oceania
+- `DO_NAMES`: Durable Object names separated by semicolon, for example `rate-limiter;workflow-lock`
 - `TURNSTILE_ENABLED`: Enables Cloudflare Turnstile for email auth. Local mode uses official Cloudflare test keys. Remote mode creates or reuses a Turnstile widget named `APP_NAME`
 
 **Feature flags**:
@@ -233,7 +237,36 @@ await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, cont
 2. Handler: `scheduledHandlers` in `src/jobs/index.ts`
 3. Credits job: run `expireCredits(now, 20)` and `cleanupCreditTransactions(retentionDays)` once per trigger
 
-### 7. Frontend and Backend Feature Consistency
+### 7. Durable Objects
+
+**Conventions**:
+- Configure: `DO_NAMES=rate-limiter;workflow-lock`
+- Binding convention: `DO_<NAME_UPPER>` for example `rate-limiter` → `DO_RATE_LIMITER`
+- Class convention: PascalCase name plus `DO` suffix, for example `rate-limiter` → `RateLimiterDO`
+- Classes live in `src/do/`
+- Worker entrypoint must export every DO class from `src/index.ts`
+- `pre-build.mjs` generates `durable_objects.bindings` and `migrations[0].new_sqlite_classes` from `DO_NAMES`
+- New DO classes use SQLite-backed storage by default via `new_sqlite_classes`
+- DO names must use lowercase letters numbers and hyphen, and must start with a lowercase letter
+- DO is for per-object serial coordination, WebSocket rooms, alarms, and small per-object state. Do not use DO as a replacement for D1 list queries or global reporting
+- A DO object id is the state boundary. Pick names from business identity such as `userId`, `roomId`, `orderId`, or a stable lock key
+- Do not put all users or all requests into one global DO unless the product explicitly needs one global serial bottleneck
+- DO location is decided when the object is first created. Use `locationHint` only when the business key has a clear primary region. Use `jurisdiction()` only for data residency requirements
+- Each DO instance can have only one alarm at a time. For multiple delayed jobs inside one DO, store jobs in SQLite and set the alarm to the next due time
+- In-memory fields are cache or active connection state only. Durable state belongs in DO SQLite storage
+
+**Add a new DO**:
+1. Add the name to `DO_NAMES`
+2. Create the class in `src/do/`
+3. Export the class from `src/index.ts`
+4. Run `pnpm dev` to regenerate `wrangler.jsonc` and `worker-configuration.d.ts`
+
+Example:
+```ts
+export { RateLimiterDO } from './do/rate-limiter'
+```
+
+### 8. Frontend and Backend Feature Consistency
 
 **`POST /api/get_public_config`**:
 - Returns backend feature flag config
@@ -245,7 +278,7 @@ await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, cont
 - Components and pages must not call `/api/get_public_config` directly unless they are replacing the layout-level state source
 - Public config controls feature display such as Google auth, email auth, email signup, email verification, user email action cooldown, credits, and payment
 
-### 8. List API Contract
+### 9. List API Contract
 
 - List request uses `page` and `page_size`
 - `page` starts from 1 and defaults to 1
@@ -254,7 +287,7 @@ await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, cont
 - Do not return `page` or `page_size` because they are request parameters
 - Business filters stay flat in request JSON
 
-### 9. Feedback and Notifications
+### 10. Feedback and Notifications
 
 **Feedback**:
 - `POST /api/submit_feedback`: authenticated user submits `{ type, content }`
@@ -268,7 +301,7 @@ await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, cont
 - `POST /api/read_notification`: authenticated user marks one notification as read
 - `notifications.target_user_id = null` means global announcement
 
-### 10. Documentation System
+### 11. Documentation System
 
 - Location: `public-docs/en/` and `public-docs/zh/`
 - Route: `/docs/[...slug]` with runtime Markdown parsing
@@ -300,7 +333,7 @@ await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, cont
 - You can use subdirectories like `guides/` and `reference/`
 - File paths map directly to URL paths for example `guides/auth.md` → `/docs/guides/auth`
 
-### 11. AI Capabilities
+### 12. AI Capabilities
 
 - Chat: `src/ai/chat/openai/`
 - Image: `src/ai/image/gemini/` `src/ai/image/openai/` `src/ai/image/seedream/` `src/ai/image/aliyun/`
@@ -340,7 +373,7 @@ await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, cont
 - R2 image upload dir is `r2UploadDir`; it is a relative directory, not a full R2 key
 - R2 generated image public upload flag is `r2UploadIsPublic`; default is private, set `true` only when explicitly needed
 
-### 12. Web SEO
+### 13. Web SEO
 
 - `src/web/routes/+layout.server.ts` exposes `siteName` from `APP_NAME` and canonical URLs using `APP_DOMAIN`
 - `src/web/lib/seo/` owns site origin normalization JSON-LD serialization and is shared by pages sitemap and robots
@@ -349,7 +382,7 @@ await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, cont
 - Pages should use absolute `hreflang` alternate URLs and reuse `/logo.svg` for Open Graph images
 - JSON-LD uses `WebSite` with `APP_NAME` and `APP_DOMAIN`
 
-### 13. Payment System
+### 14. Payment System
 
 - Payment entry switch: `PAYMENT_ENABLED`
 - Public config exposes `payment_enabled` from `POST /api/get_public_config`
@@ -373,13 +406,13 @@ await client.createUploadUrl({ isTmp: true, isPublic: false, dir, filename, cont
   - `user_subscriptions`
   - `payment_webhook_events`
 
-### 14. Legal Pages
+### 15. Legal Pages
 
 - Routes: `/terms`, `/privacy`, `/refund-policy`
 - Footer includes links to all three pages
 - Page copy uses `APP_NAME` and `SUPPORT_EMAIL`
 
-### 15. Testing Style and Base Library
+### 16. Testing Style and Base Library
 
 - Base test library is `vitest`
 - Shared BDD helper is `src/testing/bdd.ts`
