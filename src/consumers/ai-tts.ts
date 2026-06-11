@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { getMetaDb } from '../db'
 import { aiTtsTask } from '../db/schema.shard'
-import { createTenantShardAccess, DEFAULT_D1_SHARD_REGION } from '../db/shard-router'
+import { createTenantShardAccess } from '../db/shard-router'
 import { newAITTSClients } from '../ai/tts'
 import { logError } from '../lib/log'
 import type { AITTSLine, AITTSSpeaker, AITTSTask, AITTSTaskStatus } from '../ai/tts'
@@ -24,10 +24,7 @@ async function handleAITTSMessage(
 ): Promise<void> {
 	const body: AITTSGenerateQueueMessage = message.body
 	const metaDb = getMetaDb(env.META_DB)
-	const tenant = await createTenantShardAccess(metaDb, env).openUserDb(
-		body.userId,
-		DEFAULT_D1_SHARD_REGION
-	)
+	const tenant = await createTenantShardAccess(metaDb, env).openUserDb(body.userId)
 	const task = await tenant.db.query.aiTtsTask.findFirst({
 		where: eq(aiTtsTask.id, body.taskId)
 	})

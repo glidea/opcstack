@@ -2,7 +2,7 @@ import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import { createTenantShardAccess, type D1ShardRegion } from './shard-router'
 
-describe('TenantShardAccess.resolveUser', () => {
+describe('TenantShardAccess.resolveUserShard', () => {
 	type GivenDetail = {
 		hasExistingUserShard: boolean
 		insertConflict: boolean
@@ -181,7 +181,7 @@ describe('TenantShardAccess.resolveUser', () => {
 			})
 		}
 
-		const result = await createTenantShardAccess(db as never, {} as never).resolveUser(
+		const result = await createTenantShardAccess(db as never, {} as never).resolveUserShard(
 			'user-1',
 			given.preferredRegion
 		)
@@ -197,7 +197,7 @@ describe('TenantShardAccess.resolveUser', () => {
 
 describe('TenantShardAccess', () => {
 	type GivenDetail = {
-		action: 'openUserDb' | 'openUserSession' | 'listShardDbs'
+		action: 'openUserDb' | 'openUserDbWithDefaultRegion' | 'openShardSession' | 'listShardDbs'
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -225,12 +225,28 @@ describe('TenantShardAccess', () => {
 			}
 		},
 		{
+			scenario: 'open user shard db with default region',
+			given: 'user has no shard mapping',
+			when: 'opening the user tenant shard db without a preferred region',
+			then: 'uses the router default preferred region',
+			givenDetail: {
+				action: 'openUserDbWithDefaultRegion'
+			},
+			whenDetail: {},
+			thenExpected: {
+				shardId: 'shard_0000',
+				dbCreated: true,
+				sessionBookmark: '',
+				listedShards: 0
+			}
+		},
+		{
 			scenario: 'open user shard session',
 			given: 'user has a shard mapping and bookmark',
-			when: 'opening the user tenant shard session',
+			when: 'opening the resolved tenant shard session',
 			then: 'returns a session backed tenant shard drizzle client',
 			givenDetail: {
-				action: 'openUserSession'
+				action: 'openShardSession'
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -272,8 +288,25 @@ describe('TenantShardAccess', () => {
 			}
 		}
 
-		if (given.action === 'openUserSession') {
-			const tenant = await access.openUserSession('user-1', 'wnam', 'bookmark-1')
+		if (given.action === 'openUserDbWithDefaultRegion') {
+			state.db.query.userShard.findFirst = vi.fn().mockResolvedValue(undefined)
+			const tenant = await access.openUserDb('user-1')
+			return {
+				shardId: tenant.shardId,
+				dbCreated: tenant.db !== undefined,
+				sessionBookmark: '',
+				listedShards: 0
+			}
+		}
+
+		if (given.action === 'openShardSession') {
+			const tenant = access.openShardSession(
+				{
+					shardId: 'shard_0000',
+					bindingName: 'TENANT_DB_0000'
+				},
+				'bookmark-1'
+			)
 			return {
 				shardId: tenant.shardId,
 				dbCreated: tenant.db !== undefined,
@@ -292,11 +325,27 @@ describe('TenantShardAccess', () => {
 	})
 })
 
-function createShardAccessState(): {
-	db: Record<string, unknown>
+type ShardAccessState = {
+	db: ShardAccessDb
 	env: Record<string, unknown>
 	withSession: ReturnType<typeof vi.fn>
-} {
+}
+
+type ShardAccessDb = {
+	query: {
+		userShard: {
+			findFirst: ReturnType<typeof vi.fn>
+		}
+		d1Shard: {
+			findFirst: ReturnType<typeof vi.fn>
+			findMany: ReturnType<typeof vi.fn>
+		}
+	}
+	insert: ReturnType<typeof vi.fn>
+	update: ReturnType<typeof vi.fn>
+}
+
+function createShardAccessState(): ShardAccessState {
 	const withSession = vi.fn(() => {
 		return {
 			prepare: vi.fn(),
@@ -329,7 +378,33 @@ function createShardAccessState(): {
 						}
 					])
 				}
-			}
+			},
+			insert: vi.fn(() => {
+				return {
+					values: vi.fn(() => {
+						return {
+							onConflictDoNothing: vi.fn(() => {
+								return {
+									run: vi.fn().mockResolvedValue({
+										meta: {
+											changes: 1
+										}
+									})
+								}
+							})
+						}
+					})
+				}
+			}),
+			update: vi.fn(() => {
+				return {
+					set: vi.fn(() => {
+						return {
+							where: vi.fn().mockResolvedValue(undefined)
+						}
+					})
+				}
+			})
 		},
 		env: {
 			TENANT_DB_0000: {

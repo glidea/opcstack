@@ -1,6 +1,6 @@
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm'
 import type { MetaDb } from '../db'
-import { createTenantShardAccess, DEFAULT_D1_SHARD_REGION } from '../db/shard-router'
+import { createTenantShardAccess } from '../db/shard-router'
 import { checkoutOrder, paymentTransaction, paymentWebhookEvent, userSubscription } from '../db/schema'
 import { user } from '../db/schema.auth'
 import {
@@ -1281,10 +1281,7 @@ export function newPaymentService(
 	}
 
 	return new PaymentService(db, config, providerRouter, providers, async (userId: string) => {
-		const tenant = await createTenantShardAccess(db, env).openUserDb(
-			userId,
-			DEFAULT_D1_SHARD_REGION
-		)
+		const tenant = await createTenantShardAccess(db, env).openUserDb(userId)
 		return new CreditsService(tenant.db)
 	})
 }

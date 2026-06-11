@@ -6,8 +6,8 @@ import type { ApiEnv } from '..'
 
 const shardRouterMocks = vi.hoisted(() => {
 	return {
-		resolveUser: vi.fn(),
-		openSession: vi.fn()
+		resolveUserShard: vi.fn(),
+		openShardSession: vi.fn()
 	}
 })
 
@@ -18,8 +18,8 @@ vi.mock('../../db/shard-router', () => {
 		},
 		createTenantShardAccess: vi.fn(() => {
 			return {
-				resolveUser: shardRouterMocks.resolveUser,
-				openSession: shardRouterMocks.openSession
+				resolveUserShard: shardRouterMocks.resolveUserShard,
+				openShardSession: shardRouterMocks.openShardSession
 			}
 		})
 	}
@@ -28,7 +28,7 @@ vi.mock('../../db/shard-router', () => {
 describe('tenantDbMiddleware', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
-		shardRouterMocks.resolveUser.mockResolvedValue({
+		shardRouterMocks.resolveUserShard.mockResolvedValue({
 			shardId: 'shard_0000',
 			bindingName: 'TENANT_DB_0000'
 		})
@@ -81,7 +81,7 @@ describe('tenantDbMiddleware', () => {
 			}
 		})
 		const state = createContextState(given.headers, withSession)
-		shardRouterMocks.openSession.mockImplementation(
+		shardRouterMocks.openShardSession.mockImplementation(
 			(_shard: unknown, bookmark: string): Record<string, unknown> => {
 				const session = withSession(bookmark)
 				return {
@@ -100,7 +100,7 @@ describe('tenantDbMiddleware', () => {
 			withSessionBookmark: String(withSession.mock.calls[0]?.[0] ?? ''),
 			tenantDbSet: state.values['tenantDb'] !== undefined,
 			tenantShardId: String(state.values['tenantShardId'] ?? ''),
-			resolvePreferredRegion: String(shardRouterMocks.resolveUser.mock.calls[0]?.[1] ?? ''),
+			resolvePreferredRegion: String(shardRouterMocks.resolveUserShard.mock.calls[0]?.[1] ?? ''),
 			responseShard: state.response.headers.get('x-d1-tenant-shard') ?? '',
 			responseBookmark: state.response.headers.get('x-d1-tenant-bookmark') ?? ''
 		}

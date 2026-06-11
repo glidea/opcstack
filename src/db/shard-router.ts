@@ -8,7 +8,7 @@ export type WorkerRegionSource = {
 	continent?: string
 }
 
-export const DEFAULT_D1_SHARD_REGION: D1ShardRegion = 'wnam'
+const DEFAULT_D1_SHARD_REGION: D1ShardRegion = 'wnam'
 
 export type ResolvedUserShard = {
 	shardId: string
@@ -55,25 +55,19 @@ export class TenantShardAccess {
 		this.env = env
 	}
 
-	async resolveUser(userId: string, preferredRegion: D1ShardRegion): Promise<ResolvedUserShard> {
+	async resolveUserShard(userId: string, preferredRegion: D1ShardRegion): Promise<ResolvedUserShard> {
 		return resolveUserShard(this.metaDb, userId, preferredRegion)
 	}
 
-	async openUserDb(userId: string, preferredRegion: D1ShardRegion): Promise<TenantShardClient> {
-		const resolved = await this.resolveUser(userId, preferredRegion)
+	async openUserDb(
+		userId: string,
+		preferredRegion: D1ShardRegion = DEFAULT_D1_SHARD_REGION
+	): Promise<TenantShardClient> {
+		const resolved = await this.resolveUserShard(userId, preferredRegion)
 		return this.openDb(resolved)
 	}
 
-	async openUserSession(
-		userId: string,
-		preferredRegion: D1ShardRegion,
-		bookmark: D1SessionBookmark | D1SessionConstraint
-	): Promise<TenantShardSession> {
-		const resolved = await this.resolveUser(userId, preferredRegion)
-		return this.openSession(resolved, bookmark)
-	}
-
-	openSession(
+	openShardSession(
 		shard: TenantShardInfo,
 		bookmark: D1SessionBookmark | D1SessionConstraint
 	): TenantShardSession {
@@ -91,7 +85,7 @@ export class TenantShardAccess {
 		return shards.map((shard) => this.openDb(shard))
 	}
 
-	async listShards(): Promise<TenantShardInfo[]> {
+	private async listShards(): Promise<TenantShardInfo[]> {
 		const shards = await this.metaDb.query.d1Shard.findMany({
 			columns: {
 				id: true,
@@ -105,7 +99,7 @@ export class TenantShardAccess {
 		}))
 	}
 
-	openDb(shard: TenantShardInfo): TenantShardClient {
+	private openDb(shard: TenantShardInfo): TenantShardClient {
 		return {
 			...shard,
 			db: getTenantShardDb(getTenantD1Binding(this.env, shard.bindingName))

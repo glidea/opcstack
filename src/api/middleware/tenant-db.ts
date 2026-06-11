@@ -16,12 +16,12 @@ export const tenantDbMiddleware: MiddlewareHandler<ApiEnv> = async (
 	next
 ): Promise<Response | void> => {
 	const tenantShards = createTenantShardAccess(ctx.get('metaDb'), ctx.env)
-	const resolved = await tenantShards.resolveUser(ctx.get('userId'), readWorkerRegion(ctx.req.raw))
+	const resolved = await tenantShards.resolveUserShard(ctx.get('userId'), readWorkerRegion(ctx.req.raw))
 	const cookieName = tenantBookmarkCookieName(resolved.shardId)
 	const headerBookmark = ctx.req.header(TENANT_DB_BOOKMARK_HEADER)
 	const cookieBookmark = readCookie(ctx.req.header('cookie'), cookieName)
 	const bookmark = resolveTenantBookmark(headerBookmark, cookieBookmark)
-	const tenant = tenantShards.openSession(resolved, bookmark)
+	const tenant = tenantShards.openShardSession(resolved, bookmark)
 	const session = tenant.session
 
 	ctx.set('tenantDb', tenant.db)
