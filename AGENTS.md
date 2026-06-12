@@ -338,7 +338,9 @@ export { RateLimiterDO } from './do/rate-limiter'
 - Chat: `src/ai/chat/openai/`
 - Image: `src/ai/image/gemini/` `src/ai/image/openai/` `src/ai/image/seedream/` `src/ai/image/aliyun/`
 - TTS: `src/ai/tts/gemini/` `src/ai/tts/seed/`
-- Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `IMAGE_OPENAI_*` / `IMAGE_SEEDDREAM_*` / `IMAGE_ALIYUN_*` / `TTS_GEMINI_*` / `TTS_SEED_*`
+- Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `IMAGE_OPENAI_*` / `IMAGE_SEEDDREAM_*` / `IMAGE_ALIYUN_*` / `TTS_GEMINI_*` / `TTS_SEED_*` / `REALTIME_DOUBAO_*` / `VIDEO_SEEDDANCE_*`
+- Every AI provider config must include primary `BASE_URL` and `API_KEY`, fallback `FALLBACK_BASE_URL` and `FALLBACK_API_KEY`, and one primary `MODEL` only when the provider has a runtime default model. Do not add `FALLBACK_MODEL`
+- AI fallback means retrying the same request with the same model against fallback base url and api key after the primary provider request fails. Empty fallback base url and api key disables fallback
 - Simple image client supports sync `generate` and async `generateAsync`
 - Image client runtime identity and dependencies such as `userId` and `tenantDb` are required client constructor arguments, not generate input and not options. Options only carry optional provider/model
 - Aliyun image provider name is `aliyun`; supported models are `qwen-image-2.0-pro` and `z-image-turbo`

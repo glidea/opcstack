@@ -1,3 +1,4 @@
+import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
 import { newR2Client } from '../../../r2'
 import { resolveImageReferences } from '../reference'
@@ -80,7 +81,7 @@ interface AliyunImageOutput {
 }
 
 class aliyunSimpleImageClient implements AISimpleImageClient {
-	private readonly client: AliyunNativeImageClient
+	private readonly endpoints: AIEndpoint[]
 	private readonly env: Env
 	private readonly model: string
 	private readonly userId: string
@@ -93,7 +94,12 @@ class aliyunSimpleImageClient implements AISimpleImageClient {
 		options: AISimpleImageClientOptions
 	) {
 		this.env = env
-		this.client = newAliyunNativeImageClient(env)
+		this.endpoints = resolveAIEndpoints(
+			env.IMAGE_ALIYUN_BASE_URL,
+			env.IMAGE_ALIYUN_API_KEY,
+			env.IMAGE_ALIYUN_FALLBACK_BASE_URL,
+			env.IMAGE_ALIYUN_FALLBACK_API_KEY
+		)
 		this.model = options.model ?? env.IMAGE_ALIYUN_MODEL
 		this.userId = userId
 		this.tenantDb = tenantDb
@@ -108,21 +114,21 @@ class aliyunSimpleImageClient implements AISimpleImageClient {
 			input.references
 		)
 		const request: AliyunImageRequest = toAliyunImageRequest(this.model, input, references)
-		const response: Response = await fetch(
-			`${this.client.baseURL}/services/aigc/multimodal-generation/generation`,
-			{
+		const response: Response = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
+			const response: Response = await fetch(`${endpoint.baseURL}/services/aigc/multimodal-generation/generation`, {
 				method: 'POST',
 				headers: {
-					Authorization: `Bearer ${this.client.apiKey}`,
+					Authorization: `Bearer ${endpoint.apiKey}`,
 					'Content-Type': 'application/json',
 					'X-DashScope-Async': 'disable'
 				},
 				body: JSON.stringify(request)
+			})
+			if (!response.ok) {
+				throw new Error(`ALIYUN_IMAGE_GENERATION_FAILED: ${response.status}`)
 			}
-		)
-		if (!response.ok) {
-			throw new Error(`ALIYUN_IMAGE_GENERATION_FAILED: ${response.status}`)
-		}
+			return response
+		})
 
 		const body: AliyunImageResponse = (await response.json()) as AliyunImageResponse
 		const outputs: AIImageResult[] = await downloadImageResults(body.output.results)

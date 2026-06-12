@@ -1,4 +1,5 @@
 import { GoogleGenAI, type GenerateContentResponse } from '@google/genai'
+import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
 import { newR2Client } from '../../../r2'
 import { createAITTSTask, getAITTSTask } from '../task'
@@ -30,7 +31,7 @@ export function newGeminiSimpleTTSClient(
 }
 
 class geminiSimpleTTSClient implements AISimpleTTSClient {
-	private readonly client: GoogleGenAI
+	private readonly endpoints: AIEndpoint[]
 	private readonly env: Env
 	private readonly model: string
 	private readonly userId: string
@@ -43,7 +44,12 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 		options: AISimpleTTSClientOptions
 	) {
 		this.env = env
-		this.client = newGeminiNativeTTSClient(env)
+		this.endpoints = resolveAIEndpoints(
+			env.TTS_GEMINI_BASE_URL,
+			env.TTS_GEMINI_API_KEY,
+			env.TTS_GEMINI_FALLBACK_BASE_URL,
+			env.TTS_GEMINI_FALLBACK_API_KEY
+		)
 		this.model = options.model ?? env.TTS_GEMINI_MODEL
 		this.userId = userId
 		this.tenantDb = tenantDb
@@ -52,18 +58,21 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 	async generateSpeech(input: AITTSSpeechInput): Promise<AITTSResult> {
 		validateInput(input)
 
-		const result = await this.client.models.generateContent({
-			model: this.model,
-			contents: [
-				{
-					role: 'user',
-					parts: [{ text: toPrompt(input) }]
+		const result = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
+			const client = newGeminiClient(endpoint)
+			return client.models.generateContent({
+				model: this.model,
+				contents: [
+					{
+						role: 'user',
+						parts: [{ text: toPrompt(input) }]
+					}
+				],
+				config: {
+					responseModalities: ['AUDIO'],
+					speechConfig: toSpeechConfig(input)
 				}
-			],
-			config: {
-				responseModalities: ['AUDIO'],
-				speechConfig: toSpeechConfig(input)
-			}
+			})
 		})
 
 		return toSpeechResult(this.env, this.userId, input, result)
@@ -84,6 +93,13 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 	async getTask(id: string): Promise<AITTSTask | undefined> {
 		return getAITTSTask(this.tenantDb, id)
 	}
+}
+
+function newGeminiClient(endpoint: AIEndpoint): GoogleGenAI {
+	return new GoogleGenAI({
+		apiKey: endpoint.apiKey,
+		httpOptions: { baseUrl: endpoint.baseURL }
+	})
 }
 
 function validateInput(input: AITTSSpeechInput): void {

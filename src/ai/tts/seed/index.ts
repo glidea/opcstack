@@ -1,3 +1,4 @@
+import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
 import { newR2Client } from '../../../r2'
 import { createAITTSSourceTask, createAITTSTask, getAITTSTask } from '../task'
@@ -71,6 +72,7 @@ export function newSeedSimpleTTSClient(
 }
 
 class seedSimpleTTSClient implements AISimpleTTSClient {
+	private readonly endpoints: AIEndpoint[]
 	private readonly env: Env
 	private readonly model: string
 	private readonly userId: string
@@ -83,6 +85,12 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 		options: AISimpleTTSClientOptions
 	) {
 		this.env = env
+		this.endpoints = resolveAIEndpoints(
+			env.TTS_SEED_BASE_URL,
+			env.TTS_SEED_API_KEY,
+			env.TTS_SEED_FALLBACK_BASE_URL,
+			env.TTS_SEED_FALLBACK_API_KEY
+		)
 		this.model = options.model ?? env.TTS_SEED_MODEL
 		this.userId = userId
 		this.tenantDb = tenantDb
@@ -90,23 +98,26 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 
 	async generateSpeech(input: AITTSSpeechInput): Promise<AITTSResult> {
 		if (this.model === SEED_TTS_MODEL_DOUBAO_SEED_PODCAST) {
-			return generateSeedPodcast(this.env, this.userId, toSeedPodcastScriptRequest(input), input.uploadToR2)
+			return generateSeedPodcast(this.endpoints, this.env, this.userId, toSeedPodcastScriptRequest(input), input.uploadToR2)
 		}
 
 		validateInput(input)
 
-		const response: Response = await fetch(`${trimRightSlash(this.env.TTS_SEED_BASE_URL)}/tts/unidirectional`, {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-				'X-Api-Key': this.env.TTS_SEED_API_KEY,
-				'X-Api-Resource-Id': 'seed-tts-2.0'
-			},
-			body: JSON.stringify(toSeedRequest(this.userId, this.model, input))
+		const response: Response = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
+			const response: Response = await fetch(`${trimRightSlash(endpoint.baseURL)}/tts/unidirectional`, {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json',
+					'X-Api-Key': endpoint.apiKey,
+					'X-Api-Resource-Id': 'seed-tts-2.0'
+				},
+				body: JSON.stringify(toSeedRequest(this.userId, this.model, input))
+			})
+			if (!response.ok) {
+				throw new Error('SEED_TTS_FAILED')
+			}
+			return response
 		})
-		if (!response.ok) {
-			throw new Error('SEED_TTS_FAILED')
-		}
 
 		const output: AITTSResult = {
 			audioBase64: await readAudioBase64(response),
@@ -130,7 +141,7 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 			throw new Error('TTS_SOURCE_NOT_SUPPORTED')
 		}
 
-		return generateSeedPodcast(this.env, this.userId, toSeedPodcastSourceRequest(input), input.uploadToR2)
+		return generateSeedPodcast(this.endpoints, this.env, this.userId, toSeedPodcastSourceRequest(input), input.uploadToR2)
 	}
 
 	async generateSpeechAsync(input: AITTSSpeechInput): Promise<AITTSTask> {
@@ -151,13 +162,16 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 }
 
 async function generateSeedPodcast(
+	endpoints: AIEndpoint[],
 	env: Env,
 	userId: string,
 	request: SeedPodcastRequest,
 	uploadToR2?: boolean
 ): Promise<AITTSResult> {
 	const requestId: string = crypto.randomUUID()
-	const socket: WebSocket = await openSeedPodcastSocket(env, requestId)
+	const socket: WebSocket = await runWithAIFallback(endpoints, (endpoint: AIEndpoint) => {
+		return openSeedPodcastSocket(endpoint, requestId)
+	})
 	const audioChunks: Uint8Array[] = []
 	let audioUrl: string | undefined
 
@@ -322,11 +336,11 @@ function estimateInputTextMaxLength(durationHintSeconds: number): number {
 	return Math.round(durationHintSeconds * 4)
 }
 
-async function openSeedPodcastSocket(env: Env, requestId: string): Promise<WebSocket> {
-	const response: Response = await fetch(`${trimRightSlash(env.TTS_SEED_BASE_URL)}/sami/podcasttts`, {
+async function openSeedPodcastSocket(endpoint: AIEndpoint, requestId: string): Promise<WebSocket> {
+	const response: Response = await fetch(`${trimRightSlash(endpoint.baseURL)}/sami/podcasttts`, {
 		headers: {
 			Upgrade: 'websocket',
-			'X-Api-Key': env.TTS_SEED_API_KEY,
+			'X-Api-Key': endpoint.apiKey,
 			'X-Api-Resource-Id': SEED_PODCAST_RESOURCE_ID,
 			'X-Api-App-Key': SEED_PODCAST_APP_KEY,
 			'X-Api-Request-Id': requestId

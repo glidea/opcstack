@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
 import { newR2Client } from '../../../r2'
 import { resolveImageReferences } from '../reference'
@@ -43,7 +44,7 @@ type SeedDreamImageStreamEvent = {
 }
 
 class seedDreamSimpleImageClient implements AISimpleImageClient {
-	private readonly client: OpenAI
+	private readonly endpoints: AIEndpoint[]
 	private readonly env: Env
 	private readonly model: string
 	private readonly userId: string
@@ -56,7 +57,12 @@ class seedDreamSimpleImageClient implements AISimpleImageClient {
 		options: AISimpleImageClientOptions
 	) {
 		this.env = env
-		this.client = newSeedDreamNativeImageClient(env)
+		this.endpoints = resolveAIEndpoints(
+			env.IMAGE_SEEDDREAM_BASE_URL,
+			env.IMAGE_SEEDDREAM_API_KEY,
+			env.IMAGE_SEEDDREAM_FALLBACK_BASE_URL,
+			env.IMAGE_SEEDDREAM_FALLBACK_API_KEY
+		)
 		this.model = options.model ?? env.IMAGE_SEEDDREAM_MODEL
 		this.userId = userId
 		this.tenantDb = tenantDb
@@ -78,9 +84,10 @@ class seedDreamSimpleImageClient implements AISimpleImageClient {
 				sequential_image_generation: 'disabled'
 			}
 		}
-		const stream = (await this.client.images.generate(
-			request as Parameters<OpenAI['images']['generate']>[0]
-		)) as unknown as AsyncIterable<SeedDreamImageStreamEvent>
+		const stream = (await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
+			const client = newOpenAIClient(endpoint)
+			return client.images.generate(request as Parameters<OpenAI['images']['generate']>[0])
+		})) as unknown as AsyncIterable<SeedDreamImageStreamEvent>
 		const outputs = await toImageResultsFromStream(stream)
 
 		return uploadImageResults(this.env, input, this.userId, outputs)
@@ -93,6 +100,13 @@ class seedDreamSimpleImageClient implements AISimpleImageClient {
 	async getTask(id: string): Promise<AIImageTask | undefined> {
 		return getAIImageTask(this.tenantDb, id)
 	}
+}
+
+function newOpenAIClient(endpoint: AIEndpoint): OpenAI {
+	return new OpenAI({
+		apiKey: endpoint.apiKey,
+		baseURL: endpoint.baseURL
+	})
 }
 
 async function toImageResultsFromStream(

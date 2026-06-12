@@ -204,6 +204,8 @@ function createEnv(): Env {
 	return {
 		VIDEO_SEEDDANCE_BASE_URL: 'https://ark.cn-beijing.volces.com/api/v3',
 		VIDEO_SEEDDANCE_API_KEY: 'key',
+		VIDEO_SEEDDANCE_FALLBACK_BASE_URL: '',
+		VIDEO_SEEDDANCE_FALLBACK_API_KEY: '',
 		VIDEO_SEEDDANCE_MODEL: 'doubao-seedance-2-0-fast-260128',
 		APP_BASE_URL: 'https://app',
 		R2_ORIGIN_SIGNING_SECRET: 'secret'

@@ -1,3 +1,4 @@
+import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
 import { resolveVideoReferences, type AIResolvedVideoReference } from '../reference'
 import { createAIVideoTask, getAIVideoTask } from '../task'
@@ -110,17 +111,21 @@ export async function createSeedDanceProviderTask(
 		userId,
 		input.references
 	)
-	const response: Response = await fetch(`${trimRightSlash(env.VIDEO_SEEDDANCE_BASE_URL)}/contents/generations/tasks`, {
-		method: 'POST',
-		headers: {
-			authorization: `Bearer ${env.VIDEO_SEEDDANCE_API_KEY}`,
-			'content-type': 'application/json'
-		},
-		body: JSON.stringify(toCreateTaskRequest(model, input, references))
+	const endpoints: AIEndpoint[] = resolveSeedDanceEndpoints(env)
+	const response: Response = await runWithAIFallback(endpoints, async (endpoint: AIEndpoint) => {
+		const response: Response = await fetch(`${trimRightSlash(endpoint.baseURL)}/contents/generations/tasks`, {
+			method: 'POST',
+			headers: {
+				authorization: `Bearer ${endpoint.apiKey}`,
+				'content-type': 'application/json'
+			},
+			body: JSON.stringify(toCreateTaskRequest(model, input, references))
+		})
+		if (!response.ok) {
+			throw new Error('SEEDDANCE_CREATE_TASK_FAILED')
+		}
+		return response
 	})
-	if (!response.ok) {
-		throw new Error('SEEDDANCE_CREATE_TASK_FAILED')
-	}
 
 	const body: SeedDanceCreateTaskResponse = await response.json()
 	const providerTaskId: string | undefined = body.id ?? body.task_id
@@ -134,15 +139,19 @@ export async function getSeedDanceProviderTask(
 	env: Env,
 	providerTaskId: string
 ): Promise<AIVideoProviderTaskResult> {
-	const response: Response = await fetch(`${trimRightSlash(env.VIDEO_SEEDDANCE_BASE_URL)}/contents/generations/tasks/${providerTaskId}`, {
-		method: 'GET',
-		headers: {
-			authorization: `Bearer ${env.VIDEO_SEEDDANCE_API_KEY}`
+	const endpoints: AIEndpoint[] = resolveSeedDanceEndpoints(env)
+	const response: Response = await runWithAIFallback(endpoints, async (endpoint: AIEndpoint) => {
+		const response: Response = await fetch(`${trimRightSlash(endpoint.baseURL)}/contents/generations/tasks/${providerTaskId}`, {
+			method: 'GET',
+			headers: {
+				authorization: `Bearer ${endpoint.apiKey}`
+			}
+		})
+		if (!response.ok) {
+			throw new Error('SEEDDANCE_GET_TASK_FAILED')
 		}
+		return response
 	})
-	if (!response.ok) {
-		throw new Error('SEEDDANCE_GET_TASK_FAILED')
-	}
 
 	const body: SeedDanceGetTaskResponse = await response.json()
 	switch (body.status) {
@@ -166,6 +175,15 @@ export async function getSeedDanceProviderTask(
 				status: 'running'
 			}
 	}
+}
+
+function resolveSeedDanceEndpoints(env: Env): AIEndpoint[] {
+	return resolveAIEndpoints(
+		env.VIDEO_SEEDDANCE_BASE_URL,
+		env.VIDEO_SEEDDANCE_API_KEY,
+		env.VIDEO_SEEDDANCE_FALLBACK_BASE_URL,
+		env.VIDEO_SEEDDANCE_FALLBACK_API_KEY
+	)
 }
 
 function toCreateTaskRequest(

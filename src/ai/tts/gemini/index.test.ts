@@ -301,6 +301,8 @@ function createEnv(model: string): Env {
 	return {
 		TTS_GEMINI_API_KEY: 'k',
 		TTS_GEMINI_BASE_URL: 'https://generativelanguage.googleapis.com',
+		TTS_GEMINI_FALLBACK_API_KEY: '',
+		TTS_GEMINI_FALLBACK_BASE_URL: '',
 		TTS_GEMINI_MODEL: model
 	} as unknown as Env
 }

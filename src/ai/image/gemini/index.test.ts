@@ -429,6 +429,8 @@ function createEnv(model: string): Env {
 	return {
 		IMAGE_GEMINI_API_KEY: 'k',
 		IMAGE_GEMINI_BASE_URL: 'https://generativelanguage.googleapis.com',
+		IMAGE_GEMINI_FALLBACK_API_KEY: '',
+		IMAGE_GEMINI_FALLBACK_BASE_URL: '',
 		IMAGE_GEMINI_MODEL: model
 	} as unknown as Env
 }
