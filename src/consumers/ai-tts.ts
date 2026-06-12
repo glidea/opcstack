@@ -4,7 +4,13 @@ import { aiTtsTask } from '../db/schema.shard'
 import { createTenantShardAccess } from '../db/shard-router'
 import { newAITTSClients } from '../ai/tts'
 import { logError } from '../lib/log'
-import type { AITTSLine, AITTSSpeaker, AITTSTask, AITTSTaskStatus } from '../ai/tts'
+import type {
+	AITTSLine,
+	AITTSSourceInput,
+	AITTSSpeaker,
+	AITTSTask,
+	AITTSTaskStatus
+} from '../ai/tts'
 import type { AITTSGenerateQueueMessage } from '../ai/tts/task'
 
 const AI_TTS_MAX_ATTEMPTS = 3
@@ -34,18 +40,21 @@ async function handleAITTSMessage(
 	}
 
 	try {
-		const speakers: AITTSSpeaker[] = JSON.parse(task.speakersJson) as AITTSSpeaker[]
-		const lines: AITTSLine[] = JSON.parse(task.linesJson) as AITTSLine[]
 		const client = newAITTSClients(env, task.userId, tenant.db, {
 			provider: task.provider as AITTSTask['provider'],
 			model: task.model ?? undefined
 		}).simple
-		const audio = await client.generateSpeech({
-			instruction: task.instruction ?? undefined,
-			speakers,
-			lines,
-			uploadToR2: task.uploadToR2 === 1
-		})
+		const audio = task.sourceJson
+			? await client.generateSpeechFromSource({
+					...(JSON.parse(task.sourceJson) as AITTSSourceInput),
+					uploadToR2: task.uploadToR2 === 1
+				})
+			: await client.generateSpeech({
+					instruction: task.instruction ?? undefined,
+					speakers: JSON.parse(task.speakersJson) as AITTSSpeaker[],
+					lines: JSON.parse(task.linesJson) as AITTSLine[],
+					uploadToR2: task.uploadToR2 === 1
+				})
 		const now: number = Date.now()
 		await tenant.db
 			.update(aiTtsTask)

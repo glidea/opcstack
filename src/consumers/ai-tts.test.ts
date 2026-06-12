@@ -12,6 +12,7 @@ type TaskRow = {
 	status: string
 	provider: string
 	model: string | null
+	sourceJson: string | null
 	instruction: string | null
 	speakersJson: string
 	linesJson: string
@@ -27,6 +28,7 @@ type TaskRow = {
 const mocks = vi.hoisted(() => {
 	return {
 		generateSpeech: vi.fn(),
+		generateSpeechFromSource: vi.fn(),
 		ack: vi.fn(),
 		retry: vi.fn(),
 		findFirst: vi.fn(),
@@ -85,7 +87,8 @@ describe('handleAITTSQueue', () => {
 		} as unknown as ReturnType<typeof createTenantShardAccess>)
 		vi.mocked(newAITTSClients).mockReturnValue({
 			simple: {
-				generateSpeech: mocks.generateSpeech
+				generateSpeech: mocks.generateSpeech,
+				generateSpeechFromSource: mocks.generateSpeechFromSource
 			}
 		} as unknown as ReturnType<typeof newAITTSClients>)
 	})
@@ -105,6 +108,7 @@ describe('handleAITTSQueue', () => {
 		clientUserId: string
 		clientTenantDbPassed: boolean
 		generateUploadToR2: boolean
+		generateSourceInputUrl: string
 		generateUserId: string
 		clientProvider: string
 		logErrorCalls: number
@@ -132,6 +136,7 @@ describe('handleAITTSQueue', () => {
 				clientUserId: 'u1',
 				clientTenantDbPassed: true,
 				generateUploadToR2: true,
+				generateSourceInputUrl: '',
 				generateUserId: '',
 				clientProvider: 'gemini',
 				logErrorCalls: 0,
@@ -159,6 +164,7 @@ describe('handleAITTSQueue', () => {
 				clientUserId: 'u1',
 				clientTenantDbPassed: true,
 				generateUploadToR2: true,
+				generateSourceInputUrl: '',
 				generateUserId: '',
 				clientProvider: 'gemini',
 				logErrorCalls: 1,
@@ -186,6 +192,7 @@ describe('handleAITTSQueue', () => {
 				clientUserId: 'u1',
 				clientTenantDbPassed: true,
 				generateUploadToR2: true,
+				generateSourceInputUrl: '',
 				generateUserId: '',
 				clientProvider: 'gemini',
 				logErrorCalls: 1,
@@ -218,6 +225,43 @@ describe('handleAITTSQueue', () => {
 				clientUserId: 'u1',
 				clientTenantDbPassed: true,
 				generateUploadToR2: true,
+				generateSourceInputUrl: '',
+				generateUserId: '',
+				clientProvider: 'seed',
+				logErrorCalls: 0,
+				logTaskId: '',
+				logAttemptCount: 0
+			}
+		},
+		{
+			scenario: 'completed seed source task calls source generator',
+			given: 'processing seed source task and generate succeeds',
+			when: 'handling tts queue',
+			then: 'uses source input from task',
+			givenDetail: {
+				task: {
+					...createTask(0),
+					provider: 'seed',
+					sourceJson: JSON.stringify({
+						inputUrl: 'https://example.com/article',
+						durationHintSeconds: 300
+					}),
+					speakersJson: JSON.stringify([]),
+					linesJson: JSON.stringify([])
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				ackCalls: 1,
+				retryCalls: 0,
+				retryDelaySeconds: 0,
+				statusWritten: 'completed',
+				hasResult: true,
+				lastErrorMessage: '',
+				clientUserId: 'u1',
+				clientTenantDbPassed: true,
+				generateUploadToR2: true,
+				generateSourceInputUrl: 'https://example.com/article',
 				generateUserId: '',
 				clientProvider: 'seed',
 				logErrorCalls: 0,
@@ -231,8 +275,10 @@ describe('handleAITTSQueue', () => {
 		mocks.findFirst.mockResolvedValue(given.task)
 		if (given.generateError) {
 			mocks.generateSpeech.mockRejectedValue(new Error(given.generateError))
+			mocks.generateSpeechFromSource.mockRejectedValue(new Error(given.generateError))
 		} else {
 			mocks.generateSpeech.mockResolvedValue({ audioBase64: 'a', mimeType: 'audio/wav' })
+			mocks.generateSpeechFromSource.mockResolvedValue({ audioBase64: 'a', mimeType: 'audio/mpeg' })
 		}
 
 		await handleAITTSQueue(
@@ -267,6 +313,9 @@ describe('handleAITTSQueue', () => {
 		const generateInput = mocks.generateSpeech.mock.calls[0]?.[0] as
 			| { userId?: string; uploadToR2?: boolean }
 			| undefined
+		const generateSourceInput = mocks.generateSpeechFromSource.mock.calls[0]?.[0] as
+			| { inputUrl?: string; uploadToR2?: boolean }
+			| undefined
 		const retryOptions = mocks.retry.mock.calls[0]?.[0] as { delaySeconds?: number } | undefined
 		const logFields = vi.mocked(logError).mock.calls[0]?.[1] as
 			| {
@@ -284,7 +333,8 @@ describe('handleAITTSQueue', () => {
 			lastErrorMessage: written?.lastErrorMessage ?? '',
 			clientUserId: clientUserId ?? '',
 			clientTenantDbPassed: clientTenantDb !== undefined,
-			generateUploadToR2: generateInput?.uploadToR2 ?? false,
+			generateUploadToR2: generateInput?.uploadToR2 ?? generateSourceInput?.uploadToR2 ?? false,
+			generateSourceInputUrl: generateSourceInput?.inputUrl ?? '',
 			generateUserId: generateInput?.userId ?? '',
 			clientProvider: clientOptions?.provider ?? '',
 			logErrorCalls: mocks.logError.mock.calls.length,
@@ -301,6 +351,7 @@ function createTask(attemptCount: number): TaskRow {
 		status: 'processing',
 		provider: 'gemini',
 		model: null,
+		sourceJson: null,
 		instruction: 'podcast style',
 		speakersJson: JSON.stringify([{ name: 'Host', voiceName: 'Charon' }]),
 		linesJson: JSON.stringify([{ speakerName: 'Host', text: 'Hello' }]),

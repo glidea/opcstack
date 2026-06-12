@@ -337,8 +337,8 @@ export { RateLimiterDO } from './do/rate-limiter'
 
 - Chat: `src/ai/chat/openai/`
 - Image: `src/ai/image/gemini/` `src/ai/image/openai/` `src/ai/image/seedream/` `src/ai/image/aliyun/`
-- TTS: `src/ai/tts/gemini/`
-- Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `IMAGE_OPENAI_*` / `IMAGE_SEEDDREAM_*` / `IMAGE_ALIYUN_*` / `TTS_GEMINI_*`
+- TTS: `src/ai/tts/gemini/` `src/ai/tts/seed/`
+- Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `IMAGE_OPENAI_*` / `IMAGE_SEEDDREAM_*` / `IMAGE_ALIYUN_*` / `TTS_GEMINI_*` / `TTS_SEED_*`
 - Simple image client supports sync `generate` and async `generateAsync`
 - Image client runtime identity and dependencies such as `userId` and `tenantDb` are required client constructor arguments, not generate input and not options. Options only carry optional provider/model
 - Aliyun image provider name is `aliyun`; supported models are `qwen-image-2.0-pro` and `z-image-turbo`
@@ -349,11 +349,19 @@ export { RateLimiterDO } from './do/rate-limiter'
 - Async image queue payload only carries task id and user id
 - Async image retry uses Cloudflare Queue `message.retry({ delaySeconds })`
 - Simple TTS client supports sync `generateSpeech` and async `generateSpeechAsync`
+- Simple TTS client supports source based sync `generateSpeechFromSource` and async `generateSpeechFromSourceAsync`
 - TTS client runtime identity and dependencies such as `userId` and `tenantDb` are required client constructor arguments, not generate input and not options. Options only carry optional provider/model
 - Async TTS tasks live in Tenant Shard DB table `ai_tts_tasks`
 - Async TTS queue name is `tts-generate`, binding is `Q_TTS_GENERATE`
 - Async TTS queue payload only carries task id and user id
 - Async TTS retry uses Cloudflare Queue `message.retry({ delaySeconds })`
+- Seed Podcast uses the Seed TTS provider with model `doubao-seed-podcast`
+- Seed Podcast script input uses `generateSpeech` and maps to OpenSpeech action `3`
+- Seed Podcast source input uses `generateSpeechFromSource` and maps `inputText` or `inputUrl` to action `0`, `promptText` to action `4`
+- Seed Podcast source tasks reuse `ai_tts_tasks.source_json` and `Q_TTS_GENERATE`
+- Seed Podcast OpenSpeech fixed `X-Api-Resource-Id` is `volc.service_type.10050`; do not expose it as runtime config
+- Seed Podcast uses `TTS_SEED_API_KEY` with `X-Api-Key`; do not add old console `APP_ID` or `ACCESS_KEY` config unless runtime verification proves the endpoint rejects API Key auth
+- `durationHintSeconds` is best effort only and maps to provider length controls, not a hard duration guarantee
 - Video: `src/ai/video/seedance/`
 - Video provider is SeedDance on Volcengine Ark, provider name is `seedance`
 - Video generation is async only
@@ -475,6 +483,7 @@ Rules:
 
 ## Conventions
 
+- Convention over configuration. Don't randomly add configuration.
 - Logs must be structured JSON and should go through `src/lib/log.ts`
 - Do not log expected user-caused 4xx results such as invalid request unauthorized beta gate or rate limit
 - Do not duplicate platform-level observability for request latency cron trigger or queue retry state

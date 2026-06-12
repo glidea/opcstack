@@ -1,8 +1,8 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
-import { createAITTSTask, getAITTSTask } from './task'
+import { createAITTSSourceTask, createAITTSTask, getAITTSTask } from './task'
 import type { TenantShardDb } from '../../db'
-import type { AITTSSpeechInput } from '.'
+import type { AITTSSourceInput, AITTSSpeechInput } from '.'
 
 type InsertedRow = {
 	id: string
@@ -10,6 +10,7 @@ type InsertedRow = {
 	status: string
 	provider: string
 	model?: string
+	sourceJson?: string
 	instruction?: string
 	speakersJson: string
 	linesJson: string
@@ -125,6 +126,77 @@ describe('createAITTSTask', () => {
 	})
 })
 
+describe('createAITTSSourceTask', () => {
+	type GivenDetail = {
+		input: AITTSSourceInput
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		status: string
+		provider: string
+		queueTaskId: string
+		queueUserId: string
+		inputUrl: string
+		durationHintSeconds: number
+		uploadToR2: boolean
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'creates source processing task and sends tts queue message',
+			given: 'url source input',
+			when: 'creating tts source task',
+			then: 'stores source json and enqueues task id',
+			givenDetail: {
+				input: {
+					inputUrl: 'https://example.com/article',
+					durationHintSeconds: 300,
+					uploadToR2: true
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 'processing',
+				provider: 'seed',
+				queueTaskId: 'created',
+				queueUserId: 'u1',
+				inputUrl: 'https://example.com/article',
+				durationHintSeconds: 300,
+				uploadToR2: true
+			}
+		}
+	]
+
+	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
+		const rows: InsertedRow[] = []
+		const sendMock: ReturnType<typeof vi.fn> = vi.fn()
+		const db: TenantShardDb = createDb(rows)
+		const env: Env = {
+			Q_TTS_GENERATE: {
+				send: sendMock
+			}
+		} as unknown as Env
+
+		const task = await createAITTSSourceTask(env, db, 'seed', 'm1', 'u1', given.input)
+		const queueBody = sendMock.mock.calls[0]?.[0] as
+			| {
+					taskId?: string
+					userId?: string
+			  }
+			| undefined
+
+		return {
+			status: task.status,
+			provider: task.provider,
+			queueTaskId: queueBody?.taskId === task.id ? 'created' : '',
+			queueUserId: queueBody?.userId ?? '',
+			inputUrl: task.source?.inputUrl ?? '',
+			durationHintSeconds: task.source?.durationHintSeconds ?? 0,
+			uploadToR2: task.uploadToR2
+		}
+	})
+})
+
 describe('getAITTSTask', () => {
 	type GivenDetail = Record<string, never>
 	type WhenDetail = Record<string, never>
@@ -160,6 +232,7 @@ describe('getAITTSTask', () => {
 				status: 'completed',
 				provider: 'gemini',
 				model: 'm1',
+				sourceJson: JSON.stringify({ inputUrl: 'https://example.com/article' }),
 				instruction: 'podcast style',
 				speakersJson: JSON.stringify([{ name: 'Host', voiceName: 'Charon' }]),
 				linesJson: JSON.stringify([{ speakerName: 'Host', text: 'Hello' }]),

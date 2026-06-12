@@ -1,8 +1,15 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import type { TenantShardDb } from '../../../db'
-import type { AITTSSpeechInput } from '..'
-import { newSeedSimpleTTSClient } from './index'
+import type { AITTSSourceInput, AITTSSpeechInput } from '..'
+import {
+	decodeSeedPodcastFrame,
+	encodeSeedPodcastConnectionFrame,
+	encodeSeedPodcastSessionFrame,
+	newSeedSimpleTTSClient,
+	toSeedPodcastScriptRequest,
+	toSeedPodcastSourceRequest
+} from './index'
 
 type R2PutResult = {
 	key: string
@@ -239,6 +246,172 @@ describe('newSeedSimpleTTSClient.generateSpeech', () => {
 			}
 		} catch (error) {
 			return createErrorExpected(error instanceof Error ? error.message : String(error))
+		}
+	})
+})
+
+describe('seed podcast request mapping', () => {
+	type GivenDetail = {
+		speech?: AITTSSpeechInput
+		source?: AITTSSourceInput
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		action: number
+		inputText: string
+		inputUrl: string
+		promptText: string
+		nlpTextCount: number
+		speakerCount: number
+		durationTextLength: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'script input maps to podcast action 3',
+			given: 'two speaker script',
+			when: 'building seed podcast request',
+			then: 'uses nlp text payload',
+			givenDetail: {
+				speech: {
+					speakers: [
+						{ name: 'host', voiceName: 'zh_female_mizaitongxue_v2_saturn_bigtts' },
+						{ name: 'guest', voiceName: 'zh_male_dayixiansheng_v2_saturn_bigtts' }
+					],
+					lines: [
+						{ speakerName: 'host', text: '今天聊 D1' },
+						{ speakerName: 'guest', text: '先说结论' }
+					]
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				action: 3,
+				inputText: '',
+				inputUrl: '',
+				promptText: '',
+				nlpTextCount: 2,
+				speakerCount: 2,
+				durationTextLength: 0
+			}
+		},
+		{
+			scenario: 'url source maps to podcast action 0',
+			given: 'article url and duration hint',
+			when: 'building seed podcast request',
+			then: 'uses input url and estimated text length',
+			givenDetail: {
+				source: {
+					inputUrl: 'https://example.com/article',
+					durationHintSeconds: 300
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				action: 0,
+				inputText: '',
+				inputUrl: 'https://example.com/article',
+				promptText: '',
+				nlpTextCount: 0,
+				speakerCount: 2,
+				durationTextLength: 1200
+			}
+		},
+		{
+			scenario: 'prompt source maps to podcast action 4',
+			given: 'web summary prompt',
+			when: 'building seed podcast request',
+			then: 'uses prompt text',
+			givenDetail: {
+				source: {
+					promptText: '总结今天 AI 新闻并生成播客'
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				action: 4,
+				inputText: '',
+				inputUrl: '',
+				promptText: '总结今天 AI 新闻并生成播客',
+				nlpTextCount: 0,
+				speakerCount: 2,
+				durationTextLength: 0
+			}
+		}
+	]
+
+	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
+		const request = given.speech
+			? toSeedPodcastScriptRequest(given.speech)
+			: toSeedPodcastSourceRequest(given.source!)
+
+		return {
+			action: request.action,
+			inputText: request.input_text ?? '',
+			inputUrl: request.input_info?.input_url ?? '',
+			promptText: request.prompt_text ?? '',
+			nlpTextCount: request.nlp_texts?.length ?? 0,
+			speakerCount: request.speaker_info.speakers.length,
+			durationTextLength: request.input_info?.input_text_max_length ?? 0
+		}
+	})
+})
+
+describe('seed podcast websocket frame', () => {
+	type GivenDetail = Record<string, never>
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		sessionEvent: number
+		sessionId: string
+		sessionPayload: string
+		connectionEvent: number
+		connectionPayload: string
+		decodedEvent: number
+		decodedPayload: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'encodes and decodes websocket v3 frames',
+			given: 'start session and podcast end frame',
+			when: 'reading binary fields',
+			then: 'preserves event id session id and payload',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: {
+				sessionEvent: 100,
+				sessionId: 'session-1',
+				sessionPayload: '{"action":0}',
+				connectionEvent: 2,
+				connectionPayload: '{}',
+				decodedEvent: 363,
+				decodedPayload: '{"meta_info":{"audio_url":"https://example.com/a.mp3"}}'
+			}
+		}
+	]
+
+	runCases(cases, async (): Promise<ThenExpected> => {
+		const sessionFrame = encodeSeedPodcastSessionFrame(
+			100,
+			'session-1',
+			new TextEncoder().encode('{"action":0}')
+		)
+		const connectionFrame = encodeSeedPodcastConnectionFrame(2, new TextEncoder().encode('{}'))
+		const responseFrame = encodeSeedPodcastSessionFrame(
+			363,
+			'connection-1',
+			new TextEncoder().encode('{"meta_info":{"audio_url":"https://example.com/a.mp3"}}')
+		)
+		const decoded = decodeSeedPodcastFrame(responseFrame)
+
+		return {
+			sessionEvent: new DataView(sessionFrame.buffer).getInt32(4),
+			sessionId: new TextDecoder().decode(sessionFrame.slice(12, 21)),
+			sessionPayload: new TextDecoder().decode(sessionFrame.slice(25)),
+			connectionEvent: new DataView(connectionFrame.buffer).getInt32(4),
+			connectionPayload: new TextDecoder().decode(connectionFrame.slice(12)),
+			decodedEvent: decoded.event,
+			decodedPayload: new TextDecoder().decode(decoded.payload)
 		}
 	})
 })

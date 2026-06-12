@@ -1,0 +1,1 @@
+ALTER TABLE `ai_tts_tasks` ADD `source_json` text;

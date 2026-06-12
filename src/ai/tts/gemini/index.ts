@@ -5,6 +5,7 @@ import { createAITTSTask, getAITTSTask } from '../task'
 import type {
 	AISimpleTTSClient,
 	AISimpleTTSClientOptions,
+	AITTSSourceInput,
 	AITTSSpeechInput,
 	AITTSResult,
 	AITTSTask
@@ -68,8 +69,16 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 		return toSpeechResult(this.env, this.userId, input, result)
 	}
 
+	async generateSpeechFromSource(_input: AITTSSourceInput): Promise<AITTSResult> {
+		throw new Error('TTS_SOURCE_NOT_SUPPORTED')
+	}
+
 	async generateSpeechAsync(input: AITTSSpeechInput): Promise<AITTSTask> {
 		return createAITTSTask(this.env, this.tenantDb, 'gemini', this.model, this.userId, input)
+	}
+
+	async generateSpeechFromSourceAsync(_input: AITTSSourceInput): Promise<AITTSTask> {
+		throw new Error('TTS_SOURCE_NOT_SUPPORTED')
 	}
 
 	async getTask(id: string): Promise<AITTSTask | undefined> {

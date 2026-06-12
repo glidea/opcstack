@@ -6,6 +6,7 @@ import type {
 	AITTSProvider,
 	AITTSResult,
 	AITTSSpeaker,
+	AITTSSourceInput,
 	AITTSSpeechInput,
 	AITTSTask,
 	AITTSTaskStatus
@@ -63,6 +64,51 @@ export async function createAITTSTask(
 	}
 }
 
+export async function createAITTSSourceTask(
+	env: Env,
+	db: TenantShardDb,
+	provider: AITTSProvider,
+	model: string,
+	userId: string,
+	input: AITTSSourceInput
+): Promise<AITTSTask> {
+	const now: number = Date.now()
+	const id: string = crypto.randomUUID()
+	await db.insert(aiTtsTask).values({
+		id,
+		userId,
+		status: 'processing',
+		provider,
+		model,
+		sourceJson: JSON.stringify(input),
+		speakersJson: JSON.stringify(input.speakers ?? []),
+		linesJson: JSON.stringify([]),
+		uploadToR2: input.uploadToR2 ? 1 : 0,
+		createdAt: now,
+		updatedAt: now
+	})
+
+	await env.Q_TTS_GENERATE.send({
+		taskId: id,
+		userId
+	})
+
+	return {
+		id,
+		userId,
+		status: 'processing',
+		provider,
+		model,
+		source: input,
+		speakers: input.speakers ?? [],
+		lines: [],
+		uploadToR2: input.uploadToR2 ?? false,
+		attemptCount: 0,
+		createdAt: now,
+		updatedAt: now
+	}
+}
+
 export async function getAITTSTask(
 	db: TenantShardDb,
 	id: string
@@ -84,6 +130,7 @@ export function toAITTSTask(row: AITTSTaskRow): AITTSTask {
 		status: row.status as AITTSTaskStatus,
 		provider: row.provider as AITTSProvider,
 		model: row.model ?? undefined,
+		source: row.sourceJson ? (JSON.parse(row.sourceJson) as AITTSSourceInput) : undefined,
 		instruction: row.instruction ?? undefined,
 		speakers: JSON.parse(row.speakersJson) as AITTSSpeaker[],
 		lines: JSON.parse(row.linesJson) as AITTSLine[],

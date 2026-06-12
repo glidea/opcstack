@@ -121,6 +121,7 @@ export const aiTtsTask = sqliteTable(
 		status: text('status').notNull(),
 		provider: text('provider').notNull(),
 		model: text('model'),
+		sourceJson: text('source_json'),
 		instruction: text('instruction'),
 		speakersJson: text('speakers_json').notNull(),
 		linesJson: text('lines_json').notNull(),
