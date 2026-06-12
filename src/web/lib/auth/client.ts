@@ -1,5 +1,5 @@
 import { createAuthClient } from 'better-auth/svelte'
-import { emailOTPClient } from 'better-auth/client/plugins'
+import { emailOTPClient, genericOAuthClient } from 'better-auth/client/plugins'
 
 const AUTH_TOKEN_STORAGE_KEY = 'auth_token'
 
@@ -29,5 +29,5 @@ export const authClient = createAuthClient({
 			token: getAuthToken
 		}
 	},
-	plugins: [emailOTPClient()]
+	plugins: [emailOTPClient(), genericOAuthClient()]
 })

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import { authCore } from './index'
 import { betterAuth } from 'better-auth'
-import { bearer, captcha, emailOTP } from 'better-auth/plugins'
+import { bearer, captcha, emailOTP, genericOAuth } from 'better-auth/plugins'
 import { newEmailClients, type EmailSimpleSendInput } from '../../email'
 import type { Resend } from 'resend'
 
@@ -44,6 +44,9 @@ vi.mock('better-auth/plugins', () => {
 		}),
 		captcha: vi.fn((options) => {
 			return { id: 'captcha', options }
+		}),
+		genericOAuth: vi.fn((options) => {
+			return { id: 'generic-oauth', options }
 		})
 	}
 })
@@ -709,6 +712,312 @@ describe('authCore registration attribution', () => {
 	})
 })
 
+describe('authCore social provider config mapping', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		vi.mocked(betterAuth).mockReturnValue({} as never)
+		vi.mocked(newEmailClients).mockReturnValue({
+			simple: {
+				send: createSendMock()
+			},
+			resend: {} as Resend
+		})
+	})
+
+	type GivenDetail = {
+		googleAuthEnabled: string
+		googleClientId: string
+		googleClientSecret: string
+		githubAuthEnabled: string
+		githubClientId: string
+		githubClientSecret: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		hasGoogleProvider: boolean
+		googleClientId: string
+		googleClientSecret: string
+		hasGithubProvider: boolean
+		githubClientId: string
+		githubClientSecret: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'register github social provider when enabled',
+			given: 'github auth switch enabled',
+			when: 'building auth core',
+			then: 'github provider is configured',
+			givenDetail: {
+				googleAuthEnabled: 'false',
+				googleClientId: '',
+				googleClientSecret: '',
+				githubAuthEnabled: 'true',
+				githubClientId: 'github-client-id',
+				githubClientSecret: 'github-client-secret'
+			},
+			whenDetail: {},
+			thenExpected: {
+				hasGoogleProvider: false,
+				googleClientId: '',
+				googleClientSecret: '',
+				hasGithubProvider: true,
+				githubClientId: 'github-client-id',
+				githubClientSecret: 'github-client-secret'
+			}
+		},
+		{
+			scenario: 'skip github social provider when disabled',
+			given: 'github auth switch disabled',
+			when: 'building auth core',
+			then: 'github provider is not configured',
+			givenDetail: {
+				googleAuthEnabled: 'false',
+				googleClientId: '',
+				googleClientSecret: '',
+				githubAuthEnabled: 'false',
+				githubClientId: 'github-client-id',
+				githubClientSecret: 'github-client-secret'
+			},
+			whenDetail: {},
+			thenExpected: {
+				hasGoogleProvider: false,
+				googleClientId: '',
+				googleClientSecret: '',
+				hasGithubProvider: false,
+				githubClientId: '',
+				githubClientSecret: ''
+			}
+		},
+		{
+			scenario: 'register google and github social providers together',
+			given: 'google and github auth switches enabled',
+			when: 'building auth core',
+			then: 'both social providers are configured',
+			givenDetail: {
+				googleAuthEnabled: 'true',
+				googleClientId: 'google-client-id',
+				googleClientSecret: 'google-client-secret',
+				githubAuthEnabled: 'true',
+				githubClientId: 'github-client-id',
+				githubClientSecret: 'github-client-secret'
+			},
+			whenDetail: {},
+			thenExpected: {
+				hasGoogleProvider: true,
+				googleClientId: 'google-client-id',
+				googleClientSecret: 'google-client-secret',
+				hasGithubProvider: true,
+				githubClientId: 'github-client-id',
+				githubClientSecret: 'github-client-secret'
+			}
+		}
+	]
+
+	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
+		const env = createEnv({
+			emailEnabled: 'false',
+			emailSignupEnabled: 'false',
+			emailRequireVerification: 'true',
+			cooldownSeconds: '50',
+			emailResendApiKey: '',
+			emailFrom: ''
+		})
+		const testEnv = {
+			...env,
+			GOOGLE_AUTH_ENABLED: given.googleAuthEnabled,
+			GOOGLE_CLIENT_ID: given.googleClientId,
+			GOOGLE_CLIENT_SECRET: given.googleClientSecret,
+			GITHUB_AUTH_ENABLED: given.githubAuthEnabled,
+			GITHUB_CLIENT_ID: given.githubClientId,
+			GITHUB_CLIENT_SECRET: given.githubClientSecret
+		} as unknown as Env
+
+		authCore(testEnv, {} as never)
+		const options = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
+			socialProviders?: {
+				google?: {
+					clientId: string
+					clientSecret: string
+				}
+				github?: {
+					clientId: string
+					clientSecret: string
+				}
+			}
+		}
+
+		return {
+			hasGoogleProvider: Boolean(options.socialProviders?.google),
+			googleClientId: options.socialProviders?.google?.clientId ?? '',
+			googleClientSecret: options.socialProviders?.google?.clientSecret ?? '',
+			hasGithubProvider: Boolean(options.socialProviders?.github),
+			githubClientId: options.socialProviders?.github?.clientId ?? '',
+			githubClientSecret: options.socialProviders?.github?.clientSecret ?? ''
+		}
+	})
+})
+
+describe('authCore linuxdo oauth config mapping', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		vi.mocked(betterAuth).mockReturnValue({} as never)
+		vi.mocked(newEmailClients).mockReturnValue({
+			simple: {
+				send: createSendMock()
+			},
+			resend: {} as Resend
+		})
+	})
+
+	type GivenDetail = {
+		linuxdoAuthEnabled: string
+		linuxdoClientId: string
+		linuxdoClientSecret: string
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		hasGenericOAuthPlugin: boolean
+		providerId: string
+		clientId: string
+		clientSecret: string
+		authorizationUrl: string
+		tokenUrl: string
+		userInfoUrl: string
+		authentication: string
+		mappedId: string
+		mappedEmail: string
+		mappedEmailVerified: boolean
+		mappedName: string
+		mappedImage: string
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'skip linuxdo oauth when disabled',
+			given: 'linuxdo auth switch disabled',
+			when: 'building auth core',
+			then: 'generic oauth plugin is not registered',
+			givenDetail: {
+				linuxdoAuthEnabled: 'false',
+				linuxdoClientId: 'linuxdo-client-id',
+				linuxdoClientSecret: 'linuxdo-client-secret'
+			},
+			whenDetail: {},
+			thenExpected: {
+				hasGenericOAuthPlugin: false,
+				providerId: '',
+				clientId: '',
+				clientSecret: '',
+				authorizationUrl: '',
+				tokenUrl: '',
+				userInfoUrl: '',
+				authentication: '',
+				mappedId: '',
+				mappedEmail: '',
+				mappedEmailVerified: false,
+				mappedName: '',
+				mappedImage: ''
+			}
+		},
+		{
+			scenario: 'register linuxdo oauth when enabled',
+			given: 'linuxdo auth switch enabled',
+			when: 'building auth core',
+			then: 'generic oauth plugin maps linuxdo user to better auth user',
+			givenDetail: {
+				linuxdoAuthEnabled: 'true',
+				linuxdoClientId: 'linuxdo-client-id',
+				linuxdoClientSecret: 'linuxdo-client-secret'
+			},
+			whenDetail: {},
+			thenExpected: {
+				hasGenericOAuthPlugin: true,
+				providerId: 'linuxdo',
+				clientId: 'linuxdo-client-id',
+				clientSecret: 'linuxdo-client-secret',
+				authorizationUrl: 'https://connect.linux.do/oauth2/authorize',
+				tokenUrl: 'https://connect.linux.do/oauth2/token',
+				userInfoUrl: 'https://connect.linux.do/api/user',
+				authentication: 'basic',
+				mappedId: '123',
+				mappedEmail: 'linuxdo-123@linuxdo.local',
+				mappedEmailVerified: true,
+				mappedName: 'Linux DO User',
+				mappedImage: 'https://connect.linux.do/user_avatar/connect.linux.do/demo/96/1.png'
+			}
+		}
+	]
+
+	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
+		const env = createEnv({
+			emailEnabled: 'false',
+			emailSignupEnabled: 'false',
+			emailRequireVerification: 'true',
+			cooldownSeconds: '50',
+			emailResendApiKey: '',
+			emailFrom: ''
+		})
+		const testEnv = {
+			...env,
+			LINUXDO_AUTH_ENABLED: given.linuxdoAuthEnabled,
+			LINUXDO_CLIENT_ID: given.linuxdoClientId,
+			LINUXDO_CLIENT_SECRET: given.linuxdoClientSecret
+		} as unknown as Env
+
+		authCore(testEnv, {} as never)
+		const authOptions = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
+			plugins?: Array<{ id?: string }>
+		}
+		const genericOAuthOptions = vi.mocked(genericOAuth).mock.calls[0]?.[0] as
+			| {
+					config: Array<{
+						providerId: string
+						clientId: string
+						clientSecret: string
+						authorizationUrl: string
+						tokenUrl: string
+						userInfoUrl: string
+						authentication: string
+						mapProfileToUser: (profile: Record<string, unknown>) => {
+							id?: string
+							email?: string
+							emailVerified?: boolean
+							name?: string
+							image?: string
+						}
+					}>
+			  }
+			| undefined
+		const config = genericOAuthOptions?.config[0]
+		const mappedUser =
+			config?.mapProfileToUser({
+				id: 123,
+				username: 'demo',
+				name: 'Linux DO User',
+				avatar_template: '/user_avatar/connect.linux.do/demo/{size}/1.png'
+			}) ?? {}
+
+		return {
+			hasGenericOAuthPlugin:
+				authOptions.plugins?.some((plugin: { id?: string }) => plugin.id === 'generic-oauth') ??
+				false,
+			providerId: config?.providerId ?? '',
+			clientId: config?.clientId ?? '',
+			clientSecret: config?.clientSecret ?? '',
+			authorizationUrl: config?.authorizationUrl ?? '',
+			tokenUrl: config?.tokenUrl ?? '',
+			userInfoUrl: config?.userInfoUrl ?? '',
+			authentication: config?.authentication ?? '',
+			mappedId: mappedUser.id ?? '',
+			mappedEmail: mappedUser.email ?? '',
+			mappedEmailVerified: mappedUser.emailVerified ?? false,
+			mappedName: mappedUser.name ?? '',
+			mappedImage: mappedUser.image ?? ''
+		}
+	})
+})
+
 function readEmailVerificationSendOnSignUp(): boolean {
 	const options = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
 		emailVerification?: {
@@ -741,6 +1050,9 @@ function createEnv(input: {
 		GOOGLE_AUTH_ENABLED: 'false',
 		GOOGLE_CLIENT_ID: '',
 		GOOGLE_CLIENT_SECRET: '',
+		LINUXDO_AUTH_ENABLED: 'false',
+		LINUXDO_CLIENT_ID: '',
+		LINUXDO_CLIENT_SECRET: '',
 		EMAIL_ENABLED: input.emailEnabled,
 		EMAIL_SIGNUP_ENABLED: input.emailSignupEnabled,
 		EMAIL_REQUIRE_VERIFICATION: input.emailRequireVerification,

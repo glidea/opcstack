@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { bearer, captcha, emailOTP } from 'better-auth/plugins'
+import { bearer, captcha, emailOTP, genericOAuth } from 'better-auth/plugins'
 import type { MetaDb } from '../../db'
 import * as authSchema from '../../db/schema.auth'
 import {
@@ -20,12 +20,16 @@ export function authCore(env: Env, db: MetaDb) {
   const aff = new AffService(db)
   const emailOtpPlugin = buildEmailOtp(env)
   const captchaPlugin = buildTurnstileCaptcha(env)
+  const linuxDoOAuthPlugin: ReturnType<typeof genericOAuth> | undefined = buildLinuxDoOAuth(env)
   const plugins: AuthPlugin[] = [bearer()]
   if (emailOtpPlugin) {
     plugins.push(emailOtpPlugin)
   }
   if (captchaPlugin) {
     plugins.push(captchaPlugin)
+  }
+  if (linuxDoOAuthPlugin) {
+    plugins.push(linuxDoOAuthPlugin)
   }
 
   return betterAuth({
@@ -234,6 +238,46 @@ function buildTurnstileCaptcha(env: Env): ReturnType<typeof captcha> | undefined
   })
 }
 
+function buildLinuxDoOAuth(env: Env): ReturnType<typeof genericOAuth> | undefined {
+  if (String(env.LINUXDO_AUTH_ENABLED) !== 'true') {
+    return undefined
+  }
+
+  return genericOAuth({
+    config: [
+      {
+        providerId: 'linuxdo',
+        clientId: env.LINUXDO_CLIENT_ID,
+        clientSecret: env.LINUXDO_CLIENT_SECRET,
+        authorizationUrl: 'https://connect.linux.do/oauth2/authorize',
+        tokenUrl: 'https://connect.linux.do/oauth2/token',
+        userInfoUrl: 'https://connect.linux.do/api/user',
+        authentication: 'basic',
+        mapProfileToUser: mapLinuxDoProfileToUser
+      }
+    ]
+  })
+}
+
+function mapLinuxDoProfileToUser(profile: Record<string, unknown>): LinuxDoMappedUser {
+  const id: string = String(profile['id'])
+  const avatarTemplate: string | undefined = profile['avatar_template'] as string | undefined
+  return {
+    id,
+    email: `linuxdo-${id}@linuxdo.local`,
+    emailVerified: true,
+    name: String(profile['name'] ?? profile['username']),
+    image: buildLinuxDoAvatarUrl(avatarTemplate)
+  }
+}
+
+function buildLinuxDoAvatarUrl(avatarTemplate: string | undefined): string | undefined {
+  if (!avatarTemplate) {
+    return undefined
+  }
+  return `https://connect.linux.do${avatarTemplate.replace('{size}', '96')}`
+}
+
 function buildEmailClient(env: Env): EmailClients['simple'] | undefined {
   if (env.EMAIL_ENABLED !== 'true') {
     return undefined
@@ -242,16 +286,23 @@ function buildEmailClient(env: Env): EmailClients['simple'] | undefined {
 }
 
 function buildSocialProviders(env: Env): AuthSocialProvidersConfig {
-  if (String(env.GOOGLE_AUTH_ENABLED) !== 'true') {
-    return undefined
-  }
-
-  return {
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET
-    }
-  }
+	const providers: Exclude<AuthSocialProvidersConfig, undefined> = {}
+	if (String(env.GOOGLE_AUTH_ENABLED) === 'true') {
+		providers.google = {
+			clientId: env.GOOGLE_CLIENT_ID,
+			clientSecret: env.GOOGLE_CLIENT_SECRET
+		}
+	}
+	if (String(env.GITHUB_AUTH_ENABLED) === 'true') {
+		providers.github = {
+			clientId: env.GITHUB_CLIENT_ID,
+			clientSecret: env.GITHUB_CLIENT_SECRET
+		}
+	}
+	if (!providers.google && !providers.github) {
+		return undefined
+	}
+	return providers
 }
 
 function buildOtpEmailSubject(type: EmailOtpInput['type']): string {
@@ -330,15 +381,28 @@ type AuthPasswordVerifyInput = {
 }
 
 type AuthSocialProvidersConfig =
-  | {
-    google: {
-      clientId: string
-      clientSecret: string
-    }
-  }
-  | undefined
+	| {
+			google?: {
+				clientId: string
+				clientSecret: string
+			}
+			github?: {
+				clientId: string
+				clientSecret: string
+			}
+	  }
+	| undefined
 
 type AuthPlugin =
   | ReturnType<typeof bearer>
   | ReturnType<typeof emailOTP>
   | ReturnType<typeof captcha>
+  | ReturnType<typeof genericOAuth>
+
+type LinuxDoMappedUser = {
+  id: string
+  email: string
+  emailVerified: boolean
+  name: string
+  image: string | undefined
+}

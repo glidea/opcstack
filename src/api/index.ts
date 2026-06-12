@@ -36,6 +36,7 @@ import {
 	listPaymentTransactionsHandler,
 	upgradeSubscriptionHandler
 } from './handler/payment'
+import { aiRealtimeConnectHandler } from './handler/ai-realtime'
 import {
 	createR2TmpUploadUrlHandler,
 	createR2UploadUrlHandler,
@@ -76,6 +77,8 @@ publicApi.post('/get_public_config', (ctx): Response => {
 		turnstile_enabled: String(env.TURNSTILE_ENABLED) === 'true',
 		turnstile_site_key: env.TURNSTILE_SITE_KEY,
 		google_auth_enabled: String(env.GOOGLE_AUTH_ENABLED) === 'true',
+		github_auth_enabled: String(env.GITHUB_AUTH_ENABLED) === 'true',
+		linuxdo_auth_enabled: String(env.LINUXDO_AUTH_ENABLED) === 'true',
 		email_enabled: String(env.EMAIL_ENABLED) === 'true',
 		email_signup_enabled: String(env.EMAIL_SIGNUP_ENABLED) === 'true',
 		email_require_verification: String(env.EMAIL_REQUIRE_VERIFICATION) === 'true',
@@ -108,6 +111,7 @@ adminApi.post('/admin/grant_credits', grantCreditsHandler)
 adminApi.post('/admin/list_feedbacks', listFeedbacksHandler)
 adminApi.post('/admin/create_notification', createNotificationHandler)
 adminApi.post('/admin/list_payment_transactions', listAdminPaymentTransactionsHandler)
+adminApi.get('/admin/ai_realtime_connect', aiRealtimeConnectHandler)
 
 const userApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 userApi.use('*', authMiddleware, betaGateMiddleware, tenantDbMiddleware)

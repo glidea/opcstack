@@ -26,6 +26,8 @@
 		registerHref={`/${data.locale}/register`}
 		forgotPasswordHref={`/${data.locale}/forgot-password`}
 		googleAuthEnabled={data.publicConfig.google_auth_enabled}
+		githubAuthEnabled={data.publicConfig.github_auth_enabled}
+		linuxdoAuthEnabled={data.publicConfig.linuxdo_auth_enabled}
 		emailEnabled={data.publicConfig.email_enabled}
 		emailSignupEnabled={data.publicConfig.email_signup_enabled}
 		refundHref={data.publicConfig.payment_enabled ? '/refund-policy' : undefined}

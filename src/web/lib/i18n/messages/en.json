@@ -1,5 +1,7 @@
 {
 	"auth.continueWithGoogle": "Continue with Google",
+	"auth.continueWithGitHub": "Continue with GitHub",
+	"auth.continueWithLinuxDO": "Continue with LinuxDO",
 	"auth.or": "or",
 	"auth.login.title": "Sign in",
 	"auth.login.subtitle": "Welcome back",

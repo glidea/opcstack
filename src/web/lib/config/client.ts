@@ -4,6 +4,8 @@ export type PublicConfig = {
 	turnstile_enabled: boolean
 	turnstile_site_key: string
 	google_auth_enabled: boolean
+	github_auth_enabled: boolean
+	linuxdo_auth_enabled: boolean
 	email_enabled: boolean
 	email_signup_enabled: boolean
 	email_require_verification: boolean

@@ -5,6 +5,7 @@
 
 	import ThemeSwitcher from "$web/components/ThemeSwitcher.svelte";
 	import LocaleSwitcher from "$web/components/LocaleSwitcher.svelte";
+	import GitHubIcon from "$web/components/GitHubIcon.svelte";
 	import GoogleIcon from "$web/components/GoogleIcon.svelte";
 	import OtpInput from "$web/components/OtpInput.svelte";
 	import OtpCard from "$web/components/OtpCard.svelte";
@@ -45,6 +46,10 @@
 		<GoogleIcon />
 	</Block>
 
+	<Block title="GitHubIcon" span={1}>
+		<GitHubIcon />
+	</Block>
+
 	<Block title="UserMenu" description="Only renders when session is active. Sign in to see it." span={1}>
 		<span class="text-caption text-muted-foreground">Requires active session — visible in the header after login.</span>
 	</Block>
@@ -63,6 +68,8 @@
 			<div class="text-[13px] font-semibold tracking-[-0.13px] text-foreground mb-2">LoginCard</div>
 			<LoginCard
 				googleAuthEnabled={true}
+				githubAuthEnabled={true}
+				linuxdoAuthEnabled={true}
 				emailEnabled={true}
 				emailSignupEnabled={true}
 				registerHref="#"
@@ -76,6 +83,8 @@
 			<div class="text-[13px] font-semibold tracking-[-0.13px] text-foreground mb-2">RegisterCard</div>
 			<RegisterCard
 				googleAuthEnabled={true}
+				githubAuthEnabled={true}
+				linuxdoAuthEnabled={true}
 				emailEnabled={true}
 				emailSignupEnabled={true}
 				emailRequireVerification={true}

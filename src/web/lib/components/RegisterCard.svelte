@@ -6,6 +6,7 @@
 	import { Field, FieldLabel } from '$web/ui/field'
 	import { Input } from '$web/ui/input'
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
+	import GitHubIcon from './GitHubIcon.svelte'
 	import GoogleIcon from './GoogleIcon.svelte'
 	import LegalDisclosure from './LegalDisclosure.svelte'
 	import Turnstile from './Turnstile.svelte'
@@ -14,6 +15,8 @@
 		onSuccess,
 		loginHref = '/login',
 		googleAuthEnabled,
+		githubAuthEnabled,
+		linuxdoAuthEnabled,
 		emailEnabled,
 		emailSignupEnabled,
 		emailRequireVerification,
@@ -28,6 +31,8 @@
 		onSuccess?: (email: string) => void
 		loginHref?: string
 		googleAuthEnabled: boolean
+		githubAuthEnabled: boolean
+		linuxdoAuthEnabled: boolean
 		emailEnabled: boolean
 		emailSignupEnabled: boolean
 		emailRequireVerification: boolean
@@ -85,6 +90,14 @@
 		await authClient.signIn.social({ provider: 'google' })
 	}
 
+	async function handleGithubSignup(): Promise<void> {
+		await authClient.signIn.social({ provider: 'github' })
+	}
+
+	async function handleLinuxDoSignup(): Promise<void> {
+		await authClient.signIn.oauth2({ providerId: 'linuxdo' })
+	}
+
 	type AuthClientError = {
 		code?: string
 		message?: string
@@ -136,7 +149,20 @@
 		</Button>
 	{/if}
 
-	{#if googleAuthEnabled && emailEnabled && emailSignupEnabled}
+	{#if githubAuthEnabled}
+		<Button variant="secondary" class="w-full" onclick={handleGithubSignup}>
+			<GitHubIcon />
+			{$_('auth.continueWithGitHub')}
+		</Button>
+	{/if}
+
+	{#if linuxdoAuthEnabled}
+		<Button variant="secondary" class="w-full" onclick={handleLinuxDoSignup}>
+			{$_('auth.continueWithLinuxDO')}
+		</Button>
+	{/if}
+
+	{#if (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled) && emailEnabled && emailSignupEnabled}
 		<div class="flex items-center gap-3">
 			<div class="h-px flex-1 bg-border"></div>
 			<span class="text-sm text-muted-foreground">{$_('auth.or')}</span>
@@ -174,7 +200,7 @@
 		</form>
 	{/if}
 
-	{#if showLegal && (googleAuthEnabled || (emailEnabled && emailSignupEnabled))}
+	{#if showLegal && (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || (emailEnabled && emailSignupEnabled))}
 		<LegalDisclosure intent="register" {termsHref} {privacyHref} {refundHref} />
 	{/if}
 

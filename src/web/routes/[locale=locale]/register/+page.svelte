@@ -43,6 +43,8 @@
 			onSuccess={handleRegisterSuccess}
 			loginHref={`/${data.locale}/login`}
 			googleAuthEnabled={data.publicConfig.google_auth_enabled}
+			githubAuthEnabled={data.publicConfig.github_auth_enabled}
+			linuxdoAuthEnabled={data.publicConfig.linuxdo_auth_enabled}
 			emailEnabled={data.publicConfig.email_enabled}
 			emailSignupEnabled={data.publicConfig.email_signup_enabled}
 			emailRequireVerification={data.publicConfig.email_require_verification}

@@ -4,6 +4,8 @@ import { runCases, type TestCase } from '../src/testing/bdd'
 interface PublicConfigResponse {
 	beta_code_enabled: boolean
 	google_auth_enabled: boolean
+	github_auth_enabled: boolean
+	linuxdo_auth_enabled: boolean
 	email_enabled: boolean
 	email_signup_enabled: boolean
 	email_require_verification: boolean
@@ -32,6 +34,8 @@ type E2EEnv = {
 	E2E_ADMIN_API_TOKEN?: string
 	E2E_BETA_CODE_ENABLED?: string
 	E2E_GOOGLE_AUTH_ENABLED?: string
+	E2E_GITHUB_AUTH_ENABLED?: string
+	E2E_LINUXDO_AUTH_ENABLED?: string
 	E2E_EMAIL_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
@@ -44,6 +48,8 @@ const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
 const expectedBetaEnabled: boolean = e2eEnv.E2E_BETA_CODE_ENABLED === 'true'
 const expectedGoogleEnabled: boolean = e2eEnv.E2E_GOOGLE_AUTH_ENABLED === 'true'
+const expectedGithubEnabled: boolean = e2eEnv.E2E_GITHUB_AUTH_ENABLED === 'true'
+const expectedLinuxDoEnabled: boolean = e2eEnv.E2E_LINUXDO_AUTH_ENABLED === 'true'
 const expectedEmailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const expectedEmailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const expectedEmailRequireVerification: boolean =
@@ -69,6 +75,8 @@ describe('beta code api e2e', () => {
 		code: string
 		betaEnabled: boolean
 		googleEnabled: boolean
+		githubEnabled: boolean
+		linuxdoEnabled: boolean
 		emailEnabled: boolean
 		emailSignupEnabled: boolean
 		emailRequireVerification: boolean
@@ -90,6 +98,8 @@ describe('beta code api e2e', () => {
 				code: '',
 				betaEnabled: expectedBetaEnabled,
 				googleEnabled: expectedGoogleEnabled,
+				githubEnabled: expectedGithubEnabled,
+				linuxdoEnabled: expectedLinuxDoEnabled,
 				emailEnabled: expectedEmailEnabled,
 				emailSignupEnabled: expectedEmailSignupEnabled,
 				emailRequireVerification: expectedEmailRequireVerification,
@@ -110,6 +120,8 @@ describe('beta code api e2e', () => {
 				code: 'UNAUTHORIZED',
 				betaEnabled: false,
 				googleEnabled: false,
+				githubEnabled: false,
+				linuxdoEnabled: false,
 				emailEnabled: false,
 				emailSignupEnabled: false,
 				emailRequireVerification: false,
@@ -127,6 +139,8 @@ describe('beta code api e2e', () => {
 				code: '',
 				betaEnabled: payload.beta_code_enabled,
 				googleEnabled: payload.google_auth_enabled,
+				githubEnabled: payload.github_auth_enabled,
+				linuxdoEnabled: payload.linuxdo_auth_enabled,
 				emailEnabled: payload.email_enabled,
 				emailSignupEnabled: payload.email_signup_enabled,
 				emailRequireVerification: payload.email_require_verification,
@@ -141,6 +155,8 @@ describe('beta code api e2e', () => {
 			code: payload.code,
 			betaEnabled: false,
 			googleEnabled: false,
+			githubEnabled: false,
+			linuxdoEnabled: false,
 			emailEnabled: false,
 			emailSignupEnabled: false,
 			emailRequireVerification: false,

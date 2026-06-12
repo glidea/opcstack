@@ -6,6 +6,7 @@
 	import { Field, FieldLabel } from '$web/ui/field'
 	import { Input } from '$web/ui/input'
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert'
+	import GitHubIcon from './GitHubIcon.svelte'
 	import GoogleIcon from './GoogleIcon.svelte'
 	import LegalDisclosure from './LegalDisclosure.svelte'
 	import Turnstile from './Turnstile.svelte'
@@ -19,6 +20,8 @@
 		registerHref = '/register',
 		forgotPasswordHref = '/forgot-password',
 		googleAuthEnabled,
+		githubAuthEnabled,
+		linuxdoAuthEnabled,
 		emailEnabled,
 		emailSignupEnabled,
 		termsHref = '/terms',
@@ -32,6 +35,8 @@
 		registerHref?: string
 		forgotPasswordHref?: string
 		googleAuthEnabled: boolean
+		githubAuthEnabled: boolean
+		linuxdoAuthEnabled: boolean
 		emailEnabled: boolean
 		emailSignupEnabled: boolean
 		termsHref?: string
@@ -77,6 +82,14 @@
 		await authClient.signIn.social({ provider: 'google' })
 	}
 
+	async function handleGithubLogin(): Promise<void> {
+		await authClient.signIn.social({ provider: 'github' })
+	}
+
+	async function handleLinuxDoLogin(): Promise<void> {
+		await authClient.signIn.oauth2({ providerId: 'linuxdo' })
+	}
+
 	type AuthClientError = {
 		code?: string
 		message?: string
@@ -119,7 +132,20 @@
 		</Button>
 	{/if}
 
-	{#if googleAuthEnabled && emailEnabled}
+	{#if githubAuthEnabled}
+		<Button variant="secondary" class="w-full" onclick={handleGithubLogin}>
+			<GitHubIcon />
+			{$_('auth.continueWithGitHub')}
+		</Button>
+	{/if}
+
+	{#if linuxdoAuthEnabled}
+		<Button variant="secondary" class="w-full" onclick={handleLinuxDoLogin}>
+			{$_('auth.continueWithLinuxDO')}
+		</Button>
+	{/if}
+
+	{#if (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled) && emailEnabled}
 		<div class="flex items-center gap-3">
 			<div class="h-px flex-1 bg-border"></div>
 			<span class="text-sm text-muted-foreground">{$_('auth.or')}</span>
@@ -157,14 +183,14 @@
 		</form>
 	{/if}
 
-	{#if emailEnabled || googleAuthEnabled}
+	{#if emailEnabled || googleAuthEnabled || githubAuthEnabled}
 		<div class="flex items-center justify-between text-sm">
 			{#if emailEnabled}
 				<a href={forgotPasswordHref} class="text-muted-foreground hover:text-foreground">
 					{$_('auth.login.forgotPassword')}
 				</a>
 			{/if}
-			{#if googleAuthEnabled || (emailEnabled && emailSignupEnabled)}
+			{#if googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || (emailEnabled && emailSignupEnabled)}
 				<a href={registerHref} class="text-primary hover:text-primary/80">
 					{$_('auth.login.createAccount')}
 				</a>
@@ -172,7 +198,7 @@
 		</div>
 	{/if}
 
-	{#if showLegal && (googleAuthEnabled || emailEnabled)}
+	{#if showLegal && (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || emailEnabled)}
 		<LegalDisclosure intent="continue" {termsHref} {privacyHref} {refundHref} />
 	{/if}
 </div>

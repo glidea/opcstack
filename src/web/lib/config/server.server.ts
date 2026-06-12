@@ -25,6 +25,8 @@ export function getServerPublicConfig(): PublicConfig {
 		turnstile_enabled: String(serverConfig.TURNSTILE_ENABLED) === 'true',
 		turnstile_site_key: serverConfig.TURNSTILE_SITE_KEY,
 		google_auth_enabled: String(serverConfig.GOOGLE_AUTH_ENABLED) === 'true',
+		github_auth_enabled: String(serverConfig.GITHUB_AUTH_ENABLED) === 'true',
+		linuxdo_auth_enabled: String(serverConfig.LINUXDO_AUTH_ENABLED) === 'true',
 		email_enabled: String(serverConfig.EMAIL_ENABLED) === 'true',
 		email_signup_enabled: String(serverConfig.EMAIL_SIGNUP_ENABLED) === 'true',
 		email_require_verification: String(serverConfig.EMAIL_REQUIRE_VERIFICATION) === 'true',
