@@ -10,7 +10,7 @@ import type {
 	AITTSResult,
 	AITTSTask
 } from '..'
-import { SEED_TTS_MODEL_DOUBAO_SEED_PODCAST } from '..'
+import { SEED_TTS_MODEL_DOUBAO_SEED_PODCAST } from './constants'
 
 type R2Env = Env & { R2: R2Bucket }
 

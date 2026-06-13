@@ -338,6 +338,7 @@ export { RateLimiterDO } from './do/rate-limiter'
 - Chat: `src/ai/chat/openai/`
 - Image: `src/ai/image/gemini/` `src/ai/image/openai/` `src/ai/image/seedream/` `src/ai/image/aliyun/`
 - TTS: `src/ai/tts/gemini/` `src/ai/tts/seed/`
+- AI provider model and speaker constants live in each provider `constants.ts` and are re-exported from the capability index such as `src/ai/tts/index.ts`
 - Config: `CHAT_OPENAI_*` / `IMAGE_GEMINI_*` / `IMAGE_OPENAI_*` / `IMAGE_SEEDDREAM_*` / `IMAGE_ALIYUN_*` / `TTS_GEMINI_*` / `TTS_SEED_*` / `REALTIME_DOUBAO_*` / `VIDEO_SEEDDANCE_*`
 - Every AI provider config must include primary `BASE_URL` and `API_KEY`, fallback `FALLBACK_BASE_URL` and `FALLBACK_API_KEY`, and one primary `MODEL` only when the provider has a runtime default model. Do not add `FALLBACK_MODEL`
 - AI fallback means retrying the same request with the same model against fallback base url and api key after the primary provider request fails. Empty fallback base url and api key disables fallback
@@ -364,6 +365,15 @@ export { RateLimiterDO } from './do/rate-limiter'
 - Seed Podcast OpenSpeech fixed `X-Api-Resource-Id` is `volc.service_type.10050`; do not expose it as runtime config
 - Seed Podcast uses `TTS_SEED_API_KEY` with `X-Api-Key`; do not add old console `APP_ID` or `ACCESS_KEY` config unless runtime verification proves the endpoint rejects API Key auth
 - `durationHintSeconds` is best effort only and maps to provider length controls, not a hard duration guarantee
+- Realtime voice: `src/ai/realtime/doubao/` uses Doubao on Volcengine OpenSpeech WebSocket V3
+- Realtime voice exposes `newAIRealtimeClient(env, userId, options)`
+- External realtime WebSocket APIs must call `AIRealtimeClient` and must not call provider clients directly
+- Realtime voice config uses `REALTIME_DOUBAO_BASE_URL` `REALTIME_DOUBAO_API_KEY` fallback config and `REALTIME_DOUBAO_MODEL`
+- Realtime voice uses direct WebSocket protocol implementation. Official Doubao docs provide Android/iOS SDKs and server-side demos, but no server-side Node.js SDK for this RealtimeAPI
+- Realtime voice model is a client option with `REALTIME_DOUBAO_MODEL` as default; speaker is a session input
+- Realtime voice supported models are `doubao-realtime-o2` and `doubao-realtime-sc2`
+- Realtime voice speaker values are exported as constants and union types, following TTS speaker enum style
+- Realtime voice does not persist audio or transcript by default
 - Video: `src/ai/video/seedance/`
 - Video provider is SeedDance on Volcengine Ark, provider name is `seedance`
 - Video generation is async only
