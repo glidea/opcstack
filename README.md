@@ -2,7 +2,7 @@
 
 > Cloudflare 全家桶脚手架 - 零成本跑通 SaaS 业务
 
-一键启动，自动配置，完整集成 Workers + D1 分片 + R2 + KV + Queues + Cron
+一键启动，自动配置，完整集成 Workers + D1 分片 + R2 + KV + Queues + Cron + Durable Objects
 
 ---
 
@@ -16,10 +16,10 @@ Reddit 上有个 CTO 吐槽：同样的前端应用，Vercel 账单从 $100 涨�
 
 **Cloudflare 免费额度**：
 - Workers：每天 10 万请求
-- D1：每天 10 万次读取 + 5 万次写入
-- R2：每月 10GB 存储
-- KV：每天 10 万次读取
-- Queues：每月 100 万次操作
+- D1：每天 500 万 rows read + 10 万 rows written，账号总存储 5GB
+- R2：每月 10GB 存储，100 万 Class A 操作，1000 万 Class B 操作
+- KV：每天 10 万次读取，1000 次写入，1000 次删除，1000 次 list，1GB 存储
+- Queues：每天 1 万次标准操作
 - Cron：不限次数
 
 小项目零成本跑通，大项目成本是 Vercel 的 1/10
@@ -42,7 +42,8 @@ Reddit 上有个 CTO 吐槽：同样的前端应用，Vercel 账单从 $100 涨�
 **一键启动，自动配置**
 ```bash
 pnpm install
-cp .env.example .env.dev
+vim .env.dev
+vim .env.secret.dev
 pnpm dev  # 自动创建数据库、生成配置、执行 migration
 ```
 
@@ -53,16 +54,17 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 - ✅ KV（键值存储）
 - ✅ Queues（消息队列）
 - ✅ Cron（定时任务）
+- ✅ Durable Objects（串行协调 + WebSocket + 小状态）
 - ✅ Email Sending（邮件发送）
 - ✅ Turnstile（人机验证 + 自动创建 widget）
 
 **开箱即用的核心功能**
-- ✅ 认证系统（邮箱 + Google + 内测码 + Turnstile）
+- ✅ 认证系统（邮箱 + Google + GitHub + LinuxDO + 内测码 + Turnstile）
 - ✅ 积分系统（注册赠送 + 签到 + 邀请 + 兑换码 + 过期）
 - ✅ 支付系统（Dodo + Creem，支持一次性积分包和订阅）
 - ✅ 用户反馈收集
 - ✅ 系统公告通知
-- ✅ AI 能力（Chat + Image + TTS）
+- ✅ AI 能力（Chat + Image + TTS + Realtime Voice + Video）
 - ✅ 文档系统（Git-based CMS）
 - ✅ 国际化（中英文）
 - ✅ SEO 基础能力（canonical、hreflang、sitemap、robots、Open Graph、Twitter Card、JSON-LD）
@@ -71,6 +73,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 **约定大于配置**
 - 运行 `pnpm dev`，自动生成 wrangler.jsonc
 - 自动创建 Meta D1、Tenant Shard D1、R2、KV、Queues
+- 根据 `DO_NAMES` 自动生成 Durable Object binding 和 migration
 - 开启 `TURNSTILE_ENABLED=true` 后，本地自动使用 Cloudflare 测试 key，远程部署自动创建或复用名为 `APP_NAME` 的 Turnstile widget
 - 首次远程部署会提示创建 Cloudflare API Token，粘贴一次后缓存到 `.wrangler/cloudflare-api-token`
 - 自动执行 migration
@@ -87,7 +90,7 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 
 **前端**
 - 极致简单轻量的 SvelteKit + Tailwind CSS + shadcn UI
-- 多风格设计系统（Token-based，deploy-time 切换，内置 Apple-SaaS / Neo Brutalism 两套风格，见 [AGENTS.md](./AGENTS.md)）
+- 多风格设计系统（Token-based，deploy-time 切换，内置 `apple-saas` / `brutalism` 两套风格，见 [AGENTS.md](./AGENTS.md)）
 - 支持 SSR 和 SSG
 - 国际化（i18n）
 
@@ -96,13 +99,16 @@ pnpm dev  # 自动创建数据库、生成配置、执行 migration
 - Cloudflare KV（键值存储）
 - Cloudflare Queues（消息队列）
 - Cloudflare Cron（定时任务）
+- Cloudflare Durable Objects（串行协调、WebSocket、小状态）
 - Cloudflare Turnstile（登录、注册、密码重置人机验证）
 - Resend / Cloudflare Email Sending（邮件发送）
 
 **AI 能力**
 - OpenAI SDK（Chat）
-- OpenAI SDK（Image）
-- Google GenAI SDK（Image + TTS）
+- OpenAI / Gemini / SeedDream / Aliyun（Image）
+- Gemini / Seed（TTS）
+- Doubao Realtime（Realtime Voice）
+- SeedDance（Video）
 
 **业务能力**
 - 积分系统（余额、明细、注册赠送、每日签到、邀请奖励、兑换码、后台补发、过期清理）
@@ -136,10 +142,12 @@ claude
 # BOOTSTRAP.md 是引导流程，让 agent 自动引导你完成项目基础搭建
 
 # 2. 手动
-cp .env.example .env.dev
-vim .env.dev # 配置
+vim .env.dev # 公开配置
+vim .env.secret.dev # 密钥配置
 pnpm dev
 ```
+
+仓库提供 `.env.dev` 和 `.env.prod` 作为公开配置入口。密钥放在 `.env.secret.dev` 或 `.env.secret.prod`，由 `pre-build.mjs` 读取并写入 `.wrangler/runtime-secrets.env`，不要提交密钥文件。
 
 ### 3. Turnstile 配置
 
@@ -149,7 +157,7 @@ Turnstile 只需要一个开关：
 TURNSTILE_ENABLED=true
 ```
 
-本地 `pnpm dev` 使用 Cloudflare 官方测试 key，不需要手动创建 widget。远程 `pnpm deploycf` 会用 `APP_NAME` 自动创建或复用 Turnstile widget，并把 `sitekey` 和 `secret` 写入生成的 `wrangler.jsonc`。
+本地 `pnpm dev` 使用 Cloudflare 官方测试 key，不需要手动创建 widget。远程 `pnpm deploycf` 会用 `APP_NAME` 自动创建或复用 Turnstile widget，并把 `sitekey` 写入生成的 `wrangler.jsonc`，把 `secret` 作为 Cloudflare Secret 随部署同步。
 
 首次远程部署如果没有 token，命令行会输出 Cloudflare API Token 创建链接。浏览器里确认创建后，把 token 粘贴回命令行即可继续部署。token 会保存到 `.wrangler/cloudflare-api-token`，该目录默认不会提交到 Git。脚本会按所需 Cloudflare 权限范围生成本地指纹，后续权限范围变化时会自动要求重新粘贴 token 并覆盖旧缓存。
 
@@ -162,8 +170,13 @@ TURNSTILE_ENABLED=true
 ```env
 EMAIL_ENABLED=true
 EMAIL_PROVIDER=resend
-EMAIL_RESEND_API_KEY=re_xxx
 EMAIL_FROM=noreply@example.com
+```
+
+`EMAIL_RESEND_API_KEY` 放到 `.env.secret.dev` 或 `.env.secret.prod`：
+
+```env
+EMAIL_RESEND_API_KEY=re_xxx
 ```
 
 使用 Cloudflare Email Sending：
@@ -215,11 +228,47 @@ GET /api/r2/private/u1/images/a.png?variant=medium
 
 只支持 `small` 和 `medium`，不开放动态尺寸。内部回源使用 HMAC，需要配置：
 
+`R2_ORIGIN_SIGNING_SECRET` 放到 `.env.secret.dev` 或 `.env.secret.prod`。
+
+### 7. 队列和异步任务
+
+默认队列配置在 `.env.dev`：
+
 ```env
-R2_ORIGIN_SIGNING_SECRET=change-me-r2-origin-signing-secret
+QUEUE_NAMES=image-generate;tts-generate;video-generate
 ```
 
-### 7. 测试
+- `image-generate`：异步图片生成
+- `tts-generate`：异步 TTS
+- `video-generate`：异步视频生成
+
+新增队列时，修改 `QUEUE_NAMES`，然后在 `src/consumers/index.ts` 注册 handler。队列 binding 命名规则是 `Q_<QUEUE_NAME_UPPER>`，例如 `video-generate` 对应 `Q_VIDEO_GENERATE`。
+
+### 8. Durable Objects
+
+Durable Objects 通过 `DO_NAMES` 配置：
+
+```env
+DO_NAMES=rate-limiter;workflow-lock
+```
+
+`pnpm dev` 或 `pnpm deploycf` 会自动生成 binding 和 migration。新增 DO 时，需要创建 `src/do/` 下的 class，并从 `src/index.ts` 导出。
+
+### 9. AI 配置
+
+AI 能力按 capability 拆分配置：
+
+```text
+CHAT_OPENAI_*
+IMAGE_GEMINI_* / IMAGE_OPENAI_* / IMAGE_SEEDDREAM_* / IMAGE_ALIYUN_*
+TTS_GEMINI_* / TTS_SEED_*
+REALTIME_DOUBAO_*
+VIDEO_SEEDDANCE_*
+```
+
+所有 provider 都支持 primary base url / api key 和 fallback base url / api key。fallback 只换 endpoint 和 key，不换 model。
+
+### 10. 测试
 
 ```bash
 pnpm test
@@ -227,9 +276,11 @@ pnpm test:e2e
 pnpm test:e2e:remote
 ```
 
+`pnpm test` 会先跑 TypeScript、Svelte check，再跑 Vitest。
+
 远端 E2E 只验证已经部署好的环境，不会创建 D1、R2、KV、Queue，不会修改 shard 数，也不会执行 migration。
 
-### 8. 后续同步模板更新
+### 11. 后续同步模板更新
 
 ```bash
 # 1. 推荐：Agent 自动更新，解决冲突，任意 Agent 对话中：
@@ -244,11 +295,9 @@ git rebase upstream/main
 
 ## 路线图
 
-- [ ] 落地页
 - [ ] 管理后台
 - [ ] Agent 框架
 - [ ] 指标监控告警
-- [ ] AFF 完整
 - [ ] 用户私信通知
-- [ ] 更多 AI 能力集成
-- [ ] 更多 AI 支付渠道
+- [ ] 更多 AI provider
+- [ ] 更多支付渠道
