@@ -1,127 +1,103 @@
 # OPC Stack
 
-> Cloudflare 全家桶脚手架 - 零成本跑通 SaaS 业务
+> Cloudflare 全家桶 SaaS 脚手架
 
-一键启动，自动配置，完整集成 Workers + D1 分片 + R2 + KV + Queues + Cron + Durable Objects
+OPC Stack 帮你用一套模板跑通 SaaS 的基础设施、认证、支付、积分、AI 能力、文档系统和测试框架
+
+目标很直接：让小产品先用 Cloudflare 免费额度跑起来，等业务验证后再按真实流量扩展
 
 ---
 
-## 为什么做这个模板？
+## 为什么做这个模板
 
 ### Vercel 太贵了
 
-Reddit 上有个 CTO 吐槽：同样的前端应用，Vercel 账单从 $100 涨到 $800
+很多小产品不是死在代码上，而是死在还没验证价值之前就开始付平台账单
 
-迁到 Cloudflare Workers 之后，同样的流量，账单不到 $20
+同样的前端应用，在 Vercel 上账单从 $100 涨到 $800 并不罕见。迁到 Cloudflare Workers 后，同样量级的流量可能只需要几十美元，甚至早期阶段可以直接落在免费额度内
 
-**Cloudflare 免费额度**：
-- Workers：每天 10 万请求
-- D1：每天 500 万 rows read + 10 万 rows written，账号总存储 5GB
-- R2：每月 10GB 存储，100 万 Class A 操作，1000 万 Class B 操作
-- KV：每天 10 万次读取，1000 次写入，1000 次删除，1000 次 list，1GB 存储
-- Queues：每天 1 万次标准操作
-- Cron：不限次数
+**Cloudflare 免费额度很适合早期 SaaS**
 
-小项目零成本跑通，大项目成本是 Vercel 的 1/10
+| 产品 | 免费额度 |
+| --- | --- |
+| Workers | 每天 100,000 请求 |
+| D1 | 每天 5,000,000 rows read + 100,000 rows written，账号总存储 5GB |
+| R2 | 每月 10GB 存储，1,000,000 Class A 操作，10,000,000 Class B 操作 |
+| KV | 每天 100,000 次读取，1,000 次写入，1,000 次删除，1,000 次 list，1GB 存储 |
+| Queues | 每天 10,000 次标准操作 |
+
+小项目可以零成本启动，大项目也能把成本控制在更可预测的范围
 
 ### 但 Cloudflare 太难用了
 
-- 手写 wrangler.jsonc 配置
-- 手动创建 D1 数据库
-- 手动创建 R2 bucket、KV namespace、Queues
-- 手动处理 migration
+Cloudflare 的问题不是能力不够，而是从零搭起来太碎
+
+- 手写 `wrangler.jsonc`
+- 手动创建 D1、R2、KV、Queues
 - 手动配置 binding
+- 手动处理 migration
+- 手动配置 Turnstile、邮件、Cron、Durable Objects
+- 手动维护本地和生产环境差异
 
-**其他 Cloudflare 模板的问题**：
-- 声称支持 Cloudflare，实际上只接入了 Worker + D1
-- R2、KV、Queues、Cron 要自己配
-- 没有自动化流程
+很多模板说自己支持 Cloudflare，实际上只接了 Workers + D1。真正做 SaaS 时，你还是要自己补齐对象存储、队列、定时任务、认证、支付、积分、AI 异步任务和部署自动化
 
-### OPC Stack 解决了什么？
+### OPC Stack 解决什么
 
-**一键启动，自动配置**
+OPC Stack 把 Cloudflare 的平台能力收束成一个可直接开发产品的模板
+
 ```bash
 pnpm install
-vim .env.dev
-cp .env.secret.example .env.secret.dev
-vim .env.secret.dev
-pnpm dev  # 自动创建数据库、生成配置、执行 migration
+pnpm dev
 ```
 
-**完整集成 Cloudflare 全家桶**
-- ✅ Workers（API + SSR）
-- ✅ D1（Meta DB + Tenant Shard DB + 自动 migration + 自动 read replication）
-- ✅ R2（对象存储 + 公私分离 + 固定图片变体）
-- ✅ KV（键值存储）
-- ✅ Queues（消息队列）
-- ✅ Cron（定时任务）
-- ✅ Durable Objects（串行协调 + WebSocket + 小状态）
-- ✅ Email Sending（邮件发送）
-- ✅ Turnstile（人机验证 + 自动创建 widget）
+`pnpm dev` 会触发 `pre-build.mjs`，自动生成 Worker 配置，创建需要的 Cloudflare 资源，生成并应用数据库迁移
 
-**开箱即用的核心功能**
-- ✅ 认证系统（邮箱 + Google + GitHub + LinuxDO + 内测码 + Turnstile）
-- ✅ 积分系统（注册赠送 + 签到 + 邀请 + 兑换码 + 过期）
-- ✅ 支付系统（Dodo + Creem，支持一次性积分包和订阅）
-- ✅ 用户反馈收集
-- ✅ 系统公告通知
-- ✅ AI 能力（Chat + Image + TTS + Realtime Voice + Video）
-- ✅ 文档系统（Git-based CMS）
-- ✅ 国际化（中英文）
-- ✅ SEO 基础能力（canonical、hreflang、sitemap、robots、Open Graph、Twitter Card、JSON-LD）
-- ✅ 测试框架（BDD style + 单元测试 + E2E）
-
-**约定大于配置**
-- 运行 `pnpm dev`，自动生成 wrangler.jsonc
-- 自动创建 Meta D1、Tenant Shard D1、R2、KV、Queues
-- 根据 `DO_NAMES` 自动生成 Durable Object binding 和 migration
-- 开启 `TURNSTILE_ENABLED=true` 后，本地自动使用 Cloudflare 测试 key，远程部署自动创建或复用名为 `APP_NAME` 的 Turnstile widget
-- 首次远程部署会提示创建 Cloudflare API Token，粘贴一次后缓存到 `.wrangler/cloudflare-api-token`
-- 自动执行 migration
-- 你只需配置少数几个环境变量，不需要到处配置！
+你需要关注的是产品本身，而不是先花几天把平台胶水粘起来
 
 ---
 
-## 技术栈
+## 你能得到什么
 
-**后端**
-- Cloudflare Workers + Hono（API 框架）
-- Better Auth（认证）
-- Drizzle ORM + D1（Meta DB + Tenant Shard DB）
+### Cloudflare 全家桶
 
-**前端**
-- 极致简单轻量的 SvelteKit + Tailwind CSS + shadcn UI
-- 多风格设计系统（Token-based，deploy-time 切换，内置 `apple-saas` / `brutalism` 两套风格，见 [AGENTS.md](./AGENTS.md)）
-- 支持 SSR 和 SSG
-- 国际化（i18n）
+- Workers：API + SvelteKit SSR
+- D1：Meta DB + Tenant Shard DB + 自动迁移 + read replication
+- R2：对象存储，公私分离，临时文件，固定图片变体
+- KV：轻量键值存储和限流冷却
+- Queues：异步任务
+- Cron：定时任务
+- Durable Objects：串行协调、WebSocket、小状态
+- Turnstile：注册、登录、密码重置人机验证
+- Email Sending：Resend 或 Cloudflare Email Sending
+- 双域名部署：主域名 + `APP_CN_DOMAIN`，用于大陆访问优选加速
 
-**基础设施**
-- Cloudflare R2（对象存储）
-- Cloudflare KV（键值存储）
-- Cloudflare Queues（消息队列）
-- Cloudflare Cron（定时任务）
-- Cloudflare Durable Objects（串行协调、WebSocket、小状态）
-- Cloudflare Turnstile（登录、注册、密码重置人机验证）
-- Resend / Cloudflare Email Sending（邮件发送）
+### SaaS 基础能力
 
-**AI 能力**
-- OpenAI SDK（Chat）
-- OpenAI / Gemini / SeedDream / Aliyun（Image）
-- Gemini / Seed（TTS）
-- Doubao Realtime（Realtime Voice）
-- SeedDance（Video）
+- 认证：邮箱、Google、GitHub、LinuxDO、内测码、Turnstile
+- 积分：余额、流水、注册赠送、每日签到、邀请奖励、兑换码、过期清理
+- 支付：Dodo、Creem、一次性积分包、订阅、Webhook、退款扣回
+- 用户反馈：用户提交，后台预留
+- 系统通知：全局公告和定向通知
+- 文档系统：`public-docs/` Markdown 文档，运行时渲染
+- 国际化：中英文
+- SEO：canonical、hreflang、sitemap、robots、Open Graph、Twitter Card、JSON-LD
+- 测试：Vitest、BDD helper、E2E
 
-**业务能力**
-- 积分系统（余额、明细、注册赠送、每日签到、邀请奖励、兑换码、后台补发、过期清理）
-- 支付系统（Dodo / Creem，支付 webhook，订阅状态，积分发放和退款扣回）
-- 用户反馈收集
-- 系统公告通知
+### AI 能力
+
+- Chat：OpenAI
+- Image：OpenAI、Gemini、SeedDream、Aliyun
+- TTS：Gemini、Seed
+- Realtime Voice：Doubao Realtime
+- Video：SeedDance
+
+AI 的同步和异步流程都已经接入队列、Tenant Shard DB 和 R2，适合直接改成具体产品能力
 
 ---
 
 ## 快速开始
 
-### 1. 获取项目并配置上游追踪
+### 1. 创建你的项目
 
 ```bash
 git clone https://github.com/glidea/opcstack <your-app-name>
@@ -132,167 +108,91 @@ git push -u origin main
 pnpm install
 ```
 
-### 2. 初始化项目
+### 2. 推荐：让 Agent 引导初始化
+
+```text
+@AGENTS.md @BOOTSTRAP.md
+```
+
+`BOOTSTRAP.md` 负责引导你完成项目初始化。`AGENTS.md` 是开发上下文，后续让 AI 改代码时继续使用
+
+这个路径是推荐路径。README 不重复写完整配置手册，初始化细节应该由 Agent 根据当前环境逐步确认并执行
+
+### 3. 手动启动
 
 ```bash
-
-# 1. 推荐：Claude Code / Codex /... 自动引导
-claude
-> @AGENTS.md @BOOTSTRAP.md
-# AGENTS.md 是框架的上下文文件，便于 agent 理解项目，可在后续需求开发中继续使用
-# BOOTSTRAP.md 是引导流程，让 agent 自动引导你完成项目基础搭建
-
-# 2. 手动
-vim .env.dev # 公开配置
+vim .env.dev
 cp .env.secret.example .env.secret.dev
-vim .env.secret.dev # 密钥配置
+vim .env.secret.dev
 pnpm dev
 ```
 
-仓库提供 `.env.dev` 和 `.env.prod` 作为公开配置入口。密钥放在 `.env.secret.dev` 或 `.env.secret.prod`，由 `pre-build.mjs` 读取并写入 `.wrangler/runtime-secrets.env`，不要提交密钥文件。
-可以从 `.env.secret.example` 复制一份作为密钥文件模板。
+公开配置放在 `.env.dev` 和 `.env.prod`。密钥放在 `.env.secret.dev` 和 `.env.secret.prod`，不要提交密钥文件
 
-### 3. Turnstile 配置
+如果需要大陆访问优化，可以配置 `APP_CN_DOMAIN`。`pre-build.mjs` 会自动把它接入 Worker 路由、R2 CORS 和 Turnstile 域名
 
-Turnstile 只需要一个开关：
-
-```env
-TURNSTILE_ENABLED=true
-```
-
-本地 `pnpm dev` 使用 Cloudflare 官方测试 key，不需要手动创建 widget。远程 `pnpm deploycf` 会用 `APP_NAME` 自动创建或复用 Turnstile widget，并把 `sitekey` 写入生成的 `wrangler.jsonc`，把 `secret` 作为 Cloudflare Secret 随部署同步。
-
-首次远程部署如果没有 token，命令行会输出 Cloudflare API Token 创建链接。浏览器里确认创建后，把 token 粘贴回命令行即可继续部署。token 会保存到 `.wrangler/cloudflare-api-token`，该目录默认不会提交到 Git。脚本会按所需 Cloudflare 权限范围生成本地指纹，后续权限范围变化时会自动要求重新粘贴 token 并覆盖旧缓存。
-
-### 4. 邮件发送配置
-
-邮箱注册、邮箱验证和找回密码会走 `EMAIL_PROVIDER`。
-
-使用 Resend：
-
-```env
-EMAIL_ENABLED=true
-EMAIL_PROVIDER=resend
-EMAIL_FROM=noreply@example.com
-```
-
-`EMAIL_RESEND_API_KEY` 放到 `.env.secret.dev` 或 `.env.secret.prod`：
-
-```env
-EMAIL_RESEND_API_KEY=re_xxx
-```
-
-使用 Cloudflare Email Sending：
-
-```env
-EMAIL_ENABLED=true
-EMAIL_PROVIDER=cloudflare
-EMAIL_FROM=noreply@example.com
-```
-
-Cloudflare 模式要求发件域已启用 Email Routing。`wrangler.jsonc` 会由 `pnpm dev` 自动生成 `SEND_EMAIL` binding。
-
-### 5. D1 分片配置
-
-OPC Stack 默认会创建一个 Meta DB 和一组 Tenant Shard DB：
-
-```env
-D1_SHARDS=wnam:1;apac:1
-```
-
-- Meta DB 存认证、支付订单、兑换码、通知正文、分片注册表
-- Tenant Shard DB 存用户级数据，比如积分余额、积分流水、反馈、通知已读状态
-- `D1_SHARDS` 的格式是 `region:count`，多个 region 用 `;` 分隔
-- region code 对应 Cloudflare D1 location hint：`wnam` Western North America，`enam` Eastern North America，`weur` Western Europe，`eeur` Eastern Europe，`apac` Asia Pacific，`oc` Oceania
-- `pnpm dev` 和 `pnpm deploycf` 会按 `D1_SHARDS` 生成 `TENANT_DB_WNAM_0000` 这类 binding，并写入 Meta DB 的 `d1_shards`
-- 扩容时增加对应 region 的数量后重新部署，新增用户会优先路由到 Worker 所在区域最近的 active shard，已有用户保持原 shard
-
-修改数据库 schema 时：
-
-- Meta 表改 `src/db/schema.meta.ts`
-- Tenant Shard 表改 `src/db/schema.shard.ts`
-- 重启 `pnpm dev` 自动生成并应用 migration
-
-### 6. R2 图片变体
-
-R2 图片读取仍然走原接口：
-
-```text
-GET /api/r2/public/images/a.png
-GET /api/r2/private/u1/images/a.png
-```
-
-需要压缩图时加固定变体：
-
-```text
-GET /api/r2/public/images/a.png?variant=small
-GET /api/r2/private/u1/images/a.png?variant=medium
-```
-
-只支持 `small` 和 `medium`，不开放动态尺寸。内部回源使用 HMAC，需要配置：
-
-`R2_ORIGIN_SIGNING_SECRET` 放到 `.env.secret.dev` 或 `.env.secret.prod`。
-
-### 7. 队列和异步任务
-
-默认队列配置在 `.env.dev`：
-
-```env
-QUEUE_NAMES=image-generate;tts-generate;video-generate
-```
-
-- `image-generate`：异步图片生成
-- `tts-generate`：异步 TTS
-- `video-generate`：异步视频生成
-
-新增队列时，修改 `QUEUE_NAMES`，然后在 `src/consumers/index.ts` 注册 handler。队列 binding 命名规则是 `Q_<QUEUE_NAME_UPPER>`，例如 `video-generate` 对应 `Q_VIDEO_GENERATE`。
-
-### 8. Durable Objects
-
-Durable Objects 通过 `DO_NAMES` 配置：
-
-```env
-DO_NAMES=rate-limiter;workflow-lock
-```
-
-`pnpm dev` 或 `pnpm deploycf` 会自动生成 binding 和 migration。新增 DO 时，需要创建 `src/do/` 下的 class，并从 `src/index.ts` 导出。
-
-### 9. AI 配置
-
-AI 能力按 capability 拆分配置：
-
-```text
-CHAT_OPENAI_*
-IMAGE_GEMINI_* / IMAGE_OPENAI_* / IMAGE_SEEDDREAM_* / IMAGE_ALIYUN_*
-TTS_GEMINI_* / TTS_SEED_*
-REALTIME_DOUBAO_*
-VIDEO_SEEDDANCE_*
-```
-
-所有 provider 都支持 primary base url / api key 和 fallback base url / api key。fallback 只换 endpoint 和 key，不换 model。
-
-### 10. 测试
+部署到 Cloudflare：
 
 ```bash
-pnpm test
-pnpm test:e2e
-pnpm test:e2e:remote
+pnpm deploycf
 ```
 
-`pnpm test` 会先跑 TypeScript、Svelte check，再跑 Vitest。
+首次远程部署会提示创建 Cloudflare API Token。按命令行链接创建并粘贴一次，后续 token 会缓存在 `.wrangler/cloudflare-api-token`
 
-远端 E2E 只验证已经部署好的环境，不会创建 D1、R2、KV、Queue，不会修改 shard 数，也不会执行 migration。
+---
 
-### 11. 后续同步模板更新
+## 项目地图
+
+README 只负责让用户快速理解项目价值和入口。具体开发规则、架构上下文和实现约定放在对应文件里
+
+| 文件或目录 | 职责 |
+| --- | --- |
+| `AGENTS.md` | AI 开发上下文，包含架构、目录、运行时、数据库、R2、队列、前端、测试约定 |
+| `BOOTSTRAP.md` | 新项目初始化流程，让 Agent 引导配置和启动 |
+| `SYNC_TEMPLATE.md` | 从上游模板同步更新的流程 |
+| `pre-build.mjs` | 本地和部署前自动化，生成配置、创建资源、应用迁移 |
+| `wrangler.jsonc.tpl` | Cloudflare Worker 配置模板 |
+| `.env.dev` / `.env.prod` | 可提交的公开环境配置 |
+| `.env.secret.example` | 密钥配置模板 |
+| `src/api/` | Hono API、认证、middleware、业务接口 |
+| `src/web/` | SvelteKit 页面、组件、i18n、SEO、文档渲染 |
+| `src/db/` | Drizzle schema 和 D1 migration |
+| `src/r2/` | R2 上传、读取、签名、图片变体 |
+| `src/ai/` | Chat、Image、TTS、Realtime、Video provider |
+| `src/payment/` | Dodo、Creem 支付和订阅逻辑 |
+| `src/credits/` | 积分钱包、流水、发放、扣减、过期 |
+| `src/consumers/` | Cloudflare Queue 消费者 |
+| `src/jobs/` | Cron 定时任务 |
+| `src/do/` | Durable Object |
+| `public-docs/` | 用户可见产品文档 |
+| `e2e/` | E2E 测试 |
+
+---
+
+## 常用命令
 
 ```bash
-# 1. 推荐：Agent 自动更新，解决冲突，任意 Agent 对话中：
-> @SYNC_TEMPLATE.md
-
-# 2. 手动
-git fetch upstream --tags
-git rebase upstream/main
+pnpm dev              # 本地开发，自动生成配置并应用 migration
+pnpm deploycf         # 部署到 Cloudflare
+pnpm test             # TypeScript + Svelte check + Vitest
+pnpm test:e2e         # 本地 E2E
+pnpm test:e2e:remote  # 已部署环境 E2E
 ```
+
+---
+
+## 技术栈
+
+- Runtime：Cloudflare Workers
+- API：Hono
+- Web：SvelteKit + Tailwind CSS + shadcn-svelte
+- Auth：Better Auth
+- Database：Cloudflare D1 + Drizzle ORM
+- Storage：Cloudflare R2 + KV
+- Async：Cloudflare Queues + Cron + Durable Objects
+- Payment：Dodo + Creem
+- AI：OpenAI、Gemini、SeedDream、Aliyun、Doubao、SeedDance
+- Test：TypeScript、Svelte Check、Vitest、E2E
 
 ---
 
@@ -304,3 +204,15 @@ git rebase upstream/main
 - [ ] 用户私信通知
 - [ ] 更多 AI provider
 - [ ] 更多支付渠道
+
+---
+
+## 参考
+
+Cloudflare 免费额度会变化，README 中的额度以 2026-06-25 查询到的官方文档为准
+
+- [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
+- [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/)
+- [R2 pricing](https://developers.cloudflare.com/r2/pricing/)
+- [Workers KV pricing](https://developers.cloudflare.com/kv/platform/pricing/)
+- [Queues pricing](https://developers.cloudflare.com/queues/platform/pricing/)
