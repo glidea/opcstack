@@ -13,6 +13,41 @@ const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
 const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
 const R2_S3_TOKEN_CACHE_PATH = '.wrangler/r2-s3-token.json'
+const RUNTIME_SECRETS_PATH = '.wrangler/runtime-secrets.env'
+const SECRET_KEYS = [
+	'BETTER_AUTH_SECRET',
+	'SUPER_ADMIN_PASSWORD',
+	'ADMIN_API_TOKEN',
+	'TURNSTILE_SECRET_KEY',
+	'GOOGLE_CLIENT_SECRET',
+	'GITHUB_CLIENT_SECRET',
+	'LINUXDO_CLIENT_SECRET',
+	'EMAIL_RESEND_API_KEY',
+	'PAYMENT_DODO_API_KEY',
+	'PAYMENT_DODO_WEBHOOK_SECRET',
+	'PAYMENT_CREEM_API_KEY',
+	'PAYMENT_CREEM_WEBHOOK_SECRET',
+	'CHAT_OPENAI_API_KEY',
+	'CHAT_OPENAI_FALLBACK_API_KEY',
+	'IMAGE_GEMINI_API_KEY',
+	'IMAGE_GEMINI_FALLBACK_API_KEY',
+	'IMAGE_OPENAI_API_KEY',
+	'IMAGE_OPENAI_FALLBACK_API_KEY',
+	'IMAGE_SEEDDREAM_API_KEY',
+	'IMAGE_SEEDDREAM_FALLBACK_API_KEY',
+	'IMAGE_ALIYUN_API_KEY',
+	'IMAGE_ALIYUN_FALLBACK_API_KEY',
+	'TTS_GEMINI_API_KEY',
+	'TTS_GEMINI_FALLBACK_API_KEY',
+	'TTS_SEED_API_KEY',
+	'TTS_SEED_FALLBACK_API_KEY',
+	'REALTIME_DOUBAO_API_KEY',
+	'REALTIME_DOUBAO_FALLBACK_API_KEY',
+	'VIDEO_SEEDDANCE_API_KEY',
+	'VIDEO_SEEDDANCE_FALLBACK_API_KEY',
+	'R2_ORIGIN_SIGNING_SECRET',
+	'R2_SECRET_ACCESS_KEY'
+]
 const R2_BUCKET_WRITE_PERMISSION_NAME = 'Workers R2 Storage Bucket Item Write'
 const CLOUDFLARE_TOKEN_PERMISSIONS = [
 	{ key: 'api_tokens', type: 'edit' },
@@ -203,10 +238,16 @@ function parseEnvFile(filePath) {
 
 function loadEnv(isRemote) {
 	const defaultEnvFile = isRemote ? '.env.prod' : '.env.dev'
+	const secretEnvFile = isRemote ? '.env.secret.prod' : '.env.secret.dev'
 	const overrideEnvFile = '.env'
 
-	console.log(`Loading defaults from ${defaultEnvFile}...`)
+	console.log(`Loading public defaults from ${defaultEnvFile}...`)
 	const defaultEnv = parseEnvFile(defaultEnvFile)
+
+	const secretEnv = parseEnvFile(secretEnvFile)
+	if (Object.keys(secretEnv).length > 0) {
+		console.log(`Loading secrets from ${secretEnvFile}...`)
+	}
 
 	const overrideEnv = parseEnvFile(overrideEnvFile)
 	if (Object.keys(overrideEnv).length > 0) {
@@ -215,9 +256,28 @@ function loadEnv(isRemote) {
 
 	return {
 		...defaultEnv,
+		...secretEnv,
 		...overrideEnv,
 		...process.env
 	}
+}
+
+function formatEnvValue(value) {
+	return JSON.stringify(String(value ?? ''))
+}
+
+function writeRuntimeSecrets(env) {
+	mkdirSync('.wrangler', { recursive: true })
+
+	const lines = []
+	for (const key of SECRET_KEYS) {
+		if (env[key] !== undefined && env[key] !== '') {
+			lines.push(`${key}=${formatEnvValue(env[key])}`)
+		}
+	}
+
+	writeFileSync(RUNTIME_SECRETS_PATH, `${lines.join('\n')}\n`, { mode: 0o600 })
+	console.log(`Runtime secrets written to ${RUNTIME_SECRETS_PATH}`)
 }
 
 function readLocalVitePort() {
@@ -1428,7 +1488,10 @@ async function main() {
 	config.vars.R2_ENABLED = r2Enabled ? 'true' : 'false'
 	config.vars.R2_ACCOUNT_ID = r2S3Token?.accountId || accountId || 'local'
 	config.vars.R2_ACCESS_KEY_ID = r2S3Token?.accessKeyId || 'local'
-	config.vars.R2_SECRET_ACCESS_KEY = r2S3Token?.secretAccessKey || 'local'
+	env.R2_SECRET_ACCESS_KEY = r2S3Token?.secretAccessKey || env.R2_SECRET_ACCESS_KEY || 'local'
+	config.secrets = {
+		required: SECRET_KEYS
+	}
 	config.d1_databases = buildD1DatabaseBindings(appName, databaseId, shards, shardDatabaseIds)
 
 	if (r2Enabled) {
@@ -1449,6 +1512,7 @@ async function main() {
 
 	writeFileSync('wrangler.jsonc', JSON.stringify(config, null, 4))
 	console.log('wrangler.jsonc generated successfully')
+	writeRuntimeSecrets(env)
 
 	console.log('\nGenerating migrations...')
 	run('pnpm exec drizzle-kit generate --config drizzle.meta.config.ts')

@@ -13,31 +13,26 @@ Deploying OPC Stack to Cloudflare Workers is straightforward.
 
 ### 1. Configure production environment variables
 
-Edit `.env.prod`:
+Edit `.env.prod` for public config:
 
 ```bash
-# App config
 APP_NAME=your-app
 APP_DOMAIN=your-domain.com
-
-# Auth config
 EMAIL_ENABLED=true
 EMAIL_FROM=noreply@your-domain.com
-RESEND_API_KEY=re_xxx
-
 GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=xxx
-
-# AI config (optional)
-OPENAI_API_KEY=sk-xxx
-GEMINI_API_KEY=xxx
-
-# Beta code (optional)
 BETA_CODE_ENABLED=false
-
-# Queue and cron (optional)
-QUEUES=task-check,email-send
+QUEUE_NAMES=task-check;email-send
 CRONS=0 0 * * *,0 */6 * * *
+```
+
+Create `.env.secret.prod` for secret config:
+
+```bash
+EMAIL_RESEND_API_KEY=re_xxx
+GOOGLE_CLIENT_SECRET=xxx
+CHAT_OPENAI_API_KEY=sk-xxx
+IMAGE_GEMINI_API_KEY=xxx
 ```
 
 ### 2. Login Cloudflare
@@ -102,7 +97,7 @@ Cloudflare provides free SSL certificates automatically.
 
 ```bash
 # Set secret
-wrangler secret put OPENAI_API_KEY
+wrangler secret put CHAT_OPENAI_API_KEY
 
 # List secrets
 wrangler secret list

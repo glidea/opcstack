@@ -30,8 +30,9 @@ claude
 Manual setup
 
 ```bash
-cp .env.example .env.dev
-vim .env.dev # setup
+vim .env.dev # public config
+cp .env.secret.example .env.secret.dev
+vim .env.secret.dev # secret config
 pnpm dev
 ```
 

@@ -8,5 +8,6 @@ node_modules/
 .vscode/
 .claude/
 .DS_Store
-.env.dev
-.env.prod
+.env
+.env.secret.dev
+.env.secret.prod

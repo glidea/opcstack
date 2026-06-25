@@ -13,8 +13,15 @@ OPC Stack 集成了 OpenAI 和 Gemini，支持 Chat Image 和结构化脚本 TTS
 
 ### 配置
 
+`.env.secret.dev` 或 `.env.secret.prod`：
+
 ```bash
 CHAT_OPENAI_API_KEY=sk-xxx
+```
+
+`.env.dev` 或 `.env.prod`：
+
+```bash
 CHAT_OPENAI_BASE_URL=https://api.openai.com/v1
 CHAT_OPENAI_MODEL=gpt-5.4-mini
 ```
@@ -33,8 +40,15 @@ console.log(text)
 
 ### 配置
 
+`.env.secret.dev` 或 `.env.secret.prod`：
+
 ```bash
 IMAGE_GEMINI_API_KEY=xxx
+```
+
+`.env.dev` 或 `.env.prod`：
+
+```bash
 IMAGE_GEMINI_BASE_URL=https://generativelanguage.googleapis.com
 IMAGE_GEMINI_MODEL=gemini-3.1-flash-image-preview
 ```
@@ -56,8 +70,15 @@ console.log(images[0]?.mimeType)
 
 ### 配置
 
+`.env.secret.dev` 或 `.env.secret.prod`：
+
 ```bash
 TTS_GEMINI_API_KEY=xxx
+```
+
+`.env.dev` 或 `.env.prod`：
+
+```bash
 TTS_GEMINI_BASE_URL=https://generativelanguage.googleapis.com
 TTS_GEMINI_MODEL=gemini-3.1-flash-tts-preview
 ```

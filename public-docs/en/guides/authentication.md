@@ -18,12 +18,17 @@ OPC Stack uses [Better Auth](https://www.better-auth.com/) for authentication an
 3. Sign up for [Resend](https://resend.com/)
 4. Add your domain in Resend and verify DNS records
 5. Create an API key
-6. Configure environment variables:
+6. Configure public environment variables in `.env.dev` or `.env.prod`:
 
 ```bash
 EMAIL_ENABLED=true
 EMAIL_FROM=noreply@example.com
-RESEND_API_KEY=re_xxx
+```
+
+7. Configure secrets in `.env.secret.dev` or `.env.secret.prod`:
+
+```bash
+EMAIL_RESEND_API_KEY=re_xxx
 ```
 
 ### Flow
@@ -44,7 +49,7 @@ Return token
 
 `emailAuthMiddleware` checks:
 - whether `EMAIL_ENABLED` is true
-- whether `EMAIL_FROM` and `RESEND_API_KEY` are configured
+- whether `EMAIL_FROM` and `EMAIL_RESEND_API_KEY` are configured
 - whether user email is verified
 
 ## Google sign in

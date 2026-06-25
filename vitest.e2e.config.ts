@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { defineConfig } from 'vitest/config'
 
 const isRemote = process.env.E2E_REMOTE === '1'
 const envFile = isRemote ? '.env.prod' : '.env.dev'
-const envContent = readFileSync(envFile, 'utf-8')
+const secretEnvFile = isRemote ? '.env.secret.prod' : '.env.secret.dev'
+const envValues: Record<string, string> = readEnvFiles([envFile, secretEnvFile, '.env'])
 const appDomain = readConfig('APP_DOMAIN') ?? 'localhost'
 const appBaseUrl = resolveAppBaseUrl(appDomain, isRemote)
 const adminApiToken = readConfig('ADMIN_API_TOKEN') ?? 'admin-token'
@@ -86,12 +87,33 @@ function readLocalVitePort(): string {
 }
 
 function readConfig(name: string): string | undefined {
-	return process.env[name] ?? readEnv(envContent, name)
+	return process.env[name] ?? envValues[name]
 }
 
-function readEnv(content: string, name: string): string | undefined {
-	const line = content
-		.split('\n')
-		.find((item) => item.startsWith(`${name}=`))
-	return line?.slice(name.length + 1).trim()
+function readEnvFiles(files: string[]): Record<string, string> {
+	const values: Record<string, string> = {}
+	for (const file of files) {
+		if (!existsSync(file)) {
+			continue
+		}
+
+		const content = readFileSync(file, 'utf-8')
+		const lines = content.split('\n')
+		for (const line of lines) {
+			const trimmed = line.trim()
+			if (trimmed === '' || trimmed.startsWith('#')) {
+				continue
+			}
+
+			const index = trimmed.indexOf('=')
+			if (index === -1) {
+				continue
+			}
+
+			const key = trimmed.slice(0, index).trim()
+			const value = trimmed.slice(index + 1).trim()
+			values[key] = value
+		}
+	}
+	return values
 }

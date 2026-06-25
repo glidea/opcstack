@@ -44,7 +44,9 @@ Durable Object     -> src/do/
   static/images/        # Documentation and page images
   pre-build.mjs         # Local and deploy automation
   wrangler.jsonc.tpl    # Worker config template
-  .env.example          # Full environment variable list
+  .env.dev              # Public local config, safe to commit
+  .env.prod             # Public production config, safe to commit
+  .env.secret.example   # Secret config template without real values
 
 src/
   index.ts              # Worker entrypoint
@@ -96,9 +98,15 @@ src/
 
 - `pnpm dev` and `pnpm deploycf` run `pre-build.mjs`.
 - `pre-build.mjs` loads env files, generates `wrangler.jsonc`, provisions Cloudflare resources in remote mode, generates Durable Object bindings and migrations, syncs R2 CORS, enables D1 read replication, and applies migrations.
+- Public config lives in `.env.dev` and `.env.prod`.
+- Secret config lives in `.env.secret.dev` and `.env.secret.prod`.
+- `.env.secret.example` documents secret keys with placeholder values only.
+- Agents must not read, print, search, edit, create, or copy `.env.secret.dev`, `.env.secret.prod`, or `.wrangler/runtime-secrets.env`.
+- Any work involving secret file values must be performed by the user.
 - Do not add tests for `pre-build.mjs` unless explicitly requested.
-- Env loading order: `.env.dev` or `.env.prod` -> `.env` -> `process.env`.
-- Add runtime config keys to `wrangler.jsonc.tpl` `vars` first.
+- Env loading order: `.env.dev` or `.env.prod` -> `.env.secret.dev` or `.env.secret.prod` -> `.env` -> `process.env`.
+- Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.
+- Add secret runtime config keys to `pre-build.mjs` `SECRET_KEYS`; `pre-build.mjs` renders them to `wrangler.jsonc` `secrets.required`.
 - After changing config keys, run `pnpm exec wrangler types` so `worker-configuration.d.ts` stays current.
 - API handlers and jobs read config from Cloudflare env directly, for example `ctx.env.KEY` or `env.KEY`.
 - SvelteKit server routes use `serverConfig` from `$web/config/server`.
@@ -414,6 +422,8 @@ pnpm exec wrangler types
 
 ## More Information
 
-- `.env.example`: full environment variable list.
+- `.env.dev` and `.env.prod`: public environment config.
+- `.env.secret.example`: secret environment template without real values.
+- `.env.secret.dev` and `.env.secret.prod`: user-owned secret config, never read or edited by agents.
 - `public-docs/`: product docs available at `/docs/`.
 - Source code is the primary truth. Inspect related files directly before changing behavior.

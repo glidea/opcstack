@@ -169,7 +169,7 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: ':memory:',
-      OPENAI_API_KEY: 'test-key'
+      CHAT_OPENAI_API_KEY: 'test-key'
     }
   }
 })

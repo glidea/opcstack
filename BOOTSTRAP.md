@@ -120,27 +120,26 @@ After all information is collected run these actions:
    pnpm exec wrangler login
    ```
 
-2. **Generate configuration file**
+2. **Generate configuration files**
 
-   Copy `.env.example` to `.env.dev`:
-   ```bash
-   cp .env.example .env.dev
-   ```
+   Update `.env.dev` using user input. This file is public config and can be committed:
 
-   Update `.env.dev` using user input:
    - `APP_NAME`: user project name
-   - `BETTER_AUTH_SECRET`: generate random string with 32+ characters
    - `SUPER_ADMIN_EMAIL`: super admin email
-   - `SUPER_ADMIN_PASSWORD`: super admin password
-   - `ADMIN_API_TOKEN`: machine token for admin APIs
    - `EMAIL_ENABLED`: set true or false from user choice
    - `EMAIL_SIGNUP_ENABLED`: set true or false from user choice
-   - `EMAIL_RESEND_API_KEY`: user API key if email is enabled
    - `EMAIL_FROM`: user sender email if email is enabled
    - `GOOGLE_AUTH_ENABLED`: set true or false from user choice
    - `GOOGLE_CLIENT_ID`: user Client ID if Google is enabled
-   - `GOOGLE_CLIENT_SECRET`: user Client Secret if Google is enabled
    - `BETA_CODE_ENABLED`: set true or false from user choice
+
+   Ask the user to copy `.env.secret.example` to `.env.secret.dev`. Do not read or edit `.env.secret.dev` as an Agent.
+   The user should add:
+   - `BETTER_AUTH_SECRET`: random string with 32+ characters
+   - `SUPER_ADMIN_PASSWORD`: super admin password
+   - `ADMIN_API_TOKEN`: machine token for admin APIs
+   - `EMAIL_RESEND_API_KEY`: user API key if resend email is enabled
+   - `GOOGLE_CLIENT_SECRET`: user Client Secret if Google is enabled
 
    Keep all other configuration as default.
 
@@ -182,6 +181,7 @@ After initialization tell the user:
    - For scheduled jobs set `CRONS`
 
 3. **Deploy to production**
-   - When needed copy `.env.dev` to `.env.prod`
+   - When needed copy public config from `.env.dev` to `.env.prod`
+   - Ask the user to copy `.env.secret.example` to `.env.secret.prod`; do not read or edit it as an Agent
    - Set `APP_DOMAIN` to production domain
    - Run `pnpm deploycf` to deploy

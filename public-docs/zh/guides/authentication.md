@@ -18,12 +18,17 @@ OPC Stack 基于 [Better Auth](https://www.better-auth.com/) 实现认证，支�
 3. 注册 [Resend](https://resend.com/) 账号
 4. 在 Resend 中添加域名并验证 DNS 记录
 5. 创建 API Key
-6. 配置环境变量：
+6. 在 `.env.dev` 或 `.env.prod` 配置公开环境变量：
 
 ```bash
 EMAIL_ENABLED=true
 EMAIL_FROM=noreply@example.com
-RESEND_API_KEY=re_xxx
+```
+
+7. 在 `.env.secret.dev` 或 `.env.secret.prod` 配置密钥：
+
+```bash
+EMAIL_RESEND_API_KEY=re_xxx
 ```
 
 ### 工作流程
@@ -44,7 +49,7 @@ RESEND_API_KEY=re_xxx
 
 `emailAuthMiddleware` 会检查：
 - `EMAIL_ENABLED` 是否为 true
-- `EMAIL_FROM` 和 `RESEND_API_KEY` 是否配置
+- `EMAIL_FROM` 和 `EMAIL_RESEND_API_KEY` 是否配置
 - 用户邮箱是否已验证
 
 ## Google 登录

@@ -30,8 +30,9 @@ claude
 手动初始化
 
 ```bash
-cp .env.example .env.dev
-vim .env.dev # 配置
+vim .env.dev # 公开配置
+cp .env.secret.example .env.secret.dev
+vim .env.secret.dev # 密钥配置
 pnpm dev
 ```
 

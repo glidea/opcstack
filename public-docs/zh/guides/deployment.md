@@ -13,31 +13,26 @@ OPC Stack 部署到 Cloudflare Workers 非常简单。
 
 ### 1. 配置生产环境变量
 
-编辑 `.env.prod`：
+编辑 `.env.prod` 写公开配置：
 
 ```bash
-# 应用配置
 APP_NAME=your-app
 APP_DOMAIN=your-domain.com
-
-# 认证配置
 EMAIL_ENABLED=true
 EMAIL_FROM=noreply@your-domain.com
-RESEND_API_KEY=re_xxx
-
 GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=xxx
-
-# AI 配置（可选）
-OPENAI_API_KEY=sk-xxx
-GEMINI_API_KEY=xxx
-
-# 内测码（可选）
 BETA_CODE_ENABLED=false
-
-# 队列和定时任务（可选）
-QUEUES=task-check,email-send
+QUEUE_NAMES=task-check;email-send
 CRONS=0 0 * * *,0 */6 * * *
+```
+
+创建 `.env.secret.prod` 写密钥配置：
+
+```bash
+EMAIL_RESEND_API_KEY=re_xxx
+GOOGLE_CLIENT_SECRET=xxx
+CHAT_OPENAI_API_KEY=sk-xxx
+IMAGE_GEMINI_API_KEY=xxx
 ```
 
 ### 2. 登录 Cloudflare
@@ -102,7 +97,7 @@ Cloudflare 自动提供免费 SSL 证书。
 
 ```bash
 # 设置环境变量
-wrangler secret put OPENAI_API_KEY
+wrangler secret put CHAT_OPENAI_API_KEY
 
 # 列出环境变量
 wrangler secret list

@@ -43,6 +43,7 @@ Reddit 上有个 CTO 吐槽：同样的前端应用，Vercel 账单从 $100 涨�
 ```bash
 pnpm install
 vim .env.dev
+cp .env.secret.example .env.secret.dev
 vim .env.secret.dev
 pnpm dev  # 自动创建数据库、生成配置、执行 migration
 ```
@@ -143,11 +144,13 @@ claude
 
 # 2. 手动
 vim .env.dev # 公开配置
+cp .env.secret.example .env.secret.dev
 vim .env.secret.dev # 密钥配置
 pnpm dev
 ```
 
 仓库提供 `.env.dev` 和 `.env.prod` 作为公开配置入口。密钥放在 `.env.secret.dev` 或 `.env.secret.prod`，由 `pre-build.mjs` 读取并写入 `.wrangler/runtime-secrets.env`，不要提交密钥文件。
+可以从 `.env.secret.example` 复制一份作为密钥文件模板。
 
 ### 3. Turnstile 配置
 
