@@ -6,9 +6,21 @@ import {
 	listFeedbacksHandler,
 	submitFeedbackHandler
 } from './feedback'
+import { createTenantShardAccess } from '../../db/shard-router'
+
+vi.mock('../../db/shard-router', () => {
+	return {
+		createTenantShardAccess: vi.fn()
+	}
+})
 
 type MockDb = {
 	insert: ReturnType<typeof vi.fn>
+	query?: {
+		feedback: {
+			findMany: ReturnType<typeof vi.fn>
+		}
+	}
 }
 
 describe('submitFeedbackHandler', () => {
@@ -96,11 +108,14 @@ describe('listFeedbacksHandler', () => {
 
 	type GivenDetail = {
 		body: unknown
+		shardRows?: MockFeedbackRow[][]
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: number
 		code: string
+		items: ListFeedbackItem[]
+		total: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -115,26 +130,129 @@ describe('listFeedbacksHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				code: 'INVALID_REQUEST'
+				code: 'INVALID_REQUEST',
+				items: [],
+				total: 0
 			}
 		},
 		{
-			scenario: 'reject global feedback list',
-			given: 'request is valid',
+			scenario: 'list feedbacks from tenant shards',
+			given: 'feedbacks exist in multiple shards',
 			when: 'listing feedbacks',
-			then: 'returns fanout not implemented',
+			then: 'returns merged feedbacks ordered by created time',
 			givenDetail: {
-				body: {}
+				body: { page: 1, page_size: 2 },
+				shardRows: [
+					[
+						{
+							id: 'f1',
+							userId: 'u1',
+							type: 'bug',
+							content: 'old',
+							createdAt: 100
+						}
+					],
+					[
+						{
+							id: 'f2',
+							userId: 'u2',
+							type: 'idea',
+							content: 'new',
+							createdAt: 300
+						},
+						{
+							id: 'f3',
+							userId: 'u3',
+							type: 'bug',
+							content: 'middle',
+							createdAt: 200
+						}
+					]
+				]
 			},
 			whenDetail: {},
 			thenExpected: {
-				status: 501,
-				code: 'FEEDBACK_FANOUT_NOT_IMPLEMENTED'
+				status: 200,
+				code: '',
+				items: [
+					{
+						id: 'f2',
+						user_id: 'u2',
+						type: 'idea',
+						content: 'new',
+						created_at: 300
+					},
+					{
+						id: 'f3',
+						user_id: 'u3',
+						type: 'bug',
+						content: 'middle',
+						created_at: 200
+					}
+				],
+				total: 3
+			}
+		},
+		{
+			scenario: 'filter feedbacks across tenant shards',
+			given: 'feedbacks match requested filters',
+			when: 'listing feedbacks with filters',
+			then: 'returns filtered feedbacks',
+			givenDetail: {
+				body: {
+					user_id: 'u1',
+					type: 'bug',
+					created_at_start: 100,
+					created_at_end: 300
+				},
+				shardRows: [
+					[
+						{
+							id: 'f1',
+							userId: 'u1',
+							type: 'bug',
+							content: 'matched',
+							createdAt: 200
+						}
+					],
+					[]
+				]
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				items: [
+					{
+						id: 'f1',
+						user_id: 'u1',
+						type: 'bug',
+						content: 'matched',
+						created_at: 200
+					}
+				],
+				total: 1
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
+		const shardRows: MockFeedbackRow[][] = given.shardRows ?? []
+		const shardAccessMock = {
+			listShardDbs: async () => {
+				return shardRows.map((rows: MockFeedbackRow[]) => {
+					return {
+						shardId: 'shard',
+						bindingName: 'TENANT_DB',
+						db: createFeedbackListDb(rows)
+					}
+				})
+			}
+		}
+		vi.mocked(createTenantShardAccess).mockReturnValue(
+			shardAccessMock as unknown as ReturnType<typeof createTenantShardAccess>
+		)
+
 		const ctx = createJsonContext({
 			userId: 'admin',
 			metaDb: createMockDb(),
@@ -143,17 +261,46 @@ describe('listFeedbacksHandler', () => {
 		})
 
 		const res = await listFeedbacksHandler(ctx)
-		const payload = (await res.json()) as { code?: string }
+		const payload = (await res.json()) as { code?: string; items?: ListFeedbackItem[]; total?: number }
 		return {
 			status: res.status,
-			code: payload.code ?? ''
+			code: payload.code ?? '',
+			items: payload.items ?? [],
+			total: payload.total ?? 0
 		}
 	})
 })
 
+type MockFeedbackRow = {
+	id: string
+	userId: string
+	type: string
+	content: string
+	createdAt: number
+}
+
+type ListFeedbackItem = {
+	id: string
+	user_id: string
+	type: string
+	content: string
+	created_at: number
+}
+
 function createMockDb(): MockDb {
 	return {
 		insert: vi.fn()
+	}
+}
+
+function createFeedbackListDb(rows: MockFeedbackRow[]): MockDb {
+	return {
+		insert: vi.fn(),
+		query: {
+			feedback: {
+				findMany: vi.fn().mockResolvedValue(rows)
+			}
+		}
 	}
 }
 

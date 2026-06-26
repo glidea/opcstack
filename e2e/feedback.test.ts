@@ -103,7 +103,8 @@ describe('feedback api e2e', () => {
 			submitStatus: number
 			tenantShardHeader: boolean
 			adminListStatus: number
-			adminListCode: string
+			adminListTotal: number
+			adminListFound: boolean
 		}
 
 		const flowCases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
@@ -111,14 +112,15 @@ describe('feedback api e2e', () => {
 				scenario: 'user submits feedback to tenant shard',
 				given: 'a signed in user and admin api token',
 				when: 'submitting feedback and listing globally',
-				then: 'submit succeeds and global list is not implemented',
+				then: 'submit succeeds and admin can list the feedback',
 				givenDetail: {},
 				whenDetail: {},
 				thenExpected: {
 					submitStatus: 200,
 					tenantShardHeader: true,
-					adminListStatus: 501,
-					adminListCode: 'FEEDBACK_FANOUT_NOT_IMPLEMENTED'
+					adminListStatus: 200,
+					adminListTotal: 1,
+					adminListFound: true
 				}
 			}
 		]
@@ -141,18 +143,26 @@ describe('feedback api e2e', () => {
 
 			const listRes = await postJson(
 				'/api/admin/list_feedbacks',
-				{},
+				{
+					type: feedbackType
+				},
 				{
 					authorization: `Bearer ${adminApiToken}`
 				}
 			)
-			const listPayload = (await listRes.json()) as { code: string }
+			const listPayload = (await listRes.json()) as {
+				items: Array<{ type: string; content: string }>
+				total: number
+			}
 
 			return {
 				submitStatus: submitRes.status,
 				tenantShardHeader: Boolean(submitRes.headers.get('x-d1-tenant-shard')),
 				adminListStatus: listRes.status,
-				adminListCode: listPayload.code
+				adminListTotal: listPayload.total,
+				adminListFound: listPayload.items.some((item: { type: string; content: string }): boolean => {
+					return item.type === feedbackType && item.content === content
+				})
 			}
 		})
 	})
