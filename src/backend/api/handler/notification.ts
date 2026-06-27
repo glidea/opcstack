@@ -1,47 +1,18 @@
 import { and, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
 import type { Context } from 'hono'
-import { z } from 'zod'
 import type { ApiEnv } from '..'
+import {
+	CreateNotificationRequestSchema,
+	ListNotificationsRequestSchema,
+	type ListNotificationsResponse,
+	type ListNotificationsResponseItem,
+	ReadNotificationRequestSchema
+} from '../../../api-contract/notifications'
 import type { NewNotification } from '../../db/schema'
 import { notification } from '../../db/schema'
 import type { NewNotificationRead } from '../../db/schema.shard'
 import { notificationRead } from '../../db/schema.shard'
-import { PageRequestSchema, parseRequest } from '../../lib/request'
-
-export const CreateNotificationRequestSchema = z.object({
-	type: z.string().min(1).optional().default('system'),
-	title: z.string().min(1),
-	content: z.string().min(1),
-	target_user_id: z.string().min(1).nullable().optional()
-})
-export type CreateNotificationRequest = z.infer<typeof CreateNotificationRequestSchema>
-
-export const ListNotificationsRequestSchema = PageRequestSchema.extend({
-	type: z.string().min(1).optional(),
-	read: z.boolean().optional(),
-	created_at_start: z.number().int().optional(),
-	created_at_end: z.number().int().optional()
-})
-export type ListNotificationsRequest = z.infer<typeof ListNotificationsRequestSchema>
-
-export const ReadNotificationRequestSchema = z.object({
-	id: z.string().min(1)
-})
-export type ReadNotificationRequest = z.infer<typeof ReadNotificationRequestSchema>
-
-export interface ListNotificationsResponseItem {
-	id: string
-	type: string
-	title: string
-	content: string
-	read: boolean
-	created_at: number
-}
-
-export interface ListNotificationsResponse {
-	items: ListNotificationsResponseItem[]
-	total: number
-}
+import { parseRequest } from '../../lib/request'
 
 export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, CreateNotificationRequestSchema)

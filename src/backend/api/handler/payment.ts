@@ -1,7 +1,12 @@
 import type { Context } from 'hono'
-import { z } from 'zod'
 import type { ApiEnv } from '..'
-import { PageRequestSchema, parseRequest } from '../../lib/request'
+import {
+	CreatePaymentCheckoutRequestSchema,
+	ListAdminPaymentTransactionsRequestSchema,
+	ListPaymentTransactionsRequestSchema,
+	UpgradeSubscriptionRequestSchema
+} from '../../../api-contract/payment'
+import { parseRequest } from '../../lib/request'
 import {
 	newPaymentService,
 	PAYMENT_PROVIDER_CREEM,
@@ -11,26 +16,6 @@ import {
 } from '../../payment'
 import { formatDecimal } from '../../lib/decimal'
 import { logWarn } from '../../lib/log'
-
-const CreatePaymentCheckoutRequestSchema = z.object({
-	product_id: z.string().min(1),
-	return_path: z.string().min(1).optional()
-})
-
-const UpgradeSubscriptionRequestSchema = z.object({
-	product_id: z.string().min(1)
-})
-
-const ListPaymentTransactionsRequestSchema = PageRequestSchema.extend({
-	type: z.string().min(1).optional(),
-	status: z.string().min(1).optional()
-})
-
-const ListAdminPaymentTransactionsRequestSchema = PageRequestSchema.extend({
-	user_id: z.string().min(1).optional(),
-	type: z.string().min(1).optional(),
-	status: z.string().min(1).optional()
-})
 
 export async function listPaymentProductsHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const service = newPaymentService(ctx.get('metaDb'), ctx.env)

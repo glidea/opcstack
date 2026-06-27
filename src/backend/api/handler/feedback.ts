@@ -1,38 +1,16 @@
 import { and, desc, eq, gte, lte, type SQL } from 'drizzle-orm'
 import type { Context } from 'hono'
-import { z } from 'zod'
 import type { ApiEnv } from '..'
+import {
+	ListFeedbacksRequestSchema,
+	type ListFeedbacksResponse,
+	type ListFeedbacksResponseItem,
+	SubmitFeedbackRequestSchema
+} from '../../../api-contract/feedback'
 import { createTenantShardAccess } from '../../db/shard-router'
 import type { Feedback, NewFeedback } from '../../db/schema.shard'
 import { feedback } from '../../db/schema.shard'
-import { PageRequestSchema, parseRequest } from '../../lib/request'
-
-export const SubmitFeedbackRequestSchema = z.object({
-	type: z.string().min(1),
-	content: z.string().min(1)
-})
-export type SubmitFeedbackRequest = z.infer<typeof SubmitFeedbackRequestSchema>
-
-export const ListFeedbacksRequestSchema = PageRequestSchema.extend({
-	user_id: z.string().min(1).optional(),
-	type: z.string().min(1).optional(),
-	created_at_start: z.number().int().optional(),
-	created_at_end: z.number().int().optional()
-})
-export type ListFeedbacksRequest = z.infer<typeof ListFeedbacksRequestSchema>
-
-export interface ListFeedbacksResponseItem {
-	id: string
-	user_id: string
-	type: string
-	content: string
-	created_at: number
-}
-
-export interface ListFeedbacksResponse {
-	items: ListFeedbacksResponseItem[]
-	total: number
-}
+import { parseRequest } from '../../lib/request'
 
 export async function submitFeedbackHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, SubmitFeedbackRequestSchema)

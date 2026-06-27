@@ -1,6 +1,12 @@
 import type { Context } from 'hono'
-import { z } from 'zod'
 import type { ApiEnv } from '..'
+import {
+	AdminGrantCreditsRequestSchema,
+	GenerateCreditCodesRequestSchema,
+	ListCreditCodesRequestSchema,
+	ListCreditTransactionsRequestSchema,
+	RedeemCreditCodeRequestSchema
+} from '../../../api-contract/credits'
 import {
 	CREDIT_TRANSACTION_TYPE_MANUAL_GRANT,
 	CREDIT_TRANSACTION_TYPE_REDEMPTION_CODE,
@@ -11,49 +17,7 @@ import {
 } from '../../credits'
 import { createTenantShardAccess } from '../../db/shard-router'
 import { formatDecimal, parseDecimal } from '../../lib/decimal'
-import { PageRequestSchema, parseRequest } from '../../lib/request'
-
-export const ListCreditTransactionsRequestSchema = PageRequestSchema.extend({
-	type: z.string().min(1).optional(),
-	source_type: z.string().min(1).optional(),
-	source_id: z.string().min(1).optional(),
-	created_at_start: z.number().int().optional(),
-	created_at_end: z.number().int().optional()
-})
-export type ListCreditTransactionsRequest = z.infer<typeof ListCreditTransactionsRequestSchema>
-
-export const GenerateCreditCodesRequestSchema = z.object({
-	count: z.number().int().min(1).max(200).optional().default(1),
-	amount: z.string().min(1),
-	expires_at: z.number().int().nullable().optional()
-})
-export type GenerateCreditCodesRequest = z.infer<typeof GenerateCreditCodesRequestSchema>
-
-export const ListCreditCodesRequestSchema = PageRequestSchema.extend({
-	code: z.string().min(1).optional(),
-	claimed_by: z.string().min(1).optional(),
-	status: z.enum(['unused', 'claimed', 'granted']).optional(),
-	amount: z.string().min(1).optional(),
-	created_at_start: z.number().int().optional(),
-	created_at_end: z.number().int().optional(),
-	expires_at_start: z.number().int().optional(),
-	expires_at_end: z.number().int().optional()
-})
-export type ListCreditCodesRequest = z.infer<typeof ListCreditCodesRequestSchema>
-
-export const RedeemCreditCodeRequestSchema = z.object({
-	code: z.string().min(1)
-})
-export type RedeemCreditCodeRequest = z.infer<typeof RedeemCreditCodeRequestSchema>
-
-export const AdminGrantCreditsRequestSchema = z.object({
-	user_id: z.string().min(1),
-	amount: z.string().min(1),
-	source_id: z.string().min(1),
-	description: z.string().min(1).optional(),
-	expires_at: z.number().int().nullable().optional()
-})
-export type AdminGrantCreditsRequest = z.infer<typeof AdminGrantCreditsRequestSchema>
+import { parseRequest } from '../../lib/request'
 
 export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const env = ctx.env

@@ -7,10 +7,10 @@ import {
 	getCreditSummaryHandler,
 	listCreditCodesHandler,
 	listCreditTransactionsHandler,
-	redeemCreditCodeHandler,
-	type ListCreditTransactionsRequest
+	redeemCreditCodeHandler
 } from './credits'
 import { CreditsError } from '../../credits'
+import type { ListCreditTransactionsRequest } from '../../../api-contract/credits'
 
 const creditServiceMocks = vi.hoisted(() => {
 	return {

@@ -5,9 +5,9 @@ import { runCases, type TestCase } from '../../testing/bdd'
 import {
 	createNotificationHandler,
 	listNotificationsHandler,
-	readNotificationHandler,
-	type ListNotificationsResponse
+	readNotificationHandler
 } from './notification'
+import type { ListNotificationsResponse } from '../../../api-contract/notifications'
 
 type MockDb = {
 	insert: ReturnType<typeof vi.fn>
