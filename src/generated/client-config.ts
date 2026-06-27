@@ -36,6 +36,8 @@ export const clientConfig: ClientConfig = {
 	"turnstileSiteKey": "1x00000000000000000000AA",
 	"paymentEnabled": false,
 	"extension": {
-		"hostPermissions": []
+		"hostPermissions": [
+			"http://localhost:5173/*"
+		]
 	}
 }
