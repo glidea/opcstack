@@ -5,6 +5,9 @@ import { clientConfig } from '$web/config/client'
 export default defineContentScript({
 	matches: clientConfig.extension.hostPermissions,
 	main(): void {
-		void browser.runtime.sendMessage('opcstack:ping')
+		void browser.runtime.sendMessage({
+			type: 'opcstack:content-ping',
+			url: window.location.href
+		})
 	}
 })
