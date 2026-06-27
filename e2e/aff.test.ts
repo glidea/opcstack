@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readdirSync } from 'node:fs'
 import { beforeAll, describe } from 'vitest'
-import { runCases, type TestCase } from '../src/testing/bdd'
+import { runCases, type TestCase } from '../src/backend/testing/bdd'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
@@ -12,10 +12,6 @@ type E2EEnv = {
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
 	E2E_EMAIL_FROM?: string
 	E2E_TURNSTILE_ENABLED?: string
-}
-
-interface PublicConfigResponse {
-	aff_enabled: boolean
 }
 
 interface AffSummaryResponse {
@@ -51,7 +47,7 @@ describe('aff api e2e', () => {
 
 	type PublicGiven = Record<string, never>
 	type PublicWhen = {
-		action: 'get_public_config' | 'get_summary_without_auth' | 'bind_without_auth'
+		action: 'get_summary_without_auth' | 'bind_without_auth'
 	}
 	type PublicThen = {
 		status: number
@@ -60,21 +56,6 @@ describe('aff api e2e', () => {
 	}
 
 	const publicCases: TestCase<PublicGiven, PublicWhen, PublicThen>[] = [
-		{
-			scenario: 'public config exposes aff flag',
-			given: 'no auth required',
-			when: 'calling public config api',
-			then: 'returns aff feature flag',
-			givenDetail: {},
-			whenDetail: {
-				action: 'get_public_config'
-			},
-			thenExpected: {
-				status: 200,
-				code: '',
-				hasAffFlag: true
-			}
-		},
 		{
 			scenario: 'aff summary rejects anonymous caller',
 			given: 'no bearer token',
@@ -109,15 +90,6 @@ describe('aff api e2e', () => {
 
 	runCases(publicCases, async (_given, when) => {
 		switch (when.action) {
-			case 'get_public_config': {
-				const res: Response = await postJson('/api/get_public_config', {})
-				const payload = (await res.json()) as PublicConfigResponse
-				return {
-					status: res.status,
-					code: '',
-					hasAffFlag: typeof payload.aff_enabled === 'boolean'
-				}
-			}
 			case 'get_summary_without_auth': {
 				const res: Response = await postJson('/api/get_aff_summary', {})
 				const payload = (await res.json()) as { code: string }

@@ -70,7 +70,7 @@ type PaymentTransactionRow = typeof paymentTransaction.$inferSelect
 type CheckoutOrderRow = typeof checkoutOrder.$inferSelect
 export type PaymentCreditsServiceFactory = (userId: string) => Promise<CreditsService>
 
-export type PaymentProviderMap = Record<PaymentProviderName, PaymentProvider>
+export type PaymentProviderMap = Partial<Record<PaymentProviderName, PaymentProvider>>
 
 interface ResolvedPaymentProduct {
 	product: PaymentProductConfig
@@ -1275,10 +1275,12 @@ export function newPaymentService(
 		providerCountryOverrides: config.providerCountryOverrides
 	})
 
-	const providers: PaymentProviderMap = {
-		dodo: newDodoPayment(env),
-		creem: newCreemPayment(env)
-	}
+	const providers: PaymentProviderMap = config.enabled
+		? {
+			dodo: newDodoPayment(env),
+			creem: newCreemPayment(env)
+		}
+		: {}
 
 	return new PaymentService(db, config, providerRouter, providers, async (userId: string) => {
 		const tenant = await createTenantShardAccess(db, env).openUserDb(userId)

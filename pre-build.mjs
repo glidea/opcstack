@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createInterface } from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const SVELTE_WORKER_PATH = '.svelte-kit/cloudflare/_worker.js'
@@ -14,6 +14,11 @@ const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
 const R2_S3_TOKEN_CACHE_PATH = '.wrangler/r2-s3-token.json'
 const RUNTIME_SECRETS_PATH = '.wrangler/runtime-secrets.env'
+const CLIENT_CONFIG_PATH = 'src/generated/client-config.ts'
+const LOGO_PATH = 'logo.svg'
+const WEB_LOGO_PATH = 'src/apps/web/static/logo.svg'
+const EXTENSION_ICON_DIR = 'src/apps/extension/public/icons'
+const EXTENSION_ICON_SIZES = [16, 32, 48, 128]
 const SECRET_KEYS = [
 	'BETTER_AUTH_SECRET',
 	'SUPER_ADMIN_PASSWORD',
@@ -385,6 +390,86 @@ function renderTemplate(template, env) {
 		console.error(`Error: Missing required variable ${varName}`)
 		process.exit(1)
 	})
+}
+
+function parseConfigBoolean(value) {
+	return String(value) === 'true'
+}
+
+function parseList(value) {
+	return String(value || '')
+		.split(';')
+		.map((item) => item.trim())
+		.filter((item) => item !== '')
+}
+
+function buildClientConfig(vars) {
+	return {
+		appName: vars.APP_NAME,
+		apiBaseUrl: vars.APP_BASE_URL,
+		webBaseUrl: vars.APP_BASE_URL,
+		supportEmail: vars.SUPPORT_EMAIL,
+		designSystem: vars.DESIGN_SYSTEM,
+		emailEnabled: parseConfigBoolean(vars.EMAIL_ENABLED),
+		emailSignupEnabled: parseConfigBoolean(vars.EMAIL_SIGNUP_ENABLED),
+		emailRequireVerification: parseConfigBoolean(vars.EMAIL_REQUIRE_VERIFICATION),
+		emailUserActionCooldownSeconds: Number(vars.EMAIL_USER_ACTION_COOLDOWN_SECONDS),
+		googleAuthEnabled: parseConfigBoolean(vars.GOOGLE_AUTH_ENABLED),
+		githubAuthEnabled: parseConfigBoolean(vars.GITHUB_AUTH_ENABLED),
+		linuxdoAuthEnabled: parseConfigBoolean(vars.LINUXDO_AUTH_ENABLED),
+		turnstileEnabled: parseConfigBoolean(vars.TURNSTILE_ENABLED),
+		turnstileSiteKey: vars.TURNSTILE_SITE_KEY,
+		paymentEnabled: parseConfigBoolean(vars.PAYMENT_ENABLED),
+		extension: {
+			hostPermissions: parseList(vars.EXTENSION_HOST_PERMISSIONS)
+		}
+	}
+}
+
+function writeClientConfig(vars) {
+	mkdirSync('src/generated', { recursive: true })
+	const clientConfig = buildClientConfig(vars)
+	const content = `export type ClientConfig = {
+	appName: string
+	apiBaseUrl: string
+	webBaseUrl: string
+	supportEmail: string
+	designSystem: string
+	emailEnabled: boolean
+	emailSignupEnabled: boolean
+	emailRequireVerification: boolean
+	emailUserActionCooldownSeconds: number
+	googleAuthEnabled: boolean
+	githubAuthEnabled: boolean
+	linuxdoAuthEnabled: boolean
+	turnstileEnabled: boolean
+	turnstileSiteKey: string
+	paymentEnabled: boolean
+	extension: {
+		hostPermissions: string[]
+	}
+}
+
+export const clientConfig: ClientConfig = ${JSON.stringify(clientConfig, null, '\t')}
+`
+	writeFileSync(CLIENT_CONFIG_PATH, content)
+	console.log(`${CLIENT_CONFIG_PATH} generated successfully`)
+}
+
+async function syncClientAssets() {
+	mkdirSync('src/apps/web/static', { recursive: true })
+	copyFileSync(LOGO_PATH, WEB_LOGO_PATH)
+
+	const { default: sharp } = await import('sharp')
+	mkdirSync(EXTENSION_ICON_DIR, { recursive: true })
+	for (const size of EXTENSION_ICON_SIZES) {
+		await sharp(LOGO_PATH)
+			.resize(size, size)
+			.png()
+			.toFile(join(EXTENSION_ICON_DIR, `icon-${size}.png`))
+	}
+
+	console.log('Client assets generated successfully')
 }
 
 function validateEmailConfig(env) {
@@ -1455,6 +1540,9 @@ async function main() {
 		process.exit(1)
 	}
 
+	config.vars = config.vars || {}
+	writeClientConfig(config.vars)
+	await syncClientAssets()
 	ensureSvelteWorkerBuild()
 
 	if (queueNames.length > 0) {
@@ -1483,7 +1571,6 @@ async function main() {
 		config.migrations = [durableObjectConfig.migration]
 	}
 
-	config.vars = config.vars || {}
 	config.routes = buildWorkerRoutes(env.APP_BASE_HOST, env.APP_CN_DOMAIN)
 	config.vars.R2_ENABLED = r2Enabled ? 'true' : 'false'
 	config.vars.R2_ACCOUNT_ID = r2S3Token?.accountId || accountId || 'local'

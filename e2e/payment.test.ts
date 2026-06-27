@@ -2,11 +2,7 @@ import { createHmac } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { readdirSync } from 'node:fs'
 import { beforeAll, describe } from 'vitest'
-import { runCases, type TestCase } from '../src/testing/bdd'
-
-interface PublicConfigResponse {
-	payment_enabled: boolean
-}
+import { runCases, type TestCase } from '../src/backend/testing/bdd'
 
 interface JsonErrorResponse {
 	code?: string
@@ -96,41 +92,6 @@ describe('payment api e2e', () => {
 		const res = await fetch(`${appBaseUrl}/api/health`)
 		if (res.status !== 200) {
 			throw new Error('dev server is not ready for e2e tests')
-		}
-	})
-
-	type PublicGiven = Record<string, never>
-	type PublicWhen = {
-		action: 'get_public_config'
-	}
-	type PublicThen = {
-		status: number
-		paymentEnabled: boolean
-	}
-
-	const publicCases: TestCase<PublicGiven, PublicWhen, PublicThen>[] = [
-		{
-			scenario: 'public config exposes payment_enabled',
-			given: 'no auth required',
-			when: 'calling /api/get_public_config',
-			then: 'returns payment_enabled from runtime env',
-			givenDetail: {},
-			whenDetail: {
-				action: 'get_public_config'
-			},
-			thenExpected: {
-				status: 200,
-				paymentEnabled
-			}
-		}
-	]
-
-	runCases(publicCases, async () => {
-		const res = await postJson('/api/get_public_config', {})
-		const payload = (await res.json()) as PublicConfigResponse
-		return {
-			status: res.status,
-			paymentEnabled: payload.payment_enabled
 		}
 	})
 

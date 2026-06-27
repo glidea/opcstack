@@ -1,16 +1,5 @@
 import { beforeAll, describe } from 'vitest'
-import { runCases, type TestCase } from '../src/testing/bdd'
-
-interface PublicConfigResponse {
-	beta_code_enabled: boolean
-	google_auth_enabled: boolean
-	github_auth_enabled: boolean
-	linuxdo_auth_enabled: boolean
-	email_enabled: boolean
-	email_signup_enabled: boolean
-	email_require_verification: boolean
-	email_user_action_cooldown_seconds: number
-}
+import { runCases, type TestCase } from '../src/backend/testing/bdd'
 
 interface GenerateBetaCodesResponse {
 	codes: Array<{
@@ -32,31 +21,12 @@ interface ListBetaCodesResponse {
 type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_ADMIN_API_TOKEN?: string
-	E2E_BETA_CODE_ENABLED?: string
-	E2E_GOOGLE_AUTH_ENABLED?: string
-	E2E_GITHUB_AUTH_ENABLED?: string
-	E2E_LINUXDO_AUTH_ENABLED?: string
-	E2E_EMAIL_ENABLED?: string
-	E2E_EMAIL_SIGNUP_ENABLED?: string
-	E2E_EMAIL_REQUIRE_VERIFICATION?: string
-	E2E_EMAIL_USER_ACTION_COOLDOWN_SECONDS?: string
 }
 
 const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
-const expectedBetaEnabled: boolean = e2eEnv.E2E_BETA_CODE_ENABLED === 'true'
-const expectedGoogleEnabled: boolean = e2eEnv.E2E_GOOGLE_AUTH_ENABLED === 'true'
-const expectedGithubEnabled: boolean = e2eEnv.E2E_GITHUB_AUTH_ENABLED === 'true'
-const expectedLinuxDoEnabled: boolean = e2eEnv.E2E_LINUXDO_AUTH_ENABLED === 'true'
-const expectedEmailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
-const expectedEmailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
-const expectedEmailRequireVerification: boolean =
-	e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
-const expectedEmailCooldownSeconds: number = Number(
-	e2eEnv.E2E_EMAIL_USER_ACTION_COOLDOWN_SECONDS ?? '50'
-)
 
 describe('beta code api e2e', () => {
 	beforeAll(async () => {
@@ -68,7 +38,7 @@ describe('beta code api e2e', () => {
 
 	type PublicCaseGiven = Record<string, never>
 	type PublicCaseWhen = {
-		action: 'get_public_config' | 'generate_beta_codes_without_admin'
+		action: 'generate_beta_codes_without_admin'
 	}
 	type PublicCaseThen = {
 		status: number
@@ -84,28 +54,6 @@ describe('beta code api e2e', () => {
 	}
 
 	const publicCases: TestCase<PublicCaseGiven, PublicCaseWhen, PublicCaseThen>[] = [
-		{
-			scenario: 'returns public config without authentication',
-			given: 'api server is running',
-			when: 'requesting /api/get_public_config',
-			then: 'returns feature switches',
-			givenDetail: {},
-			whenDetail: {
-				action: 'get_public_config'
-			},
-			thenExpected: {
-				status: 200,
-				code: '',
-				betaEnabled: expectedBetaEnabled,
-				googleEnabled: expectedGoogleEnabled,
-				githubEnabled: expectedGithubEnabled,
-				linuxdoEnabled: expectedLinuxDoEnabled,
-				emailEnabled: expectedEmailEnabled,
-				emailSignupEnabled: expectedEmailSignupEnabled,
-				emailRequireVerification: expectedEmailRequireVerification,
-				emailCooldownSeconds: expectedEmailCooldownSeconds
-			}
-		},
 		{
 			scenario: 'rejects admin api without admin api token',
 			given: 'no admin authorization header',
@@ -131,23 +79,6 @@ describe('beta code api e2e', () => {
 	]
 
 	runCases(publicCases, async (_given, when) => {
-		if (when.action === 'get_public_config') {
-			const res = await postJson('/api/get_public_config', {})
-			const payload = (await res.json()) as PublicConfigResponse
-			return {
-				status: res.status,
-				code: '',
-				betaEnabled: payload.beta_code_enabled,
-				googleEnabled: payload.google_auth_enabled,
-				githubEnabled: payload.github_auth_enabled,
-				linuxdoEnabled: payload.linuxdo_auth_enabled,
-				emailEnabled: payload.email_enabled,
-				emailSignupEnabled: payload.email_signup_enabled,
-				emailRequireVerification: payload.email_require_verification,
-				emailCooldownSeconds: payload.email_user_action_cooldown_seconds
-			}
-		}
-
 		const res = await postJson('/api/admin/generate_beta_codes', { count: 1 })
 		const payload = (await res.json()) as { code: string }
 		return {

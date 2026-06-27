@@ -23,6 +23,7 @@ const config = {
 			config: 'wrangler.svelte.jsonc'
 		}),
 		files: {
+			assets: 'src/apps/web/static',
 			routes: 'src/apps/web/routes',
 			params: 'src/apps/web/params',
 			hooks: {

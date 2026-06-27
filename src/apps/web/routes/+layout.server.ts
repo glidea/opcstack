@@ -4,8 +4,7 @@ import {
 	supportedLocales,
 	type SystemLocale
 } from '$web/i18n/locales'
-import type { PublicConfig } from '$web/config/client'
-import { getServerPublicConfig, serverConfig } from '$web/config/server.server'
+import { serverConfig } from '$web/config/server.server'
 import { resolveSiteOrigin, serializeJsonLd, toSiteUrl } from '$web/seo'
 
 type AlternateUrl = {
@@ -26,13 +25,11 @@ export async function load(event: {
 	alternateUrls: AlternateUrl[]
 	xDefaultUrl: string
 	websiteJsonLd: string
-	publicConfig: PublicConfig
 }> {
 	const origin = resolveSiteOrigin(serverConfig.APP_DOMAIN)
 	const siteName = serverConfig.APP_NAME
 	const locale = resolveLocale(event.params.locale)
 	const supportEmail = serverConfig.SUPPORT_EMAIL
-	const publicConfig = getServerPublicConfig()
 	const alternateUrls = supportedLocales.map((locale) => {
 		return {
 			locale,
@@ -54,8 +51,7 @@ export async function load(event: {
 			'@type': 'WebSite',
 			name: siteName,
 			url: toSiteUrl(origin, '/')
-		}),
-		publicConfig
+		})
 	}
 }
 

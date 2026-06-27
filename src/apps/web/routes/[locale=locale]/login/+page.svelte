@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
-	import type { PublicConfig } from '$web/config/client'
+	import { clientConfig } from '$web/config/client'
 	import AppHeader from '$web/components/AppHeader.svelte'
 	import LoginCard from '$web/components/LoginCard.svelte'
 
@@ -9,7 +9,6 @@
 	}: {
 		data: {
 			locale: string
-			publicConfig: PublicConfig
 		}
 	} = $props()
 
@@ -25,13 +24,13 @@
 		onSuccess={handleSuccess}
 		registerHref={`/${data.locale}/register`}
 		forgotPasswordHref={`/${data.locale}/forgot-password`}
-		googleAuthEnabled={data.publicConfig.google_auth_enabled}
-		githubAuthEnabled={data.publicConfig.github_auth_enabled}
-		linuxdoAuthEnabled={data.publicConfig.linuxdo_auth_enabled}
-		emailEnabled={data.publicConfig.email_enabled}
-		emailSignupEnabled={data.publicConfig.email_signup_enabled}
-		refundHref={data.publicConfig.payment_enabled ? '/refund-policy' : undefined}
-		turnstileEnabled={data.publicConfig.turnstile_enabled}
-		turnstileSiteKey={data.publicConfig.turnstile_site_key}
+		googleAuthEnabled={clientConfig.googleAuthEnabled}
+		githubAuthEnabled={clientConfig.githubAuthEnabled}
+		linuxdoAuthEnabled={clientConfig.linuxdoAuthEnabled}
+		emailEnabled={clientConfig.emailEnabled}
+		emailSignupEnabled={clientConfig.emailSignupEnabled}
+		refundHref={clientConfig.paymentEnabled ? '/refund-policy' : undefined}
+		turnstileEnabled={clientConfig.turnstileEnabled}
+		turnstileSiteKey={clientConfig.turnstileSiteKey}
 	/>
 </main>

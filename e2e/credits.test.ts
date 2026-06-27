@@ -1,13 +1,5 @@
 import { beforeAll, describe } from 'vitest'
-import { runCases, type TestCase } from '../src/testing/bdd'
-
-interface PublicConfigResponse {
-	credits_signup_enabled: boolean
-	credits_signup_amount: string
-	credits_daily_checkin_enabled: boolean
-	credits_daily_checkin_amount: string
-	aff_enabled: boolean
-}
+import { runCases, type TestCase } from '../src/backend/testing/bdd'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
@@ -28,7 +20,6 @@ describe('credits api e2e', () => {
 	type GivenDetail = Record<string, never>
 	type WhenDetail = {
 		action:
-			| 'get_public_config'
 			| 'get_credit_summary_without_auth'
 			| 'daily_checkin_without_auth'
 			| 'redeem_code_without_auth'
@@ -41,21 +32,6 @@ describe('credits api e2e', () => {
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
-		{
-			scenario: 'public config exposes credit fields',
-			given: 'no auth required',
-			when: 'calling /api/get_public_config',
-			then: 'returns credit feature fields',
-			givenDetail: {},
-			whenDetail: {
-				action: 'get_public_config'
-			},
-			thenExpected: {
-				status: 200,
-				code: '',
-				hasCreditsFields: true
-			}
-		},
 		{
 			scenario: 'credit summary requires auth',
 			given: 'no bearer token',
@@ -119,21 +95,6 @@ describe('credits api e2e', () => {
 	]
 
 	runCases(cases, async (_given, when) => {
-		if (when.action === 'get_public_config') {
-			const res = await postJson('/api/get_public_config', {})
-			const payload = (await res.json()) as PublicConfigResponse
-			return {
-				status: res.status,
-				code: '',
-				hasCreditsFields:
-					typeof payload.credits_signup_enabled === 'boolean' &&
-					typeof payload.credits_signup_amount === 'string' &&
-					typeof payload.credits_daily_checkin_enabled === 'boolean' &&
-					typeof payload.credits_daily_checkin_amount === 'string' &&
-					typeof payload.aff_enabled === 'boolean'
-			}
-		}
-
 		if (when.action === 'get_credit_summary_without_auth') {
 			const res = await postJson('/api/get_credit_summary', {})
 			const payload = (await res.json()) as { code: string }

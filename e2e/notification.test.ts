@@ -1,5 +1,5 @@
 import { beforeAll, describe } from 'vitest'
-import { runCases, type TestCase } from '../src/testing/bdd'
+import { runCases, type TestCase } from '../src/backend/testing/bdd'
 
 type E2EEnv = {
 	APP_BASE_URL?: string

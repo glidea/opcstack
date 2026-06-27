@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
-	import type { PublicConfig } from '$web/config/client'
+	import { clientConfig } from '$web/config/client'
 	import AppHeader from '$web/components/AppHeader.svelte'
 	import RegisterCard from '$web/components/RegisterCard.svelte'
 	import OtpCard from '$web/components/OtpCard.svelte'
@@ -10,14 +10,13 @@
 	}: {
 		data: {
 			locale: string
-			publicConfig: PublicConfig
 		}
 	} = $props()
 
 	let pendingEmail = $state('')
 
 	function handleRegisterSuccess(email: string): void {
-		if (!data.publicConfig.email_require_verification) {
+		if (!clientConfig.emailRequireVerification) {
 			goto(`/${data.locale}`)
 			return
 		}
@@ -36,22 +35,22 @@
 		<OtpCard
 			email={pendingEmail}
 			onSuccess={handleOtpSuccess}
-			emailUserActionCooldownSeconds={data.publicConfig.email_user_action_cooldown_seconds}
+			emailUserActionCooldownSeconds={clientConfig.emailUserActionCooldownSeconds}
 		/>
 	{:else}
 		<RegisterCard
 			onSuccess={handleRegisterSuccess}
 			loginHref={`/${data.locale}/login`}
-			googleAuthEnabled={data.publicConfig.google_auth_enabled}
-			githubAuthEnabled={data.publicConfig.github_auth_enabled}
-			linuxdoAuthEnabled={data.publicConfig.linuxdo_auth_enabled}
-			emailEnabled={data.publicConfig.email_enabled}
-			emailSignupEnabled={data.publicConfig.email_signup_enabled}
-			emailRequireVerification={data.publicConfig.email_require_verification}
-			emailUserActionCooldownSeconds={data.publicConfig.email_user_action_cooldown_seconds}
-			refundHref={data.publicConfig.payment_enabled ? '/refund-policy' : undefined}
-			turnstileEnabled={data.publicConfig.turnstile_enabled}
-			turnstileSiteKey={data.publicConfig.turnstile_site_key}
+			googleAuthEnabled={clientConfig.googleAuthEnabled}
+			githubAuthEnabled={clientConfig.githubAuthEnabled}
+			linuxdoAuthEnabled={clientConfig.linuxdoAuthEnabled}
+			emailEnabled={clientConfig.emailEnabled}
+			emailSignupEnabled={clientConfig.emailSignupEnabled}
+			emailRequireVerification={clientConfig.emailRequireVerification}
+			emailUserActionCooldownSeconds={clientConfig.emailUserActionCooldownSeconds}
+			refundHref={clientConfig.paymentEnabled ? '/refund-policy' : undefined}
+			turnstileEnabled={clientConfig.turnstileEnabled}
+			turnstileSiteKey={clientConfig.turnstileSiteKey}
 		/>
 	{/if}
 </main>

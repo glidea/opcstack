@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { untrack } from "svelte";
 	import { page } from "$app/stores";
+	import { clientConfig } from "$web/config/client";
 	import { locale as localeStore } from "$web/i18n";
 	import type { SystemLocale } from "$web/i18n/locales";
-	import type { PublicConfig } from "$web/config/client";
-	import "../app.css";
+	import "$web/styles/app.css";
 	import "$web/i18n";
 
 	const REGISTRATION_UTM_SOURCE_COOKIE = 'registration_utm_source';
@@ -14,7 +14,7 @@
 		data,
 		children,
 	}: {
-		data: { locale: SystemLocale; websiteJsonLd: string; supportEmail: string; publicConfig: PublicConfig };
+		data: { locale: SystemLocale; websiteJsonLd: string; supportEmail: string };
 		children: import("svelte").Snippet;
 	} = $props();
 
@@ -24,7 +24,7 @@
 		if (typeof document !== "undefined") {
 			document.documentElement.lang = data.locale;
 			const themeParam = $page.params.theme;
-			document.documentElement.dataset['design'] = themeParam || data.publicConfig.design_system;
+			document.documentElement.dataset['design'] = themeParam || clientConfig.designSystem;
 			persistRegistrationUtmSource($page.url.searchParams);
 		}
 	});

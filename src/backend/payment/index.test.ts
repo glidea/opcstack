@@ -1,7 +1,7 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import { PaymentProviderRouter, type PaymentConfig } from './config'
-import { PaymentService, PaymentServiceError, type PaymentProviderMap } from './index'
+import { newPaymentService, PaymentService, PaymentServiceError, type PaymentProviderMap } from './index'
 import type { PaymentEvent, PaymentProvider } from './index'
 import type { MetaDb } from '../db'
 import {
@@ -18,6 +18,17 @@ const creditServiceMocks = vi.hoisted(() => {
 	}
 })
 
+const providerFactoryMocks = vi.hoisted(() => {
+	return {
+		newDodoPayment: vi.fn().mockImplementation(() => {
+			return {}
+		}),
+		newCreemPayment: vi.fn().mockImplementation(() => {
+			return {}
+		})
+	}
+})
+
 vi.mock('../credits', async () => {
 	const actual = await vi.importActual<typeof import('../credits')>('../credits')
 	return {
@@ -26,6 +37,63 @@ vi.mock('../credits', async () => {
 			return creditServiceMocks
 		})
 	}
+})
+
+vi.mock('./dodo', async () => {
+	const actual = await vi.importActual<typeof import('./dodo')>('./dodo')
+	return {
+		...actual,
+		newDodoPayment: providerFactoryMocks.newDodoPayment
+	}
+})
+
+vi.mock('./creem', async () => {
+	const actual = await vi.importActual<typeof import('./creem')>('./creem')
+	return {
+		...actual,
+		newCreemPayment: providerFactoryMocks.newCreemPayment
+	}
+})
+
+describe('newPaymentService', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	type GivenDetail = Record<string, never>
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		dodoFactoryCalls: number
+		creemFactoryCalls: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'skip provider clients when payment is disabled without products',
+			given: 'PAYMENT_ENABLED=false and PAYMENT_PRODUCTS=[]',
+			when: 'creating payment service',
+			then: 'does not initialize payment providers',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: {
+				dodoFactoryCalls: 0,
+				creemFactoryCalls: 0
+			}
+		}
+	]
+
+	runCases(cases, async () => {
+		newPaymentService({} as unknown as MetaDb, {
+			PAYMENT_ENABLED: 'false',
+			PAYMENT_PROVIDER: 'creem',
+			PAYMENT_PROVIDER_COUNTRY_OVERRIDES: '',
+			PAYMENT_PRODUCTS: '[]'
+		} as unknown as Env)
+		return {
+			dodoFactoryCalls: providerFactoryMocks.newDodoPayment.mock.calls.length,
+			creemFactoryCalls: providerFactoryMocks.newCreemPayment.mock.calls.length
+		}
+	})
 })
 
 describe('PaymentService.listPaymentProducts', () => {

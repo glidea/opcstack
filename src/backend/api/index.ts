@@ -45,7 +45,6 @@ import {
 } from './handler/r2'
 import { authCore } from './auth'
 import type { MetaDb, TenantShardDb } from '../db'
-import { formatDecimal, parseDecimal } from '../lib/decimal'
 
 export type ApiEnv = {
 	Bindings: Env
@@ -69,28 +68,6 @@ publicApi.all('/auth/*', async (ctx): Promise<Response> => {
 	return h(ctx.req.raw)
 })
 
-publicApi.post('/get_public_config', (ctx): Response => {
-	const env = ctx.env
-	return ctx.json({
-		design_system: env.DESIGN_SYSTEM || 'apple-saas',
-		beta_code_enabled: String(env.BETA_CODE_ENABLED) === 'true',
-		turnstile_enabled: String(env.TURNSTILE_ENABLED) === 'true',
-		turnstile_site_key: env.TURNSTILE_SITE_KEY,
-		google_auth_enabled: String(env.GOOGLE_AUTH_ENABLED) === 'true',
-		github_auth_enabled: String(env.GITHUB_AUTH_ENABLED) === 'true',
-		linuxdo_auth_enabled: String(env.LINUXDO_AUTH_ENABLED) === 'true',
-		email_enabled: String(env.EMAIL_ENABLED) === 'true',
-		email_signup_enabled: String(env.EMAIL_SIGNUP_ENABLED) === 'true',
-		email_require_verification: String(env.EMAIL_REQUIRE_VERIFICATION) === 'true',
-		email_user_action_cooldown_seconds: Number(env.EMAIL_USER_ACTION_COOLDOWN_SECONDS),
-		credits_signup_enabled: String(env.CREDITS_SIGNUP_ENABLED) === 'true',
-		credits_signup_amount: formatDecimal(parseDecimal(env.CREDITS_SIGNUP_AMOUNT)),
-		credits_daily_checkin_enabled: String(env.CREDITS_DAILY_CHECKIN_ENABLED) === 'true',
-		credits_daily_checkin_amount: formatDecimal(parseDecimal(env.CREDITS_DAILY_CHECKIN_AMOUNT)),
-		aff_enabled: String(env.AFF_ENABLED) === 'true',
-		payment_enabled: String(env.PAYMENT_ENABLED) === 'true'
-	})
-})
 publicApi.post('/list_payment_products', listPaymentProductsHandler)
 publicApi.post('/webhook/dodo', dodoWebhookHandler)
 publicApi.post('/webhook/creem', creemWebhookHandler)

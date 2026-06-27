@@ -238,13 +238,13 @@ src/
 
 ## API Contracts
 
-### Public Config
+### Client Config
 
-- `POST /api/get_public_config` returns backend feature flag config.
-- `PublicConfig` lives in `src/apps/lib/config/client.ts`.
-- Frontend loads public config through `getPublicConfig(fetchApi)` from `$web/config/client`.
-- `src/apps/web/routes/+layout.server.ts` is the single source that calls `getPublicConfig(event.fetch)` and passes `data.publicConfig` to pages.
-- Components and pages must not call `/api/get_public_config` directly unless they replace the layout-level state source.
+- `pre-build.mjs` generates `src/generated/client-config.ts` from `wrangler.jsonc` vars.
+- `ClientConfig` and `clientConfig` are re-exported from `src/apps/lib/config/client.ts`.
+- Web and extension client code import `clientConfig` from `$web/config/client`.
+- Do not add runtime public config endpoints by default.
+- Do not expose secret env keys in `ClientConfig`.
 
 ### List APIs
 
@@ -286,7 +286,7 @@ src/
 ## Payment
 
 - Payment entry switch: `PAYMENT_ENABLED`.
-- Public config exposes `payment_enabled`.
+- Client config exposes `paymentEnabled`.
 - Provider routing uses `request.cf.country` with default plus country override fallback.
 - Enabled providers are Dodo and Creem via `src/backend/payment/`.
 - Core service is `PaymentService` in `src/backend/payment/index.ts`.
