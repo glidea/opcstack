@@ -25,12 +25,12 @@ If architecture, core mechanisms, conventions, important dependencies, or workfl
 
 ```
 HTTP Request
-  ├── /api/*      -> Hono API      (src/api/)
-  └── other path  -> SvelteKit SSR (src/web/)
+  ├── /api/*      -> Hono API      (src/backend/api/)
+  └── other path  -> SvelteKit SSR (src/apps/web/)
 
-Cron Trigger       -> src/jobs/index.ts
-Queue Consumer     -> src/consumers/index.ts
-Durable Object     -> src/do/
+Cron Trigger       -> src/backend/jobs/index.ts
+Queue Consumer     -> src/backend/consumers/index.ts
+Durable Object     -> src/backend/do/
 ```
 
 ### Directory Responsibilities
@@ -111,7 +111,7 @@ src/
 - After changing config keys, run `pnpm exec wrangler types` so `worker-configuration.d.ts` stays current.
 - API handlers and jobs read config from Cloudflare env directly, for example `ctx.env.KEY` or `env.KEY`.
 - SvelteKit server routes use `serverConfig` from `$web/config/server`.
-- Do not import `wrangler.jsonc` outside `src/web/lib/config/server.ts`.
+- Do not import `wrangler.jsonc` outside `src/apps/lib/config/server.ts`.
 - Do not use the old `AppConfig` name.
 - Do not create feature-specific env interfaces. Use generated `Env`.
 - Do not use `envMap` or `as Record<string, string | undefined>` casts for normal config reads.
@@ -120,7 +120,7 @@ src/
 
 ## Authentication
 
-- Better Auth lives in `src/api/auth/index.ts`.
+- Better Auth lives in `src/backend/api/auth/index.ts`.
 - `authMiddleware` injects `userId` into `ctx.variables`.
 - Authenticated API routes accept Better Auth sessions from Cookie or `Authorization: Bearer <token>`.
 - `adminUserMiddleware` validates super admin session or `ADMIN_API_TOKEN`.
@@ -142,8 +142,8 @@ src/
 - New users are assigned to the least loaded active shard in the Worker preferred region first, then any active shard.
 - Meta-owned runtime data includes `credit_redemption_codes`, `aff_referrals`, payment orders, payment transactions, subscriptions, and webhook events.
 - Tenant-owned runtime data includes `credit_balances`, `credit_entries`, `credit_transactions`, `feedbacks`, `notification_reads`, and AI async task tables.
-- Modify Meta schema in `src/db/schema.meta.ts`.
-- Modify Tenant Shard schema in `src/db/schema.shard.ts`.
+- Modify Meta schema in `src/backend/db/schema.meta.ts`.
+- Modify Tenant Shard schema in `src/backend/db/schema.shard.ts`.
 - Restart `pnpm dev` to generate and apply Meta and Shard migrations.
 
 ### D1 Write Rules
@@ -167,8 +167,8 @@ src/
 
 ### D1 Read Replication
 
-- Meta bookmark middleware: `src/api/middleware/meta-db-session.ts`.
-- Tenant bookmark middleware: `src/api/middleware/tenant-db.ts`.
+- Meta bookmark middleware: `src/backend/api/middleware/meta-db-session.ts`.
+- Tenant bookmark middleware: `src/backend/api/middleware/tenant-db.ts`.
 - Request prefers bookmark header, then cookie.
 - Response writes bookmark header and cookie.
 
@@ -181,7 +181,7 @@ src/
 - Database and service code store credit amounts as integer units where `1 credit = 1_000_000 units`.
 - Do not use floating point numbers for credit balance, credit entries, credit transactions, redemption codes, or payment credit grants.
 - Payment `price_amount` is provider minor currency units and must not be mixed with credit units.
-- Affiliate invite relationships live in `src/aff/`. Credits own wallet ledger, transactions, daily check-in, redemption codes, expiry, and deduction.
+- Affiliate invite relationships live in `src/backend/aff/`. Credits own wallet ledger, transactions, daily check-in, redemption codes, expiry, and deduction.
 
 ---
 
@@ -198,7 +198,7 @@ src/
 - `private/*` and `tmp/private/*` must bypass Cache API.
 - Use a single R2 bucket by default.
 - Do not use an R2 Custom Domain as the default read path unless explicitly requested.
-- R2 client entry: `src/r2/index.ts`.
+- R2 client entry: `src/backend/r2/index.ts`.
 
 ---
 
@@ -211,13 +211,13 @@ src/
 - Queue bindings are required runtime dependencies. Access fixed bindings directly.
 - Do not wrap queue bindings in optional casts or handwritten "not configured" guards.
 - A queue payload must not include a redundant `type` field when the queue has a single purpose.
-- Queue handlers live in `src/consumers/index.ts`.
+- Queue handlers live in `src/backend/consumers/index.ts`.
 - Async AI queue payloads carry only task id and user id.
 
 ### Cron
 
 - Configure cron triggers with `CRONS`, separated by semicolon.
-- Cron handlers live in `src/jobs/index.ts`.
+- Cron handlers live in `src/backend/jobs/index.ts`.
 - Credits cron should run credit expiry and transaction cleanup once per trigger.
 
 ### Durable Objects
@@ -225,7 +225,7 @@ src/
 - Configure Durable Object names with `DO_NAMES`, separated by semicolon.
 - Binding convention: `DO_<NAME_UPPER>`, for example `rate-limiter` -> `DO_RATE_LIMITER`.
 - Class convention: PascalCase name plus `DO` suffix, for example `RateLimiterDO`.
-- Classes live in `src/do/`.
+- Classes live in `src/backend/do/`.
 - Export every DO class from `src/index.ts`.
 - New DO classes use SQLite-backed storage by default through generated `new_sqlite_classes`.
 - DO names must use lowercase letters, numbers, and hyphen, and start with a lowercase letter.
@@ -241,9 +241,9 @@ src/
 ### Public Config
 
 - `POST /api/get_public_config` returns backend feature flag config.
-- `PublicConfig` lives in `src/web/lib/config/client.ts`.
+- `PublicConfig` lives in `src/apps/lib/config/client.ts`.
 - Frontend loads public config through `getPublicConfig(fetchApi)` from `$web/config/client`.
-- `src/web/routes/+layout.server.ts` is the single source that calls `getPublicConfig(event.fetch)` and passes `data.publicConfig` to pages.
+- `src/apps/web/routes/+layout.server.ts` is the single source that calls `getPublicConfig(event.fetch)` and passes `data.publicConfig` to pages.
 - Components and pages must not call `/api/get_public_config` directly unless they replace the layout-level state source.
 
 ### List APIs
@@ -266,11 +266,11 @@ src/
 
 ## AI Capabilities
 
-- Chat: `src/ai/chat/openai/`.
-- Image: `src/ai/image/`.
-- TTS: `src/ai/tts/`.
-- Realtime voice: `src/ai/realtime/doubao/`.
-- Video: `src/ai/video/seedance/`.
+- Chat: `src/backend/ai/chat/openai/`.
+- Image: `src/backend/ai/image/`.
+- TTS: `src/backend/ai/tts/`.
+- Realtime voice: `src/backend/ai/realtime/doubao/`.
+- Video: `src/backend/ai/video/seedance/`.
 - Provider model and speaker constants live in provider `constants.ts` files and are re-exported from capability indexes.
 - Provider config must include primary `BASE_URL` and `API_KEY`, fallback `FALLBACK_BASE_URL` and `FALLBACK_API_KEY`, and one primary `MODEL` only when the provider has a runtime default model.
 - Do not add `FALLBACK_MODEL`.
@@ -288,8 +288,8 @@ src/
 - Payment entry switch: `PAYMENT_ENABLED`.
 - Public config exposes `payment_enabled`.
 - Provider routing uses `request.cf.country` with default plus country override fallback.
-- Enabled providers are Dodo and Creem via `src/payment/`.
-- Core service is `PaymentService` in `src/payment/index.ts`.
+- Enabled providers are Dodo and Creem via `src/backend/payment/`.
+- Core service is `PaymentService` in `src/backend/payment/index.ts`.
 - Payment runtime tables live in Meta DB.
 - Webhooks live under `/api/webhook/dodo` and `/api/webhook/creem`.
 
@@ -297,16 +297,16 @@ src/
 
 ## Frontend
 
-- Pages live under `src/web/routes/`.
-- UI primitives live under `src/web/lib/ui/` and use alias `$web/ui/*`.
-- Business components live under `src/web/lib/components/` and use alias `$web/components/*`.
+- Pages live under `src/apps/web/routes/`.
+- UI primitives live under `src/apps/lib/ui/` and use alias `$web/ui/*`.
+- Business components live under `src/apps/lib/components/` and use alias `$web/components/*`.
 - Pages compose existing primitives. Do not rebuild `Button`, `Card`, `Dialog`, `Alert`, `Empty`, form fields, table primitives, or toast manually.
 - If an auth card, app header, user menu, locale switcher, theme switcher, or Google icon already exists, reuse the business component.
-- Put i18n messages in `src/web/lib/i18n/messages/`.
+- Put i18n messages in `src/apps/lib/i18n/messages/`.
 - Set page title, description, and canonical in `<svelte:head>`.
 - Canonical URLs use `APP_DOMAIN` and must not point business pages to the OPCStack website.
 - Active style is controlled by `DESIGN_SYSTEM` in `.env`. Valid values: `apple-saas` and `brutalism`.
-- Concrete colors, radii, typography sizes, and animations live in `src/web/app.css`.
+- Concrete colors, radii, typography sizes, and animations live in `src/apps/web/app.css`.
 - Use semantic tokens such as `bg-primary`, `text-muted-foreground`, and `border-input`.
 - Icons come from `lucide-svelte`. Do not introduce other icon libraries.
 - Titles, headings, descriptions, button labels, and placeholders must not end with punctuation.
@@ -331,8 +331,8 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 
 ## SEO And Docs
 
-- `src/web/routes/+layout.server.ts` exposes `siteName` from `APP_NAME` and canonical URLs using `APP_DOMAIN`.
-- `src/web/lib/seo/` owns site origin normalization and JSON-LD serialization.
+- `src/apps/web/routes/+layout.server.ts` exposes `siteName` from `APP_NAME` and canonical URLs using `APP_DOMAIN`.
+- `src/apps/lib/seo/` owns site origin normalization and JSON-LD serialization.
 - Business pages should set `<title>`, `<meta name="description">`, and `<link rel="canonical">`.
 - Product docs rendered by the app live in `public-docs/en/` and `public-docs/zh/`.
 - Template explanation docs live in `template-docs/en/` and are not rendered by the app.
@@ -348,7 +348,7 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 - Base test library is `vitest`.
 - Unit tests live in `src/**/*.test.ts`.
 - E2E tests live in `e2e/**/*.test.ts`.
-- Shared BDD helper lives in `src/testing/bdd.ts`.
+- Shared BDD helper lives in `src/backend/testing/bdd.ts`.
 - Use `TestCase<TGiven, TWhen, TThen>` and `runCases(cases, fn)` when matching existing BDD-style tests.
 - Test names describe behavior, not implementation.
 - One test should verify one behavior.
@@ -374,38 +374,38 @@ pnpm exec wrangler types
 
 ### Add API
 
-1. Write handler in `src/api/handler/`.
-2. Register route in `src/api/index.ts`.
+1. Write handler in `src/backend/api/handler/`.
+2. Register route in `src/backend/api/index.ts`.
 3. Use request-scoped values such as `ctx.get('userId')`, `ctx.get('metaDb')`, and `ctx.get('tenantDb')`.
 
 ### Add Page
 
-1. Create page under `src/web/routes/`.
+1. Create page under `src/apps/web/routes/`.
 2. Reuse primitives from `$web/ui/*` and business components from `$web/components/*`.
-3. Add i18n messages under `src/web/lib/i18n/messages/`.
+3. Add i18n messages under `src/apps/lib/i18n/messages/`.
 4. Set SEO tags in `<svelte:head>`.
 
 ### Modify Database
 
-1. Edit `src/db/schema.meta.ts` or `src/db/schema.shard.ts`.
+1. Edit `src/backend/db/schema.meta.ts` or `src/backend/db/schema.shard.ts`.
 2. Restart `pnpm dev` to generate and apply migrations.
 3. Check generated migrations before committing.
 
 ### Add Queue
 
 1. Configure `QUEUE_NAMES`.
-2. Add handler in `src/consumers/index.ts`.
+2. Add handler in `src/backend/consumers/index.ts`.
 3. Send with `env.Q_<NAME>.send(payload)`.
 
 ### Add Cron
 
 1. Configure `CRONS`.
-2. Add handler in `src/jobs/index.ts`.
+2. Add handler in `src/backend/jobs/index.ts`.
 
 ### Add Durable Object
 
 1. Add the name to `DO_NAMES`.
-2. Create the class in `src/do/`.
+2. Create the class in `src/backend/do/`.
 3. Export the class from `src/index.ts`.
 4. Run `pnpm dev` to regenerate `wrangler.jsonc` and `worker-configuration.d.ts`.
 
@@ -413,7 +413,7 @@ pnpm exec wrangler types
 
 ## Logging
 
-- Logs must be structured JSON and should go through `src/lib/log.ts`.
+- Logs must be structured JSON and should go through `src/backend/lib/log.ts`.
 - Do not log expected user-caused 4xx results such as invalid request, unauthorized, beta gate, or rate limit.
 - Do not duplicate platform-level observability for request latency, cron trigger, or queue retry state.
 - Do not log an error and then rethrow it.

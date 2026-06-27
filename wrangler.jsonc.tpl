@@ -30,7 +30,7 @@
             "binding": "META_DB",
             "database_name": "{{APP_NAME}}-meta",
             "database_id": "{{D1_DATABASE_UUID}}",
-            "migrations_dir": "src/db/meta-migrations"
+            "migrations_dir": "src/backend/db/meta-migrations"
         }
     ],
     "send_email": [

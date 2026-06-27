@@ -8,8 +8,8 @@ const rawDocModules = import.meta.glob('/public-docs/**/*.md', {
 	query: '?raw',
 	import: 'default'
 }) as Record<string, string>
-const pageModules = import.meta.glob('/src/web/routes/**/+page.svelte')
-const ROUTES_DIR_PREFIX = '/src/web/routes'
+const pageModules = import.meta.glob('/src/apps/web/routes/**/+page.svelte')
+const ROUTES_DIR_PREFIX = '/src/apps/web/routes'
 const PAGE_FILE_SUFFIX = '/+page.svelte'
 
 export const prerender = true

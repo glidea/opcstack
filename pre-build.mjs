@@ -129,7 +129,7 @@ function buildD1DatabaseBindings(appName, metaDatabaseId, shards, shardDatabaseI
 			binding: 'META_DB',
 			database_name: `${appName}-meta`,
 			database_id: metaDatabaseId,
-			migrations_dir: 'src/db/meta-migrations'
+			migrations_dir: 'src/backend/db/meta-migrations'
 		}
 	]
 
@@ -138,7 +138,7 @@ function buildD1DatabaseBindings(appName, metaDatabaseId, shards, shardDatabaseI
 			binding: shard.bindingName,
 			database_name: shard.databaseName,
 			database_id: shardDatabaseIds[shard.id] ?? '00000000-0000-0000-0000-000000000000',
-			migrations_dir: 'src/db/shard-migrations'
+			migrations_dir: 'src/backend/db/shard-migrations'
 		})
 	}
 

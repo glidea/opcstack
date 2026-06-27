@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, vi } from 'vitest'
-import { runCases, type TestCase } from '../../../testing/bdd'
+import { runCases, type TestCase } from '../../../backend/testing/bdd'
 import { clearAuthToken, getAuthToken, setAuthToken } from './client'
 
 class MemoryStorage implements Storage {

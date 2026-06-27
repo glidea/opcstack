@@ -1,5 +1,5 @@
 {
 	"extends": "./tsconfig.json",
 	"include": ["src/**/*.ts", "src/**/*.d.ts", "worker-configuration.d.ts"],
-	"exclude": ["src/web/**/*"]
+	"exclude": ["src/apps/**/*"]
 }

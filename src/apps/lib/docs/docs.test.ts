@@ -1,5 +1,5 @@
 import { describe } from 'vitest'
-import { runCases, type TestCase } from '../../../testing/bdd'
+import { runCases, type TestCase } from '../../../backend/testing/bdd'
 import {
 	buildDocsManifest,
 	docPathToLocaleAndSlug,

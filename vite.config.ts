@@ -4,7 +4,9 @@ import { defineConfig } from 'vite'
 import { fileURLToPath } from 'node:url'
 
 const sharedPath: string = fileURLToPath(new URL('./src/shared', import.meta.url))
-const webLibPath: string = fileURLToPath(new URL('./src/web/lib', import.meta.url))
+const webLibPath: string = fileURLToPath(new URL('./src/apps/lib', import.meta.url))
+const backendPath: string = fileURLToPath(new URL('./src/backend', import.meta.url))
+const apiContractPath: string = fileURLToPath(new URL('./src/api-contract', import.meta.url))
 
 export default defineConfig({
 	server: {
@@ -18,7 +20,9 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			$shared: sharedPath,
-			$web: webLibPath
+			$web: webLibPath,
+			$backend: backendPath,
+			$apiContract: apiContractPath
 		}
 	},
 	plugins: [tailwindcss(), sveltekit()]

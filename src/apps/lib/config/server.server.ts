@@ -1,6 +1,6 @@
 import wranglerConfigText from '../../../../wrangler.jsonc?raw'
 import type { PublicConfig } from './client'
-import { formatDecimal, parseDecimal } from '../../../lib/decimal'
+import { formatDecimal, parseDecimal } from '$backend/lib/decimal'
 
 type StringConfigKeys = {
 	[K in keyof Env]: Env[K] extends string ? K : never

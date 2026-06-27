@@ -23,16 +23,18 @@ const config = {
 			config: 'wrangler.svelte.jsonc'
 		}),
 		files: {
-			routes: 'src/web/routes',
-			params: 'src/web/params',
+			routes: 'src/apps/web/routes',
+			params: 'src/apps/web/params',
 			hooks: {
-				server: 'src/web/hooks.server'
+				server: 'src/apps/web/hooks.server'
 			},
-			appTemplate: 'src/web/app.html'
+			appTemplate: 'src/apps/web/app.html'
 		},
 		alias: {
 			$shared: 'src/shared',
-			$web: 'src/web/lib',
+			$web: 'src/apps/lib',
+			$backend: 'src/backend',
+			$apiContract: 'src/api-contract',
 			$root: '.'
 		}
 	}
