@@ -1,187 +1,297 @@
 # Bootstrap Onboarding Flow
 
-> This is a bootstrap workflow for Coding Agents to help users initialize the project quickly
+> Agent workflow for bringing a freshly cloned OPCStack project to a local running state
 
 ---
 
-## Your Task
+## Goal
 
-Help the user complete project initialization so the project can run locally.
+Help the user run the project locally with the smallest required setup.
 
----
-
-## Onboarding Flow
-
-### Step 1: Collect Required Information
-
-Ask the user for the following details:
-
-**Basic configuration**
-1. Project name in English used for Worker name and database name
-   - Hint: use lowercase letters and hyphens such as `my-saas`
-   - Default value: `opcstack`
-
-2. Logo design
-   - Ask: do you have your own logo
-   - If yes guide the user to replace `static/logo.svg`
-   - If no confirm requirements and design one that supports dark mode adaptation
-
-3. Admin password
-   - Hint: set an admin password for admin features
-   - Suggestion: recommend a random password
-
-**Auth configuration choose at least one**
-
-Ask the user which auth methods they want:
-- [ ] Email signup
-- [ ] Google login
-- [ ] Both
-
-If they choose email signup:
-
-**Step 1: Confirm domain**
-- Ask: do you have your own domain
-  - If no guide the user:
-    1. Open Cloudflare Dashboard: https://dash.cloudflare.com
-    2. Go to Domain Registration and buy a domain
-    3. Record the domain such as `example.com`
-  - If yes ask for the root domain such as `example.com`
-    - Then ask whether the domain is already hosted on Cloudflare
-      - If no guide the user to host it on Cloudflare:
-        1. Open Cloudflare Dashboard: https://dash.cloudflare.com
-        2. Click Add a Site
-        3. Enter the root domain such as `example.com`
-        4. Choose the free plan
-        5. Update nameservers to Cloudflare as instructed
-        6. Wait for DNS propagation usually minutes to a few hours
-
-**Step 2: Choose mail domain**
-- Ask: which domain do you want to use for sending emails
-  - Option 1: use root domain such as `example.com`
-  - Option 2: use subdomain such as `mail.example.com` or `myapp.example.com`
-- Notes:
-  - Any subdomain is valid and does not require an extra purchase
-  - If your app is deployed on a subdomain such as `myapp.example.com` you can use it directly for email
-  - You can also use a dedicated mail subdomain such as `mail.example.com` to avoid affecting other setup
-- Record the selected domain as mail domain for later steps
-
-**Step 3: Configure Resend**
-- Guide the user to register at https://resend.com
-- Guide the user to add the mail domain in Resend:
-  1. In Resend Dashboard click Domains
-  2. Click Add Domain
-  3. Enter the mail domain such as `mail.example.com`
-  4. Resend provides DNS records SPF DKIM DMARC
-- Guide the user to configure DNS records:
-  1. Go back to Cloudflare Dashboard
-  2. Select the root domain such as `example.com`
-  3. Open DNS settings
-  4. Add all DNS records provided by Resend
-  5. Wait for DNS propagation usually a few minutes
-  6. Return to Resend and click Verify
-- Guide the user to create an API key:
-  1. In Resend Dashboard click API Keys
-  2. Click Create API Key
-  3. Copy the API key
-- Wait for the user to provide the API key
-
-**Step 4: Configure sender email**
-- Ask for sender email address such as `noreply@mail.example.com`
-- Note: sender email must use the configured mail domain
-
-If they choose Google login:
-- Ask whether they need help creating a Google OAuth app
-  - If yes guide them to https://console.cloud.google.com
-  - Wait for Client ID and Client Secret
-
-**Optional configuration ask whether needed**
-- Enable beta code feature or not
+Bootstrap is not a full product configuration guide. Its job is to get the user to a working `http://localhost:5173`, then route them to the right next action.
 
 ---
 
-### Step 2: Execute Initialization
+## Non-goals
 
-After all information is collected run these actions:
+Do not front-load these tasks during local bootstrap:
 
-1. **Check prerequisites**
-   ```bash
-   # Check Node.js version
-   node --version  # should be >= 20
+- Production domain setup
+- Resend domain verification
+- OAuth app creation
+- Payment provider setup
+- AI provider key setup
+- Logo or brand polish
+- Product documentation rewrite
+- Cloudflare remote deployment
 
-   # Check pnpm
-   pnpm --version  # should be >= 9
-
-   # Check Cloudflare login status
-   pnpm exec wrangler whoami
-   ```
-
-   If wrangler is not logged in guide the user to run:
-   ```bash
-   pnpm exec wrangler login
-   ```
-
-2. **Generate configuration files**
-
-   Update `.env.dev` using user input. This file is public config and can be committed:
-
-   - `APP_NAME`: user project name
-   - `SUPER_ADMIN_EMAIL`: super admin email
-   - `EMAIL_ENABLED`: set true or false from user choice
-   - `EMAIL_SIGNUP_ENABLED`: set true or false from user choice
-   - `EMAIL_FROM`: user sender email if email is enabled
-   - `GOOGLE_AUTH_ENABLED`: set true or false from user choice
-   - `GOOGLE_CLIENT_ID`: user Client ID if Google is enabled
-   - `BETA_CODE_ENABLED`: set true or false from user choice
-
-   Ask the user to copy `.env.secret.example` to `.env.secret.dev`. Do not read or edit `.env.secret.dev` as an Agent.
-   The user should add:
-   - `BETTER_AUTH_SECRET`: random string with 32+ characters
-   - `SUPER_ADMIN_PASSWORD`: super admin password
-   - `ADMIN_API_TOKEN`: machine token for admin APIs
-   - `EMAIL_RESEND_API_KEY`: user API key if resend email is enabled
-   - `GOOGLE_CLIENT_SECRET`: user Client Secret if Google is enabled
-
-   Keep all other configuration as default.
-
-3. **Start development environment**
-   ```bash
-   pnpm dev
-   ```
-
-   This command automatically:
-   - Creates D1 database
-   - Generates `wrangler.jsonc`
-   - Runs database migrations
-   - Starts development server
-
-4. **Verify startup success**
-
-   Check:
-   - Wrangler dev server running on port 8787
-   - Vite dev server running on port 5173
-   - No error messages
-
-   If startup succeeds tell the user:
-   - Open http://localhost:5173
+Only discuss these after local bootstrap succeeds, or when the user explicitly asks.
 
 ---
 
-### Step 3: Follow-up Guidance
+## Secret Rules
 
-After initialization tell the user:
+Secrets must not enter the conversation context.
 
-1. **Develop business features**
-   - Reference `@AGENTS.md` for full project context
-   - Start implementing business features
-   - If needed check `/public-docs` or ask the Agent
+Agents must follow these rules:
 
-2. **Configure optional features**
-   - For R2 storage set `R2_ENABLED=true`
-   - For queues set `QUEUE_NAMES`
-   - For scheduled jobs set `CRONS`
+- Do not read `.env.secret.dev`
+- Do not read `.env.secret.prod`
+- Do not read `.wrangler/runtime-secrets.env`
+- Do not write secret files
+- Do not ask the user to paste secrets into chat
+- Do not print secret values
+- Tell the user to edit secret files locally when secret values are required
 
-3. **Deploy to production**
-   - When needed copy public config from `.env.dev` to `.env.prod`
-   - Ask the user to copy `.env.secret.example` to `.env.secret.prod`; do not read or edit it as an Agent
-   - Set `APP_DOMAIN` to production domain
-   - Run `pnpm deploycf` to deploy
+If a command fails because a secret is missing, explain which key is missing and ask the user to fill it locally. Do not inspect the secret file.
+
+---
+
+## Directory Positioning
+
+Use the right source for the right job.
+
+| Path | Role |
+| --- | --- |
+| `README.md` | Project value, positioning, quick entry |
+| `BOOTSTRAP.md` | Agent workflow for local first-run onboarding |
+| `AGENTS.md` | Stable Agent development context, architecture, rules, workflows |
+| `template-docs/` | Template context docs for Agents and developers |
+| `public-docs/` | Product-facing docs rendered by the app at `/docs/` |
+| `docs/` | Local ignored development notes, not a template user guide |
+
+`template-docs/` is the stable template explanation layer. It is not rendered by the app and only needs English content.
+
+`public-docs/` ships with OPCStack product docs by default. It demonstrates the docs system and gives the template a default product documentation surface, but users may replace it with their own product docs. Do not treat `public-docs/` as a stable dependency for Agent onboarding.
+
+When the user wants to understand or modify a template module, inspect `AGENTS.md`, `template-docs/`, source code, and tests. Do not require `public-docs/` for development context.
+
+---
+
+## Phase 1: Check Local Prerequisites
+
+Run these checks:
+
+```bash
+node --version
+pnpm --version
+```
+
+Requirements:
+
+- Node.js `>= 20`
+- pnpm `>= 9`
+
+If dependencies are not installed, run:
+
+```bash
+pnpm install
+```
+
+Do not require Cloudflare login for local bootstrap. `pnpm dev` runs `pre-build.mjs` in local mode and does not need remote Cloudflare provisioning.
+
+---
+
+## Phase 2: Collect Minimal Public Config
+
+Ask only for the minimum information needed for local development:
+
+1. Project name
+   - Used as `APP_NAME`
+   - Use lowercase letters, numbers, and hyphens
+   - Example: `my-saas`
+
+2. Super admin email
+   - Used as `SUPER_ADMIN_EMAIL`
+   - Example: `admin@example.com`
+
+3. Local auth mode
+   - Recommended: email auth enabled with verification disabled
+   - Alternative: keep current defaults and let the user configure real email later
+
+Do not ask for production domain, Resend API key, OAuth client secret, payment keys, or AI provider keys in this phase.
+
+---
+
+## Phase 3: Update Public Local Config
+
+Update `.env.dev` only. This file is public config and can be committed.
+
+Minimal recommended local values:
+
+```text
+APP_NAME=<project-name>
+APP_DOMAIN=localhost
+SUPER_ADMIN_EMAIL=<admin-email>
+EMAIL_ENABLED=true
+EMAIL_SIGNUP_ENABLED=true
+EMAIL_REQUIRE_VERIFICATION=false
+BETA_CODE_ENABLED=false
+```
+
+Keep unrelated settings unchanged unless the user explicitly asks.
+
+Notes:
+
+- `TURNSTILE_ENABLED=true` is safe locally because `pre-build.mjs` uses Cloudflare test keys in local mode
+- R2, Queues, Cron, and AI queue names may already be enabled in `.env.dev`; do not force users to configure them during bootstrap
+- Production-only values belong in `.env.prod` and `.env.secret.prod`, not in local bootstrap
+
+---
+
+## Phase 4: Prepare Local Secrets
+
+Ask the user to create and edit `.env.secret.dev` locally:
+
+```bash
+cp .env.secret.example .env.secret.dev
+```
+
+Required local keys:
+
+```text
+BETTER_AUTH_SECRET
+SUPER_ADMIN_PASSWORD
+ADMIN_API_TOKEN
+R2_ORIGIN_SIGNING_SECRET
+```
+
+Tell the user:
+
+```text
+Edit .env.secret.dev locally. Do not paste secret values into chat.
+After saving the file, reply that it is ready.
+```
+
+Do not read or write `.env.secret.dev`.
+
+If the user wants generated values, provide a local command that writes to their file without printing the values only if such a script exists. If no script exists, ask the user to generate values locally with their own password manager or shell command.
+
+---
+
+## Phase 5: Start Local Development
+
+Run:
+
+```bash
+pnpm dev
+```
+
+This command:
+
+- Runs SvelteKit sync
+- Runs `pre-build.mjs` in local mode
+- Generates `wrangler.jsonc`
+- Generates local D1 bindings
+- Writes runtime secret bindings from the user's secret file
+- Starts Wrangler on port `8787`
+- Starts Vite on port `5173`
+
+Verify:
+
+```bash
+curl -i http://localhost:5173/api/health
+```
+
+Then tell the user to open:
+
+```text
+http://localhost:5173
+```
+
+Do not finish bootstrap while a required dev server command is still running unless the user asks to stop.
+
+---
+
+## Phase 6: Route The Next Step
+
+After local bootstrap succeeds, do not continue into every possible configuration task. Ask what the user wants next.
+
+Use these options:
+
+```text
+1. Build a business feature
+2. Configure production environment
+3. Understand a template module
+```
+
+### If The User Chooses Build A Business Feature
+
+Use `AGENTS.md` and inspect source code directly.
+
+Route by feature type:
+
+| Feature type | Stable references |
+| --- | --- |
+| API | `AGENTS.md`, `src/api/index.ts`, `src/api/handler/`, existing handler tests |
+| Page | `AGENTS.md`, `src/web/routes/`, `src/web/lib/components/`, `src/web/lib/ui/` |
+| Database | `AGENTS.md`, `src/db/schema.meta.ts`, `src/db/schema.shard.ts`, migrations |
+| R2 storage | `AGENTS.md`, `src/r2/`, `src/api/handler/r2.ts` |
+| Payment | `AGENTS.md`, `src/payment/`, `src/api/handler/payment.ts` |
+| Credits | `AGENTS.md`, `src/credits/`, `src/api/handler/credits.ts` |
+| Queue or Cron | `AGENTS.md`, `src/consumers/`, `src/jobs/` |
+| AI | `AGENTS.md`, `src/ai/`, `src/consumers/` |
+
+Do not require the user to read `public-docs/` before development. The Agent should inspect stable template docs, source files, and tests, then explain the relevant path.
+
+### If The User Chooses Configure Production Environment
+
+Ask which modules they want enabled in production:
+
+- Email auth
+- OAuth
+- Payment
+- AI providers
+- R2 uploads
+- Queues and Cron
+- Beta code
+- Affiliate rewards
+
+Guide config module by module.
+
+Rules:
+
+- Public values go to `.env.prod`
+- Secret values go to `.env.secret.prod`
+- The user edits secret files locally
+- The Agent does not read secret files
+- Deployment is done with `pnpm deploycf`
+
+Explain that `pre-build.mjs --remote` automatically provisions Cloudflare resources such as D1, shard D1 databases, KV, R2, Queues, Turnstile widget, R2 CORS, lifecycle rules, and read replication.
+
+### If The User Chooses Understand A Template Module
+
+Inspect in this order:
+
+1. Relevant `AGENTS.md` section
+2. Relevant `template-docs/` page
+3. Relevant source module
+4. Existing tests
+
+Explain:
+
+- What the module does
+- Which files own the behavior
+- Which config keys matter
+- Which API routes exist
+- What should not be changed casually
+
+---
+
+## Completion Message
+
+When local bootstrap is complete, summarize only what matters:
+
+```text
+Local bootstrap is complete.
+
+App: http://localhost:5173
+Health: http://localhost:5173/api/health
+
+Next step:
+- Build a business feature
+- Configure production environment
+- Understand a template module
+```
+
+Keep the message short. Do not dump configuration values, and never print secrets.

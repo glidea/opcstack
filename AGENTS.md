@@ -39,6 +39,7 @@ Durable Object     -> src/do/
 .
   e2e/                  # E2E tests
   docs/                 # Internal development/version notes
+  template-docs/        # Template context docs for Agents and developers
   public-docs/          # Product docs served at /docs/
   static/               # Static assets served by SvelteKit
   static/images/        # Documentation and page images
@@ -333,7 +334,8 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 - `src/web/routes/+layout.server.ts` exposes `siteName` from `APP_NAME` and canonical URLs using `APP_DOMAIN`.
 - `src/web/lib/seo/` owns site origin normalization and JSON-LD serialization.
 - Business pages should set `<title>`, `<meta name="description">`, and `<link rel="canonical">`.
-- Docs live in `public-docs/en/` and `public-docs/zh/`.
+- Product docs rendered by the app live in `public-docs/en/` and `public-docs/zh/`.
+- Template explanation docs live in `template-docs/en/` and are not rendered by the app.
 - Docs route is `/docs/[...slug]`.
 - Docs use Markdown frontmatter with `title`, `description`, `group`, and `order`.
 - Docs images live in `static/images/` and are referenced as `/images/...`.
@@ -425,5 +427,6 @@ pnpm exec wrangler types
 - `.env.dev` and `.env.prod`: public environment config.
 - `.env.secret.example`: secret environment template without real values.
 - `.env.secret.dev` and `.env.secret.prod`: user-owned secret config, never read or edited by agents.
+- `template-docs/`: template context docs for Agents and developers.
 - `public-docs/`: product docs available at `/docs/`.
 - Source code is the primary truth. Inspect related files directly before changing behavior.
