@@ -1,1 +1,1 @@
-export { clientConfig, type ClientConfig } from '../../../generated/client-config'
+export { clientConfig, type ClientConfig } from './client.generated'

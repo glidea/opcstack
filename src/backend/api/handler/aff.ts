@@ -1,16 +1,14 @@
 import type { Context } from 'hono'
-import { z } from 'zod'
 import type { ApiEnv } from '..'
 import { AFF_CREDIT_SOURCE_INVITEE, AFF_CREDIT_SOURCE_INVITER, AffError, AffService } from '../../aff'
 import { CreditsService, type CreditTransactionType } from '../../credits'
 import { createTenantShardAccess } from '../../db/shard-router'
 import { parseDecimal } from '../../lib/decimal'
 import { parseRequest } from '../../lib/request'
-
-export const BindAffRequestSchema = z.object({
-	aff_code: z.string().min(1)
-})
-export type BindAffRequest = z.infer<typeof BindAffRequestSchema>
+import {
+	BindAffRequestSchema,
+	type GetAffSummaryResponse
+} from '../../../api-contract/aff'
 
 export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	if (ctx.env.AFF_ENABLED !== 'true') {
@@ -18,7 +16,7 @@ export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Respon
 			aff_enabled: false,
 			aff_code: '',
 			invited_count: 0
-		})
+		} as GetAffSummaryResponse)
 	}
 
 	try {
@@ -30,7 +28,7 @@ export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Respon
 			aff_enabled: true,
 			aff_code: summary.affCode,
 			invited_count: summary.invitedCount
-		})
+		} as GetAffSummaryResponse)
 	} catch (error) {
 		if (error instanceof AffError && error.code === 'AFF_USER_NOT_FOUND') {
 			return ctx.json({ code: error.code }, 404)

@@ -14,7 +14,7 @@ const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
 const R2_S3_TOKEN_CACHE_PATH = '.wrangler/r2-s3-token.json'
 const RUNTIME_SECRETS_PATH = '.wrangler/runtime-secrets.env'
-const CLIENT_CONFIG_PATH = 'src/generated/client-config.ts'
+const CLIENT_CONFIG_PATH = 'src/apps/lib/config/client.generated.ts'
 const LOGO_PATH = 'logo.svg'
 const WEB_LOGO_PATH = 'src/apps/web/static/logo.svg'
 const EXTENSION_ICON_DIR = 'src/apps/extension/public/icons'
@@ -427,7 +427,7 @@ function buildClientConfig(vars) {
 }
 
 function writeClientConfig(vars) {
-	mkdirSync('src/generated', { recursive: true })
+	mkdirSync('src/apps/lib/config', { recursive: true })
 	const clientConfig = buildClientConfig(vars)
 	const content = `export type ClientConfig = {
 	appName: string

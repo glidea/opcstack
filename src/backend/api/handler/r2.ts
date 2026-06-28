@@ -1,5 +1,4 @@
 import type { Context } from 'hono'
-import { z } from 'zod'
 import type { ApiEnv } from '..'
 import {
 	newR2Client,
@@ -9,6 +8,11 @@ import {
 	type R2ImageVariantPreset
 } from '../../r2'
 import { parseRequest } from '../../lib/request'
+import {
+	CreateR2TmpUploadUrlRequestSchema,
+	CreateR2UploadUrlRequestSchema,
+	type CreateR2UploadUrlResponse
+} from '../../../api-contract/r2'
 
 const R2_ROUTE_PREFIX = '/api/r2/'
 const R2_IMAGE_ORIGIN_ROUTE_PREFIX = '/api/internal/r2_image_origin/'
@@ -17,21 +21,6 @@ const PUBLIC_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 const TMP_PUBLIC_CACHE_CONTROL = 'public, max-age=300'
 const PRIVATE_CACHE_CONTROL = 'private, no-store'
 const R2_WORKER_CACHE_HEADER = 'x-r2-worker-cache'
-
-const CreateR2UploadUrlRequestSchema = z.object({
-	path: z.string().min(1).refine((path) => {
-		if (path.startsWith('/')) {
-			return false
-		}
-		return !path.split('/').includes('..')
-	}),
-	content_type: z.string().min(1),
-	size: z.number().int().min(1)
-})
-
-const CreateR2TmpUploadUrlRequestSchema = CreateR2UploadUrlRequestSchema.extend({
-	is_public: z.boolean()
-})
 
 export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const key: string = toR2Key(ctx.req.path)
@@ -101,7 +90,7 @@ export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise
 			upload_url: result.uploadUrl,
 			read_url: result.readUrl,
 			expires_at: result.expiresAt
-		})
+		} as CreateR2UploadUrlResponse)
 	} catch (error) {
 		if (error instanceof Error && error.message === 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED') {
 			return ctx.json({ code: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED' }, 500)
@@ -139,7 +128,7 @@ export async function createR2UploadUrlHandler(ctx: Context<ApiEnv>): Promise<Re
 			upload_url: result.uploadUrl,
 			read_url: result.readUrl,
 			expires_at: result.expiresAt
-		})
+		} as CreateR2UploadUrlResponse)
 	} catch (error) {
 		if (error instanceof Error && error.message === 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED') {
 			return ctx.json({ code: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED' }, 500)

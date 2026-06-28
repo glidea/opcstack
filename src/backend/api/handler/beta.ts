@@ -1,51 +1,27 @@
 import { and, desc, eq, gte, isNotNull, isNull, lte, sql, type SQL } from 'drizzle-orm'
 import type { Context } from 'hono'
-import { z } from 'zod'
 import type { NewBetaCode } from '../../db/schema'
 import { betaCode } from '../../db/schema'
-import { PageRequestSchema, parseRequest } from '../../lib/request'
+import { parseRequest } from '../../lib/request'
 import type { ApiEnv } from '..'
+import {
+	BindBetaCodeRequestSchema,
+	GenerateBetaCodesRequestSchema,
+	ListBetaCodesRequestSchema,
+	type BindBetaCodeRequest,
+	type GenerateBetaCodesRequest,
+	type GenerateBetaCodesResponse,
+	type GenerateBetaCodesResponseCode,
+	type ListBetaCodesResponse,
+	type ListBetaCodesResponseCode
+} from '../../../api-contract/beta'
 
-export const BindBetaCodeRequestSchema = z.object({
-	beta_code: z.string().min(1)
-})
-export type BindBetaCodeRequest = z.infer<typeof BindBetaCodeRequestSchema>
-
-export const GenerateBetaCodesRequestSchema = z.object({
-	count: z.number().int().min(1).optional().default(1)
-})
-export type GenerateBetaCodesRequest = z.infer<typeof GenerateBetaCodesRequestSchema>
-
-export const ListBetaCodesRequestSchema = PageRequestSchema.extend({
-	code: z.string().min(1).optional(),
-	used_by: z.string().min(1).optional(),
-	used: z.boolean().optional(),
-	created_at_start: z.number().int().optional(),
-	created_at_end: z.number().int().optional()
-})
-export type ListBetaCodesRequest = z.infer<typeof ListBetaCodesRequestSchema>
-
-export interface GenerateBetaCodesResponseCode {
-	id: string
-	code: string
-}
-
-export interface GenerateBetaCodesResponse {
-	codes: GenerateBetaCodesResponseCode[]
-}
-
-export interface ListBetaCodesResponseCode {
-	id: string
-	code: string
-	used_by: string | null
-	used_at: number | null
-	created_at: number
-}
-
-export interface ListBetaCodesResponse {
-	items: ListBetaCodesResponseCode[]
-	total: number
-}
+export type {
+	BindBetaCodeRequest,
+	GenerateBetaCodesRequest,
+	GenerateBetaCodesResponse,
+	ListBetaCodesResponse
+} from '../../../api-contract/beta'
 
 export async function bindBetaCodeHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	if (String(ctx.env.BETA_CODE_ENABLED) !== 'true') {

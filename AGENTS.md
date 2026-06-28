@@ -238,9 +238,19 @@ src/
 
 ## API Contracts
 
+- Shared JSON API schemas, request types, response types, and endpoint-specific payload item types live in `src/api-contract/`.
+- API handlers must import request schemas and response types from `src/api-contract/`.
+- Do not define route request or response contracts inside `src/backend/api/handler/`.
+- Keep one contract file per business area, for example `credits.ts`, `payment.ts`, or `notifications.ts`.
+- Request schemas use Zod and export both `XxxRequestSchema` and `XxxRequest`.
+- Response payloads use explicit named `type` exports.
+- Handlers should cast `ctx.json(...)` payloads to the matching response type so contract drift is visible during type checking.
+- Frontend API callers should import request and response types from `src/api-contract/`, not from backend handler files.
+- Non-JSON streaming routes, webhook provider payloads, Better Auth routes, and raw file reads do not need a JSON API contract unless application code consumes a typed JSON payload.
+
 ### Client Config
 
-- `pre-build.mjs` generates `src/generated/client-config.ts` from `wrangler.jsonc` vars.
+- `pre-build.mjs` generates `src/apps/lib/config/client.generated.ts` from `wrangler.jsonc` vars.
 - `ClientConfig` and `clientConfig` are re-exported from `src/apps/lib/config/client.ts`.
 - Web and extension client code import `clientConfig` from `$web/config/client`.
 - Do not add runtime public config endpoints by default.
@@ -374,9 +384,10 @@ pnpm exec wrangler types
 
 ### Add API
 
-1. Write handler in `src/backend/api/handler/`.
-2. Register route in `src/backend/api/index.ts`.
-3. Use request-scoped values such as `ctx.get('userId')`, `ctx.get('metaDb')`, and `ctx.get('tenantDb')`.
+1. Define request schema and response types in `src/api-contract/`.
+2. Write handler in `src/backend/api/handler/` and import the contract from `src/api-contract/`.
+3. Register route in `src/backend/api/index.ts`.
+4. Use request-scoped values such as `ctx.get('userId')`, `ctx.get('metaDb')`, and `ctx.get('tenantDb')`.
 
 ### Add Page
 

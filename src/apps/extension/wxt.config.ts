@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'wxt'
-import { clientConfig } from '../../generated/client-config'
+import { clientConfig } from '../lib/config/client'
 
 const appsLibPath: string = fileURLToPath(new URL('../lib', import.meta.url))
 

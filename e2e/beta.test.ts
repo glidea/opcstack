@@ -1,22 +1,9 @@
 import { beforeAll, describe } from 'vitest'
 import { runCases, type TestCase } from '../src/backend/testing/bdd'
-
-interface GenerateBetaCodesResponse {
-	codes: Array<{
-		id: string
-		code: string
-	}>
-}
-
-interface ListBetaCodesResponse {
-	items: Array<{
-		id: string
-		code: string
-		used_by: string | null
-		used_at: number | null
-		created_at: number
-	}>
-}
+import type {
+	GenerateBetaCodesResponse,
+	ListBetaCodesResponse
+} from '../src/api-contract/beta'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
