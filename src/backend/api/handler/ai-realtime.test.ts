@@ -111,7 +111,7 @@ vi.mock('../../ai/realtime', async () => {
 	}
 	return {
 		...actual,
-		newAIRealtimeClient: (_env: Env, userId: string, options: AIRealtimeClientOptions): AIRealtimeClient => {
+		createAIRealtimeClient: (_env: Env, userId: string, options: AIRealtimeClientOptions): AIRealtimeClient => {
 			return new FakeRealtimeClient(userId, options.model ?? 'doubao-realtime-o2')
 		}
 	}

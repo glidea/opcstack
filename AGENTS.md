@@ -16,6 +16,7 @@ If architecture, core mechanisms, conventions, important dependencies, or workfl
 - Code comments must be in English.
 - Runtime config errors should fail early. Defaults are only for explicit product semantics.
 - Do not revert unrelated user changes.
+- Use `create` for creation actions and factory-style names. Use `new` only as an adjective, language keyword, or external generated name.
 
 ---
 

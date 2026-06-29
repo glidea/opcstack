@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { getMetaDb } from '../db'
 import { aiTtsTask } from '../db/schema.shard'
 import { createTenantShardAccess } from '../db/shard-router'
-import { newAITTSClients } from '../ai/tts'
+import { createAITTSClients } from '../ai/tts'
 import { logError } from '../lib/log'
 import type {
 	AITTSLine,
@@ -40,7 +40,7 @@ async function handleAITTSMessage(
 	}
 
 	try {
-		const client = newAITTSClients(env, task.userId, tenant.db, {
+		const client = createAITTSClients(env, task.userId, tenant.db, {
 			provider: task.provider as AITTSTask['provider'],
 			model: task.model ?? undefined
 		}).simple

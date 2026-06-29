@@ -1,4 +1,4 @@
-import { newR2Client } from '../../r2'
+import { createR2Client } from '../../r2'
 import type { AIVideoReference } from '.'
 import type { R2Client } from '../../r2'
 
@@ -14,7 +14,7 @@ export async function resolveVideoReferences(
 ): Promise<AIResolvedVideoReference[]> {
 	const inputs: AIVideoReference[] = references ?? []
 	const outputs: AIResolvedVideoReference[] = []
-	const client = newR2Client(env as Env & { R2: R2Bucket }, userId)
+	const client = createR2Client(env as Env & { R2: R2Bucket }, userId)
 
 	for (const reference of inputs) {
 		outputs.push({

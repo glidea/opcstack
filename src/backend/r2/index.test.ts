@@ -1,6 +1,6 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { newR2Client } from './index'
+import { createR2Client } from './index'
 
 type StoredObject = {
 	body: string
@@ -19,7 +19,7 @@ beforeEach(() => {
 	vi.unstubAllGlobals()
 })
 
-describe('newR2Client.put', () => {
+describe('createR2Client.put', () => {
 	type GivenDetail = Record<string, never>
 	type WhenDetail = {
 		userId?: string
@@ -73,7 +73,7 @@ describe('newR2Client.put', () => {
 
 	runCases(cases, async (_given, when) => {
 		const env = createEnv()
-		const client = newR2Client(env, when.userId)
+		const client = createR2Client(env, when.userId)
 		const result = await client.put({
 			dir: when.dir,
 			filename: when.filename,
@@ -87,7 +87,7 @@ describe('newR2Client.put', () => {
 	})
 })
 
-describe('newR2Client.putImage', () => {
+describe('createR2Client.putImage', () => {
 	type GivenDetail = Record<string, never>
 	type WhenDetail = {
 		userId?: string
@@ -164,7 +164,7 @@ describe('newR2Client.putImage', () => {
 
 	runCases(cases, async (_given, when) => {
 		const env = createEnv()
-		const client = newR2Client(env, when.userId)
+		const client = createR2Client(env, when.userId)
 		const result = await client.putImage({
 			dir: when.dir,
 			imageBase64: when.imageBase64,
@@ -184,7 +184,7 @@ describe('newR2Client.putImage', () => {
 	})
 })
 
-describe('newR2Client.createUploadUrl', () => {
+describe('createR2Client.createUploadUrl', () => {
 	type GivenDetail = {
 		userId?: string
 		noAccessKey?: boolean
@@ -404,7 +404,7 @@ describe('newR2Client.createUploadUrl', () => {
 		}
 
 		try {
-			const client = newR2Client(env, given.userId)
+			const client = createR2Client(env, given.userId)
 			const path = splitPath(when.path)
 			const result = await client.createUploadUrl({
 				dir: path.dir,
@@ -440,7 +440,7 @@ describe('newR2Client.createUploadUrl', () => {
 	})
 })
 
-describe('newR2Client.createUploadUrl tmp', () => {
+describe('createR2Client.createUploadUrl tmp', () => {
 	type GivenDetail = {
 		userId?: string
 	}
@@ -528,7 +528,7 @@ describe('newR2Client.createUploadUrl tmp', () => {
 	runCases(cases, async (given, when) => {
 		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
 		try {
-			const client = newR2Client(createEnv(), given.userId)
+			const client = createR2Client(createEnv(), given.userId)
 			const path = splitPath(when.path)
 			const result = await client.createUploadUrl({
 				isPublic: when.isPublic,
@@ -558,7 +558,7 @@ describe('newR2Client.createUploadUrl tmp', () => {
 	})
 })
 
-describe('newR2Client.get', () => {
+describe('createR2Client.get', () => {
 	type GivenDetail = {
 		noR2?: boolean
 		writeUserId?: string
@@ -720,7 +720,7 @@ describe('newR2Client.get', () => {
 			given.writeBody &&
 			given.writeContentType
 		) {
-			const writer = newR2Client(env, given.writeUserId)
+			const writer = createR2Client(env, given.writeUserId)
 			if (given.writeDir.startsWith('tmp-public/')) {
 				await writer.put({
 					isPublic: true,
@@ -749,7 +749,7 @@ describe('newR2Client.get', () => {
 			}
 		}
 
-		const reader = newR2Client(env, when.readUserId)
+		const reader = createR2Client(env, when.readUserId)
 		const result = await reader.get(when.key)
 		if (result.status !== 'ok') {
 			return {
@@ -764,7 +764,7 @@ describe('newR2Client.get', () => {
 	})
 })
 
-describe('newR2Client.getImageVariant', () => {
+describe('createR2Client.getImageVariant', () => {
 	type GivenDetail = {
 		noSecret?: boolean
 		writeUserId?: string
@@ -920,7 +920,7 @@ describe('newR2Client.getImageVariant', () => {
 			writableEnv.R2_ORIGIN_SIGNING_SECRET = ''
 		}
 		if (given.writeUserId) {
-			const writer = newR2Client(env, given.writeUserId)
+			const writer = createR2Client(env, given.writeUserId)
 			await writer.put({
 				dir: 'images',
 				filename: 'a.png',
@@ -930,7 +930,7 @@ describe('newR2Client.getImageVariant', () => {
 		}
 
 		try {
-			const client = newR2Client(env, when.readUserId)
+			const client = createR2Client(env, when.readUserId)
 			const result = await client.getImageVariant(when.key, when.preset)
 			const call = fetchCalls[0]
 			return {
@@ -964,7 +964,7 @@ describe('newR2Client.getImageVariant', () => {
 	})
 })
 
-describe('newR2Client.getImageVariantBytes', () => {
+describe('createR2Client.getImageVariantBytes', () => {
 	type GivenDetail = Record<string, never>
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -999,7 +999,7 @@ describe('newR2Client.getImageVariantBytes', () => {
 			})
 		})
 
-		const client = newR2Client(createEnv())
+		const client = createR2Client(createEnv())
 		const result = await client.getImageVariantBytes('public/images/a.png', 'medium')
 		if (result.status !== 'ok') {
 			return {

@@ -146,9 +146,9 @@ const users = await db.select().from(userTable)
 ### How to upload files to R2
 
 ```ts
-import { newR2Client } from './src/r2'
+import { createR2Client } from './src/r2'
 
-const client = newR2Client(env, userId)
+const client = createR2Client(env, userId)
 await client.putImage({ dir, imageBase64, mimeType })
 ```
 

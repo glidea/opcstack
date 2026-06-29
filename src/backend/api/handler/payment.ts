@@ -8,7 +8,7 @@ import {
 } from '../../../api-contract/payment'
 import { parseRequest } from '../../lib/request'
 import {
-	newPaymentService,
+	createPaymentService,
 	PAYMENT_PROVIDER_CREEM,
 	PAYMENT_PROVIDER_DODO,
 	PaymentServiceError,
@@ -18,7 +18,7 @@ import { formatDecimal } from '../../lib/decimal'
 import { logWarn } from '../../lib/log'
 
 export async function listPaymentProductsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const service = newPaymentService(ctx.get('metaDb'), ctx.env)
+	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	const country = readCountryCode(ctx)
 	const items = await service.listPaymentProducts({
 		country
@@ -47,7 +47,7 @@ export async function createPaymentCheckoutHandler(ctx: Context<ApiEnv>): Promis
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const service = newPaymentService(ctx.get('metaDb'), ctx.env)
+	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	try {
 		const result = await service.createPaymentCheckout({
 			userId: ctx.get('userId'),
@@ -70,7 +70,7 @@ export async function createPaymentCheckoutHandler(ctx: Context<ApiEnv>): Promis
 }
 
 export async function getSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const service = newPaymentService(ctx.get('metaDb'), ctx.env)
+	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	const result = await service.getSubscription({
 		userId: ctx.get('userId')
 	})
@@ -90,7 +90,7 @@ export async function getSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Resp
 }
 
 export async function cancelSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const service = newPaymentService(ctx.get('metaDb'), ctx.env)
+	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	try {
 		const result = await service.cancelSubscription({
 			userId: ctx.get('userId')
@@ -115,7 +115,7 @@ export async function upgradeSubscriptionHandler(ctx: Context<ApiEnv>): Promise<
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
 
-	const service = newPaymentService(ctx.get('metaDb'), ctx.env)
+	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	try {
 		const result = await service.upgradeSubscription({
 			userId: ctx.get('userId'),
@@ -138,7 +138,7 @@ export async function listPaymentTransactionsHandler(ctx: Context<ApiEnv>): Prom
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
-	const service = newPaymentService(ctx.get('metaDb'), ctx.env)
+	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	const result = await service.listPaymentTransactions({
 		userId: ctx.get('userId'),
 		page: req.page,
@@ -171,7 +171,7 @@ export async function listAdminPaymentTransactionsHandler(ctx: Context<ApiEnv>):
 	if (!req) {
 		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
 	}
-	const service = newPaymentService(ctx.get('metaDb'), ctx.env)
+	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	const result = await service.listAdminPaymentTransactions({
 		page: req.page,
 		pageSize: req.page_size,
@@ -212,7 +212,7 @@ async function processWebhook(
 	ctx: Context<ApiEnv>,
 	provider: PaymentProviderName
 ): Promise<Response> {
-	const service = newPaymentService(ctx.get('metaDb'), ctx.env)
+	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	const rawBody = await ctx.req.raw.text()
 	try {
 		await service.processWebhook(provider, rawBody, ctx.req.raw.headers)

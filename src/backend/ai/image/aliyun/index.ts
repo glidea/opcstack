@@ -1,6 +1,6 @@
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
-import { newR2Client } from '../../../r2'
+import { createR2Client } from '../../../r2'
 import { resolveImageReferences } from '../reference'
 import { createAIImageTask, getAIImageTask } from '../task'
 import type {
@@ -19,14 +19,14 @@ export interface AliyunNativeImageClient {
 	apiKey: string
 }
 
-export function newAliyunNativeImageClient(env: Env): AliyunNativeImageClient {
+export function createAliyunNativeImageClient(env: Env): AliyunNativeImageClient {
 	return {
 		baseURL: env.IMAGE_ALIYUN_BASE_URL,
 		apiKey: env.IMAGE_ALIYUN_API_KEY
 	}
 }
 
-export function newAliyunSimpleImageClient(
+export function createAliyunSimpleImageClient(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
@@ -284,7 +284,7 @@ async function uploadImageResults(
 		return outputs
 	}
 
-	const client = newR2Client(env as R2Env, userId)
+	const client = createR2Client(env as R2Env, userId)
 	for (const output of outputs) {
 		output.r2 = await client.putImage({
 			dir: input.r2UploadDir ?? 'images',

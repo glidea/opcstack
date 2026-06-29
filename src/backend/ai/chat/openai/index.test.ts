@@ -1,7 +1,7 @@
 import { describe, vi } from 'vitest'
 import { z } from 'zod'
 import { runCases, type TestCase } from '../../../testing/bdd'
-import { newOpenAINativeChatClient, newOpenAISimpleChatClient } from './index'
+import { createOpenAINativeChatClient, createOpenAISimpleChatClient } from './index'
 
 type CreateResponseLike = {
 	choices?: Array<{
@@ -64,7 +64,7 @@ vi.mock('openai/helpers/zod', () => {
 	}
 })
 
-describe('newOpenAISimpleChatClient', () => {
+describe('createOpenAISimpleChatClient', () => {
 	type GivenDetail = {
 		envModel: string
 		optionsModel?: string
@@ -161,7 +161,7 @@ describe('newOpenAISimpleChatClient', () => {
 		})
 
 		const env = createEnv(given.envModel)
-		const client = newOpenAISimpleChatClient(env, {
+		const client = createOpenAISimpleChatClient(env, {
 			model: given.optionsModel,
 			temperature: given.optionsTemperature
 		})
@@ -203,7 +203,7 @@ describe('newOpenAISimpleChatClient', () => {
 	})
 })
 
-describe('newOpenAINativeChatClient', () => {
+describe('createOpenAINativeChatClient', () => {
 	type GivenDetail = {
 		apiKey: string
 		baseURL: string
@@ -237,7 +237,7 @@ describe('newOpenAINativeChatClient', () => {
 	runCases(cases, (given, _when) => {
 		vi.clearAllMocks()
 		const env = createEnv('gpt-env', given.apiKey, given.baseURL)
-		newOpenAINativeChatClient(env)
+		createOpenAINativeChatClient(env)
 		const config = openAIConstructorMock.mock.calls[0]?.[0] as
 			| { apiKey?: string; baseURL?: string }
 			| undefined
@@ -250,7 +250,7 @@ describe('newOpenAINativeChatClient', () => {
 	})
 })
 
-describe('newOpenAISimpleChatClient fallback', () => {
+describe('createOpenAISimpleChatClient fallback', () => {
 	type GivenDetail = Record<string, never>
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -291,7 +291,7 @@ describe('newOpenAISimpleChatClient fallback', () => {
 			'fallback-key',
 			'https://fallback.test/v1'
 		)
-		const client = newOpenAISimpleChatClient(env)
+		const client = createOpenAISimpleChatClient(env)
 		const text = await client.generateText('hello')
 
 		const firstConfig = openAIConstructorMock.mock.calls[0]?.[0] as { apiKey?: string; baseURL?: string } | undefined

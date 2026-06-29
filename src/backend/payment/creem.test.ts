@@ -3,7 +3,7 @@ import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import {
 	CreemPaymentProvider,
-	newCreemPayment,
+	createCreemPayment,
 	type CreemClient,
 	type CreemClientOptions
 } from './creem'
@@ -411,7 +411,7 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 	})
 })
 
-describe('newCreemPayment', () => {
+describe('createCreemPayment', () => {
 	type GivenDetail = {
 		testMode: string
 	}
@@ -438,7 +438,7 @@ describe('newCreemPayment', () => {
 
 	runCases(cases, async (given) => {
 		let serverIdx: number = -1
-		newCreemPayment(
+		createCreemPayment(
 			{
 				PAYMENT_CREEM_API_KEY: 'api-key',
 				PAYMENT_CREEM_WEBHOOK_SECRET: 'whsec',

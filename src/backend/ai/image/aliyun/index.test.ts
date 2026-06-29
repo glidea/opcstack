@@ -1,6 +1,6 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
-import { newAliyunNativeImageClient, newAliyunSimpleImageClient } from './index'
+import { createAliyunNativeImageClient, createAliyunSimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput, AIImageResult } from '..'
 import type { TenantShardDb } from '../../../db'
 
@@ -34,17 +34,17 @@ type AliyunRequest = {
 	}
 }
 
-const { r2PutImageMock, r2GetMock, r2GetVariantBytesMock, newR2ClientMock } = vi.hoisted(() => {
+const { r2PutImageMock, r2GetMock, r2GetVariantBytesMock, createR2ClientMock } = vi.hoisted(() => {
 	return {
 		r2PutImageMock: vi.fn(),
 		r2GetMock: vi.fn(),
 		r2GetVariantBytesMock: vi.fn(),
-		newR2ClientMock: vi.fn()
+		createR2ClientMock: vi.fn()
 	}
 })
 
 vi.mock('../../../r2', () => {
-	newR2ClientMock.mockImplementation(() => {
+	createR2ClientMock.mockImplementation(() => {
 		return {
 			putImage: r2PutImageMock,
 			get: r2GetMock,
@@ -52,11 +52,11 @@ vi.mock('../../../r2', () => {
 		}
 	})
 	return {
-		newR2Client: newR2ClientMock
+		createR2Client: createR2ClientMock
 	}
 })
 
-describe('newAliyunSimpleImageClient.generate', () => {
+describe('createAliyunSimpleImageClient.generate', () => {
 	const fetchCalls: FetchCall[] = []
 
 	beforeEach((): void => {
@@ -414,7 +414,7 @@ describe('newAliyunSimpleImageClient.generate', () => {
 			contentType: 'image/png'
 		})
 
-		const client = newAliyunSimpleImageClient(createEnv(given.envModel), 'u', {} as TenantShardDb, {
+		const client = createAliyunSimpleImageClient(createEnv(given.envModel), 'u', {} as TenantShardDb, {
 			model: given.optionsModel
 		})
 
@@ -462,7 +462,7 @@ describe('newAliyunSimpleImageClient.generate', () => {
 	}
 })
 
-describe('newAliyunNativeImageClient', () => {
+describe('createAliyunNativeImageClient', () => {
 	type GivenDetail = {
 		apiKey: string
 		baseURL: string
@@ -492,7 +492,7 @@ describe('newAliyunNativeImageClient', () => {
 	]
 
 	runCases(cases, (given): ThenExpected => {
-		const client = newAliyunNativeImageClient(createEnv('qwen-image-2.0-pro', given.apiKey, given.baseURL))
+		const client = createAliyunNativeImageClient(createEnv('qwen-image-2.0-pro', given.apiKey, given.baseURL))
 		return {
 			apiKey: client.apiKey,
 			baseURL: client.baseURL

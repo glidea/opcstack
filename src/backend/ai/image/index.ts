@@ -3,13 +3,13 @@ import type OpenAI from 'openai'
 import type { TenantShardDb } from '../../db'
 import type { R2ImageVariantPreset } from '../../r2'
 import {
-	newAliyunNativeImageClient,
-	newAliyunSimpleImageClient,
+	createAliyunNativeImageClient,
+	createAliyunSimpleImageClient,
 	type AliyunNativeImageClient
 } from './aliyun'
-import { newGeminiNativeImageClient, newGeminiSimpleImageClient } from './gemini'
-import { newOpenAINativeImageClient, newOpenAISimpleImageClient } from './openai'
-import { newSeedDreamNativeImageClient, newSeedDreamSimpleImageClient } from './seedream'
+import { createGeminiNativeImageClient, createGeminiSimpleImageClient } from './gemini'
+import { createOpenAINativeImageClient, createOpenAISimpleImageClient } from './openai'
+import { createSeedDreamNativeImageClient, createSeedDreamSimpleImageClient } from './seedream'
 
 export * from './aliyun/constants'
 export * from './gemini/constants'
@@ -24,7 +24,7 @@ export interface AIImageClients {
 	aliyun?: AliyunNativeImageClient
 }
 
-export function newAIImageClients(
+export function createAIImageClients(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
@@ -33,26 +33,26 @@ export function newAIImageClients(
 	const provider = options.provider ?? 'gemini'
 	if (provider === 'gemini') {
 		return {
-			simple: newGeminiSimpleImageClient(env, userId, tenantDb, options),
-			gemini: newGeminiNativeImageClient(env)
+			simple: createGeminiSimpleImageClient(env, userId, tenantDb, options),
+			gemini: createGeminiNativeImageClient(env)
 		}
 	}
 	if (provider === 'openai') {
 		return {
-			simple: newOpenAISimpleImageClient(env, userId, tenantDb, options),
-			openai: newOpenAINativeImageClient(env)
+			simple: createOpenAISimpleImageClient(env, userId, tenantDb, options),
+			openai: createOpenAINativeImageClient(env)
 		}
 	}
 	if (provider === 'seedream') {
 		return {
-			simple: newSeedDreamSimpleImageClient(env, userId, tenantDb, options),
-			seedream: newSeedDreamNativeImageClient(env)
+			simple: createSeedDreamSimpleImageClient(env, userId, tenantDb, options),
+			seedream: createSeedDreamNativeImageClient(env)
 		}
 	}
 	if (provider === 'aliyun') {
 		return {
-			simple: newAliyunSimpleImageClient(env, userId, tenantDb, options),
-			aliyun: newAliyunNativeImageClient(env)
+			simple: createAliyunSimpleImageClient(env, userId, tenantDb, options),
+			aliyun: createAliyunNativeImageClient(env)
 		}
 	}
 

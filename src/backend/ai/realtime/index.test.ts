@@ -1,7 +1,7 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
-	newAIRealtimeClient,
+	createAIRealtimeClient,
 	type AIRealtimeClient,
 	type AIRealtimeSession,
 	type AIRealtimeStartSessionInput
@@ -60,14 +60,14 @@ vi.mock('./doubao', async () => {
 	}
 	return {
 		...actual,
-		newDoubaoRealtimeClient: (_env: Env, userId: string, model: string): AIRealtimeClient => {
+		createDoubaoRealtimeClient: (_env: Env, userId: string, model: string): AIRealtimeClient => {
 			constructorCalls.push({ userId, model })
 			return new FakeRealtimeClient()
 		}
 	}
 })
 
-describe('newAIRealtimeClient', () => {
+describe('createAIRealtimeClient', () => {
 	type GivenDetail = {
 		optionsModel?: string
 	}
@@ -121,7 +121,7 @@ describe('newAIRealtimeClient', () => {
 		const env: Env = {
 			REALTIME_DOUBAO_MODEL: DOUBAO_REALTIME_MODEL_O2
 		} as unknown as Env
-		const client: AIRealtimeClient = newAIRealtimeClient(env, 'u1', {
+		const client: AIRealtimeClient = createAIRealtimeClient(env, 'u1', {
 			model: given.optionsModel
 		})
 		const session: AIRealtimeSession = await client.startSession({

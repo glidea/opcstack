@@ -1,7 +1,7 @@
 import { GoogleGenAI, type GenerateContentResponse } from '@google/genai'
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
-import { newR2Client } from '../../../r2'
+import { createR2Client } from '../../../r2'
 import { createAITTSTask, getAITTSTask } from '../task'
 import type {
 	AISimpleTTSClient,
@@ -14,14 +14,14 @@ import type {
 
 type R2Env = Env & { R2: R2Bucket }
 
-export function newGeminiNativeTTSClient(env: Env): GoogleGenAI {
+export function createGeminiNativeTTSClient(env: Env): GoogleGenAI {
 	return new GoogleGenAI({
 		apiKey: env.TTS_GEMINI_API_KEY,
 		httpOptions: { baseUrl: env.TTS_GEMINI_BASE_URL }
 	})
 }
 
-export function newGeminiSimpleTTSClient(
+export function createGeminiSimpleTTSClient(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
@@ -59,7 +59,7 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 		validateInput(input)
 
 		const result = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = newGeminiClient(endpoint)
+			const client = createGeminiClient(endpoint)
 			return client.models.generateContent({
 				model: this.model,
 				contents: [
@@ -95,7 +95,7 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 	}
 }
 
-function newGeminiClient(endpoint: AIEndpoint): GoogleGenAI {
+function createGeminiClient(endpoint: AIEndpoint): GoogleGenAI {
 	return new GoogleGenAI({
 		apiKey: endpoint.apiKey,
 		httpOptions: { baseUrl: endpoint.baseURL }
@@ -128,7 +128,7 @@ async function toSpeechResult(
 	}
 
 	if (input.uploadToR2) {
-		const client = newR2Client(env as R2Env, userId)
+		const client = createR2Client(env as R2Env, userId)
 		output.r2 = await client.put({
 			dir: 'audio',
 			body: toBytes(output.audioBase64),

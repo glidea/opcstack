@@ -60,7 +60,7 @@ const DOUBAO_REALTIME_TTS_ENDED_EVENT = 359
 const DOUBAO_REALTIME_ASR_RESPONSE_EVENT = 451
 const DOUBAO_REALTIME_CHAT_RESPONSE_EVENT = 550
 
-export function newDoubaoRealtimeClient(env: Env, userId: string, model: string): AIRealtimeClient {
+export function createDoubaoRealtimeClient(env: Env, userId: string, model: string): AIRealtimeClient {
 	return new WebSocketDoubaoRealtimeClient(env, userId, model)
 }
 

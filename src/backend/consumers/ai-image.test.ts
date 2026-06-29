@@ -3,7 +3,7 @@ import { runCases, type TestCase } from '../testing/bdd'
 import { handleAIImageQueue } from './ai-image'
 import { getMetaDb } from '../db'
 import { createTenantShardAccess } from '../db/shard-router'
-import { newAIImageClients } from '../ai/image'
+import { createAIImageClients } from '../ai/image'
 import { logError } from '../lib/log'
 
 type TaskRow = {
@@ -55,7 +55,7 @@ vi.mock('../db/shard-router', () => {
 
 vi.mock('../ai/image', () => {
 	return {
-		newAIImageClients: vi.fn()
+		createAIImageClients: vi.fn()
 	}
 })
 
@@ -88,11 +88,11 @@ describe('handleAIImageQueue', () => {
 				}
 			})
 		} as unknown as ReturnType<typeof createTenantShardAccess>)
-		vi.mocked(newAIImageClients).mockReturnValue({
+		vi.mocked(createAIImageClients).mockReturnValue({
 			simple: {
 				generate: mocks.generate
 			}
-		} as unknown as ReturnType<typeof newAIImageClients>)
+		} as unknown as ReturnType<typeof createAIImageClients>)
 	})
 
 	type GivenDetail = {
@@ -228,11 +228,11 @@ describe('handleAIImageQueue', () => {
 					lastErrorMessage?: string
 			  }
 			| undefined
-		const clientOptions = vi.mocked(newAIImageClients).mock.calls[0]?.[1] as
+		const clientOptions = vi.mocked(createAIImageClients).mock.calls[0]?.[1] as
 			| { provider?: string; model?: string }
 			| undefined
-		const clientUserId = vi.mocked(newAIImageClients).mock.calls[0]?.[1] as string | undefined
-		const clientTenantDb = vi.mocked(newAIImageClients).mock.calls[0]?.[2] as unknown
+		const clientUserId = vi.mocked(createAIImageClients).mock.calls[0]?.[1] as string | undefined
+		const clientTenantDb = vi.mocked(createAIImageClients).mock.calls[0]?.[2] as unknown
 		const generateInput = mocks.generate.mock.calls[0]?.[0] as
 			| { userId?: string; r2UploadIsPublic?: boolean }
 			| undefined

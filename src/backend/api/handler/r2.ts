@@ -1,7 +1,7 @@
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
-	newR2Client,
+	createR2Client,
 	verifyR2Origin,
 	type R2Client,
 	type R2GetResult,
@@ -26,7 +26,7 @@ export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Respons
 	const key: string = toR2Key(ctx.req.path)
 	const variant: string | undefined = ctx.req.query('variant')
 	const userId: string | undefined = ctx.get('userId') as string | undefined
-	const client: R2Client = newR2Client(ctx.env, userId)
+	const client: R2Client = createR2Client(ctx.env, userId)
 
 	if (!isCacheableR2ReadPath(ctx.req.path)) {
 		const response: Response = await readR2Object(ctx, key, variant, client)
@@ -75,7 +75,7 @@ export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise
 	}
 
 	try {
-		const client = newR2Client(ctx.env, ctx.get('userId'))
+		const client = createR2Client(ctx.env, ctx.get('userId'))
 		const path = splitUploadPath(req.path)
 		const result = await client.createUploadUrl({
 			isPublic: req.is_public,
@@ -115,7 +115,7 @@ export async function createR2UploadUrlHandler(ctx: Context<ApiEnv>): Promise<Re
 	}
 
 	try {
-		const client = newR2Client(ctx.env, ctx.get('userId'))
+		const client = createR2Client(ctx.env, ctx.get('userId'))
 		const path = splitUploadPath(req.path)
 		const result = await client.createUploadUrl({
 			dir: path.dir,
@@ -170,7 +170,7 @@ export async function readR2ImageOriginHandler(ctx: Context<ApiEnv>): Promise<Re
 	}
 
 	const key = toR2OriginKey(ctx.req.path)
-	const client = newR2Client(ctx.env, privateOwner(key))
+	const client = createR2Client(ctx.env, privateOwner(key))
 	const result = await client.get(key)
 	return toR2Response(ctx, result)
 }

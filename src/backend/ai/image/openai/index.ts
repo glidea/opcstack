@@ -7,7 +7,7 @@ import type {
 } from 'openai/resources/images'
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
-import { newR2Client } from '../../../r2'
+import { createR2Client } from '../../../r2'
 import { resolveImageReferences } from '../reference'
 import { createAIImageTask, getAIImageTask } from '../task'
 import type {
@@ -21,14 +21,14 @@ import type {
 	AIInlineImageReference
 } from '..'
 
-export function newOpenAINativeImageClient(env: Env): OpenAI {
+export function createOpenAINativeImageClient(env: Env): OpenAI {
 	return new OpenAI({
 		apiKey: env.IMAGE_OPENAI_API_KEY,
 		baseURL: env.IMAGE_OPENAI_BASE_URL
 	})
 }
 
-export function newOpenAISimpleImageClient(
+export function createOpenAISimpleImageClient(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
@@ -79,7 +79,7 @@ class openAISimpleImageClient implements AISimpleImageClient {
 				partial_images: 1
 			}
 			const stream = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-				const client = newOpenAIClient(endpoint)
+				const client = createOpenAIClient(endpoint)
 				return client.images.edit(request)
 			})
 			const outputs = await toImageResultsFromStream(stream)
@@ -97,7 +97,7 @@ class openAISimpleImageClient implements AISimpleImageClient {
 			partial_images: 1
 		}
 		const stream = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = newOpenAIClient(endpoint)
+			const client = createOpenAIClient(endpoint)
 			return client.images.generate(request)
 		})
 		const outputs = await toImageResultsFromStream(stream)
@@ -114,7 +114,7 @@ class openAISimpleImageClient implements AISimpleImageClient {
 	}
 }
 
-function newOpenAIClient(endpoint: AIEndpoint): OpenAI {
+function createOpenAIClient(endpoint: AIEndpoint): OpenAI {
 	return new OpenAI({
 		apiKey: endpoint.apiKey,
 		baseURL: endpoint.baseURL
@@ -153,7 +153,7 @@ async function uploadImageResults(
 		return outputs
 	}
 
-	const client = newR2Client(env as R2Env, userId)
+	const client = createR2Client(env as R2Env, userId)
 	for (const output of outputs) {
 		output.r2 = await client.putImage({
 			dir: input.r2UploadDir ?? 'images',

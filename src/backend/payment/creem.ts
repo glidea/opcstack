@@ -232,7 +232,7 @@ export class CreemPaymentProvider implements PaymentProvider {
 	}
 }
 
-export function newCreemPayment(
+export function createCreemPayment(
 	env: Env,
 	createClient: (options: CreemClientOptions) => CreemClient = defaultCreateCreemClient
 ): CreemPaymentProvider {

@@ -1,7 +1,7 @@
 import type { GoogleGenAI } from '@google/genai'
 import type { TenantShardDb } from '../../db'
-import { newGeminiNativeTTSClient, newGeminiSimpleTTSClient } from './gemini'
-import { newSeedSimpleTTSClient } from './seed'
+import { createGeminiNativeTTSClient, createGeminiSimpleTTSClient } from './gemini'
+import { createSeedSimpleTTSClient } from './seed'
 
 export * from './gemini/constants'
 export * from './seed/constants'
@@ -11,7 +11,7 @@ export interface AITTSClients {
 	gemini?: GoogleGenAI
 }
 
-export function newAITTSClients(
+export function createAITTSClients(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
@@ -20,13 +20,13 @@ export function newAITTSClients(
 	const provider = options.provider ?? 'gemini'
 	if (provider === 'gemini') {
 		return {
-			simple: newGeminiSimpleTTSClient(env, userId, tenantDb, options),
-			gemini: newGeminiNativeTTSClient(env)
+			simple: createGeminiSimpleTTSClient(env, userId, tenantDb, options),
+			gemini: createGeminiNativeTTSClient(env)
 		}
 	}
 	if (provider === 'seed') {
 		return {
-			simple: newSeedSimpleTTSClient(env, userId, tenantDb, options)
+			simple: createSeedSimpleTTSClient(env, userId, tenantDb, options)
 		}
 	}
 

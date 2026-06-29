@@ -32,8 +32,8 @@ import {
 	type PaymentProvider
 } from './contract'
 import { logInfo, logWarn } from '../lib/log'
-import { newDodoPayment } from './dodo'
-import { newCreemPayment } from './creem'
+import { createDodoPayment } from './dodo'
+import { createCreemPayment } from './creem'
 
 export * from './config'
 export * from './contract'
@@ -1265,7 +1265,7 @@ export class PaymentService {
 	}
 }
 
-export function newPaymentService(
+export function createPaymentService(
 	db: MetaDb,
 	env: Env
 ): PaymentService {
@@ -1277,8 +1277,8 @@ export function newPaymentService(
 
 	const providers: PaymentProviderMap = config.enabled
 		? {
-			dodo: newDodoPayment(env),
-			creem: newCreemPayment(env)
+			dodo: createDodoPayment(env),
+			creem: createCreemPayment(env)
 		}
 		: {}
 

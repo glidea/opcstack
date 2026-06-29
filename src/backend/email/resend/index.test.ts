@@ -1,6 +1,6 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
-import { newResendNativeEmailClient, newResendSimpleEmailClient } from './index'
+import { createResendNativeEmailClient, createResendSimpleEmailClient } from './index'
 
 const { resendConstructorMock, resendSendMock } = vi.hoisted(() => {
 	return {
@@ -28,7 +28,7 @@ vi.mock('resend', () => {
 	}
 })
 
-describe('newResendNativeEmailClient', () => {
+describe('createResendNativeEmailClient', () => {
 type GivenDetail = {
 	apiKey: string
 }
@@ -57,7 +57,7 @@ type GivenDetail = {
 		void when
 		resendConstructorMock.mockReset()
 		resendSendMock.mockReset()
-		newResendNativeEmailClient({
+		createResendNativeEmailClient({
 			APP_NAME: 'opcstack',
 			EMAIL_RESEND_API_KEY: given.apiKey,
 			EMAIL_FROM: 'openstack@glidea.app'
@@ -68,7 +68,7 @@ type GivenDetail = {
 	})
 })
 
-describe('newResendSimpleEmailClient.send', () => {
+describe('createResendSimpleEmailClient.send', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks()
 		vi.spyOn(console, 'error').mockImplementation((): void => {
@@ -197,13 +197,13 @@ describe('newResendSimpleEmailClient.send', () => {
 			})
 		}
 
-		const simpleClient = newResendSimpleEmailClient(
+		const simpleClient = createResendSimpleEmailClient(
 			{
 				APP_NAME: given.appName,
 				EMAIL_RESEND_API_KEY: 'rk-simple',
 				EMAIL_FROM: given.emailFrom
 			} as unknown as Env,
-			newResendNativeEmailClient({
+			createResendNativeEmailClient({
 				APP_NAME: given.appName,
 				EMAIL_RESEND_API_KEY: 'rk-simple',
 				EMAIL_FROM: given.emailFrom

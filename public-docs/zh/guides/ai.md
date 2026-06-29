@@ -29,9 +29,9 @@ CHAT_OPENAI_MODEL=gpt-5.4-mini
 ### 使用
 
 ```typescript
-import { newAIClients } from '../../../src/ai/chat'
+import { createAIClients } from '../../../src/ai/chat'
 
-const clients = newAIClients(env)
+const clients = createAIClients(env)
 const text = await clients.simple.generateText('用三句话解释 D1 read replication')
 console.log(text)
 ```
@@ -56,9 +56,9 @@ IMAGE_GEMINI_MODEL=gemini-3.1-flash-image-preview
 ### 使用
 
 ```typescript
-import { newAIImageClients } from '../../../src/ai/image'
+import { createAIImageClients } from '../../../src/ai/image'
 
-const clients = newAIImageClients(env)
+const clients = createAIImageClients(env)
 const images = await clients.simple.generate({
   prompt: 'sunset over the ocean',
   numberOfImages: 1
@@ -86,9 +86,9 @@ TTS_GEMINI_MODEL=gemini-3.1-flash-tts-preview
 ### 使用
 
 ```typescript
-import { newAITTSClients } from '../../../src/ai/tts'
+import { createAITTSClients } from '../../../src/ai/tts'
 
-const clients = newAITTSClients(env)
+const clients = createAITTSClients(env)
 const audio = await clients.simple.generateSpeech({
   instruction: '中文技术访谈风格 自然 节奏稳定',
   speakers: [

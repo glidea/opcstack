@@ -1,18 +1,18 @@
 import type { z } from 'zod'
 import type OpenAI from 'openai'
-import { newOpenAISimpleChatClient, newOpenAINativeChatClient } from './openai'
+import { createOpenAISimpleChatClient, createOpenAINativeChatClient } from './openai'
 
 export interface AIClients {
     simple: AISimpleChatClient
     openai: OpenAI
 }
 
-export function newAIClients(env: Env, options: AIChatClientOptions = {}): AIClients {
+export function createAIClients(env: Env, options: AIChatClientOptions = {}): AIClients {
     const provider = options.provider ?? 'openai'
     if (provider === 'openai') {
         return {
-            simple: newOpenAISimpleChatClient(env, options),
-            openai: newOpenAINativeChatClient(env)
+            simple: createOpenAISimpleChatClient(env, options),
+            openai: createOpenAINativeChatClient(env)
         }
     }
 

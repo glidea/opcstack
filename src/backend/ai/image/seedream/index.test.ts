@@ -1,6 +1,6 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
-import { newSeedDreamNativeImageClient, newSeedDreamSimpleImageClient } from './index'
+import { createSeedDreamNativeImageClient, createSeedDreamSimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput } from '..'
 import type { TenantShardDb } from '../../../db'
 
@@ -25,7 +25,7 @@ const {
 	r2PutImageMock,
 	r2GetMock,
 	r2GetVariantBytesMock,
-	newR2ClientMock
+	createR2ClientMock
 } = vi.hoisted(() => {
 	return {
 		openAIConstructorMock: vi.fn(),
@@ -33,7 +33,7 @@ const {
 		r2PutImageMock: vi.fn(),
 		r2GetMock: vi.fn(),
 		r2GetVariantBytesMock: vi.fn(),
-		newR2ClientMock: vi.fn()
+		createR2ClientMock: vi.fn()
 	}
 })
 
@@ -57,7 +57,7 @@ vi.mock('openai', () => {
 })
 
 vi.mock('../../../r2', () => {
-	newR2ClientMock.mockImplementation(() => {
+	createR2ClientMock.mockImplementation(() => {
 		return {
 			putImage: r2PutImageMock,
 			get: r2GetMock,
@@ -65,11 +65,11 @@ vi.mock('../../../r2', () => {
 		}
 	})
 	return {
-		newR2Client: newR2ClientMock
+		createR2Client: createR2ClientMock
 	}
 })
 
-describe('newSeedDreamSimpleImageClient.generate', () => {
+describe('createSeedDreamSimpleImageClient.generate', () => {
 	type GivenDetail = {
 		envModel: string
 		optionsModel?: string
@@ -380,7 +380,7 @@ describe('newSeedDreamSimpleImageClient.generate', () => {
 		})
 
 		const env: Env = createEnv(given.envModel)
-		const client = newSeedDreamSimpleImageClient(
+		const client = createSeedDreamSimpleImageClient(
 			env,
 			given.optionsUserId ?? 'u',
 			{} as TenantShardDb,
@@ -468,7 +468,7 @@ function toThenExpected(
 	}
 }
 
-describe('newSeedDreamNativeImageClient', () => {
+describe('createSeedDreamNativeImageClient', () => {
 	type GivenDetail = {
 		apiKey: string
 		baseURL: string
@@ -502,7 +502,7 @@ describe('newSeedDreamNativeImageClient', () => {
 	runCases(cases, (given): ThenExpected => {
 		vi.clearAllMocks()
 		const env = createEnv('env-model', given.apiKey, given.baseURL)
-		newSeedDreamNativeImageClient(env)
+		createSeedDreamNativeImageClient(env)
 
 		const config = openAIConstructorMock.mock.calls[0]?.[0] as
 			| {

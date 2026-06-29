@@ -1,6 +1,6 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
-import { newGeminiSimpleTTSClient } from './index'
+import { createGeminiSimpleTTSClient } from './index'
 import type { TenantShardDb } from '../../../db'
 import type { AITTSSpeechInput } from '..'
 
@@ -22,11 +22,11 @@ type R2PutResult = {
 	url: string
 }
 
-const { generateContentMock, r2PutMock, newR2ClientMock } = vi.hoisted(() => {
+const { generateContentMock, r2PutMock, createR2ClientMock } = vi.hoisted(() => {
 	return {
 		generateContentMock: vi.fn(),
 		r2PutMock: vi.fn(),
-		newR2ClientMock: vi.fn()
+		createR2ClientMock: vi.fn()
 	}
 })
 
@@ -49,18 +49,18 @@ vi.mock('@google/genai', () => {
 })
 
 vi.mock('../../../r2', () => {
-	newR2ClientMock.mockImplementation(() => {
+	createR2ClientMock.mockImplementation(() => {
 		return {
 			put: r2PutMock
 		}
 	})
 
 	return {
-		newR2Client: newR2ClientMock
+		createR2Client: createR2ClientMock
 	}
 })
 
-describe('newGeminiSimpleTTSClient.generateSpeech', () => {
+describe('createGeminiSimpleTTSClient.generateSpeech', () => {
 	type GivenDetail = {
 		envModel: string
 		optionsModel?: string
@@ -232,7 +232,7 @@ describe('newGeminiSimpleTTSClient.generateSpeech', () => {
 
 		const env = createEnv(given.envModel)
 		const tenantDb: TenantShardDb = {} as TenantShardDb
-		const client = newGeminiSimpleTTSClient(env, 'u1', tenantDb, { model: given.optionsModel })
+		const client = createGeminiSimpleTTSClient(env, 'u1', tenantDb, { model: given.optionsModel })
 		const output = await client.generateSpeech(when.input)
 
 		const generateArg = generateContentMock.mock.calls[0]?.[0] as
@@ -292,7 +292,7 @@ describe('newGeminiSimpleTTSClient.generateSpeech', () => {
 			promptContainsTranscript: prompt.includes('Transcript:'),
 			r2PutCalls: r2PutMock.mock.calls.length,
 			r2Key: output.r2?.key ?? '',
-			r2ClientUserId: (newR2ClientMock.mock.calls[0]?.[1] as string | undefined) ?? ''
+			r2ClientUserId: (createR2ClientMock.mock.calls[0]?.[1] as string | undefined) ?? ''
 		}
 	})
 })

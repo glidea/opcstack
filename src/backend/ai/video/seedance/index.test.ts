@@ -3,7 +3,7 @@ import { runCases, type TestCase } from '../../../testing/bdd'
 import {
 	createSeedDanceProviderTask,
 	getSeedDanceProviderTask,
-	newSeedDanceSimpleVideoClient
+	createSeedDanceSimpleVideoClient
 } from '.'
 import {
 	SEEDDANCE_MODEL_SEEDDANCE_2_0_260128,
@@ -159,7 +159,7 @@ describe('seedance video client', () => {
 				send: sendMock
 			}
 		} as unknown as Env
-		const client = newSeedDanceSimpleVideoClient(env, 'u1', createDb(updateSetMock), {})
+		const client = createSeedDanceSimpleVideoClient(env, 'u1', createDb(updateSetMock), {})
 
 		const task = await client.generate({
 			prompt: 'make a video',

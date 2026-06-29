@@ -9,7 +9,7 @@ import {
 	resolveD1ShardRegion,
 	type WorkerRegionSource
 } from '../../db/shard-router'
-import { newEmailClients, type EmailClients } from '../../email'
+import { createEmailClients, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
 import { parseDecimal } from '../../lib/decimal'
@@ -282,7 +282,7 @@ function buildEmailClient(env: Env): EmailClients['simple'] | undefined {
   if (env.EMAIL_ENABLED !== 'true') {
     return undefined
   }
-  return newEmailClients(env).simple
+  return createEmailClients(env).simple
 }
 
 function buildSocialProviders(env: Env): AuthSocialProvidersConfig {

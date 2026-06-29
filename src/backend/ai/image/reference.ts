@@ -1,4 +1,4 @@
-import { newR2Client } from '../../r2'
+import { createR2Client } from '../../r2'
 import type { AIImageReference, AIInlineImageReference } from '.'
 
 type R2Env = Env & { R2: R2Bucket }
@@ -10,7 +10,7 @@ export async function resolveImageReferences(
 ): Promise<AIInlineImageReference[]> {
 	const inputs = references ?? []
 	const outputs: AIInlineImageReference[] = []
-	const client = newR2Client(env as R2Env, userId)
+	const client = createR2Client(env as R2Env, userId)
 
 	for (const reference of inputs) {
 		if ('imageBase64' in reference) {

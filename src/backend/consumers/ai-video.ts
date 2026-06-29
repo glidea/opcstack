@@ -6,7 +6,7 @@ import {
 	createSeedDanceProviderTask,
 	getSeedDanceProviderTask
 } from '../ai/video/seedance'
-import { newR2Client } from '../r2'
+import { createR2Client } from '../r2'
 import { logError } from '../lib/log'
 import type { TenantShardDb } from '../db'
 import type {
@@ -169,7 +169,7 @@ async function completeVideoTask(
 		throw new Error('AI_VIDEO_DOWNLOAD_FAILED')
 	}
 
-	const r2 = await newR2Client(env, task.userId).put({
+	const r2 = await createR2Client(env, task.userId).put({
 		dir: input.r2UploadDir ?? 'videos',
 		filename: `${Date.now()}-${crypto.randomUUID()}.mp4`,
 		body: response.body,

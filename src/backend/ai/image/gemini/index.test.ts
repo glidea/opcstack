@@ -1,6 +1,6 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
-import { newGeminiSimpleImageClient } from './index'
+import { createGeminiSimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput } from '..'
 import type { TenantShardDb } from '../../../db'
 
@@ -23,13 +23,13 @@ type R2PutResult = {
 	url: string
 }
 
-const { generateContentMock, r2PutImageMock, r2GetMock, r2GetVariantBytesMock, newR2ClientMock } = vi.hoisted(() => {
+const { generateContentMock, r2PutImageMock, r2GetMock, r2GetVariantBytesMock, createR2ClientMock } = vi.hoisted(() => {
 	return {
 		generateContentMock: vi.fn(),
 		r2PutImageMock: vi.fn(),
 		r2GetMock: vi.fn(),
 		r2GetVariantBytesMock: vi.fn(),
-		newR2ClientMock: vi.fn()
+		createR2ClientMock: vi.fn()
 	}
 })
 
@@ -55,7 +55,7 @@ vi.mock('@google/genai', () => {
 })
 
 vi.mock('../../../r2', () => {
-	newR2ClientMock.mockImplementation(() => {
+	createR2ClientMock.mockImplementation(() => {
 		return {
 			putImage: r2PutImageMock,
 			get: r2GetMock,
@@ -63,11 +63,11 @@ vi.mock('../../../r2', () => {
 		}
 	})
 	return {
-		newR2Client: newR2ClientMock
+		createR2Client: createR2ClientMock
 	}
 })
 
-describe('newGeminiSimpleImageClient.generate', () => {
+describe('createGeminiSimpleImageClient.generate', () => {
 	type GivenDetail = {
 		envModel: string
 		optionsModel?: string
@@ -368,7 +368,7 @@ describe('newGeminiSimpleImageClient.generate', () => {
 		})
 
 		const env: Env = createEnv(given.envModel)
-		const client = newGeminiSimpleImageClient(env, given.optionsUserId ?? 'u', {} as TenantShardDb, {
+		const client = createGeminiSimpleImageClient(env, given.optionsUserId ?? 'u', {} as TenantShardDb, {
 			model: given.optionsModel
 		})
 		const outputs = await client.generate(when.input)

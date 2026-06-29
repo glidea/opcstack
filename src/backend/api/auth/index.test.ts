@@ -3,7 +3,7 @@ import { runCases, type TestCase } from '../../testing/bdd'
 import { authCore } from './index'
 import { betterAuth } from 'better-auth'
 import { bearer, captcha, emailOTP, genericOAuth } from 'better-auth/plugins'
-import { newEmailClients, type EmailSimpleSendInput } from '../../email'
+import { createEmailClients, type EmailSimpleSendInput } from '../../email'
 import type { Resend } from 'resend'
 
 const creditServiceMocks = vi.hoisted(() => {
@@ -53,7 +53,7 @@ vi.mock('better-auth/plugins', () => {
 
 vi.mock('../../email', () => {
 	return {
-		newEmailClients: vi.fn()
+		createEmailClients: vi.fn()
 	}
 })
 
@@ -85,7 +85,7 @@ describe('authCore email config mapping', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		vi.mocked(betterAuth).mockReturnValue({} as never)
-		vi.mocked(newEmailClients).mockReturnValue({
+		vi.mocked(createEmailClients).mockReturnValue({
 			simple: {
 				send: createSendMock()
 			},
@@ -233,7 +233,7 @@ describe('authCore email config mapping', () => {
 		const env = createEnv(given)
 
 		if (given.emailEnabled === 'true') {
-			vi.mocked(newEmailClients).mockReturnValue({
+			vi.mocked(createEmailClients).mockReturnValue({
 				simple: {
 					send: createSendMock()
 				},
@@ -280,7 +280,7 @@ describe('authCore turnstile config mapping', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		vi.mocked(betterAuth).mockReturnValue({} as never)
-		vi.mocked(newEmailClients).mockReturnValue({
+		vi.mocked(createEmailClients).mockReturnValue({
 			simple: {
 				send: createSendMock()
 			},
@@ -452,7 +452,7 @@ describe('authCore email callbacks', () => {
 
 	runCases(cases, async (given) => {
 		const send = createSendMock()
-		vi.mocked(newEmailClients).mockReturnValue({
+		vi.mocked(createEmailClients).mockReturnValue({
 			simple: { send },
 			resend: {} as Resend
 		})
@@ -550,7 +550,7 @@ describe('authCore user create hook', () => {
 			entryRemainingAmount: 0,
 			duplicated: false
 		})
-		vi.mocked(newEmailClients).mockReturnValue({
+		vi.mocked(createEmailClients).mockReturnValue({
 			simple: {
 				send: createSendMock()
 			},
@@ -636,7 +636,7 @@ describe('authCore user create hook', () => {
 describe('authCore registration attribution', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
-		vi.mocked(newEmailClients).mockReturnValue({
+		vi.mocked(createEmailClients).mockReturnValue({
 			simple: {
 				send: createSendMock()
 			},
@@ -716,7 +716,7 @@ describe('authCore social provider config mapping', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		vi.mocked(betterAuth).mockReturnValue({} as never)
-		vi.mocked(newEmailClients).mockReturnValue({
+		vi.mocked(createEmailClients).mockReturnValue({
 			simple: {
 				send: createSendMock()
 			},
@@ -862,7 +862,7 @@ describe('authCore linuxdo oauth config mapping', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		vi.mocked(betterAuth).mockReturnValue({} as never)
-		vi.mocked(newEmailClients).mockReturnValue({
+		vi.mocked(createEmailClients).mockReturnValue({
 			simple: {
 				send: createSendMock()
 			},

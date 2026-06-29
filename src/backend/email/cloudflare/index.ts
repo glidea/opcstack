@@ -1,12 +1,12 @@
 import type { EmailSimpleClient, EmailSimpleSendInput } from '..'
 
-export function newCloudflareNativeEmailClient(env: Env): SendEmail {
+export function createCloudflareNativeEmailClient(env: Env): SendEmail {
 	return env.SEND_EMAIL
 }
 
-export function newCloudflareSimpleEmailClient(env: Env): EmailSimpleClient {
+export function createCloudflareSimpleEmailClient(env: Env): EmailSimpleClient {
 	return new cloudflareSimpleEmailClient(
-		newCloudflareNativeEmailClient(env),
+		createCloudflareNativeEmailClient(env),
 		env.APP_NAME,
 		env.EMAIL_FROM
 	)

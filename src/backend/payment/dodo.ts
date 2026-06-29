@@ -187,7 +187,7 @@ export class DodoPaymentProvider implements PaymentProvider {
 	}
 }
 
-export function newDodoPayment(
+export function createDodoPayment(
 	env: Env,
 	createClient: (options: DodoClientOptions) => DodoClient = defaultCreateDodoClient
 ): DodoPaymentProvider {

@@ -1,5 +1,5 @@
 import type { TenantShardDb } from '../../db'
-import { newSeedDanceSimpleVideoClient } from './seedance'
+import { createSeedDanceSimpleVideoClient } from './seedance'
 
 export * from './seedance/constants'
 
@@ -7,7 +7,7 @@ export interface AIVideoClients {
 	simple: AISimpleVideoClient
 }
 
-export function newAIVideoClients(
+export function createAIVideoClients(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
@@ -16,7 +16,7 @@ export function newAIVideoClients(
 	const provider: AIVideoProvider = options.provider ?? 'seedance'
 	if (provider === 'seedance') {
 		return {
-			simple: newSeedDanceSimpleVideoClient(env, userId, tenantDb, options)
+			simple: createSeedDanceSimpleVideoClient(env, userId, tenantDb, options)
 		}
 	}
 

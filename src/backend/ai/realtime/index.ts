@@ -1,4 +1,4 @@
-import { newDoubaoRealtimeClient } from './doubao'
+import { createDoubaoRealtimeClient } from './doubao'
 
 export * from './doubao/constants'
 
@@ -88,7 +88,7 @@ export interface AIRealtimeErrorEvent {
 	message: string
 }
 
-export function newAIRealtimeClient(
+export function createAIRealtimeClient(
 	env: Env,
 	userId: string,
 	options: AIRealtimeClientOptions = {}
@@ -97,7 +97,7 @@ export function newAIRealtimeClient(
 	const model: string = options.model ?? readDefaultModel(env, provider)
 	switch (provider) {
 		case 'doubao':
-			return newDoubaoRealtimeClient(env, userId, model)
+			return createDoubaoRealtimeClient(env, userId, model)
 	}
 }
 

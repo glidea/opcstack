@@ -1,8 +1,8 @@
 import { describe } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { newEmailClients } from './index'
+import { createEmailClients } from './index'
 
-describe('newEmailClients', () => {
+describe('createEmailClients', () => {
 	type GivenDetail = {
 		provider: 'resend' | 'cloudflare' | 'unknown'
 	}
@@ -67,7 +67,7 @@ describe('newEmailClients', () => {
 
 	runCases(cases, (given) => {
 		try {
-			const clients = newEmailClients({
+			const clients = createEmailClients({
 				APP_NAME: 'opcstack',
 				EMAIL_PROVIDER: given.provider,
 				EMAIL_RESEND_API_KEY: 'rk-test',

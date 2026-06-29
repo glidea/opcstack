@@ -1,6 +1,6 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
-import { newOpenAINativeImageClient, newOpenAISimpleImageClient } from './index'
+import { createOpenAINativeImageClient, createOpenAISimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput } from '..'
 import type { TenantShardDb } from '../../../db'
 
@@ -23,7 +23,7 @@ const {
 	r2PutImageMock,
 	r2GetMock,
 	r2GetVariantBytesMock,
-	newR2ClientMock
+	createR2ClientMock
 } = vi.hoisted(() => {
 	return {
 		openAIConstructorMock: vi.fn(),
@@ -33,7 +33,7 @@ const {
 		r2PutImageMock: vi.fn(),
 		r2GetMock: vi.fn(),
 		r2GetVariantBytesMock: vi.fn(),
-		newR2ClientMock: vi.fn()
+		createR2ClientMock: vi.fn()
 	}
 })
 
@@ -60,7 +60,7 @@ vi.mock('openai', () => {
 })
 
 vi.mock('../../../r2', () => {
-	newR2ClientMock.mockImplementation(() => {
+	createR2ClientMock.mockImplementation(() => {
 		return {
 			putImage: r2PutImageMock,
 			get: r2GetMock,
@@ -68,11 +68,11 @@ vi.mock('../../../r2', () => {
 		}
 	})
 	return {
-		newR2Client: newR2ClientMock
+		createR2Client: createR2ClientMock
 	}
 })
 
-describe('newOpenAISimpleImageClient.generate', () => {
+describe('createOpenAISimpleImageClient.generate', () => {
 	type GivenDetail = {
 		envModel: string
 		optionsModel?: string
@@ -346,7 +346,7 @@ describe('newOpenAISimpleImageClient.generate', () => {
 		})
 
 		const env: Env = createEnv(given.envModel)
-		const client = newOpenAISimpleImageClient(env, given.optionsUserId ?? 'u', {} as TenantShardDb, {
+		const client = createOpenAISimpleImageClient(env, given.optionsUserId ?? 'u', {} as TenantShardDb, {
 			model: given.optionsModel
 		})
 		const outputs = await client.generate(when.input)
@@ -403,7 +403,7 @@ async function* createEventStream(events: OpenAIImageResponse[]): AsyncIterable<
 	}
 }
 
-describe('newOpenAINativeImageClient', () => {
+describe('createOpenAINativeImageClient', () => {
 	type GivenDetail = {
 		apiKey: string
 		baseURL: string
@@ -437,7 +437,7 @@ describe('newOpenAINativeImageClient', () => {
 	runCases(cases, (given, _when) => {
 		vi.clearAllMocks()
 		const env = createEnv('env-model', given.apiKey, given.baseURL)
-		newOpenAINativeImageClient(env)
+		createOpenAINativeImageClient(env)
 
 		const config = openAIConstructorMock.mock.calls[0]?.[0] as
 			| {

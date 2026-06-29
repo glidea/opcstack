@@ -31,7 +31,7 @@ vi.mock('../../payment', async () => {
 	return {
 		...actual,
 		createPaymentServiceFromEnv: vi.fn().mockImplementation(() => paymentServiceMocks),
-		newPaymentService: vi.fn().mockImplementation(() => paymentServiceMocks)
+		createPaymentService: vi.fn().mockImplementation(() => paymentServiceMocks)
 	}
 })
 

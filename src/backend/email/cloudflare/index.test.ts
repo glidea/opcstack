@@ -1,11 +1,11 @@
 import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
-	newCloudflareNativeEmailClient,
-	newCloudflareSimpleEmailClient
+	createCloudflareNativeEmailClient,
+	createCloudflareSimpleEmailClient
 } from './index'
 
-describe('newCloudflareNativeEmailClient', () => {
+describe('createCloudflareNativeEmailClient', () => {
 	type GivenDetail = Record<string, never>
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -32,7 +32,7 @@ describe('newCloudflareNativeEmailClient', () => {
 				return
 			}
 		} as unknown as SendEmail
-		const client = newCloudflareNativeEmailClient({
+		const client = createCloudflareNativeEmailClient({
 			SEND_EMAIL: binding
 		} as unknown as Env)
 		return {
@@ -41,7 +41,7 @@ describe('newCloudflareNativeEmailClient', () => {
 	})
 })
 
-describe('newCloudflareSimpleEmailClient.send', () => {
+describe('createCloudflareSimpleEmailClient.send', () => {
 	type GivenDetail = {
 		appName: string
 		emailFrom: string
@@ -88,7 +88,7 @@ describe('newCloudflareSimpleEmailClient.send', () => {
 		const send = vi.fn(async (_message: unknown): Promise<void> => {
 			return
 		})
-		const client = newCloudflareSimpleEmailClient({
+		const client = createCloudflareSimpleEmailClient({
 			APP_NAME: given.appName,
 			EMAIL_FROM: given.emailFrom,
 			SEND_EMAIL: {

@@ -6,7 +6,7 @@ import {
 } from '@google/genai'
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
-import { newR2Client } from '../../../r2'
+import { createR2Client } from '../../../r2'
 import { resolveImageReferences } from '../reference'
 import { createAIImageTask, getAIImageTask } from '../task'
 import type {
@@ -18,14 +18,14 @@ import type {
 	AIInlineImageReference
 } from '..'
 
-export function newGeminiNativeImageClient(env: Env): GoogleGenAI {
+export function createGeminiNativeImageClient(env: Env): GoogleGenAI {
 	return new GoogleGenAI({
 		apiKey: env.IMAGE_GEMINI_API_KEY,
 		httpOptions: { baseUrl: env.IMAGE_GEMINI_BASE_URL }
 	})
 }
 
-export function newGeminiSimpleImageClient(
+export function createGeminiSimpleImageClient(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
@@ -64,7 +64,7 @@ class geminiSimpleImageClient implements AISimpleImageClient {
 	async generate(input: AISimpleImageClientGenerateInput): Promise<AIImageResult[]> {
 		const references = await resolveImageReferences(this.env, this.userId, input.references)
 		const result = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = newGeminiClient(endpoint)
+			const client = createGeminiClient(endpoint)
 			return client.models.generateContent({
 				model: this.model,
 				contents: [
@@ -97,7 +97,7 @@ class geminiSimpleImageClient implements AISimpleImageClient {
 	}
 }
 
-function newGeminiClient(endpoint: AIEndpoint): GoogleGenAI {
+function createGeminiClient(endpoint: AIEndpoint): GoogleGenAI {
 	return new GoogleGenAI({
 		apiKey: endpoint.apiKey,
 		httpOptions: { baseUrl: endpoint.baseURL }
@@ -125,7 +125,7 @@ async function toImageResults(
 			}
 
 			if (input.uploadToR2) {
-				const client = newR2Client(env as R2Env, userId)
+				const client = createR2Client(env as R2Env, userId)
 				output.r2 = await client.putImage({
 					dir: input.r2UploadDir ?? 'images',
 					imageBase64: output.imageBase64,

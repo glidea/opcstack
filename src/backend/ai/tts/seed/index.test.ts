@@ -6,7 +6,7 @@ import {
 	decodeSeedPodcastFrame,
 	encodeSeedPodcastConnectionFrame,
 	encodeSeedPodcastSessionFrame,
-	newSeedSimpleTTSClient,
+	createSeedSimpleTTSClient,
 	toSeedPodcastScriptRequest,
 	toSeedPodcastSourceRequest
 } from './index'
@@ -20,25 +20,25 @@ const mocks = vi.hoisted(() => {
 	return {
 		fetch: vi.fn(),
 		r2Put: vi.fn(),
-		newR2Client: vi.fn()
+		createR2Client: vi.fn()
 	}
 })
 
 vi.stubGlobal('fetch', mocks.fetch)
 
 vi.mock('../../../r2', () => {
-	mocks.newR2Client.mockImplementation(() => {
+	mocks.createR2Client.mockImplementation(() => {
 		return {
 			put: mocks.r2Put
 		}
 	})
 
 	return {
-		newR2Client: mocks.newR2Client
+		createR2Client: mocks.createR2Client
 	}
 })
 
-describe('newSeedSimpleTTSClient.generateSpeech', () => {
+describe('createSeedSimpleTTSClient.generateSpeech', () => {
 	type GivenDetail = {
 		envModel: string
 		optionsModel?: string
@@ -200,7 +200,7 @@ describe('newSeedSimpleTTSClient.generateSpeech', () => {
 
 		const env: Env = createEnv(given.envModel, given.baseUrl)
 		const tenantDb: TenantShardDb = {} as TenantShardDb
-		const client = newSeedSimpleTTSClient(env, 'u1', tenantDb, {
+		const client = createSeedSimpleTTSClient(env, 'u1', tenantDb, {
 			model: given.optionsModel
 		})
 
@@ -241,7 +241,7 @@ describe('newSeedSimpleTTSClient.generateSpeech', () => {
 				r2ContentType: r2PutArg?.contentType ?? '',
 				r2FilenameExt: r2PutArg?.filename?.endsWith('.mp3') ? '.mp3' : '',
 				r2Key: output.r2?.key ?? '',
-				r2ClientUserId: (mocks.newR2Client.mock.calls[0]?.[1] as string | undefined) ?? '',
+				r2ClientUserId: (mocks.createR2Client.mock.calls[0]?.[1] as string | undefined) ?? '',
 				errorMessage: ''
 			}
 		} catch (error) {

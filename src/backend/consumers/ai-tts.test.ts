@@ -3,7 +3,7 @@ import { runCases, type TestCase } from '../testing/bdd'
 import { handleAITTSQueue } from './ai-tts'
 import { getMetaDb } from '../db'
 import { createTenantShardAccess } from '../db/shard-router'
-import { newAITTSClients } from '../ai/tts'
+import { createAITTSClients } from '../ai/tts'
 import { logError } from '../lib/log'
 
 type TaskRow = {
@@ -52,7 +52,7 @@ vi.mock('../db/shard-router', () => {
 
 vi.mock('../ai/tts', () => {
 	return {
-		newAITTSClients: vi.fn()
+		createAITTSClients: vi.fn()
 	}
 })
 
@@ -85,12 +85,12 @@ describe('handleAITTSQueue', () => {
 				}
 			})
 		} as unknown as ReturnType<typeof createTenantShardAccess>)
-		vi.mocked(newAITTSClients).mockReturnValue({
+		vi.mocked(createAITTSClients).mockReturnValue({
 			simple: {
 				generateSpeech: mocks.generateSpeech,
 				generateSpeechFromSource: mocks.generateSpeechFromSource
 			}
-		} as unknown as ReturnType<typeof newAITTSClients>)
+		} as unknown as ReturnType<typeof createAITTSClients>)
 	})
 
 	type GivenDetail = {
@@ -305,9 +305,9 @@ describe('handleAITTSQueue', () => {
 					lastErrorMessage?: string
 			  }
 			| undefined
-		const clientUserId = vi.mocked(newAITTSClients).mock.calls[0]?.[1] as string | undefined
-		const clientTenantDb = vi.mocked(newAITTSClients).mock.calls[0]?.[2] as unknown
-		const clientOptions = vi.mocked(newAITTSClients).mock.calls[0]?.[3] as
+		const clientUserId = vi.mocked(createAITTSClients).mock.calls[0]?.[1] as string | undefined
+		const clientTenantDb = vi.mocked(createAITTSClients).mock.calls[0]?.[2] as unknown
+		const clientOptions = vi.mocked(createAITTSClients).mock.calls[0]?.[3] as
 			| { provider?: string }
 			| undefined
 		const generateInput = mocks.generateSpeech.mock.calls[0]?.[0] as

@@ -64,7 +64,7 @@ type SeedDanceCreateTaskRequest = {
 	watermark: false
 }
 
-export function newSeedDanceSimpleVideoClient(
+export function createSeedDanceSimpleVideoClient(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,

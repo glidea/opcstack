@@ -1,6 +1,6 @@
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
-import { newR2Client } from '../../../r2'
+import { createR2Client } from '../../../r2'
 import { createAITTSSourceTask, createAITTSTask, getAITTSTask } from '../task'
 import type {
 	AISimpleTTSClient,
@@ -62,7 +62,7 @@ const SEED_PODCAST_ROUND_RESPONSE_EVENT = 361
 const SEED_PODCAST_END_EVENT = 363
 const SEED_PODCAST_SESSION_FINISHED_EVENT = 152
 
-export function newSeedSimpleTTSClient(
+export function createSeedSimpleTTSClient(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
@@ -124,7 +124,7 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 			mimeType: 'audio/mpeg'
 		}
 		if (input.uploadToR2) {
-			const client = newR2Client(this.env as R2Env, this.userId)
+			const client = createR2Client(this.env as R2Env, this.userId)
 			output.r2 = await client.put({
 				dir: 'audio',
 				body: toBytes(output.audioBase64),
@@ -212,7 +212,7 @@ async function generateSeedPodcast(
 		output.audioUrl = audioUrl
 	}
 	if (uploadToR2) {
-		const client = newR2Client(env as R2Env, userId)
+		const client = createR2Client(env as R2Env, userId)
 		output.r2 = await client.put({
 			dir: 'audio',
 			body: audioBytes,

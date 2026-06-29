@@ -100,7 +100,7 @@ type R2UploadSigningConfig = {
 	bucket: string
 }
 
-export function newR2Client(env: R2Env, userId?: string): R2Client {
+export function createR2Client(env: R2Env, userId?: string): R2Client {
 	return new r2Client(env, userId)
 }
 

@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { TenantShardDb } from '../../../db'
-import { newR2Client } from '../../../r2'
+import { createR2Client } from '../../../r2'
 import { resolveImageReferences } from '../reference'
 import { createAIImageTask, getAIImageTask } from '../task'
 import type {
@@ -15,14 +15,14 @@ import type {
 	AISimpleImageClientOptions
 } from '..'
 
-export function newSeedDreamNativeImageClient(env: Env): OpenAI {
+export function createSeedDreamNativeImageClient(env: Env): OpenAI {
 	return new OpenAI({
 		apiKey: env.IMAGE_SEEDDREAM_API_KEY,
 		baseURL: env.IMAGE_SEEDDREAM_BASE_URL
 	})
 }
 
-export function newSeedDreamSimpleImageClient(
+export function createSeedDreamSimpleImageClient(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
@@ -85,7 +85,7 @@ class seedDreamSimpleImageClient implements AISimpleImageClient {
 			}
 		}
 		const stream = (await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = newOpenAIClient(endpoint)
+			const client = createOpenAIClient(endpoint)
 			return client.images.generate(request as Parameters<OpenAI['images']['generate']>[0])
 		})) as unknown as AsyncIterable<SeedDreamImageStreamEvent>
 		const outputs = await toImageResultsFromStream(stream)
@@ -102,7 +102,7 @@ class seedDreamSimpleImageClient implements AISimpleImageClient {
 	}
 }
 
-function newOpenAIClient(endpoint: AIEndpoint): OpenAI {
+function createOpenAIClient(endpoint: AIEndpoint): OpenAI {
 	return new OpenAI({
 		apiKey: endpoint.apiKey,
 		baseURL: endpoint.baseURL
@@ -142,7 +142,7 @@ async function uploadImageResults(
 		return outputs
 	}
 
-	const client = newR2Client(env as R2Env, userId)
+	const client = createR2Client(env as R2Env, userId)
 	for (const output of outputs) {
 		output.r2 = await client.putImage({
 			dir: input.r2UploadDir ?? 'images',

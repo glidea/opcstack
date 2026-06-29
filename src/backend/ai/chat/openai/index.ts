@@ -4,14 +4,14 @@ import type { z } from 'zod'
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
 import type { AISimpleChatClient, AIChatClientOptions } from '..'
 
-export function newOpenAINativeChatClient(env: Env): OpenAI {
+export function createOpenAINativeChatClient(env: Env): OpenAI {
 	return new OpenAI({
 		apiKey: env.CHAT_OPENAI_API_KEY,
 		baseURL: env.CHAT_OPENAI_BASE_URL
 	})
 }
 
-export function newOpenAISimpleChatClient(env: Env, options: AIChatClientOptions = {}): AISimpleChatClient {
+export function createOpenAISimpleChatClient(env: Env, options: AIChatClientOptions = {}): AISimpleChatClient {
 	return new openAISimpleChatClient(env, options)
 }
 
@@ -33,7 +33,7 @@ class openAISimpleChatClient implements AISimpleChatClient {
 
 	async generateText(prompt: string): Promise<string> {
 		const completion = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = newOpenAIClient(endpoint)
+			const client = createOpenAIClient(endpoint)
 			return client.chat.completions.create({
 				model: this.model,
 				messages: [{ role: 'system', content: prompt }],
@@ -49,7 +49,7 @@ class openAISimpleChatClient implements AISimpleChatClient {
 		schema: TSchema
 	): Promise<z.infer<TSchema>> {
 		const completion = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = newOpenAIClient(endpoint)
+			const client = createOpenAIClient(endpoint)
 			return client.chat.completions.parse({
 				model: this.model,
 				messages: [{ role: 'system', content: prompt }],
@@ -62,7 +62,7 @@ class openAISimpleChatClient implements AISimpleChatClient {
 	}
 }
 
-function newOpenAIClient(endpoint: AIEndpoint): OpenAI {
+function createOpenAIClient(endpoint: AIEndpoint): OpenAI {
 	return new OpenAI({
 		apiKey: endpoint.apiKey,
 		baseURL: endpoint.baseURL

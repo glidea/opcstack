@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import {
-	newAIRealtimeClient,
+	createAIRealtimeClient,
 	type AIRealtimeClient,
 	type AIRealtimeEvent,
 	type AIRealtimeProvider,
@@ -96,7 +96,7 @@ async function handleAIRealtimeWebSocketMessage(
 	const message: AIRealtimeWebSocketClientJsonMessage = JSON.parse(data) as AIRealtimeWebSocketClientJsonMessage
 	switch (message.type) {
 		case 'start_session': {
-			const client: AIRealtimeClient = newAIRealtimeClient(env, userId, {
+			const client: AIRealtimeClient = createAIRealtimeClient(env, userId, {
 				provider: message.provider,
 				model: message.model
 			})

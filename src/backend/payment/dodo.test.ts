@@ -2,7 +2,7 @@ import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import {
 	DodoPaymentProvider,
-	newDodoPayment,
+	createDodoPayment,
 	type DodoClient,
 	type DodoClientOptions
 } from './dodo'
@@ -367,7 +367,7 @@ describe('DodoPaymentProvider.unwrapWebhook', () => {
 	})
 })
 
-describe('newDodoPayment', () => {
+describe('createDodoPayment', () => {
 	type GivenDetail = {
 		testMode: string
 	}
@@ -394,7 +394,7 @@ describe('newDodoPayment', () => {
 
 	runCases(cases, async (given) => {
 		let environment: string = ''
-		newDodoPayment(
+		createDodoPayment(
 			{
 				PAYMENT_DODO_API_KEY: 'api-key',
 				PAYMENT_DODO_WEBHOOK_SECRET: 'webhook-secret',

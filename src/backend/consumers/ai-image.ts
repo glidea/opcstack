@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { getMetaDb } from '../db'
 import { aiImageTask } from '../db/schema.shard'
 import { createTenantShardAccess } from '../db/shard-router'
-import { newAIImageClients } from '../ai/image'
+import { createAIImageClients } from '../ai/image'
 import { logError } from '../lib/log'
 import type {
 	AIImageAspectRatio,
@@ -40,7 +40,7 @@ async function handleAIImageMessage(
 
 	try {
 		const references = JSON.parse(task.referencesJson) as AIImageReference[]
-		const client = newAIImageClients(env, task.userId, tenant.db, {
+		const client = createAIImageClients(env, task.userId, tenant.db, {
 			provider: task.provider as AIImageTask['provider'],
 			model: task.model ?? undefined
 		}).simple

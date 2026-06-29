@@ -1,10 +1,10 @@
 import {
-	newResendNativeEmailClient,
-	newResendSimpleEmailClient
+	createResendNativeEmailClient,
+	createResendSimpleEmailClient
 } from './resend'
 import {
-	newCloudflareNativeEmailClient,
-	newCloudflareSimpleEmailClient
+	createCloudflareNativeEmailClient,
+	createCloudflareSimpleEmailClient
 } from './cloudflare'
 import type { Resend } from 'resend'
 
@@ -14,22 +14,22 @@ export interface EmailClients {
 	cloudflare?: SendEmail
 }
 
-export function newEmailClients(
+export function createEmailClients(
 	env: Env
 ): EmailClients {
 	const provider = env.EMAIL_PROVIDER || 'resend'
 	if (provider === 'resend') {
-		const resend = newResendNativeEmailClient(env)
+		const resend = createResendNativeEmailClient(env)
 		return {
-			simple: newResendSimpleEmailClient(env, resend),
+			simple: createResendSimpleEmailClient(env, resend),
 			resend
 		}
 	}
 
 	if (provider === 'cloudflare') {
-		const cloudflare = newCloudflareNativeEmailClient(env)
+		const cloudflare = createCloudflareNativeEmailClient(env)
 		return {
-			simple: newCloudflareSimpleEmailClient(env),
+			simple: createCloudflareSimpleEmailClient(env),
 			cloudflare
 		}
 	}
