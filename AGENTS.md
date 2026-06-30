@@ -16,7 +16,7 @@ If architecture, core mechanisms, conventions, important dependencies, or workfl
 - Code comments must be in English.
 - Runtime config errors should fail early. Defaults are only for explicit product semantics.
 - Do not revert unrelated user changes.
-- Use `create` for creation actions and factory-style names. Use `new` only as an adjective, language keyword, or external generated name.
+- Use `create` for creation actions and factory-style names.
 
 ---
 
@@ -27,7 +27,7 @@ If architecture, core mechanisms, conventions, important dependencies, or workfl
 ```
 HTTP Request
   ├── /api/*      -> Hono API      (src/backend/api/)
-  └── other path  -> SvelteKit SSR (src/apps/web/)
+  └── other path  -> SvelteKit SSR (src/frontend/web/)
 
 Cron Trigger       -> src/backend/jobs/index.ts
 Queue Consumer     -> src/backend/consumers/index.ts
@@ -42,9 +42,9 @@ Durable Object     -> src/backend/do/
   docs/                 # Internal development/version notes
   template-docs/        # Template context docs for Agents and developers
   public-docs/          # Product docs served at /docs/
-  static/               # Static assets served by SvelteKit
-  static/images/        # Documentation and page images
-  pre-build.mjs         # Local and deploy automation
+  scripts/
+    prepare-public.mjs      # Public frontend and extension artifacts
+    prepare-cloudflare.mjs  # Cloudflare app config, infra, migrations, and seeds
   wrangler.jsonc.tpl    # Worker config template
   .env.dev              # Public local config, safe to commit
   .env.prod             # Public production config, safe to commit
@@ -52,67 +52,78 @@ Durable Object     -> src/backend/do/
 
 src/
   index.ts              # Worker entrypoint
-  aff/                  # Affiliate referral domain logic
-  credits/              # Credit wallet, ledger, grants, expiry
-  api/
-    index.ts            # API route registration
-    auth/               # Better Auth setup and auth integration
-    handler/            # API handlers
-    middleware/         # Auth, beta gate, DB session middleware
-  ai/
-    chat/               # Chat providers
-    image/              # Image generation providers
-    realtime/           # Realtime voice providers
-    tts/                # TTS providers
-    video/              # Video generation providers
-  consumers/            # Queue consumers
-  db/
-    schema.ts           # Combined schema export
-    schema.meta.ts      # Meta DB schema
-    schema.shard.ts     # Tenant Shard DB schema
-    meta-migrations/    # Generated Meta migrations
-    shard-migrations/   # Generated Tenant Shard migrations
-  do/                   # Durable Object classes
-  email/                # Email providers and sending logic
-  jobs/                 # Cron handlers
-  lib/                  # Shared backend utilities
-  payment/              # Payment provider integration and service
-  r2/                   # R2 helpers
-  testing/              # Shared test helpers
-  web/
-    routes/             # SvelteKit pages and server routes
-    params/             # SvelteKit route param matchers
+  api-contract/         # Shared API schemas, paths, request and response types
+  frontend/
     lib/
-      assets/           # Frontend assets imported by code
+      api-client/       # Browser-side API client
+      app-ui/           # App-specific composed UI by domain
       auth/             # Frontend auth helpers
-      components/       # Business components
-      config/           # Frontend/server config helpers
-      docs/             # Runtime docs parsing helpers
-      hooks/            # Svelte hooks
+      config/           # Frontend config helpers
       i18n/             # Locale messages and i18n helpers
-      seo/              # SEO helpers
+      styles/           # Shared app styles
       ui/               # UI primitives
+    web/
+      app.html          # SvelteKit app shell
+      hooks.server.ts   # SvelteKit server hooks
+      lib/
+        docs/           # Runtime docs parsing helpers
+      static/           # Web static assets
+      params/           # SvelteKit route param matchers
+      routes/           # SvelteKit pages and server routes
+    extension/          # Chrome extension app
+  backend/
+    aff/                # Affiliate referral domain logic
+    credits/            # Credit wallet, ledger, grants, expiry
+    api/
+      index.ts          # API route registration
+      auth/             # Better Auth setup and auth integration
+      handler/          # API handlers
+      middleware/       # Auth, beta gate, DB session middleware
+    ai/
+      chat/             # Chat providers
+      image/            # Image generation providers
+      realtime/         # Realtime voice providers
+      tts/              # TTS providers
+      video/            # Video generation providers
+    consumers/          # Queue consumers
+    db/
+      schema.ts         # Combined schema export
+      schema.meta.ts    # Meta DB schema
+      schema.shard.ts   # Tenant Shard DB schema
+      meta-migrations/  # Generated Meta migrations
+      shard-migrations/ # Generated Tenant Shard migrations
+    do/                 # Durable Object classes
+    email/              # Email providers and sending logic
+    jobs/               # Cron handlers
+    lib/                # Shared backend utilities
+    payment/            # Payment provider integration and service
+    r2/                 # R2 helpers
+    testing/            # Shared test helpers
 ```
 
 ---
 
 ## Runtime And Config
 
-- `pnpm dev` and `pnpm deploycf` run `pre-build.mjs`.
-- `pre-build.mjs` loads env files, generates `wrangler.jsonc`, provisions Cloudflare resources in remote mode, generates Durable Object bindings and migrations, syncs R2 CORS, enables D1 read replication, and applies migrations.
+- `pnpm dev` runs `prepare:cloudflare:dev`.
+- `pnpm deploy:cloudflare` runs `prepare:cloudflare:prod`.
+- `pnpm dev:extension` runs `prepare:public:dev`.
+- `pnpm build:extension` runs `prepare:public:prod` and packages the extension zip.
+- `scripts/prepare-public.mjs` generates public frontend artifacts only: `client.generated.ts`, web logo, and extension icons.
+- `scripts/prepare-cloudflare.mjs` loads env files, generates `wrangler.jsonc`, provisions Cloudflare resources in prod mode, generates Durable Object bindings and migrations, syncs R2 CORS, enables D1 read replication, applies migrations, and also refreshes public artifacts.
 - Public config lives in `.env.dev` and `.env.prod`.
 - Secret config lives in `.env.secret.dev` and `.env.secret.prod`.
 - `.env.secret.example` documents secret keys with placeholder values only.
 - Agents must not read, print, search, edit, create, or copy `.env.secret.dev`, `.env.secret.prod`, or `.wrangler/runtime-secrets.env`.
 - Any work involving secret file values must be performed by the user.
-- Do not add tests for `pre-build.mjs` unless explicitly requested.
+- Do not add tests for prepare scripts unless explicitly requested.
 - Env loading order: `.env.dev` or `.env.prod` -> `.env.secret.dev` or `.env.secret.prod` -> `.env` -> `process.env`.
 - Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.
-- Add secret runtime config keys to `pre-build.mjs` `SECRET_KEYS`; `pre-build.mjs` renders them to `wrangler.jsonc` `secrets.required`.
+- Add secret runtime config keys to `scripts/prepare-cloudflare.mjs` `SECRET_KEYS`; `prepare-cloudflare.mjs` renders them to `wrangler.jsonc` `secrets.required`.
 - After changing config keys, run `pnpm exec wrangler types` so `worker-configuration.d.ts` stays current.
 - API handlers and jobs read config from Cloudflare env directly, for example `ctx.env.KEY` or `env.KEY`.
-- SvelteKit server routes use `serverConfig` from `$web/config/server`.
-- Do not import `wrangler.jsonc` outside `src/apps/lib/config/server.ts`.
+- SvelteKit server routes use `clientConfig` from `$frontend/config/client` for public runtime config.
+- Do not import `wrangler.jsonc` from app code.
 - Do not use the old `AppConfig` name.
 - Do not create feature-specific env interfaces. Use generated `Env`.
 - Do not use `envMap` or `as Record<string, string | undefined>` casts for normal config reads.
@@ -251,9 +262,10 @@ src/
 
 ### Client Config
 
-- `pre-build.mjs` generates `src/apps/lib/config/client.generated.ts` from `wrangler.jsonc` vars.
-- `ClientConfig` and `clientConfig` are re-exported from `src/apps/lib/config/client.ts`.
-- Web and extension client code import `clientConfig` from `$web/config/client`.
+- `scripts/prepare-public.mjs` generates `src/frontend/lib/config/client.generated.ts` from public env.
+- `scripts/prepare-cloudflare.mjs` also refreshes `src/frontend/lib/config/client.generated.ts` from rendered Cloudflare vars.
+- `ClientConfig` and `clientConfig` are re-exported from `src/frontend/lib/config/client.ts`.
+- Web and extension client code import `clientConfig` from `$frontend/config/client`.
 - Do not add runtime public config endpoints by default.
 - Do not expose secret env keys in `ClientConfig`.
 
@@ -308,16 +320,16 @@ src/
 
 ## Frontend
 
-- Pages live under `src/apps/web/routes/`.
-- UI primitives live under `src/apps/lib/ui/` and use alias `$web/ui/*`.
-- Business components live under `src/apps/lib/components/` and use alias `$web/components/*`.
+- Pages live under `src/frontend/web/routes/`.
+- UI primitives live under `src/frontend/lib/ui/` and use alias `$frontend/ui/*`.
+- App-specific composed UI lives under `src/frontend/lib/app-ui/` and uses domain paths such as `$frontend/app-ui/auth/*` and `$frontend/app-ui/shell/*`.
 - Pages compose existing primitives. Do not rebuild `Button`, `Card`, `Dialog`, `Alert`, `Empty`, form fields, table primitives, or toast manually.
-- If an auth card, app header, user menu, locale switcher, theme switcher, or Google icon already exists, reuse the business component.
-- Put i18n messages in `src/apps/lib/i18n/messages/`.
+- If an auth card, app header, user menu, locale switcher, theme switcher, or Google icon already exists, reuse the app-specific UI component.
+- Put i18n messages in `src/frontend/lib/i18n/messages/`.
 - Set page title, description, and canonical in `<svelte:head>`.
 - Canonical URLs use `APP_DOMAIN` and must not point business pages to the OPCStack website.
 - Active style is controlled by `DESIGN_SYSTEM` in `.env`. Valid values: `apple-saas` and `brutalism`.
-- Concrete colors, radii, typography sizes, and animations live in `src/apps/web/app.css`.
+- Concrete colors, radii, typography sizes, and animations live in `src/frontend/lib/styles/app.css`.
 - Use semantic tokens such as `bg-primary`, `text-muted-foreground`, and `border-input`.
 - Icons come from `lucide-svelte`. Do not introduce other icon libraries.
 - Titles, headings, descriptions, button labels, and placeholders must not end with punctuation.
@@ -342,14 +354,14 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 
 ## SEO And Docs
 
-- `src/apps/web/routes/+layout.server.ts` exposes `siteName` from `APP_NAME` and canonical URLs using `APP_DOMAIN`.
-- `src/apps/lib/seo/` owns site origin normalization and JSON-LD serialization.
+- `src/frontend/web/routes/+layout.server.ts` exposes `siteName` from `APP_NAME` and canonical URLs using `APP_DOMAIN`.
 - Business pages should set `<title>`, `<meta name="description">`, and `<link rel="canonical">`.
 - Product docs rendered by the app live in `public-docs/en/` and `public-docs/zh/`.
-- Template explanation docs live in `template-docs/en/` and are not rendered by the app.
-- Docs route is `/docs/[...slug]`.
+- Template explanation docs live in `template-docs/` and are not rendered by the app.
+- Docs route is `/docs/[...slug]` when `DOCS_ENABLED=true`.
+- Client config exposes `docsEnabled`.
 - Docs use Markdown frontmatter with `title`, `description`, `group`, and `order`.
-- Docs images live in `static/images/` and are referenced as `/images/...`.
+- Docs images live in `src/frontend/web/static/images/` and are referenced as `/images/...`.
 - Mermaid diagrams use fenced `mermaid` blocks.
 
 ---
@@ -366,14 +378,20 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 - Unit-under-test output should be wrapped to a structured object before assertion, for example `{ result: add(...) }`.
 - Bug fixes should start with a failing test that reproduces the bug.
 - Remote E2E must only call HTTP APIs against an already deployed environment.
-- Remote E2E must not run `pnpm deploycf`, `pre-build.mjs`, migrations, resource creation, shard count changes, direct remote DB writes, or `d1_shards` writes.
+- Remote E2E must not run `pnpm deploy:cloudflare`, `scripts/prepare-cloudflare.mjs`, migrations, resource creation, shard count changes, direct remote DB writes, or `d1_shards` writes.
 
 ### Commands
 
 ```
 pnpm dev
-pnpm deploycf
+pnpm deploy:cloudflare
 pnpm test
+pnpm dev:extension
+pnpm build:extension
+pnpm prepare:public:dev
+pnpm prepare:public:prod
+pnpm prepare:cloudflare:dev
+pnpm prepare:cloudflare:prod
 pnpm test:e2e
 pnpm test:e2e:remote
 pnpm exec wrangler types
@@ -392,9 +410,9 @@ pnpm exec wrangler types
 
 ### Add Page
 
-1. Create page under `src/apps/web/routes/`.
-2. Reuse primitives from `$web/ui/*` and business components from `$web/components/*`.
-3. Add i18n messages under `src/apps/lib/i18n/messages/`.
+1. Create page under `src/frontend/web/routes/`.
+2. Reuse primitives from `$frontend/ui/*` and app-specific UI from `$frontend/app-ui/*`.
+3. Add i18n messages under `src/frontend/lib/i18n/messages/`.
 4. Set SEO tags in `<svelte:head>`.
 
 ### Modify Database
@@ -440,5 +458,5 @@ pnpm exec wrangler types
 - `.env.secret.example`: secret environment template without real values.
 - `.env.secret.dev` and `.env.secret.prod`: user-owned secret config, never read or edited by agents.
 - `template-docs/`: template context docs for Agents and developers.
-- `public-docs/`: product docs available at `/docs/`.
+- `public-docs/`: product docs available at `/docs/` when `DOCS_ENABLED=true`.
 - Source code is the primary truth. Inspect related files directly before changing behavior.

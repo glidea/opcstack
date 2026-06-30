@@ -11,7 +11,7 @@ order: 2
 
 ### 约定大于配置
 
-不需要手写配置文件，只需要配置环境变量，pre-build.mjs 自动生成配置。
+不需要手写配置文件，只需要配置环境变量，scripts/prepare-cloudflare.mjs 自动生成配置。
 
 ### 一个 Worker 统一承载
 
@@ -144,14 +144,14 @@ src/
 - 队列消费
 - 按 queue 名称分发
 
-## pre-build.mjs 自动化
+## scripts/prepare-cloudflare.mjs 自动化
 
 ### 工作流程
 
 ```
-pnpm dev / pnpm deploycf
+pnpm dev / pnpm deploy:cloudflare
   ↓
-pre-build.mjs
+scripts/prepare-cloudflare.mjs
   ↓
 1. 加载环境变量（.env.dev 或 .env.prod）
 2. 解析 APP_DOMAIN，生成 APP_BASE_URL
@@ -171,21 +171,21 @@ wrangler dev / wrangler deploy
 
 ### 本地 vs 远程模式
 
-**本地模式**（`node pre-build.mjs`）：
+**本地模式**（`node scripts/prepare-cloudflare.mjs --mode dev`）：
 - 使用占位 UUID
 - 不创建远程资源
 - migration apply --local
 
-**远程模式**（`node pre-build.mjs --remote`）：
+**远程模式**（`node scripts/prepare-cloudflare.mjs --mode prod`）：
 - 自动创建所有资源
 - 开启 D1 read replication
 - migration apply --remote
 
-### 为什么需要 pre-build？
+### 为什么需要 prepare-cloudflare？
 
 **问题**：Cloudflare 资源需要手动创建和配置，非常繁琐。
 
-**解决**：pre-build.mjs 自动化一切：
+**解决**：scripts/prepare-cloudflare.mjs 自动化一切：
 - 不需要手写 wrangler.jsonc
 - 不需要手动创建 D1、R2、KV、Queues
 - 不需要手动执行 migration

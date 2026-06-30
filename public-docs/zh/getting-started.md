@@ -123,7 +123,7 @@ AGENTS.md 包含了完整的项目上下文，AI 能够理解项目结构并生�
 2. **设计数据**：需要哪些表，字段是什么
 3. **使用 AI**：`@AGENTS.md` 让 AI 帮你实现
 4. **测试验证**：运行 `pnpm test` 和 `pnpm test:e2e`
-5. **部署上线**：`pnpm deploycf`
+5. **部署上线**：`pnpm deploy:cloudflare`
 
 ## 常见问题
 

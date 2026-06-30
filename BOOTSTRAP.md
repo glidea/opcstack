@@ -88,7 +88,7 @@ If dependencies are not installed, run:
 pnpm install
 ```
 
-Do not require Cloudflare login for local bootstrap. `pnpm dev` runs `pre-build.mjs` in local mode and does not need remote Cloudflare provisioning.
+Do not require Cloudflare login for local bootstrap. `pnpm dev` runs `scripts/prepare-cloudflare.mjs` in local mode and does not need remote Cloudflare provisioning.
 
 ---
 
@@ -133,7 +133,7 @@ Keep unrelated settings unchanged unless the user explicitly asks.
 
 Notes:
 
-- `TURNSTILE_ENABLED=true` is safe locally because `pre-build.mjs` uses Cloudflare test keys in local mode
+- `TURNSTILE_ENABLED=true` is safe locally because `scripts/prepare-cloudflare.mjs` uses Cloudflare test keys in local mode
 - R2, Queues, Cron, and AI queue names may already be enabled in `.env.dev`; do not force users to configure them during bootstrap
 - Production-only values belong in `.env.prod` and `.env.secret.prod`, not in local bootstrap
 
@@ -180,7 +180,7 @@ pnpm dev
 This command:
 
 - Runs SvelteKit sync
-- Runs `pre-build.mjs` in local mode
+- Runs `scripts/prepare-cloudflare.mjs` in local mode
 - Generates `wrangler.jsonc`
 - Generates local D1 bindings
 - Writes runtime secret bindings from the user's secret file
@@ -255,9 +255,9 @@ Rules:
 - Secret values go to `.env.secret.prod`
 - The user edits secret files locally
 - The Agent does not read secret files
-- Deployment is done with `pnpm deploycf`
+- Deployment is done with `pnpm deploy:cloudflare`
 
-Explain that `pre-build.mjs --remote` automatically provisions Cloudflare resources such as D1, shard D1 databases, KV, R2, Queues, Turnstile widget, R2 CORS, lifecycle rules, and read replication.
+Explain that `scripts/prepare-cloudflare.mjs --mode prod` automatically provisions Cloudflare resources such as D1, shard D1 databases, KV, R2, Queues, Turnstile widget, R2 CORS, lifecycle rules, and read replication.
 
 ### If The User Chooses Understand A Template Module
 

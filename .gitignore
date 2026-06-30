@@ -3,8 +3,8 @@ wrangler.jsonc
 worker-configuration.d.ts
 node_modules/
 .svelte-kit/
-src/apps/extension/.output/
-src/apps/extension/.wxt/
+src/frontend/extension/.output/
+src/frontend/extension/.wxt/
 .pnpm-store/
 /docs/
 .vscode/

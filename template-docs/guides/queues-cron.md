@@ -19,7 +19,7 @@ Define queue names in `.env.dev` or `.env.prod`:
 QUEUE_NAMES=task-check;email-send
 ```
 
-`pre-build.mjs` auto creates queues and generates bindings:
+`scripts/prepare-cloudflare.mjs` auto creates queues and generates bindings:
 - `task-check` -> `Q_TASK_CHECK`
 - `email-send` -> `Q_EMAIL_SEND`
 
@@ -67,7 +67,7 @@ Define cron expressions in `.env.dev` or `.env.prod`:
 CRONS=0 0 * * *,0 */6 * * *
 ```
 
-`pre-build.mjs` auto generates `wrangler.jsonc` config.
+`scripts/prepare-cloudflare.mjs` auto generates `wrangler.jsonc` config.
 
 ### Handle cron jobs
 

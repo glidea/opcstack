@@ -19,7 +19,7 @@ OPC Stack 支持 Cloudflare Queues 和 Cron Triggers。
 QUEUE_NAMES=task-check;email-send
 ```
 
-`pre-build.mjs` 会自动创建队列，并生成 Binding：
+`scripts/prepare-cloudflare.mjs` 会自动创建队列，并生成 Binding：
 - `task-check` → `Q_TASK_CHECK`
 - `email-send` → `Q_EMAIL_SEND`
 
@@ -67,7 +67,7 @@ await ctx.env.Q_TASK_CHECK.sendBatch([
 CRONS=0 0 * * *,0 */6 * * *
 ```
 
-`pre-build.mjs` 会自动生成 wrangler.jsonc 配置。
+`scripts/prepare-cloudflare.mjs` 会自动生成 wrangler.jsonc 配置。
 
 ### 处理 Cron
 

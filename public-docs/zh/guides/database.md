@@ -57,7 +57,7 @@ src/db/shard-migrations/
 
 ## Migration
 
-`pre-build.mjs` 会自动生成并应用两套 migration。
+`scripts/prepare-cloudflare.mjs` 会自动生成并应用两套 migration。
 
 ```text
 Meta migration  -> META_DB
@@ -73,7 +73,7 @@ pnpm dev
 部署执行：
 
 ```bash
-pnpm deploycf
+pnpm deploy:cloudflare
 ```
 
 ## 请求中使用数据库

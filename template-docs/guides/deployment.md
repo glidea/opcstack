@@ -46,11 +46,11 @@ wrangler login
 ### One command deploy
 
 ```bash
-pnpm deploycf
+pnpm deploy:cloudflare
 ```
 
 This command will:
-1. Run `pre-build.mjs --remote`
+1. Run `scripts/prepare-cloudflare.mjs --mode prod`
 2. Create all Cloudflare resources including D1, R2, KV, and Queues
 3. Enable D1 read replication
 4. Apply migrations
@@ -200,7 +200,7 @@ jobs:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install
-      - run: pnpm deploycf
+      - run: pnpm deploy:cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 ```

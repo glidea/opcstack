@@ -46,11 +46,11 @@ wrangler login
 ### 一键部署
 
 ```bash
-pnpm deploycf
+pnpm deploy:cloudflare
 ```
 
 这个命令会：
-1. 运行 `pre-build.mjs --remote`
+1. 运行 `scripts/prepare-cloudflare.mjs --mode prod`
 2. 创建所有 Cloudflare 资源（D1、R2、KV、Queues）
 3. 开启 D1 read replication
 4. 执行 migration
@@ -200,7 +200,7 @@ jobs:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install
-      - run: pnpm deploycf
+      - run: pnpm deploy:cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 ```

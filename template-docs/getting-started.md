@@ -123,7 +123,7 @@ AGENTS.md contains complete project context so AI can generate correct code base
 2. Design data model: tables and fields
 3. Use AI: `@AGENTS.md` to implement faster
 4. Test: run `pnpm test` and `pnpm test:e2e`
-5. Deploy: run `pnpm deploycf`
+5. Deploy: run `pnpm deploy:cloudflare`
 
 ## FAQ
 

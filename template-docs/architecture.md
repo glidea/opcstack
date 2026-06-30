@@ -11,7 +11,7 @@ order: 2
 
 ### Convention over configuration
 
-You do not need to hand write config files. Configure environment variables and `pre-build.mjs` generates config automatically.
+You do not need to hand write config files. Configure environment variables and `scripts/prepare-cloudflare.mjs` generates config automatically.
 
 ### One Worker as the runtime container
 
@@ -144,14 +144,14 @@ src/
 - Queue consumers
 - Dispatch by queue name
 
-## pre-build.mjs automation
+## scripts/prepare-cloudflare.mjs automation
 
 ### Workflow
 
 ```
-pnpm dev / pnpm deploycf
+pnpm dev / pnpm deploy:cloudflare
   ↓
-pre-build.mjs
+scripts/prepare-cloudflare.mjs
   ↓
 1. Load env vars (.env.dev or .env.prod)
 2. Parse APP_DOMAIN and generate APP_BASE_URL
@@ -171,21 +171,21 @@ wrangler dev / wrangler deploy
 
 ### Local vs remote mode
 
-Local mode (`node pre-build.mjs`):
+Local mode (`node scripts/prepare-cloudflare.mjs --mode dev`):
 - Uses placeholder UUID
 - Does not create remote resources
 - Runs `migration apply --local`
 
-Remote mode (`node pre-build.mjs --remote`):
+Remote mode (`node scripts/prepare-cloudflare.mjs --mode prod`):
 - Auto creates all resources
 - Enables D1 read replication
 - Runs `migration apply --remote`
 
-### Why pre-build is needed
+### Why prepare-cloudflare is needed
 
 Problem: creating and configuring Cloudflare resources manually is tedious.
 
-Solution: `pre-build.mjs` automates everything:
+Solution: `scripts/prepare-cloudflare.mjs` automates everything:
 - No manual `wrangler.jsonc`
 - No manual D1, R2, KV, Queue creation
 - No manual migration apply

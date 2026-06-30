@@ -88,7 +88,7 @@ Cloudflare 的问题不是能力不够，而是从零搭起来太碎
 
 很多模板说自己支持 Cloudflare，实际上只接了 Workers + D1。真正做 SaaS 时，你还是要自己补齐对象存储、队列、定时任务、认证、支付、积分、AI 异步任务和部署自动化
 
-OPCStack 用 `pre-build.mjs` 把这些自动化收束起来
+OPCStack 用 `scripts/prepare-cloudflare.mjs` 把这些自动化收束起来
 
 ```bash
 pnpm install
@@ -170,6 +170,9 @@ AI 的同步和异步流程都已经接入队列、Tenant Shard DB 和 R2，适�
 - 强依赖传统长连接后端的产品
 - 一开始就需要复杂多租户企业权限的产品
 - 不准备部署在 Cloudflare 生态里的产品
+- 默认桌面客户端
+- 默认移动客户端
+- 默认小程序客户端
 
 ---
 
@@ -207,15 +210,22 @@ pnpm dev
 
 公开配置放在 `.env.dev` 和 `.env.prod`。密钥放在 `.env.secret.dev` 和 `.env.secret.prod`，不要提交密钥文件
 
-如果需要大陆访问优化，可以配置 `APP_CN_DOMAIN`。`pre-build.mjs` 会自动把它接入 Worker 路由、R2 CORS 和 Turnstile 域名
+如果需要大陆访问优化，可以配置 `APP_CN_DOMAIN`。`prepare:cloudflare:*` 会自动把它接入 Worker 路由、R2 CORS 和 Turnstile 域名
 
 部署到 Cloudflare：
 
 ```bash
-pnpm deploycf
+pnpm deploy:cloudflare
 ```
 
 首次远程部署会提示创建 Cloudflare API Token。按命令行链接创建并粘贴一次，后续 token 会缓存在 `.wrangler/cloudflare-api-token`
+
+扩展开发：
+
+```bash
+pnpm dev:extension
+pnpm build:extension
+```
 
 ---
 
@@ -228,21 +238,26 @@ README 只负责让用户快速理解项目价值和入口。具体开发规则�
 | `AGENTS.md` | AI 开发上下文，包含架构、目录、运行时、数据库、R2、队列、前端、测试约定 |
 | `BOOTSTRAP.md` | 新项目初始化流程，让 Agent 引导配置和启动 |
 | `SYNC_TEMPLATE.md` | 从上游模板同步更新的流程 |
-| `pre-build.mjs` | 本地和部署前自动化，生成配置、创建资源、应用迁移 |
+| `scripts/prepare-public.mjs` | 生成公开前端产物，包括客户端配置、Web logo 和扩展图标 |
+| `scripts/prepare-cloudflare.mjs` | 本地和部署前 Cloudflare 自动化，生成配置、创建资源、应用迁移 |
 | `wrangler.jsonc.tpl` | Cloudflare Worker 配置模板 |
 | `.env.dev` / `.env.prod` | 可提交的公开环境配置 |
 | `.env.secret.example` | 密钥配置模板 |
-| `src/api/` | Hono API、认证、middleware、业务接口 |
-| `src/web/` | SvelteKit 页面、组件、i18n、SEO、文档渲染 |
-| `src/db/` | Drizzle schema 和 D1 migration |
-| `src/r2/` | R2 上传、读取、签名、图片变体 |
-| `src/ai/` | Chat、Image、TTS、Realtime、Video provider |
-| `src/payment/` | Dodo、Creem 支付和订阅逻辑 |
-| `src/credits/` | 积分钱包、流水、发放、扣减、过期 |
-| `src/consumers/` | Cloudflare Queue 消费者 |
-| `src/jobs/` | Cron 定时任务 |
-| `src/do/` | Durable Object |
+| `src/api-contract/` | API 请求、响应、schema 和共享类型 |
+| `src/frontend/lib/` | Web 和扩展复用的客户端代码、UI、i18n、配置和样式 |
+| `src/frontend/web/` | SvelteKit 页面、路由、静态资源和 Web shell |
+| `src/frontend/extension/` | Chrome 插件 popup、options、background 和 content script |
+| `src/backend/api/` | Hono API、认证、middleware、业务接口 |
+| `src/backend/db/` | Drizzle schema 和 D1 migration |
+| `src/backend/r2/` | R2 上传、读取、签名、图片变体 |
+| `src/backend/ai/` | Chat、Image、TTS、Realtime、Video provider |
+| `src/backend/payment/` | Dodo、Creem 支付和订阅逻辑 |
+| `src/backend/credits/` | 积分钱包、流水、发放、扣减、过期 |
+| `src/backend/consumers/` | Cloudflare Queue 消费者 |
+| `src/backend/jobs/` | Cron 定时任务 |
+| `src/backend/do/` | Durable Object |
 | `public-docs/` | 用户可见产品文档 |
+| `template-docs/` | 模板开发说明文档 |
 | `e2e/` | E2E 测试 |
 
 ---
@@ -250,9 +265,11 @@ README 只负责让用户快速理解项目价值和入口。具体开发规则�
 ## 常用命令
 
 ```bash
-pnpm dev              # 本地开发，自动生成配置并应用 migration
-pnpm deploycf         # 部署到 Cloudflare
+pnpm dev              # 本地开发 Web/API，自动生成配置并应用 migration
+pnpm deploy:cloudflare # 部署 Web/API 到 Cloudflare
 pnpm test             # TypeScript + Svelte check + Vitest
+pnpm dev:extension    # Chrome 插件开发
+pnpm build:extension  # 构建 Chrome 插件 zip
 pnpm test:e2e         # 本地 E2E
 pnpm test:e2e:remote  # 已部署环境 E2E
 ```

@@ -57,7 +57,7 @@ src/db/shard-migrations/
 
 ## Migration
 
-`pre-build.mjs` generates and applies both migration sets automatically.
+`scripts/prepare-cloudflare.mjs` generates and applies both migration sets automatically.
 
 ```text
 Meta migration  -> META_DB
@@ -73,7 +73,7 @@ pnpm dev
 For deployment:
 
 ```bash
-pnpm deploycf
+pnpm deploy:cloudflare
 ```
 
 ## Request Scoped DB

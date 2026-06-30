@@ -41,10 +41,12 @@
     "vars": {
         "DESIGN_SYSTEM": "{{DESIGN_SYSTEM}}",
         "APP_NAME": "{{APP_NAME}}",
+        "APP_VERSION": "{{APP_VERSION}}",
         "APP_BASE_URL": "{{APP_BASE_URL}}",
         "APP_DOMAIN": "{{APP_DOMAIN}}",
         "APP_CN_DOMAIN": "{{APP_CN_DOMAIN}}",
         "SUPPORT_EMAIL": "{{SUPPORT_EMAIL}}",
+        "DOCS_ENABLED": "{{DOCS_ENABLED}}",
         "EXTENSION_HOST_PERMISSIONS": "{{EXTENSION_HOST_PERMISSIONS}}",
         "SUPER_ADMIN_EMAIL": "{{SUPER_ADMIN_EMAIL}}",
         "BETA_CODE_ENABLED": "{{BETA_CODE_ENABLED}}",
