@@ -176,6 +176,8 @@ src/
 - Tenant writes must be idempotent side effects keyed by `source_type + source_id`.
 - Record side-effect completion in Meta DB after Tenant write succeeds, for example `granted_at`, `inviter_granted_at`, or `invitee_granted_at`.
 - Retried pending states must resume missing side effects instead of returning terminal errors such as `CREDIT_CODE_USED` or `AFF_ALREADY_BOUND`.
+- If a request writes the current user's Tenant Shard DB, use `ctx.get('tenantDb')` so the response tenant bookmark covers the write.
+- Writes for other users may use `openUserDb`; the current client does not need read-after-write consistency for those side effects.
 
 ### D1 Read Replication
 
@@ -183,6 +185,8 @@ src/
 - Tenant bookmark middleware: `src/backend/api/middleware/tenant-db.ts`.
 - Request prefers bookmark header, then cookie.
 - Response writes bookmark header and cookie.
+- Admin fan-out reads across tenant shards are eventually consistent by default.
+- Do not add per-shard bookmark maps unless a product flow writes multiple shards and then requires the same client to immediately verify those writes through a fan-out read.
 
 ---
 

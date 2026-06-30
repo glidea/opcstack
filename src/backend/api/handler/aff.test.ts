@@ -15,6 +15,7 @@ const affServiceMocks = vi.hoisted(() => {
 
 const creditServiceMocks = vi.hoisted(() => {
 	return {
+		constructorArgs: [] as unknown[][],
 		grant: vi.fn()
 	}
 })
@@ -39,7 +40,8 @@ vi.mock('../../credits', async () => {
 	const actual = await vi.importActual<typeof import('../../credits')>('../../credits')
 	return {
 		...actual,
-		CreditsService: vi.fn().mockImplementation(function CreditsService() {
+		CreditsService: vi.fn().mockImplementation(function CreditsService(...args: unknown[]) {
+			creditServiceMocks.constructorArgs.push(args)
 			return creditServiceMocks
 		})
 	}
@@ -56,6 +58,7 @@ vi.mock('../../db/shard-router', () => {
 })
 
 beforeEach(() => {
+	creditServiceMocks.constructorArgs = []
 	shardRouterMocks.openUserDb.mockResolvedValue({
 		shardId: 'shard_0000',
 		bindingName: 'TENANT_DB_0000',
@@ -199,6 +202,9 @@ describe('bindAffHandler', () => {
 		code: string
 		grantCalls: number
 		markCalls: number
+		firstGrantUsesCurrentTenant: boolean
+		secondGrantUsesCurrentTenant: boolean
+		openUserDbCalls: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -220,7 +226,10 @@ describe('bindAffHandler', () => {
 				status: 200,
 				code: '',
 				grantCalls: 0,
-				markCalls: 0
+				markCalls: 0,
+				firstGrantUsesCurrentTenant: false,
+				secondGrantUsesCurrentTenant: false,
+				openUserDbCalls: 0
 			}
 		},
 		{
@@ -241,7 +250,10 @@ describe('bindAffHandler', () => {
 				status: 400,
 				code: 'INVALID_AFF_CODE',
 				grantCalls: 0,
-				markCalls: 0
+				markCalls: 0,
+				firstGrantUsesCurrentTenant: false,
+				secondGrantUsesCurrentTenant: false,
+				openUserDbCalls: 0
 			}
 		},
 		{
@@ -262,7 +274,10 @@ describe('bindAffHandler', () => {
 				status: 409,
 				code: 'AFF_ALREADY_BOUND',
 				grantCalls: 0,
-				markCalls: 0
+				markCalls: 0,
+				firstGrantUsesCurrentTenant: false,
+				secondGrantUsesCurrentTenant: false,
+				openUserDbCalls: 0
 			}
 		},
 		{
@@ -283,7 +298,10 @@ describe('bindAffHandler', () => {
 				status: 400,
 				code: 'INVALID_AFF_CODE',
 				grantCalls: 0,
-				markCalls: 0
+				markCalls: 0,
+				firstGrantUsesCurrentTenant: false,
+				secondGrantUsesCurrentTenant: false,
+				openUserDbCalls: 0
 			}
 		},
 		{
@@ -304,7 +322,10 @@ describe('bindAffHandler', () => {
 				status: 200,
 				code: '',
 				grantCalls: 2,
-				markCalls: 2
+				markCalls: 2,
+				firstGrantUsesCurrentTenant: false,
+				secondGrantUsesCurrentTenant: true,
+				openUserDbCalls: 1
 			}
 		},
 		{
@@ -325,7 +346,10 @@ describe('bindAffHandler', () => {
 				status: 200,
 				code: '',
 				grantCalls: 1,
-				markCalls: 1
+				markCalls: 1,
+				firstGrantUsesCurrentTenant: true,
+				secondGrantUsesCurrentTenant: false,
+				openUserDbCalls: 0
 			}
 		}
 	]
@@ -351,7 +375,8 @@ describe('bindAffHandler', () => {
 				AFF_INVITEE_CREDIT_AMOUNT: given.inviteeAmount
 			},
 			userId: 'u1',
-			db: {},
+			metaDb: { name: 'meta-db' },
+			tenantDb: { name: 'current-tenant-db' },
 			body: given.body
 		})
 		const res = await bindAffHandler(ctx)
@@ -360,7 +385,10 @@ describe('bindAffHandler', () => {
 			status: res.status,
 			code: payload.code ?? '',
 			grantCalls: creditServiceMocks.grant.mock.calls.length,
-			markCalls: affServiceMocks.markRewardGranted.mock.calls.length
+			markCalls: affServiceMocks.markRewardGranted.mock.calls.length,
+			firstGrantUsesCurrentTenant: creditServiceMocks.constructorArgs[0]?.[0] === ctx.get('tenantDb'),
+			secondGrantUsesCurrentTenant: creditServiceMocks.constructorArgs[1]?.[0] === ctx.get('tenantDb'),
+			openUserDbCalls: shardRouterMocks.openUserDb.mock.calls.length
 		}
 	})
 })
@@ -368,7 +396,9 @@ describe('bindAffHandler', () => {
 function createJsonContext(input: {
 	env: Record<string, string>
 	userId: string
-	db: unknown
+	metaDb?: unknown
+	tenantDb?: unknown
+	db?: unknown
 	body: unknown
 }): Context<ApiEnv> {
 	const req = {
@@ -387,7 +417,10 @@ function createJsonContext(input: {
 			if (key === 'userId') {
 				return input.userId
 			}
-			return input.db
+			if (key === 'tenantDb') {
+				return input.tenantDb ?? input.db
+			}
+			return input.metaDb ?? input.db
 		},
 		json: (payload: unknown, status?: number): Response => {
 			return new Response(JSON.stringify(payload), {
