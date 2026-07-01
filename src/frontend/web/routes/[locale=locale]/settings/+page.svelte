@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
-	import { client } from '$frontend/api-client'
+	import { client } from '$apiContract/client'
 	import AppHeader from '$frontend/app-ui/shell/AppHeader.svelte'
 	import UserMenu from '$frontend/app-ui/shell/UserMenu.svelte'
 	import { _ } from '$frontend/i18n'

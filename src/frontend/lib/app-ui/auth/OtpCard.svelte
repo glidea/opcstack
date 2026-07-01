@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { client } from '$frontend/api-client'
+	import { client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
 	import { Alert, AlertDescription } from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'

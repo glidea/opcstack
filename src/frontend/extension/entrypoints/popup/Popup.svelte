@@ -1,13 +1,27 @@
 <script lang="ts">
 	import { browser } from "wxt/browser";
 	import { storage } from "wxt/utils/storage";
-	import { createClient } from "$frontend/api-client";
-	import { AUTH_TOKEN_STORAGE_KEY } from "$frontend/api-client";
+	import { createClient, createMemoryBookmarkStorage, type TokenStorage } from "$apiContract/client";
 	import { clientConfig } from "$frontend/config/client";
+
+	const AUTH_TOKEN_STORAGE_KEY = "auth_token";
+
+	const tokenStorage: TokenStorage = {
+		async get(): Promise<string | undefined> {
+			return await readToken();
+		},
+		async set(token: string): Promise<void> {
+			await storage.setItem(`local:${AUTH_TOKEN_STORAGE_KEY}`, token);
+		},
+		async clear(): Promise<void> {
+			await storage.removeItem(`local:${AUTH_TOKEN_STORAGE_KEY}`);
+		},
+	};
 
 	const client = createClient({
 		baseUrl: clientConfig.apiBaseUrl,
-		getToken: readToken,
+		auth: { type: "token", storage: tokenStorage },
+		bookmarks: { type: "storage", storage: createMemoryBookmarkStorage() },
 	});
 
 	let token = $state<string | undefined>(undefined);
@@ -23,7 +37,7 @@
 	}
 
 	async function readToken(): Promise<string | undefined> {
-		return await storage.getItem<string>(`local:${AUTH_TOKEN_STORAGE_KEY}`);
+		return (await storage.getItem<string>(`local:${AUTH_TOKEN_STORAGE_KEY}`)) ?? undefined;
 	}
 
 	async function openLogin(): Promise<void> {
@@ -31,10 +45,7 @@
 	}
 
 	async function openConsole(): Promise<void> {
-		await client.api.json<unknown>({
-			path: "/api/health",
-			method: "GET",
-		});
+		await client.api.fetch("/api/health");
 		await browser.tabs.create({ url: clientConfig.webBaseUrl });
 	}
 </script>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import { client } from "$frontend/api-client";
+	import { client } from "$apiContract/client";
 	import { _ } from "$frontend/i18n";
 	import { Button } from "$frontend/ui/button";
 	import * as DropdownMenu from "$frontend/ui/dropdown-menu";

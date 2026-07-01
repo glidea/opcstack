@@ -52,10 +52,9 @@ Durable Object     -> src/backend/do/
 
 src/
   index.ts              # Worker entrypoint
-  api-contract/         # Shared API schemas, paths, request and response types
+  api-contract/         # Shared API schemas, request/response types, and typed API client
   frontend/
     lib/
-      api-client/       # Browser-side API client
       app-ui/           # App-specific composed UI by domain
       auth/             # Frontend auth helpers
       config/           # Frontend config helpers
