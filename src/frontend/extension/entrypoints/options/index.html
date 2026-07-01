@@ -7,6 +7,13 @@
 	</head>
 	<body>
 		<div id="app"></div>
-		<script type="module" src="./main.ts"></script>
+		<script type="module">
+			import { mount } from "svelte"
+			import Options from "./Options.svelte"
+
+			mount(Options, {
+				target: document.getElementById("app"),
+			})
+		</script>
 	</body>
 </html>
