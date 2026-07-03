@@ -8,6 +8,7 @@ import {
 	normalizeDomain,
 	parseEnvFile,
 	resolveAppBase,
+	resolveAppCnCnameTarget,
 	resolveAppCnDomain,
 	syncPublicAssets,
 	writeClientConfig
@@ -61,6 +62,7 @@ const CLOUDFLARE_TOKEN_PERMISSIONS = [
 	{ key: 'memberships', type: 'read' },
 	{ key: 'zone', type: 'read' },
 	{ key: 'zone_settings', type: 'edit' },
+	{ key: 'dns', type: 'edit' },
 	{ key: 'workers_scripts', type: 'edit' },
 	{ key: 'workers_kv_storage', type: 'edit' },
 	{ key: 'workers_routes', type: 'edit' },
@@ -291,6 +293,34 @@ export function buildTurnstileDomains(appDomain, appCnDomain) {
 		domains.push(appCnDomain)
 	}
 	return domains
+}
+
+export function buildDnsCnameRecordPayload(name, target) {
+	return {
+		type: 'CNAME',
+		name,
+		content: target,
+		ttl: 1,
+		proxied: false
+	}
+}
+
+export function selectDnsCnameRecord(records, name) {
+	const matches = records.filter((record) => {
+		return record?.name === name
+	})
+	if (matches.length === 0) {
+		return null
+	}
+	if (matches.length > 1) {
+		throw new Error('APP_CN_DOMAIN_DNS_RECORD_DUPLICATED')
+	}
+
+	const record = matches[0]
+	if (record.type !== 'CNAME') {
+		throw new Error('APP_CN_DOMAIN_DNS_RECORD_TYPE_INVALID')
+	}
+	return record
 }
 
 function renderTemplate(template, env) {
@@ -884,6 +914,75 @@ async function listZones(accountId, token) {
 	return Array.isArray(result) ? result : []
 }
 
+async function listDnsRecords(zoneId, token, name) {
+	const params = new URLSearchParams({
+		name,
+		per_page: '100',
+		page: '1'
+	})
+	const result = await cfApiRequest(
+		token,
+		'GET',
+		`/zones/${zoneId}/dns_records?${params.toString()}`,
+		undefined
+	)
+	return Array.isArray(result) ? result : []
+}
+
+async function createDnsCnameRecord(zoneId, token, name, target) {
+	return cfApiRequest(
+		token,
+		'POST',
+		`/zones/${zoneId}/dns_records`,
+		buildDnsCnameRecordPayload(name, target)
+	)
+}
+
+async function updateDnsCnameRecord(zoneId, token, recordId, name, target) {
+	return cfApiRequest(
+		token,
+		'PUT',
+		`/zones/${zoneId}/dns_records/${recordId}`,
+		buildDnsCnameRecordPayload(name, target)
+	)
+}
+
+async function ensureAppCnDnsRecord(accountId, token, appCnDomain, appCnCnameTarget) {
+	if (appCnDomain === '' || appCnCnameTarget === '') {
+		return
+	}
+
+	const zones = await listZones(accountId, token)
+	const zone = selectCloudflareZone(zones, appCnDomain)
+	if (!zone?.id) {
+		console.error(`Cloudflare zone not found for APP_CN_DOMAIN ${appCnDomain}`)
+		process.exit(1)
+	}
+
+	const records = await listDnsRecords(zone.id, token, appCnDomain)
+	let record
+	try {
+		record = selectDnsCnameRecord(records, appCnDomain)
+	} catch (error) {
+		console.error(error.message)
+		process.exit(1)
+	}
+
+	if (!record) {
+		console.log(`Creating DNS CNAME '${appCnDomain}' -> '${appCnCnameTarget}'...`)
+		await createDnsCnameRecord(zone.id, token, appCnDomain, appCnCnameTarget)
+		return
+	}
+
+	if (record.content === appCnCnameTarget && record.proxied === false) {
+		console.log(`DNS CNAME '${appCnDomain}' already points to '${appCnCnameTarget}'.`)
+		return
+	}
+
+	console.log(`Updating DNS CNAME '${appCnDomain}' -> '${appCnCnameTarget}'...`)
+	await updateDnsCnameRecord(zone.id, token, record.id, appCnDomain, appCnCnameTarget)
+}
+
 async function enableImageTransformations(accountId, token, rawDomain) {
 	const host = resolveCloudflareHost(rawDomain)
 	const zones = await listZones(accountId, token)
@@ -1123,6 +1222,7 @@ async function promptCloudflareApiToken() {
 	console.log('- API Tokens:Edit')
 	console.log('- Zone:Read')
 	console.log('- Zone Settings:Edit')
+	console.log('- DNS:Edit')
 	console.log('- Workers Scripts:Edit')
 	console.log('- Workers KV Storage:Edit')
 	console.log('- Workers Routes:Edit')
@@ -1174,6 +1274,7 @@ async function main() {
 	const adminConfig = readAdminConfig(env)
 	resolveAppBase(env, mode)
 	resolveAppCnDomain(env)
+	resolveAppCnCnameTarget(env)
 	validateEmailConfig(env)
 	const queueNames = parseQueueNames(env.QUEUE_NAMES)
 	const durableObjectNames = parseDurableObjectNames(env.DO_NAMES)
@@ -1203,6 +1304,13 @@ async function main() {
 		console.log('\nResolving Cloudflare account...')
 		accountId = await getSingleCloudflareAccountId(cloudflareApiToken)
 		console.log(`Account ID: ${accountId}`)
+
+		await ensureAppCnDnsRecord(
+			accountId,
+			cloudflareApiToken,
+			env.APP_CN_DOMAIN,
+			env.APP_CN_CNAME_TARGET
+		)
 
 		console.log('\nChecking D1 databases...')
 		let dbs = await listD1Databases(accountId, cloudflareApiToken)

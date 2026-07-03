@@ -199,6 +199,8 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Agents must not read, print, search, edit, create, or copy secret files or token caches: `.env.secret.dev`, `.env.secret.prod`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
 - Any work involving secret values must be performed by the user.
 - Env loading order: `.env.dev` or `.env.prod` -> `.env.secret.dev` or `.env.secret.prod` -> `.env` -> `process.env`.
+- `APP_CN_DOMAIN` is optional. When set, `prepare-cloudflare.mjs` adds it as a second Worker custom domain, R2 CORS origin, and Turnstile domain.
+- `APP_CN_CNAME_TARGET` is optional. When set with `APP_CN_DOMAIN` in prod mode, `prepare-cloudflare.mjs` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`; it does not choose acceleration targets.
 - Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.
 - Add secret runtime config keys to `scripts/prepare-cloudflare.mjs` `SECRET_KEYS`.
 - When adding an env key, document it in the relevant env template/file with comments covering purpose, runtime usage, valid values, default semantics, and operational best practices when they exist.

@@ -113,6 +113,12 @@ export function resolveAppCnDomain(env) {
 	env.APP_CN_DOMAIN = domain
 }
 
+export function resolveAppCnCnameTarget(env) {
+	const rawDomain = env.APP_CN_CNAME_TARGET || ''
+	const domain = normalizeDomain(rawDomain.trim())
+	env.APP_CN_CNAME_TARGET = domain
+}
+
 function parseConfigBoolean(value) {
 	return String(value) === 'true'
 }
@@ -232,6 +238,7 @@ export async function preparePublicArtifacts(mode) {
 	const env = loadPublicEnv(mode)
 	resolveAppBase(env, mode)
 	resolveAppCnDomain(env)
+	resolveAppCnCnameTarget(env)
 	writeClientConfig(env)
 	await syncPublicAssets()
 }
