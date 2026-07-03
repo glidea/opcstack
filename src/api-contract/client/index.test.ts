@@ -101,6 +101,7 @@ describe('api contract client', () => {
 	type AuthStorageWhenDetail = Record<string, never>
 	type AuthStorageThenExpected = {
 		tokenAfterSignIn: string
+		tokenAfterSocialSignIn: string
 		tokenAfterSignOut: string
 	}
 
@@ -118,6 +119,7 @@ describe('api contract client', () => {
 			whenDetail: {},
 			thenExpected: {
 				tokenAfterSignIn: 'new-token',
+				tokenAfterSocialSignIn: 'social-token',
 				tokenAfterSignOut: ''
 			}
 		}
@@ -305,6 +307,7 @@ describe('api contract client', () => {
 		const tokenStorage: TokenStorage = createMemoryTokenStorage()
 		const responses: Response[] = [
 			Response.json({ token: 'new-token' }),
+			Response.json({ token: 'social-token' }),
 			Response.json({ success: true })
 		]
 		const fetchApi = async (): Promise<Response> => {
@@ -323,11 +326,19 @@ describe('api contract client', () => {
 
 		await testClient.auth.signIn.email({ email: 'a@example.com', password: 'password' })
 		const tokenAfterSignIn = await tokenStorage.get()
+		await testClient.auth.signIn.social({
+			provider: 'google',
+			idToken: {
+				token: 'google-id-token'
+			}
+		})
+		const tokenAfterSocialSignIn = await tokenStorage.get()
 		await testClient.auth.signOut()
 		const tokenAfterSignOut = await tokenStorage.get()
 
 		return {
 			tokenAfterSignIn: tokenAfterSignIn ?? '',
+			tokenAfterSocialSignIn: tokenAfterSocialSignIn ?? '',
 			tokenAfterSignOut: tokenAfterSignOut ?? ''
 		}
 	})

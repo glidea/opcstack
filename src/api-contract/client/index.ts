@@ -261,10 +261,6 @@ async function syncAuthToken(auth: AuthMode, context: AuthSuccessContext): Promi
 		return
 	}
 
-	if (!pathname.endsWith('/sign-in/email') && !pathname.endsWith('/sign-up/email')) {
-		return
-	}
-
 	const token: string | undefined = readToken(context.data)
 	if (token === undefined) {
 		return
