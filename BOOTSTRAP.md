@@ -223,16 +223,29 @@ Route by feature type:
 
 | Feature type | Stable references |
 | --- | --- |
-| API | `AGENTS.md`, `src/api/index.ts`, `src/api/handler/`, existing handler tests |
-| Page | `AGENTS.md`, `src/web/routes/`, `src/web/lib/components/`, `src/web/lib/ui/` |
-| Database | `AGENTS.md`, `src/db/schema.meta.ts`, `src/db/schema.shard.ts`, migrations |
-| R2 storage | `AGENTS.md`, `src/r2/`, `src/api/handler/r2.ts` |
-| Payment | `AGENTS.md`, `src/payment/`, `src/api/handler/payment.ts` |
-| Credits | `AGENTS.md`, `src/credits/`, `src/api/handler/credits.ts` |
-| Queue or Cron | `AGENTS.md`, `src/consumers/`, `src/jobs/` |
-| AI | `AGENTS.md`, `src/ai/`, `src/consumers/` |
+| API | `AGENTS.md`, `src/backend/api/index.ts`, `src/backend/api/handler/`, existing handler tests |
+| Web page | `AGENTS.md`, `src/frontend/web/routes/`, `src/frontend/lib/app-ui/`, `src/frontend/lib/ui/` |
+| Browser extension | `AGENTS.md`, `src/frontend/extension/entrypoints/`, `src/frontend/extension/wxt.config.ts`, `src/frontend/lib/` |
+| Database | `AGENTS.md`, `src/backend/db/schema.meta.ts`, `src/backend/db/schema.shard.ts`, migrations |
+| R2 storage | `AGENTS.md`, `src/backend/r2/`, existing R2 handler and tests |
+| Payment | `AGENTS.md`, `src/backend/payment/`, existing payment handlers and tests |
+| Credits | `AGENTS.md`, `src/backend/credits/`, existing credits handlers and tests |
+| Queue or Cron | `AGENTS.md`, `src/backend/consumers/`, `src/backend/jobs/` |
+| AI | `AGENTS.md`, `src/backend/ai/`, `src/backend/consumers/` |
 
 Do not require the user to read `public-docs/` before development. The Agent should inspect stable template docs, source files, and tests, then explain the relevant path.
+
+### If The User Chooses Continue Extension Development
+
+Run:
+
+```bash
+pnpm dev:extension
+```
+
+Use `src/frontend/extension/entrypoints/` for extension entrypoint code and `src/frontend/lib/` for shared frontend code.
+
+Do not duplicate UI, config parsing, or API client setup inside the extension when the shared frontend layer already covers it.
 
 ### If The User Chooses Configure Production Environment
 
