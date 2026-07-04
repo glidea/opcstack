@@ -8,7 +8,7 @@ export function createCloudflareSimpleEmailClient(env: Env): EmailSimpleClient {
 	return new cloudflareSimpleEmailClient(
 		createCloudflareNativeEmailClient(env),
 		env.APP_NAME,
-		env.EMAIL_FROM
+		env.SYSTEM_EMAIL
 	)
 }
 

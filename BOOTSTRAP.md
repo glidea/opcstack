@@ -101,8 +101,8 @@ Ask only for the minimum information needed for local development:
    - Use lowercase letters, numbers, and hyphens
    - Example: `my-saas`
 
-2. Super admin email
-   - Used as `SUPER_ADMIN_EMAIL`
+2. System email
+   - Used as `SYSTEM_EMAIL`
    - Example: `admin@example.com`
 
 3. Local auth mode
@@ -122,8 +122,7 @@ Minimal recommended local values:
 ```text
 APP_NAME=<project-name>
 APP_DOMAIN=localhost
-SUPER_ADMIN_EMAIL=<admin-email>
-EMAIL_ENABLED=true
+SYSTEM_EMAIL=<system-email>
 EMAIL_SIGNUP_ENABLED=true
 EMAIL_REQUIRE_VERIFICATION=false
 BETA_CODE_ENABLED=false

@@ -15,7 +15,6 @@ describe('emailAuthMiddleware', () => {
 			email?: string
 			type?: string
 		}
-		emailEnabled: string
 		emailSignupEnabled: string
 		emailSignupDomainAllowlist: string
 		cooldownSeconds: string
@@ -39,7 +38,6 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-in/email',
 				body: { email: 'u1@example.com' },
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -62,7 +60,6 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-in/email-otp',
 				body: { email: 'u-login@example.com', type: 'sign-in' },
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -85,7 +82,6 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/send-verification-otp',
 				body: { email: 'u-login@example.com', type: 'sign-in' },
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -108,7 +104,6 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-up/email',
 				body: { email: 'u-signup-disabled@example.com' },
-				emailEnabled: 'true',
 				emailSignupEnabled: 'false',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -131,7 +126,6 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-up/email',
 				body: { email: 'u1@gmail.com' },
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: 'example.com;corp.com',
 				cooldownSeconds: '50',
@@ -154,7 +148,6 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/request-password-reset',
 				body: { email: 'u-rate@example.com' },
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -177,7 +170,6 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/request-password-reset',
 				body: { email: 'u-allow@example.com' },
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -200,7 +192,6 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/send-verification-otp',
 				body: { email: 'u-otp@example.com' },
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -262,7 +253,6 @@ function createContextState(given: {
 		email?: string
 		type?: string
 	}
-	emailEnabled: string
 	emailSignupEnabled: string
 	emailSignupDomainAllowlist: string
 	cooldownSeconds: string
@@ -281,13 +271,12 @@ function createContextState(given: {
 		path: given.path,
 		body: given.body,
 		env: {
-			EMAIL_ENABLED: given.emailEnabled,
 			EMAIL_SIGNUP_ENABLED: given.emailSignupEnabled,
 			EMAIL_REQUIRE_VERIFICATION: 'true',
 			EMAIL_SIGNUP_DOMAIN_ALLOWLIST: given.emailSignupDomainAllowlist,
 			EMAIL_USER_ACTION_COOLDOWN_SECONDS: given.cooldownSeconds,
 			EMAIL_RESEND_API_KEY: 'resend-api-key',
-			EMAIL_FROM: 'Auth <auth@mg.example.com>',
+			SYSTEM_EMAIL: 'auth@mg.example.com',
 			KV: kv
 		},
 		nextCalled: false,

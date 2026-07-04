@@ -199,11 +199,15 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Agents must not read, print, search, edit, create, or copy secret files or token caches: `.env.secret.dev`, `.env.secret.prod`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
 - Any work involving secret values must be performed by the user.
 - Env loading order: `.env.dev` or `.env.prod` -> `.env.secret.dev` or `.env.secret.prod` -> `.env` -> `process.env`.
+- Env files are ordered by shared product identity first, then domains, frontend exposure, auth, business features, infrastructure, payments, and AI providers.
+- Keep related env keys together. Put a feature switch before its provider selection and provider-specific settings.
+- Keep optional settings after required settings inside the same group.
+- Keep `.env.secret.example` in the same business order as public env files.
 - `APP_CN_DOMAIN` is optional. When set, `prepare-cloudflare.mjs` adds it as a second Worker custom domain, R2 CORS origin, and Turnstile domain.
 - `APP_CN_CNAME_TARGET` is optional. When set with `APP_CN_DOMAIN` in prod mode, `prepare-cloudflare.mjs` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`; it does not choose acceleration targets.
 - Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.
 - Add secret runtime config keys to `scripts/prepare-cloudflare.mjs` `SECRET_KEYS`.
-- When adding an env key, document it in the relevant env template/file with comments covering purpose, runtime usage, valid values, default semantics, and operational best practices when they exist.
+- When adding an env key, document it directly above the assignment with comments covering purpose, runtime usage, valid values, default semantics, external source, and operational best practices when they exist.
 - Secret env keys must be documented with placeholders in `.env.secret.example` only; do not read or edit real secret env files.
 - After changing config keys, run `pnpm exec wrangler types`.
 - Use generated `Env`; do not create feature-specific env interfaces.
@@ -269,6 +273,7 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - `authMiddleware` injects `userId` into `ctx.variables`.
 - Authenticated API routes accept Better Auth sessions from Cookie or `Authorization: Bearer <token>`.
 - `adminUserMiddleware` validates super admin session or `ADMIN_API_TOKEN`.
+- `SYSTEM_EMAIL` is the single operator mailbox used for public support contact, super admin identity, and outbound email sender.
 - Credits use integer units where `1 credit = 1_000_000 units`; API credit amounts use decimal strings.
 - Payment `price_amount` is provider minor currency units and must not be mixed with credit units.
 - R2 paths are `public/*`, `private/<userId>/*`, `tmp/public/*`, and `tmp/private/<userId>/*`.

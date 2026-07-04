@@ -27,7 +27,6 @@
 	"auth.otp.resend": "Resend",
 	"auth.otp.resendIn": "Resend in {seconds}s",
 	"auth.otp.resending": "Sending...",
-	"auth.error.emailDisabled": "Email authentication is disabled.",
 	"auth.error.emailSignupDisabled": "Email signup is disabled.",
 	"auth.error.emailDomainNotAllowed": "This email domain is not allowed for signup.",
 	"auth.error.emailActionRateLimited": "Please try again in {seconds}s.",

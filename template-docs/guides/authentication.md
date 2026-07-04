@@ -21,8 +21,10 @@ OPC Stack uses [Better Auth](https://www.better-auth.com/) for authentication an
 6. Configure public environment variables in `.env.dev` or `.env.prod`:
 
 ```bash
-EMAIL_ENABLED=true
-EMAIL_FROM=noreply@example.com
+EMAIL_PROVIDER=resend
+SYSTEM_EMAIL=noreply@example.com
+EMAIL_SIGNUP_ENABLED=true
+EMAIL_REQUIRE_VERIFICATION=true
 ```
 
 7. Configure secrets in `.env.secret.dev` or `.env.secret.prod`:
@@ -48,9 +50,12 @@ Return token
 ### Middleware
 
 `emailAuthMiddleware` checks:
-- whether `EMAIL_ENABLED` is true
-- whether `EMAIL_FROM` and `EMAIL_RESEND_API_KEY` are configured
-- whether user email is verified
+- whether email OTP sign in is blocked
+- whether email signup is allowed for signup requests
+- whether signup email domain is allowed
+- whether the email action is within the cooldown window
+
+`EMAIL_REQUIRE_VERIFICATION` is applied by the Better Auth email and password config.
 
 ## Google sign in
 

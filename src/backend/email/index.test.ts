@@ -71,7 +71,7 @@ describe('createEmailClients', () => {
 				APP_NAME: 'opcstack',
 				EMAIL_PROVIDER: given.provider,
 				EMAIL_RESEND_API_KEY: 'rk-test',
-				EMAIL_FROM: 'noreply@example.com',
+				SYSTEM_EMAIL: 'noreply@example.com',
 				SEND_EMAIL: {
 					send: async (_message: unknown): Promise<void> => {
 						return

@@ -395,7 +395,7 @@ function createContextState(
 		...(authorization !== undefined ? { authorization } : {}),
 		...(cookie !== undefined ? { cookie } : {}),
 		env: {
-			SUPER_ADMIN_EMAIL: 'admin@example.com',
+			SYSTEM_EMAIL: 'admin@example.com',
 			ADMIN_API_TOKEN: 'admin-token',
 			BETA_CODE_ENABLED: 'true',
 			BETTER_AUTH_SECRET: 'secret',

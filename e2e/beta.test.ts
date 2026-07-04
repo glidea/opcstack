@@ -34,7 +34,6 @@ describe('beta code api e2e', () => {
 		googleEnabled: boolean
 		githubEnabled: boolean
 		linuxdoEnabled: boolean
-		emailEnabled: boolean
 		emailSignupEnabled: boolean
 		emailRequireVerification: boolean
 		emailCooldownSeconds: number
@@ -57,7 +56,6 @@ describe('beta code api e2e', () => {
 				googleEnabled: false,
 				githubEnabled: false,
 				linuxdoEnabled: false,
-				emailEnabled: false,
 				emailSignupEnabled: false,
 				emailRequireVerification: false,
 				emailCooldownSeconds: 0
@@ -75,7 +73,6 @@ describe('beta code api e2e', () => {
 			googleEnabled: false,
 			githubEnabled: false,
 			linuxdoEnabled: false,
-			emailEnabled: false,
 			emailSignupEnabled: false,
 			emailRequireVerification: false,
 			emailCooldownSeconds: 0

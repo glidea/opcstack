@@ -1,260 +1,172 @@
 ---
 title: 部署
-description: 部署到 Cloudflare Workers
+description: 部署架构总览和外部依赖
 group: 指南
 order: 7
 ---
 
 # 部署
 
-OPC Stack 部署到 Cloudflare Workers 非常简单。
+OPC Stack 的运行时部署单元只有一个：Cloudflare Worker。这个 Worker 承载 Web SSR、JSON API、认证、支付 webhook、定时任务、队列消费者、静态资源和 Cloudflare bindings。Chrome extension 是单独打包的产物，运行时访问同一个线上 origin。
 
-## 部署前准备
+## 运行时总览
 
-### 1. 配置生产环境变量
+```mermaid
+flowchart TB
+  subgraph Clients["客户端"]
+    Browser["浏览器 Web 应用"]
+    Extension["Chrome extension"]
+  end
 
-编辑 `.env.prod` 写公开配置：
+  subgraph Edge["Cloudflare edge"]
+    DNS["DNS zones<br/>APP_DOMAIN / APP_CN_DOMAIN"]
+    Routes["Worker routes<br/>TLS 和请求路由"]
+    Turnstile["Turnstile<br/>机器人挑战"]
+  end
 
-```bash
-APP_NAME=your-app
-APP_DOMAIN=your-domain.com
-EMAIL_ENABLED=true
-EMAIL_FROM=noreply@your-domain.com
-GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
-BETA_CODE_ENABLED=false
-QUEUE_NAMES=task-check;email-send
-CRONS=0 0 * * *,0 */6 * * *
+  subgraph Worker["单个 Cloudflare Worker"]
+    Entry["Worker 入口"]
+    Web["Web SSR<br/>静态资源"]
+    API["JSON API<br/>认证会话"]
+    Webhooks["支付 webhooks"]
+    Cron["定时任务"]
+    Consumers["队列消费者"]
+  end
+
+  subgraph Data["Cloudflare 数据平面"]
+    Meta["D1 Meta DB<br/>全局状态"]
+    Shards["D1 Tenant Shards<br/>用户数据"]
+    R2["R2 bucket<br/>对象和媒体"]
+    KV["KV namespace<br/>轻量状态"]
+    Queues["Queues<br/>异步任务"]
+    DO["Durable Objects<br/>可选协调"]
+  end
+
+  subgraph SaaS["外部 SaaS 依赖"]
+    OAuth["Google / GitHub / LinuxDO<br/>OAuth 登录"]
+    Email["Resend 或 Cloudflare Email<br/>事务邮件"]
+    Payment["Dodo / Creem<br/>收银台和 webhooks"]
+    AI["OpenAI / Gemini / SeedDream / Aliyun / Doubao / SeedDance<br/>AI 能力"]
+  end
+
+  Browser --> DNS
+  Extension --> DNS
+  DNS --> Routes
+  Routes --> Entry
+
+  Entry --> Web
+  Entry --> API
+  Entry --> Webhooks
+  Entry --> Cron
+  Entry --> Consumers
+
+  API --> Turnstile
+  API <--> Meta
+  API <--> Shards
+  API <--> R2
+  API <--> KV
+  API --> Queues
+  API --> DO
+
+  Cron --> Meta
+  Cron --> Shards
+  Consumers --> Shards
+  Consumers --> R2
+  Queues --> Consumers
+
+  API <--> OAuth
+  API --> Email
+  API --> Payment
+  Payment --> Webhooks
+  API --> AI
+  Consumers --> AI
 ```
 
-创建 `.env.secret.prod` 写密钥配置：
+核心边界很简单：用户流量先进入 Cloudflare routes，再由一个 Worker 判断这是 Web、API、webhook、cron 还是 queue work。持久产品状态在 D1。二进制状态在 R2。外部 SaaS 是集成依赖，不是部署单元。
 
-```bash
-EMAIL_RESEND_API_KEY=re_xxx
-GOOGLE_CLIENT_SECRET=xxx
-CHAT_OPENAI_API_KEY=sk-xxx
-IMAGE_GEMINI_API_KEY=xxx
+## 数据归属
+
+```mermaid
+flowchart LR
+  subgraph D1["D1 databases"]
+    Meta["Meta DB<br/>认证相关全局状态<br/>shard registry<br/>支付<br/>订阅<br/>通知"]
+    ShardA["Tenant shard A<br/>credit ledger<br/>feedback<br/>AI task state"]
+    ShardB["Tenant shard B<br/>同一套 schema<br/>不同用户"]
+  end
+
+  subgraph ObjectStore["对象存储"]
+    R2Public["R2 public / tmp public<br/>可缓存读取"]
+    R2Private["R2 private / tmp private<br/>Worker 代理读取"]
+  end
+
+  subgraph Async["异步执行"]
+    Queue["Queue message<br/>task id + user id"]
+    Consumer["Worker queue consumer"]
+  end
+
+  Meta --> ShardA
+  Meta --> ShardB
+  Queue --> Consumer
+  Consumer --> ShardA
+  Consumer --> ShardB
+  Consumer --> R2Public
+  Consumer --> R2Private
 ```
 
-### 2. 登录 Cloudflare
+Meta DB 是跨库流程的事实来源。Tenant shard 写入是幂等副作用。D1 没有跨库事务，所以架构使用可恢复状态，不假装存在原子性。
 
-```bash
-wrangler login
+## 部署控制面
+
+```mermaid
+flowchart TB
+  Operator["开发者或 CI"] --> Env["公开 env<br/>.env.prod"]
+  Operator --> Secrets["密钥 env<br/>.env.secret.prod 或 CI secrets"]
+  Operator --> Token["Cloudflare API token"]
+
+  Env --> Deploy["pnpm deploy:cloudflare"]
+  Secrets --> Deploy
+  Token --> Deploy
+
+  Deploy --> Prepare["prepare-cloudflare prod"]
+  Prepare --> CFAPI["Cloudflare API"]
+
+  CFAPI --> Routes["Worker routes"]
+  CFAPI --> D1["Meta DB<br/>Tenant shard DBs<br/>migrations"]
+  CFAPI --> Storage["R2 bucket<br/>CORS<br/>tmp lifecycle"]
+  CFAPI --> Bindings["KV<br/>Queues<br/>Cron<br/>Durable Objects<br/>Email binding"]
+  CFAPI --> Security["Turnstile<br/>Image Transformations"]
+
+  Prepare --> Generated["生成产物<br/>wrangler.jsonc<br/>client config<br/>runtime secrets file"]
+  Generated --> Types["wrangler types"]
+  Types --> Build["vite build"]
+  Build --> Upload["wrangler deploy"]
+  Upload --> Runtime["Cloudflare Worker runtime"]
 ```
 
-## 部署
+资源创建集中在 `prepare-cloudflare`。不要把手工创建的 Cloudflare 资源当成架构。如果资源属于产品运行时，它应该能从配置表达出来，并进入 Worker 部署产物。
 
-### 一键部署
+## 外部依赖地图
 
-```bash
-pnpm deploy:cloudflare
+```mermaid
+flowchart LR
+  subgraph Required["部署必需"]
+    CF["Cloudflare account"]
+    Zone["Cloudflare DNS zone"]
+    Token["Cloudflare API token"]
+    Node["Node + pnpm 构建环境"]
+  end
+
+  subgraph Optional["启用功能时必需"]
+    Turnstile["Turnstile"]
+    Resend["Resend"]
+    CFEmail["Cloudflare Email"]
+    OAuth["Google / GitHub / LinuxDO OAuth apps"]
+    Pay["Dodo / Creem accounts"]
+    AI["AI provider accounts"]
+  end
+
+  Required --> Runtime["Worker deployment"]
+  Optional --> Runtime
 ```
 
-这个命令会：
-1. 运行 `scripts/prepare-cloudflare.mjs --mode prod`
-2. 创建所有 Cloudflare 资源（D1、R2、KV、Queues）
-3. 开启 D1 read replication
-4. 执行 migration
-5. 部署到 Cloudflare Workers
-
-### 查看部署状态
-
-```bash
-# 查看部署日志
-wrangler tail
-
-# 查看 Worker 信息
-wrangler deployments list
-```
-
-## 自定义域名
-
-### 1. 添加域名到 Cloudflare
-
-在 Cloudflare 控制台添加域名，并配置 DNS。
-
-### 2. 绑定域名到 Worker
-
-```bash
-wrangler domains add your-domain.com
-```
-
-或在 Cloudflare 控制台手动绑定。
-
-### 3. 配置 SSL
-
-Cloudflare 自动提供免费 SSL 证书。
-
-## 环境变量
-
-### 在 Cloudflare 控制台配置
-
-1. 进入 Workers & Pages
-2. 选择你的 Worker
-3. 进入 Settings → Variables
-4. 添加环境变量
-
-### 使用 wrangler 配置
-
-```bash
-# 设置环境变量
-wrangler secret put CHAT_OPENAI_API_KEY
-
-# 列出环境变量
-wrangler secret list
-```
-
-## 回滚
-
-### 回滚到上一个版本
-
-```bash
-# 查看部署历史
-wrangler deployments list
-
-# 回滚到指定版本
-wrangler rollback [deployment-id]
-```
-
-## 监控
-
-### 查看日志
-
-```bash
-# 实时日志
-wrangler tail
-
-# 过滤日志
-wrangler tail --status error
-```
-
-### 查看指标
-
-在 Cloudflare 控制台查看：
-- 请求数
-- 错误率
-- CPU 时间
-- 内存使用
-
-## 性能优化
-
-### 1. 启用缓存
-
-```typescript
-// 缓存静态资源
-return new Response(body, {
-  headers: {
-    'Cache-Control': 'public, max-age=31536000'
-  }
-})
-```
-
-### 2. 使用 KV 缓存
-
-```typescript
-// 缓存 API 响应
-const cached = await env.KV.get(cacheKey)
-if (cached) {
-  return ctx.json(JSON.parse(cached))
-}
-
-const data = await fetchData()
-await env.KV.put(cacheKey, JSON.stringify(data), {
-  expirationTtl: 3600
-})
-```
-
-### 3. 优化数据库查询
-
-```typescript
-// 使用索引
-await db.query.users.findFirst({
-  where: eq(users.email, email)
-})
-
-// 批量查询
-const users = await db.query.users.findMany({
-  where: inArray(users.id, userIds)
-})
-```
-
-## CI/CD
-
-### GitHub Actions
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 20
-          cache: 'pnpm'
-      - run: pnpm install
-      - run: pnpm deploy:cloudflare
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-```
-
-### 配置 Secrets
-
-在 GitHub 仓库设置中添加：
-- `CLOUDFLARE_API_TOKEN`
-- 其他环境变量
-
-## 多环境部署
-
-### 配置多个环境
-
-```bash
-# 部署到 staging
-wrangler deploy --env staging
-
-# 部署到 production
-wrangler deploy --env production
-```
-
-### wrangler.jsonc 配置
-
-```jsonc
-{
-  "name": "your-app",
-  "main": "src/index.ts",
-  "compatibility_date": "2024-01-01",
-  "env": {
-    "staging": {
-      "vars": {
-        "ENVIRONMENT": "staging"
-      }
-    },
-    "production": {
-      "vars": {
-        "ENVIRONMENT": "production"
-      }
-    }
-  }
-}
-```
-
-## 常见问题
-
-**Q: 部署失败怎么办？**
-
-检查 wrangler 版本是否最新，查看错误日志，确认环境变量配置正确。
-
-**Q: 如何更新依赖？**
-
-修改 `package.json` 后重新部署即可。
-
-**Q: 部署后访问 404？**
-
-检查域名绑定是否正确，DNS 是否生效。
+回调 URL 和 DNS 记录属于外部系统：OAuth callback 使用线上 API origin，支付 webhook 回调 Worker，邮件服务商需要验证发信域名记录。`APP_CN_DOMAIN` 会添加第二个 Worker custom domain。`APP_CN_CNAME_TARGET` 可选创建或更新一条未代理的 CNAME，但优选目标必须来自你自己的网络决策。

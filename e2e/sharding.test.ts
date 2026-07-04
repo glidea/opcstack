@@ -9,11 +9,10 @@ type E2EEnv = {
 	E2E_REMOTE?: string
 	E2E_ADMIN_API_TOKEN?: string
 	E2E_D1_SHARD_COUNT?: string
-	E2E_EMAIL_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
 	E2E_EMAIL_RESEND_API_KEY?: string
-	E2E_EMAIL_FROM?: string
+	E2E_SYSTEM_EMAIL?: string
 	E2E_TURNSTILE_ENABLED?: string
 }
 
@@ -79,11 +78,10 @@ const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? ''
 const d1ShardCount: number = Number(e2eEnv.E2E_D1_SHARD_COUNT ?? '1')
-const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
 const emailResendApiKey: string = e2eEnv.E2E_EMAIL_RESEND_API_KEY ?? ''
-const emailFrom: string = e2eEnv.E2E_EMAIL_FROM ?? ''
+const systemEmail: string = e2eEnv.E2E_SYSTEM_EMAIL ?? ''
 const turnstileEnabled: boolean = e2eEnv.E2E_TURNSTILE_ENABLED === 'true'
 const canUseDummyCaptcha: boolean = !isRemote || !turnstileEnabled
 
@@ -306,13 +304,13 @@ function assertShardE2EConfig(): void {
 	if (!isRemote) {
 		return
 	}
-	if (!emailEnabled || !emailSignupEnabled) {
+	if (!emailSignupEnabled) {
 		throw new Error('REMOTE_E2E_EMAIL_SIGNUP_REQUIRED')
 	}
 	if (!canUseDummyCaptcha) {
 		throw new Error('REMOTE_E2E_TURNSTILE_BLOCKS_SIGNUP')
 	}
-	if (emailRequireVerification && (emailResendApiKey === '' || emailFrom === '')) {
+	if (emailRequireVerification && (emailResendApiKey === '' || systemEmail === '')) {
 		throw new Error('REMOTE_E2E_EMAIL_OTP_READER_REQUIRED')
 	}
 }
@@ -458,7 +456,7 @@ function readLocalD1SqlitePath(): string {
 }
 
 function buildScenarioEmail(tag: string): string {
-	const domain: string = extractEmailDomain(emailFrom) || 'example.com'
+	const domain: string = extractEmailDomain(systemEmail) || 'example.com'
 	const cleanTag: string = tag.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
 	return `e2e-${cleanTag}@${domain}`
 }

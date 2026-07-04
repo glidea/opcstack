@@ -10,7 +10,7 @@ export function createResendSimpleEmailClient(
 	nativeClient?: Resend
 ): EmailSimpleClient {
 	const client = nativeClient ?? createResendNativeEmailClient(env)
-	return new resendSimpleEmailClient(client, env.APP_NAME, env.EMAIL_FROM)
+	return new resendSimpleEmailClient(client, env.APP_NAME, env.SYSTEM_EMAIL)
 }
 
 class resendSimpleEmailClient implements EmailSimpleClient {

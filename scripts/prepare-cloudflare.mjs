@@ -336,13 +336,12 @@ function renderTemplate(template, env) {
 
 function validateEmailConfig(env) {
 	const requiredKeys = [
-		'EMAIL_ENABLED',
 		'EMAIL_PROVIDER',
 		'EMAIL_SIGNUP_ENABLED',
 		'EMAIL_REQUIRE_VERIFICATION',
 		'EMAIL_USER_ACTION_COOLDOWN_SECONDS',
 		'EMAIL_RESEND_API_KEY',
-		'EMAIL_FROM',
+		'SYSTEM_EMAIL',
 		'EMAIL_SIGNUP_DOMAIN_ALLOWLIST'
 	]
 	for (const key of requiredKeys) {
@@ -353,7 +352,6 @@ function validateEmailConfig(env) {
 	}
 
 	const booleanKeys = [
-		'EMAIL_ENABLED',
 		'EMAIL_SIGNUP_ENABLED',
 		'EMAIL_REQUIRE_VERIFICATION'
 	]
@@ -364,8 +362,6 @@ function validateEmailConfig(env) {
 		}
 	}
 
-	const emailEnabled = env.EMAIL_ENABLED === 'true'
-	const emailSignupEnabled = env.EMAIL_SIGNUP_ENABLED === 'true'
 	const emailProvider = env.EMAIL_PROVIDER
 	const cooldown = Number(env.EMAIL_USER_ACTION_COOLDOWN_SECONDS)
 	const cooldownValid = Number.isInteger(cooldown) && cooldown > 0
@@ -374,31 +370,26 @@ function validateEmailConfig(env) {
 		process.exit(1)
 	}
 
-	if (emailSignupEnabled && !emailEnabled) {
-		console.error('Error: EMAIL_FEATURE_REQUIRED_FOR_SIGNUP')
-		process.exit(1)
-	}
-
 	if (emailProvider !== 'resend' && emailProvider !== 'cloudflare') {
 		console.error('Error: EMAIL_PROVIDER_CONFIG_INVALID')
 		process.exit(1)
 	}
 
-	if (emailEnabled && !env.EMAIL_FROM) {
+	if (!env.SYSTEM_EMAIL) {
 		console.error('Error: EMAIL_PROVIDER_CONFIG_MISSING')
 		process.exit(1)
 	}
 
-	if (emailEnabled && emailProvider === 'resend' && !env.EMAIL_RESEND_API_KEY) {
+	if (emailProvider === 'resend' && !env.EMAIL_RESEND_API_KEY) {
 		console.error('Error: EMAIL_PROVIDER_CONFIG_MISSING')
 		process.exit(1)
 	}
 }
 
 export function readAdminConfig(env) {
-	const email = String(env.SUPER_ADMIN_EMAIL ?? '').trim().toLowerCase()
+	const email = String(env.SYSTEM_EMAIL ?? '').trim().toLowerCase()
 	if (email === '') {
-		throw new Error('SUPER_ADMIN_EMAIL_MISSING')
+		throw new Error('SYSTEM_EMAIL_MISSING')
 	}
 
 	const password = String(env.SUPER_ADMIN_PASSWORD ?? '')

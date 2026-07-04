@@ -18,7 +18,6 @@
 		googleAuthEnabled,
 		githubAuthEnabled,
 		linuxdoAuthEnabled,
-		emailEnabled,
 		emailSignupEnabled,
 		termsHref = '/terms',
 		privacyHref = '/privacy',
@@ -33,7 +32,6 @@
 		googleAuthEnabled: boolean
 		githubAuthEnabled: boolean
 		linuxdoAuthEnabled: boolean
-		emailEnabled: boolean
 		emailSignupEnabled: boolean
 		termsHref?: string
 		privacyHref?: string
@@ -134,7 +132,7 @@
 		</Button>
 	{/if}
 
-	{#if (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled) && emailEnabled}
+	{#if googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled}
 		<div class="flex items-center gap-3">
 			<div class="h-px flex-1 bg-border"></div>
 			<span class="text-sm text-muted-foreground">{$_('auth.or')}</span>
@@ -142,52 +140,46 @@
 		</div>
 	{/if}
 
-	{#if emailEnabled}
-		<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleEmailLogin() }}>
-			{#if error}
-				<Alert variant="destructive">
-					<CircleAlertIcon />
-					<AlertDescription>{error}</AlertDescription>
-				</Alert>
-			{/if}
-			<Field>
-				<FieldLabel for="login-email">{$_('auth.login.email')}</FieldLabel>
-				<Input id="login-email" type="email" autocomplete="email" bind:value={email} required />
-			</Field>
-			<Field>
-				<FieldLabel for="login-password">{$_('auth.login.password')}</FieldLabel>
-				<Input id="login-password" type="password" autocomplete="current-password" bind:value={password} required />
-			</Field>
-			{#if turnstileEnabled}
-				<Turnstile
-					bind:this={turnstileRef}
-					siteKey={turnstileSiteKey}
-					onToken={(token: string): void => { turnstileToken = token }}
-					onReset={(): void => { turnstileToken = '' }}
-				/>
-			{/if}
-			<Button type="submit" class="w-full" disabled={loading}>
-				{loading ? $_('auth.login.submitting') : $_('auth.login.submit')}
-			</Button>
-		</form>
-	{/if}
+	<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleEmailLogin() }}>
+		{#if error}
+			<Alert variant="destructive">
+				<CircleAlertIcon />
+				<AlertDescription>{error}</AlertDescription>
+			</Alert>
+		{/if}
+		<Field>
+			<FieldLabel for="login-email">{$_('auth.login.email')}</FieldLabel>
+			<Input id="login-email" type="email" autocomplete="email" bind:value={email} required />
+		</Field>
+		<Field>
+			<FieldLabel for="login-password">{$_('auth.login.password')}</FieldLabel>
+			<Input id="login-password" type="password" autocomplete="current-password" bind:value={password} required />
+		</Field>
+		{#if turnstileEnabled}
+			<Turnstile
+				bind:this={turnstileRef}
+				siteKey={turnstileSiteKey}
+				onToken={(token: string): void => { turnstileToken = token }}
+				onReset={(): void => { turnstileToken = '' }}
+			/>
+		{/if}
+		<Button type="submit" class="w-full" disabled={loading}>
+			{loading ? $_('auth.login.submitting') : $_('auth.login.submit')}
+		</Button>
+	</form>
 
-	{#if emailEnabled || googleAuthEnabled || githubAuthEnabled}
-		<div class="flex items-center justify-between text-sm">
-			{#if emailEnabled}
-				<a href={forgotPasswordHref} class="text-muted-foreground hover:text-foreground">
-					{$_('auth.login.forgotPassword')}
-				</a>
-			{/if}
-			{#if googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || (emailEnabled && emailSignupEnabled)}
-				<a href={registerHref} class="text-primary hover:text-primary/80">
-					{$_('auth.login.createAccount')}
-				</a>
-			{/if}
-		</div>
-	{/if}
+	<div class="flex items-center justify-between text-sm">
+		<a href={forgotPasswordHref} class="text-muted-foreground hover:text-foreground">
+			{$_('auth.login.forgotPassword')}
+		</a>
+		{#if googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || emailSignupEnabled}
+			<a href={registerHref} class="text-primary hover:text-primary/80">
+				{$_('auth.login.createAccount')}
+			</a>
+		{/if}
+	</div>
 
-	{#if showLegal && (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || emailEnabled)}
+	{#if showLegal}
 		<LegalDisclosure intent="continue" {termsHref} {privacyHref} {refundHref} />
 	{/if}
 </div>

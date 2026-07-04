@@ -94,7 +94,6 @@ describe('authCore email config mapping', () => {
 	})
 
 	type GivenDetail = {
-		emailEnabled: string
 		emailSignupEnabled: string
 		emailRequireVerification: string
 		cooldownSeconds: string
@@ -113,40 +112,16 @@ describe('authCore email config mapping', () => {
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'disable email and password when email feature is off',
-			given: 'email feature disabled',
-			when: 'building auth core',
-			then: 'email and password auth is disabled',
-			givenDetail: {
-				emailEnabled: 'false',
-				emailSignupEnabled: 'false',
-				emailRequireVerification: 'true',
-				cooldownSeconds: '50',
-				emailResendApiKey: '',
-				emailFrom: ''
-			},
-			whenDetail: {},
-			thenExpected: {
-				error: '',
-				emailAndPasswordEnabled: false,
-				disableSignUp: true,
-				requireEmailVerification: true,
-				hasEmailOtpPlugin: false,
-				hasSendResetPassword: false
-			}
-		},
-		{
 			scenario: 'enable email and password with signup and verification switches',
-			given: 'email feature enabled and signup enabled',
+			given: 'email signup enabled',
 			when: 'building auth core',
 			then: 'email config is mapped to better auth options',
 			givenDetail: {
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
 				emailResendApiKey: 'resend-api-key',
-				emailFrom: 'Auth <auth@mg.example.com>'
+				emailFrom: 'auth@mg.example.com'
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -159,35 +134,11 @@ describe('authCore email config mapping', () => {
 			}
 		},
 		{
-			scenario: 'disable email auth when signup enabled but email feature disabled',
-			given: 'signup enabled but email feature disabled',
-			when: 'building auth core',
-			then: 'email auth remains disabled',
-			givenDetail: {
-				emailEnabled: 'false',
-				emailSignupEnabled: 'true',
-				emailRequireVerification: 'true',
-				cooldownSeconds: '50',
-				emailResendApiKey: '',
-				emailFrom: ''
-			},
-			whenDetail: {},
-			thenExpected: {
-				error: '',
-				emailAndPasswordEnabled: false,
-				disableSignUp: true,
-				requireEmailVerification: true,
-				hasEmailOtpPlugin: false,
-				hasSendResetPassword: false
-			}
-		},
-		{
 			scenario: 'allow email auth even when provider config is missing',
-			given: 'email feature enabled but provider config missing',
+			given: 'provider config missing',
 			when: 'building auth core',
 			then: 'email auth config is still built',
 			givenDetail: {
-				emailEnabled: 'true',
 				emailSignupEnabled: 'false',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
@@ -210,12 +161,11 @@ describe('authCore email config mapping', () => {
 			when: 'building auth core',
 			then: 'auth core still builds email auth options',
 			givenDetail: {
-				emailEnabled: 'true',
 				emailSignupEnabled: 'false',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '0',
 				emailResendApiKey: 'resend-api-key',
-				emailFrom: 'Auth <auth@mg.example.com>'
+				emailFrom: 'auth@mg.example.com'
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -231,15 +181,6 @@ describe('authCore email config mapping', () => {
 
 	runCases(cases, async (given) => {
 		const env = createEnv(given)
-
-		if (given.emailEnabled === 'true') {
-			vi.mocked(createEmailClients).mockReturnValue({
-				simple: {
-					send: createSendMock()
-				},
-				resend: {} as Resend
-			})
-		}
 
 		try {
 			authCore(env, {} as never)
@@ -342,12 +283,11 @@ describe('authCore turnstile config mapping', () => {
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
 		const env: Env = createEnv({
-			emailEnabled: 'true',
 			emailSignupEnabled: 'true',
 			emailRequireVerification: 'true',
 			cooldownSeconds: '50',
 			emailResendApiKey: 'resend-api-key',
-			emailFrom: 'Auth <auth@mg.example.com>'
+			emailFrom: 'auth@mg.example.com'
 		})
 		type TurnstileTestEnv = Omit<
 			Env,
@@ -391,7 +331,6 @@ describe('authCore email callbacks', () => {
 	})
 
 	type GivenDetail = {
-		emailEnabled: string
 		emailSignupEnabled: string
 		emailRequireVerification: string
 		cooldownSeconds: string
@@ -423,12 +362,11 @@ describe('authCore email callbacks', () => {
 			when: 'calling sendVerificationOTP callbacks',
 			then: 'email client send is called with otp email subjects',
 			givenDetail: {
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
 				emailResendApiKey: 'resend-api-key',
-				emailFrom: 'Auth <auth@mg.example.com>'
+				emailFrom: 'auth@mg.example.com'
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -595,12 +533,11 @@ describe('authCore user create hook', () => {
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
 		const env: Env = createEnv({
-			emailEnabled: 'true',
 			emailSignupEnabled: 'true',
 			emailRequireVerification: 'false',
 			cooldownSeconds: '50',
 			emailResendApiKey: 'resend-api-key',
-			emailFrom: 'Auth <auth@mg.example.com>'
+			emailFrom: 'auth@mg.example.com'
 		})
 		type CreditSignupTestEnv = Omit<Env, 'CREDITS_SIGNUP_ENABLED' | 'CREDITS_SIGNUP_AMOUNT'> & {
 			CREDITS_SIGNUP_ENABLED: string
@@ -674,12 +611,11 @@ describe('authCore registration attribution', () => {
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
 		const auth = authCore(
 			createEnv({
-				emailEnabled: 'true',
 				emailSignupEnabled: 'true',
 				emailRequireVerification: 'false',
 				cooldownSeconds: '50',
 				emailResendApiKey: 'resend-api-key',
-				emailFrom: 'Auth <auth@mg.example.com>'
+				emailFrom: 'auth@mg.example.com'
 			}),
 			{
 				query: {
@@ -816,7 +752,6 @@ describe('authCore social provider config mapping', () => {
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
 		const env = createEnv({
-			emailEnabled: 'false',
 			emailSignupEnabled: 'false',
 			emailRequireVerification: 'true',
 			cooldownSeconds: '50',
@@ -951,7 +886,6 @@ describe('authCore linuxdo oauth config mapping', () => {
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
 		const env = createEnv({
-			emailEnabled: 'false',
 			emailSignupEnabled: 'false',
 			emailRequireVerification: 'true',
 			cooldownSeconds: '50',
@@ -1037,7 +971,6 @@ function readEmailAutoSignInAfterVerification(): boolean {
 }
 
 function createEnv(input: {
-	emailEnabled: string
 	emailSignupEnabled: string
 	emailRequireVerification: string
 	cooldownSeconds: string
@@ -1053,12 +986,11 @@ function createEnv(input: {
 		LINUXDO_AUTH_ENABLED: 'false',
 		LINUXDO_CLIENT_ID: '',
 		LINUXDO_CLIENT_SECRET: '',
-		EMAIL_ENABLED: input.emailEnabled,
 		EMAIL_SIGNUP_ENABLED: input.emailSignupEnabled,
 		EMAIL_REQUIRE_VERIFICATION: input.emailRequireVerification,
 		EMAIL_USER_ACTION_COOLDOWN_SECONDS: input.cooldownSeconds,
 		EMAIL_RESEND_API_KEY: input.emailResendApiKey,
-		EMAIL_FROM: input.emailFrom,
+		SYSTEM_EMAIL: input.emailFrom,
 		EMAIL_SIGNUP_DOMAIN_ALLOWLIST: '',
 		BETA_CODE_ENABLED: 'false',
 		CREDITS_SIGNUP_ENABLED: 'false',

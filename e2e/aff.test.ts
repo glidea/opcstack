@@ -7,10 +7,9 @@ type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_REMOTE?: string
 	E2E_AFF_ENABLED?: string
-	E2E_EMAIL_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
-	E2E_EMAIL_FROM?: string
+	E2E_SYSTEM_EMAIL?: string
 	E2E_TURNSTILE_ENABLED?: string
 }
 
@@ -26,14 +25,13 @@ const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const affEnabled: boolean = e2eEnv.E2E_AFF_ENABLED === 'true'
-const emailEnabled: boolean = e2eEnv.E2E_EMAIL_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
-const emailFrom: string = e2eEnv.E2E_EMAIL_FROM ?? ''
+const systemEmail: string = e2eEnv.E2E_SYSTEM_EMAIL ?? ''
 const turnstileEnabled: boolean = e2eEnv.E2E_TURNSTILE_ENABLED === 'true'
 const canUseDummyCaptcha: boolean = !isRemote || !turnstileEnabled
 const canCreateUser: boolean =
-	emailEnabled && emailSignupEnabled && !emailRequireVerification && canUseDummyCaptcha
+	emailSignupEnabled && !emailRequireVerification && canUseDummyCaptcha
 const canCreateLocalUser: boolean = !isRemote
 const canRunAffFlow: boolean = affEnabled && (canCreateUser || canCreateLocalUser)
 
@@ -331,7 +329,7 @@ function readLocalD1SqlitePath(): string {
 }
 
 function buildScenarioEmail(tag: string): string {
-	const domain: string = extractEmailDomain(emailFrom) || 'example.com'
+	const domain: string = extractEmailDomain(systemEmail) || 'example.com'
 	const cleanTag: string = tag.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
 	return `e2e-${cleanTag}@${domain}`
 }

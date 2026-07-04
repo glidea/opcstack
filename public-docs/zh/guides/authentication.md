@@ -21,8 +21,10 @@ OPC Stack 基于 [Better Auth](https://www.better-auth.com/) 实现认证，支�
 6. 在 `.env.dev` 或 `.env.prod` 配置公开环境变量：
 
 ```bash
-EMAIL_ENABLED=true
-EMAIL_FROM=noreply@example.com
+EMAIL_PROVIDER=resend
+SYSTEM_EMAIL=noreply@example.com
+EMAIL_SIGNUP_ENABLED=true
+EMAIL_REQUIRE_VERIFICATION=true
 ```
 
 7. 在 `.env.secret.dev` 或 `.env.secret.prod` 配置密钥：
@@ -48,9 +50,12 @@ EMAIL_RESEND_API_KEY=re_xxx
 ### 中间件
 
 `emailAuthMiddleware` 会检查：
-- `EMAIL_ENABLED` 是否为 true
-- `EMAIL_FROM` 和 `EMAIL_RESEND_API_KEY` 是否配置
-- 用户邮箱是否已验证
+- 是否禁用邮箱 OTP 登录
+- 注册请求是否允许邮箱注册
+- 注册邮箱域名是否允许
+- 邮箱操作是否处于冷却时间内
+
+`EMAIL_REQUIRE_VERIFICATION` 由 Better Auth 的邮箱密码配置执行。
 
 ## Google 登录
 

@@ -41,11 +41,6 @@ export const emailAuthMiddleware: MiddlewareHandler<ApiEnv> = async (
 		return ctx.json({ code: 'EMAIL_OTP_SIGN_IN_DISABLED' }, 400)
 	}
 
-	const emailEnabled = ctx.env.EMAIL_ENABLED === 'true'
-	if (!emailEnabled) {
-		return ctx.json({ code: 'EMAIL_DISABLED' }, 400)
-	}
-
 	const emailSignupEnabled = ctx.env.EMAIL_SIGNUP_ENABLED === 'true'
 	if (scene === 'signup' && !emailSignupEnabled) {
 		return ctx.json({ code: 'EMAIL_SIGNUP_DISABLED' }, 400)

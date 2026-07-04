@@ -23,31 +23,24 @@
 		goto(`/${data.locale}/login`)
 	}
 
-	$effect(() => {
-		if (!clientConfig.emailEnabled) {
-			goto(`/${data.locale}/login`)
-		}
-	})
 </script>
 
 <AppHeader logoHref={`/${data.locale}`} />
 
 <main class="flex min-h-[calc(100svh-3rem)] items-center justify-center px-6 py-16">
-	{#if clientConfig.emailEnabled}
-		{#if pendingEmail}
-			<ResetPasswordCard
-				email={pendingEmail}
-				onSuccess={handleResetSuccess}
-				loginHref={`/${data.locale}/login`}
-			/>
-		{:else}
-			<ForgotPasswordCard
-				onSuccess={handleSentSuccess}
-				loginHref={`/${data.locale}/login`}
-				emailUserActionCooldownSeconds={clientConfig.emailUserActionCooldownSeconds}
-				turnstileEnabled={clientConfig.turnstileEnabled}
-				turnstileSiteKey={clientConfig.turnstileSiteKey}
-			/>
-		{/if}
+	{#if pendingEmail}
+		<ResetPasswordCard
+			email={pendingEmail}
+			onSuccess={handleResetSuccess}
+			loginHref={`/${data.locale}/login`}
+		/>
+	{:else}
+		<ForgotPasswordCard
+			onSuccess={handleSentSuccess}
+			loginHref={`/${data.locale}/login`}
+			emailUserActionCooldownSeconds={clientConfig.emailUserActionCooldownSeconds}
+			turnstileEnabled={clientConfig.turnstileEnabled}
+			turnstileSiteKey={clientConfig.turnstileSiteKey}
+		/>
 	{/if}
 </main>

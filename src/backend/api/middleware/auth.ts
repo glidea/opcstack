@@ -24,7 +24,7 @@ export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
 	next
 ): Promise<Response | void> => {
 	const authorization = ctx.req.header('authorization')
-	const adminEmail = ctx.env.SUPER_ADMIN_EMAIL.toLowerCase()
+	const adminEmail = ctx.env.SYSTEM_EMAIL.toLowerCase()
 
 	if (authorization === `Bearer ${ctx.env.ADMIN_API_TOKEN}`) {
 		const adminUser = await ctx.get('metaDb').query.user.findFirst({

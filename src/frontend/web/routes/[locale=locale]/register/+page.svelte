@@ -44,7 +44,6 @@
 			googleAuthEnabled={clientConfig.googleAuthEnabled}
 			githubAuthEnabled={clientConfig.githubAuthEnabled}
 			linuxdoAuthEnabled={clientConfig.linuxdoAuthEnabled}
-			emailEnabled={clientConfig.emailEnabled}
 			emailSignupEnabled={clientConfig.emailSignupEnabled}
 			emailRequireVerification={clientConfig.emailRequireVerification}
 			emailUserActionCooldownSeconds={clientConfig.emailUserActionCooldownSeconds}

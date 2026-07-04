@@ -27,7 +27,6 @@
 		googleAuthEnabled={clientConfig.googleAuthEnabled}
 		githubAuthEnabled={clientConfig.githubAuthEnabled}
 		linuxdoAuthEnabled={clientConfig.linuxdoAuthEnabled}
-		emailEnabled={clientConfig.emailEnabled}
 		emailSignupEnabled={clientConfig.emailSignupEnabled}
 		refundHref={clientConfig.paymentEnabled ? '/refund-policy' : undefined}
 		turnstileEnabled={clientConfig.turnstileEnabled}

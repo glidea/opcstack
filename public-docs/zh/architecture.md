@@ -227,7 +227,7 @@ handler                  # 业务逻辑
 - 未绑定则拦截请求
 
 **emailAuthMiddleware**：
-- 如果 `EMAIL_ENABLED=true`，检查邮箱认证相关配置
+- 检查邮箱认证请求规则，例如禁止 OTP 登录、注册开关、域名白名单和冷却时间
 - 拦截不符合规则的请求
 
 ## D1 Read Replication

@@ -60,7 +60,7 @@ type GivenDetail = {
 		createResendNativeEmailClient({
 			APP_NAME: 'opcstack',
 			EMAIL_RESEND_API_KEY: given.apiKey,
-			EMAIL_FROM: 'openstack@glidea.app'
+			SYSTEM_EMAIL: 'openstack@glidea.app'
 		} as unknown as Env)
 		return {
 			constructorApiKey: String(resendConstructorMock.mock.calls[0]?.[0] ?? '')
@@ -201,12 +201,12 @@ describe('createResendSimpleEmailClient.send', () => {
 			{
 				APP_NAME: given.appName,
 				EMAIL_RESEND_API_KEY: 'rk-simple',
-				EMAIL_FROM: given.emailFrom
+				SYSTEM_EMAIL: given.emailFrom
 			} as unknown as Env,
 			createResendNativeEmailClient({
 				APP_NAME: given.appName,
 				EMAIL_RESEND_API_KEY: 'rk-simple',
-				EMAIL_FROM: given.emailFrom
+				SYSTEM_EMAIL: given.emailFrom
 			} as unknown as Env)
 		)
 

@@ -90,7 +90,7 @@ describe('createCloudflareSimpleEmailClient.send', () => {
 		})
 		const client = createCloudflareSimpleEmailClient({
 			APP_NAME: given.appName,
-			EMAIL_FROM: given.emailFrom,
+			SYSTEM_EMAIL: given.emailFrom,
 			SEND_EMAIL: {
 				send
 			}

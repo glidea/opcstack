@@ -17,7 +17,6 @@
 		googleAuthEnabled,
 		githubAuthEnabled,
 		linuxdoAuthEnabled,
-		emailEnabled,
 		emailSignupEnabled,
 		emailRequireVerification,
 		emailUserActionCooldownSeconds,
@@ -33,7 +32,6 @@
 		googleAuthEnabled: boolean
 		githubAuthEnabled: boolean
 		linuxdoAuthEnabled: boolean
-		emailEnabled: boolean
 		emailSignupEnabled: boolean
 		emailRequireVerification: boolean
 		emailUserActionCooldownSeconds: number
@@ -105,8 +103,6 @@
 
 	function resolveEmailError(authError: AuthClientError, fallback: string): string {
 		switch (authError.code) {
-			case 'EMAIL_DISABLED':
-				return $_('auth.error.emailDisabled')
 			case 'EMAIL_SIGNUP_DISABLED':
 				return $_('auth.error.emailSignupDisabled')
 			case 'EMAIL_DOMAIN_NOT_ALLOWED':
@@ -162,7 +158,7 @@
 		</Button>
 	{/if}
 
-	{#if (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled) && emailEnabled && emailSignupEnabled}
+	{#if (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled) && emailSignupEnabled}
 		<div class="flex items-center gap-3">
 			<div class="h-px flex-1 bg-border"></div>
 			<span class="text-sm text-muted-foreground">{$_('auth.or')}</span>
@@ -170,7 +166,7 @@
 		</div>
 	{/if}
 
-	{#if emailEnabled && emailSignupEnabled}
+	{#if emailSignupEnabled}
 		<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleRegister() }}>
 			{#if error}
 				<Alert variant="destructive">
@@ -200,7 +196,7 @@
 		</form>
 	{/if}
 
-	{#if showLegal && (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || (emailEnabled && emailSignupEnabled))}
+	{#if showLegal && (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || emailSignupEnabled)}
 		<LegalDisclosure intent="register" {termsHref} {privacyHref} {refundHref} />
 	{/if}
 

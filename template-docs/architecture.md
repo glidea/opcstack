@@ -227,7 +227,7 @@ handler                  # Business logic
 - Block request when not bound
 
 `emailAuthMiddleware`:
-- If `EMAIL_ENABLED=true`, check email auth related config
+- Check email auth request rules such as OTP sign in block, signup switch, domain allowlist, and cooldown
 - Block requests that do not match rules
 
 ## D1 read replication

@@ -59,8 +59,6 @@
 
 	function resolveEmailError(authError: AuthClientError, fallback: string): string {
 		switch (authError.code) {
-			case 'EMAIL_DISABLED':
-				return $_('auth.error.emailDisabled')
 			case 'EMAIL_ACTION_RATE_LIMITED':
 				return $_('auth.error.emailActionRateLimited', {
 					values: { seconds: emailUserActionCooldownSeconds }

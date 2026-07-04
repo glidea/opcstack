@@ -21,10 +21,7 @@ export function authCore(env: Env, db: MetaDb) {
   const emailOtpPlugin = buildEmailOtp(env)
   const captchaPlugin = buildTurnstileCaptcha(env)
   const linuxDoOAuthPlugin: ReturnType<typeof genericOAuth> | undefined = buildLinuxDoOAuth(env)
-  const plugins: AuthPlugin[] = [bearer()]
-  if (emailOtpPlugin) {
-    plugins.push(emailOtpPlugin)
-  }
+  const plugins: AuthPlugin[] = [bearer(), emailOtpPlugin]
   if (captchaPlugin) {
     plugins.push(captchaPlugin)
   }
@@ -143,14 +140,6 @@ function readCreditsSignupEnabled(env: Env): boolean {
 function buildEmailAndPassword(env: Env): AuthEmailAndPasswordConfig {
   const emailRequireVerification = env.EMAIL_REQUIRE_VERIFICATION === 'true'
   const emailSignupEnabled = env.EMAIL_SIGNUP_ENABLED === 'true'
-  const emailClient = buildEmailClient(env)
-  if (!emailClient) {
-    return {
-      enabled: false,
-      disableSignUp: true,
-      requireEmailVerification: emailRequireVerification
-    }
-  }
 
   return {
     enabled: true,
@@ -202,11 +191,8 @@ function bytesToHex(bytes: Uint8Array): string {
   return output
 }
 
-function buildEmailOtp(env: Env): ReturnType<typeof emailOTP> | undefined {
+function buildEmailOtp(env: Env): ReturnType<typeof emailOTP> {
   const emailClient = buildEmailClient(env)
-  if (!emailClient) {
-    return undefined
-  }
 
   return emailOTP({
     otpLength: 6,
@@ -278,10 +264,7 @@ function buildLinuxDoAvatarUrl(avatarTemplate: string | undefined): string | und
   return `https://connect.linux.do${avatarTemplate.replace('{size}', '96')}`
 }
 
-function buildEmailClient(env: Env): EmailClients['simple'] | undefined {
-  if (env.EMAIL_ENABLED !== 'true') {
-    return undefined
-  }
+function buildEmailClient(env: Env): EmailClients['simple'] {
   return createEmailClients(env).simple
 }
 

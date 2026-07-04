@@ -6,7 +6,6 @@ export type ClientConfig = {
 	supportEmail: string
 	designSystem: string
 	docsEnabled: boolean
-	emailEnabled: boolean
 	emailSignupEnabled: boolean
 	emailRequireVerification: boolean
 	emailUserActionCooldownSeconds: number
@@ -23,13 +22,12 @@ export type ClientConfig = {
 
 export const clientConfig: ClientConfig = {
 	"appName": "opcstack",
-	"appVersion": "0.0.1",
+	"appVersion": "0.1.0",
 	"apiBaseUrl": "http://localhost:5173",
 	"webBaseUrl": "http://localhost:5173",
-	"supportEmail": "opc-support@example.com",
+	"supportEmail": "yourfriend@glidea.app",
 	"designSystem": "apple-saas",
 	"docsEnabled": true,
-	"emailEnabled": true,
 	"emailSignupEnabled": true,
 	"emailRequireVerification": true,
 	"emailUserActionCooldownSeconds": 50,

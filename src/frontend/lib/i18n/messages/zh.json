@@ -27,7 +27,6 @@
 	"auth.otp.resend": "重新发送",
 	"auth.otp.resendIn": "{seconds} 秒后重发",
 	"auth.otp.resending": "发送中...",
-	"auth.error.emailDisabled": "邮箱登录已关闭。",
 	"auth.error.emailSignupDisabled": "邮箱注册已关闭。",
 	"auth.error.emailDomainNotAllowed": "当前邮箱域名不允许注册。",
 	"auth.error.emailActionRateLimited": "请在 {seconds} 秒后重试。",
