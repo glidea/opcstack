@@ -386,6 +386,138 @@ function validateEmailConfig(env) {
 	}
 }
 
+export function validateRuntimeConfig(env, options = {}) {
+	requireSecret(env, 'BETTER_AUTH_SECRET')
+
+	if (env.R2_ENABLED === 'true') {
+		requireSecret(env, 'R2_ORIGIN_SIGNING_SECRET')
+	}
+
+	if (env.TURNSTILE_ENABLED === 'true' && options.isRemote !== true) {
+		requireSecret(env, 'TURNSTILE_SITE_KEY')
+	}
+
+	validateEnabledAuthProvider(env, 'GOOGLE')
+	validateEnabledAuthProvider(env, 'GITHUB')
+	validateEnabledAuthProvider(env, 'LINUXDO')
+	validatePaymentRuntimeConfig(env)
+	validateFallbackRuntimeConfig(env)
+}
+
+function validateEnabledAuthProvider(env, provider) {
+	if (env[`${provider}_AUTH_ENABLED`] !== 'true') {
+		return
+	}
+
+	requireSecret(env, `${provider}_CLIENT_ID`)
+	requireSecret(env, `${provider}_CLIENT_SECRET`)
+}
+
+function validatePaymentRuntimeConfig(env) {
+	if (env.PAYMENT_ENABLED !== 'true') {
+		return
+	}
+
+	const products = parsePaymentProducts(env.PAYMENT_PRODUCTS)
+	if (products.length === 0) {
+		throw new Error('PAYMENT_PRODUCTS_MISSING')
+	}
+
+	const providers = collectPaymentProviders(products)
+	if (!providers.includes(env.PAYMENT_PROVIDER)) {
+		throw new Error('PAYMENT_PROVIDER_INVALID')
+	}
+
+	validatePaymentCountryOverrides(env.PAYMENT_PROVIDER_COUNTRY_OVERRIDES, providers)
+
+	if (providers.includes('dodo')) {
+		requireSecret(env, 'PAYMENT_DODO_API_KEY')
+		requireSecret(env, 'PAYMENT_DODO_WEBHOOK_SECRET')
+	}
+	if (providers.includes('creem')) {
+		requireSecret(env, 'PAYMENT_CREEM_API_KEY')
+		requireSecret(env, 'PAYMENT_CREEM_WEBHOOK_SECRET')
+	}
+}
+
+function parsePaymentProducts(raw) {
+	const text = String(raw ?? '').trim()
+	if (text === '') {
+		return []
+	}
+
+	const products = JSON.parse(text)
+	if (!Array.isArray(products)) {
+		throw new Error('PAYMENT_PRODUCTS_INVALID')
+	}
+	return products
+}
+
+function collectPaymentProviders(products) {
+	const providers = []
+	for (const product of products) {
+		const productProviders = product?.providers
+		if (typeof productProviders !== 'object' || productProviders === null || Array.isArray(productProviders)) {
+			throw new Error('PAYMENT_PRODUCTS_INVALID')
+		}
+		for (const provider of Object.keys(productProviders)) {
+			if (provider !== 'dodo' && provider !== 'creem') {
+				throw new Error('PAYMENT_PROVIDER_INVALID')
+			}
+			if (!providers.includes(provider)) {
+				providers.push(provider)
+			}
+		}
+	}
+	return providers
+}
+
+function validatePaymentCountryOverrides(raw, providers) {
+	const text = String(raw ?? '').trim()
+	if (text === '') {
+		return
+	}
+
+	const overrides = JSON.parse(text)
+	if (!Array.isArray(overrides)) {
+		throw new Error('PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID')
+	}
+
+	for (const override of overrides) {
+		const provider = String(override?.provider ?? '').trim()
+		const country = String(override?.country ?? '').trim()
+		if (country === '' || !providers.includes(provider)) {
+			throw new Error('PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID')
+		}
+	}
+}
+
+function validateFallbackRuntimeConfig(env) {
+	const pairs = [
+		['CHAT_OPENAI_FALLBACK_BASE_URL', 'CHAT_OPENAI_FALLBACK_API_KEY'],
+		['IMAGE_GEMINI_FALLBACK_BASE_URL', 'IMAGE_GEMINI_FALLBACK_API_KEY'],
+		['IMAGE_OPENAI_FALLBACK_BASE_URL', 'IMAGE_OPENAI_FALLBACK_API_KEY'],
+		['IMAGE_SEEDDREAM_FALLBACK_BASE_URL', 'IMAGE_SEEDDREAM_FALLBACK_API_KEY'],
+		['IMAGE_ALIYUN_FALLBACK_BASE_URL', 'IMAGE_ALIYUN_FALLBACK_API_KEY'],
+		['TTS_GEMINI_FALLBACK_BASE_URL', 'TTS_GEMINI_FALLBACK_API_KEY'],
+		['TTS_SEED_FALLBACK_BASE_URL', 'TTS_SEED_FALLBACK_API_KEY'],
+		['REALTIME_DOUBAO_FALLBACK_BASE_URL', 'REALTIME_DOUBAO_FALLBACK_API_KEY'],
+		['VIDEO_SEEDDANCE_FALLBACK_BASE_URL', 'VIDEO_SEEDDANCE_FALLBACK_API_KEY']
+	]
+
+	for (const [baseUrlKey, apiKeyKey] of pairs) {
+		if (String(env[baseUrlKey] ?? '').trim() !== '') {
+			requireSecret(env, apiKeyKey)
+		}
+	}
+}
+
+function requireSecret(env, key) {
+	if (String(env[key] ?? '').trim() === '') {
+		throw new Error(`${key}_MISSING`)
+	}
+}
+
 export function readAdminConfig(env) {
 	const email = String(env.SYSTEM_EMAIL ?? '').trim().toLowerCase()
 	if (email === '') {
@@ -1267,6 +1399,7 @@ async function main() {
 	resolveAppCnDomain(env)
 	resolveAppCnCnameTarget(env)
 	validateEmailConfig(env)
+	validateRuntimeConfig(env, { isRemote })
 	const queueNames = parseQueueNames(env.QUEUE_NAMES)
 	const durableObjectNames = parseDurableObjectNames(env.DO_NAMES)
 	const cronExpressions = parseCronExpressions(env.CRONS)

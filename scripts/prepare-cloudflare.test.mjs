@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
 	buildDnsCnameRecordPayload,
-	selectDnsCnameRecord
+	selectDnsCnameRecord,
+	validateRuntimeConfig
 } from './prepare-cloudflare.mjs'
 import { resolveAppCnCnameTarget } from './prepare-public.mjs'
 
@@ -99,3 +100,100 @@ describe('prepare cloudflare dns config', () => {
 		}).toThrow('APP_CN_DOMAIN_DNS_RECORD_TYPE_INVALID')
 	})
 })
+
+describe('prepare cloudflare runtime config validation', () => {
+	it('rejects enabled r2 without origin signing secret', () => {
+		const env = createRuntimeEnv({
+			R2_ENABLED: 'true',
+			R2_ORIGIN_SIGNING_SECRET: ''
+		})
+
+		expect(() => {
+			validateRuntimeConfig(env, { isRemote: false })
+		}).toThrow('R2_ORIGIN_SIGNING_SECRET_MISSING')
+	})
+
+	it('rejects enabled google auth without client secret', () => {
+		const env = createRuntimeEnv({
+			GOOGLE_AUTH_ENABLED: 'true',
+			GOOGLE_CLIENT_ID: 'google-client',
+			GOOGLE_CLIENT_SECRET: ''
+		})
+
+		expect(() => {
+			validateRuntimeConfig(env, { isRemote: false })
+		}).toThrow('GOOGLE_CLIENT_SECRET_MISSING')
+	})
+
+	it('rejects enabled payment without selected provider secrets', () => {
+		const env = createRuntimeEnv({
+			PAYMENT_ENABLED: 'true',
+			PAYMENT_PROVIDER: 'creem',
+			PAYMENT_PRODUCTS:
+				'[{"product_id":"credits_100","type":"one_time","credits_amount":"100","providers":{"creem":{"kind":"remote_product","product_id":"prod_1"}}}]',
+			PAYMENT_CREEM_API_KEY: '',
+			PAYMENT_CREEM_WEBHOOK_SECRET: 'whsec'
+		})
+
+		expect(() => {
+			validateRuntimeConfig(env, { isRemote: false })
+		}).toThrow('PAYMENT_CREEM_API_KEY_MISSING')
+	})
+
+	it('rejects fallback base url without fallback api key', () => {
+		const env = createRuntimeEnv({
+			IMAGE_GEMINI_FALLBACK_BASE_URL: 'https://fallback.example.com',
+			IMAGE_GEMINI_FALLBACK_API_KEY: ''
+		})
+
+		expect(() => {
+			validateRuntimeConfig(env, { isRemote: false })
+		}).toThrow('IMAGE_GEMINI_FALLBACK_API_KEY_MISSING')
+	})
+})
+
+function createRuntimeEnv(overrides = {}) {
+	return {
+		BETTER_AUTH_SECRET: 'auth-secret',
+		R2_ENABLED: 'false',
+		R2_ORIGIN_SIGNING_SECRET: '',
+		TURNSTILE_ENABLED: 'false',
+		TURNSTILE_SITE_KEY: '',
+		GOOGLE_AUTH_ENABLED: 'false',
+		GOOGLE_CLIENT_ID: '',
+		GOOGLE_CLIENT_SECRET: '',
+		GITHUB_AUTH_ENABLED: 'false',
+		GITHUB_CLIENT_ID: '',
+		GITHUB_CLIENT_SECRET: '',
+		LINUXDO_AUTH_ENABLED: 'false',
+		LINUXDO_CLIENT_ID: '',
+		LINUXDO_CLIENT_SECRET: '',
+		PAYMENT_ENABLED: 'false',
+		PAYMENT_PROVIDER: 'creem',
+		PAYMENT_PROVIDER_COUNTRY_OVERRIDES: '',
+		PAYMENT_PRODUCTS: '[]',
+		PAYMENT_DODO_API_KEY: '',
+		PAYMENT_DODO_WEBHOOK_SECRET: '',
+		PAYMENT_CREEM_API_KEY: '',
+		PAYMENT_CREEM_WEBHOOK_SECRET: '',
+		CHAT_OPENAI_FALLBACK_BASE_URL: '',
+		CHAT_OPENAI_FALLBACK_API_KEY: '',
+		IMAGE_GEMINI_FALLBACK_BASE_URL: '',
+		IMAGE_GEMINI_FALLBACK_API_KEY: '',
+		IMAGE_OPENAI_FALLBACK_BASE_URL: '',
+		IMAGE_OPENAI_FALLBACK_API_KEY: '',
+		IMAGE_SEEDDREAM_FALLBACK_BASE_URL: '',
+		IMAGE_SEEDDREAM_FALLBACK_API_KEY: '',
+		IMAGE_ALIYUN_FALLBACK_BASE_URL: '',
+		IMAGE_ALIYUN_FALLBACK_API_KEY: '',
+		TTS_GEMINI_FALLBACK_BASE_URL: '',
+		TTS_GEMINI_FALLBACK_API_KEY: '',
+		TTS_SEED_FALLBACK_BASE_URL: '',
+		TTS_SEED_FALLBACK_API_KEY: '',
+		REALTIME_DOUBAO_FALLBACK_BASE_URL: '',
+		REALTIME_DOUBAO_FALLBACK_API_KEY: '',
+		VIDEO_SEEDDANCE_FALLBACK_BASE_URL: '',
+		VIDEO_SEEDDANCE_FALLBACK_API_KEY: '',
+		...overrides
+	}
+}
