@@ -1,4 +1,4 @@
-import type { EmailSimpleClient, EmailSimpleSendInput } from '..'
+import { EmailError, type EmailSimpleClient, type EmailSimpleSendInput } from '..'
 import { Resend } from 'resend'
 
 export function createResendNativeEmailClient(env: Env): Resend {
@@ -34,7 +34,7 @@ class resendSimpleEmailClient implements EmailSimpleClient {
 
 		if (response.error) {
 			const status = response.error.statusCode ?? 500
-			throw new Error(`EMAIL_SEND_FAILED:${status}`)
+			throw new EmailError('EMAIL_SEND_FAILED', `Email send failed: ${status}`)
 		}
 	}
 }

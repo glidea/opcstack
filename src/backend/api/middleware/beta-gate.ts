@@ -17,7 +17,7 @@ export const betaGateMiddleware: MiddlewareHandler<ApiEnv> = async (
 		where: eq(betaCode.usedBy, ctx.get('userId'))
 	})
 	if (!betaBinding) {
-		return ctx.json({ code: 'BETA_CODE_REQUIRED' }, 403)
+		return ctx.json({ code: 'BETA_CODE_REQUIRED', message: 'Beta code is required' }, 403)
 	}
 
 	return next()

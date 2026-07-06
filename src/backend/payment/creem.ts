@@ -10,7 +10,8 @@ import {
 	PAYMENT_EVENT_TYPE_SUBSCRIPTION_CANCEL_AT_PERIOD_END,
 	PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED,
 	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAID,
-	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE,
+	PaymentProviderError
 } from './contract'
 import type {
 	CancelSubscriptionInput,
@@ -177,7 +178,7 @@ export class CreemPaymentProvider implements PaymentProvider {
 
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
 		if (input.providerConfig.kind !== 'remote_product') {
-			throw new Error('PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID')
+			throw new PaymentProviderError('PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID')
 		}
 
 		const checkout: CreemCheckout = await this.client.checkouts.create({
@@ -224,7 +225,7 @@ export class CreemPaymentProvider implements PaymentProvider {
 	async unwrapWebhook(input: UnwrapWebhookInput): Promise<PaymentEvent> {
 		const signature: string = input.headers.get(CREEM_SIGNATURE_HEADER) ?? ''
 		if (!isCreemSignatureValid(input.rawBody, signature, this.webhookSecret)) {
-			throw new Error('CREEM_WEBHOOK_SIGNATURE_INVALID')
+			throw new PaymentProviderError('CREEM_WEBHOOK_SIGNATURE_INVALID')
 		}
 
 		const event: CreemWebhookEvent = JSON.parse(input.rawBody) as CreemWebhookEvent
@@ -384,7 +385,7 @@ function mapCreemWebhookEvent(event: CreemWebhookEvent): PaymentEvent {
 				occurredAt
 			}
 		default:
-			throw new Error(CREEM_ERROR_EVENT_TYPE_UNSUPPORTED)
+			throw new PaymentProviderError(CREEM_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
 }
 
@@ -407,7 +408,7 @@ function mapCreemEventType(rawEventType: string): PaymentEventType {
 		case CREEM_EVENT_SUBSCRIPTION_EXPIRED:
 			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED
 		default:
-			throw new Error(CREEM_ERROR_EVENT_TYPE_UNSUPPORTED)
+			throw new PaymentProviderError(CREEM_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
 }
 

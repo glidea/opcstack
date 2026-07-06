@@ -13,4 +13,5 @@ export type PageResponse<T> = {
 
 export type ApiErrorResponse = {
 	code: string
+	message: string
 }

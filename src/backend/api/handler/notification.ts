@@ -17,7 +17,7 @@ import { parseRequest } from '../../lib/request'
 export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, CreateNotificationRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const row: NewNotification = {
@@ -36,7 +36,7 @@ export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<R
 export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, ListNotificationsRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const userId = ctx.get('userId')
@@ -120,7 +120,7 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 export async function readNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, ReadNotificationRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const row: NewNotificationRead = {

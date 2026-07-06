@@ -34,11 +34,11 @@ type AliyunRequest = {
 	}
 }
 
-const { r2PutImageMock, r2GetMock, r2GetVariantBytesMock, createR2ClientMock } = vi.hoisted(() => {
+const { r2PutMock, r2GetMock, r2GetImageVariantMock, createR2ClientMock } = vi.hoisted(() => {
 	return {
-		r2PutImageMock: vi.fn(),
+		r2PutMock: vi.fn(),
 		r2GetMock: vi.fn(),
-		r2GetVariantBytesMock: vi.fn(),
+		r2GetImageVariantMock: vi.fn(),
 		createR2ClientMock: vi.fn()
 	}
 })
@@ -46,9 +46,9 @@ const { r2PutImageMock, r2GetMock, r2GetVariantBytesMock, createR2ClientMock } =
 vi.mock('../../../r2', () => {
 	createR2ClientMock.mockImplementation(() => {
 		return {
-			putImage: r2PutImageMock,
+			put: r2PutMock,
 			get: r2GetMock,
-			getImageVariantBytes: r2GetVariantBytesMock
+			getImageVariant: r2GetImageVariantMock
 		}
 	})
 	return {
@@ -310,7 +310,7 @@ describe('createAliyunSimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				firstR2Key: '',
-				errorMessage: 'ALIYUN_Z_IMAGE_REFERENCES_UNSUPPORTED'
+				errorMessage: 'Aliyun Z image references are unsupported'
 			}
 		},
 		{
@@ -348,7 +348,7 @@ describe('createAliyunSimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				firstR2Key: '',
-				errorMessage: 'UNSUPPORTED_ALIYUN_IMAGE_SIZE: 4K'
+				errorMessage: 'Aliyun image size is unsupported: 4K'
 			}
 		},
 		{
@@ -386,14 +386,14 @@ describe('createAliyunSimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				firstR2Key: '',
-				errorMessage: 'ALIYUN_LOW_CENSORSHIP_UNSUPPORTED'
+				errorMessage: 'Aliyun low censorship mode is unsupported'
 			}
 		}
 	]
 
 	runCases(cases, async (given, when): Promise<ThenExpected> => {
 		let r2Index = 0
-		r2PutImageMock.mockImplementation(async (): Promise<R2PutResult> => {
+		r2PutMock.mockImplementation(async (): Promise<R2PutResult> => {
 			const result: R2PutResult | undefined = given.r2Results?.[r2Index]
 			r2Index += 1
 			return result ?? { key: '', url: '' }
@@ -408,9 +408,14 @@ describe('createAliyunSimpleImageClient.generate', () => {
 			}),
 			contentType: 'image/png'
 		})
-		r2GetVariantBytesMock.mockResolvedValue({
+		r2GetImageVariantMock.mockResolvedValue({
 			status: 'ok',
-			body: new TextEncoder().encode('variant').buffer,
+			body: new ReadableStream<Uint8Array>({
+				start(controller): void {
+					controller.enqueue(new TextEncoder().encode('variant'))
+					controller.close()
+				}
+			}),
 			contentType: 'image/png'
 		})
 
@@ -450,11 +455,11 @@ describe('createAliyunSimpleImageClient.generate', () => {
 			authHeader: toHeader(fetchCalls[0]?.init?.headers, 'Authorization'),
 			asyncHeader: toHeader(fetchCalls[0]?.init?.headers, 'X-DashScope-Async'),
 			imageDownloadCalls: Math.max(fetchCalls.length - 1, 0),
-			r2PutCalls: r2PutImageMock.mock.calls.length,
+			r2PutCalls: r2PutMock.mock.calls.length,
 			firstR2PutDir:
-				(r2PutImageMock.mock.calls[0]?.[0] as { dir?: string } | undefined)?.dir ?? '',
+				(r2PutMock.mock.calls[0]?.[0] as { dir?: string } | undefined)?.dir ?? '',
 			firstR2PutIsPublic:
-				(r2PutImageMock.mock.calls[0]?.[0] as { isPublic?: boolean } | undefined)?.isPublic ??
+				(r2PutMock.mock.calls[0]?.[0] as { isPublic?: boolean } | undefined)?.isPublic ??
 				false,
 			firstR2Key: outputs[0]?.r2?.key ?? '',
 			errorMessage

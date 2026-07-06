@@ -188,12 +188,70 @@ export interface ListPaymentTransactionsResult {
 	total: number
 }
 
-export class PaymentServiceError extends Error {
-	public readonly code: string
+export type PaymentServiceErrorCode =
+	| 'PAYMENT_DISABLED'
+	| 'SUBSCRIPTION_NOT_FOUND'
+	| 'SUBSCRIPTION_ALREADY_CANCELED'
+	| 'SUBSCRIPTION_NOT_ACTIVE'
+	| 'SUBSCRIPTION_TARGET_INVALID'
+	| 'SUBSCRIPTION_CURRENT_INVALID'
+	| 'SUBSCRIPTION_UPGRADE_NOT_ALLOWED'
+	| 'PAYMENT_PROVIDER_PAYMENT_ID_MISSING'
+	| 'PAYMENT_TRANSACTION_NOT_FOUND'
+	| 'SUBSCRIPTION_PRODUCT_INVALID'
+	| 'PAYMENT_PROVIDER_NOT_AVAILABLE'
+	| 'PAYMENT_PRODUCT_NOT_FOUND'
+	| 'PAYMENT_PROVIDER_PRODUCT_ID_MISSING'
+	| 'PAYMENT_PROVIDER_PRODUCT_NOT_FOUND'
+	| 'PAYMENT_PRODUCT_TYPE_MISMATCH'
+	| 'PAYMENT_USER_NOT_FOUND'
+	| 'PAYMENT_RETURN_PATH_INVALID'
 
-	constructor(code: string) {
-		super(code)
+export class PaymentServiceError extends Error {
+	public readonly code: PaymentServiceErrorCode
+
+	constructor(code: PaymentServiceErrorCode, message?: string) {
+		super(message ?? paymentServiceErrorMessage(code))
 		this.code = code
+	}
+}
+
+function paymentServiceErrorMessage(code: PaymentServiceErrorCode): string {
+	switch (code) {
+		case 'PAYMENT_DISABLED':
+			return 'Payment is disabled'
+		case 'SUBSCRIPTION_NOT_FOUND':
+			return 'Subscription not found'
+		case 'SUBSCRIPTION_ALREADY_CANCELED':
+			return 'Subscription is already canceled'
+		case 'SUBSCRIPTION_NOT_ACTIVE':
+			return 'Subscription is not active'
+		case 'SUBSCRIPTION_TARGET_INVALID':
+			return 'Target subscription product is invalid'
+		case 'SUBSCRIPTION_CURRENT_INVALID':
+			return 'Current subscription product is invalid'
+		case 'SUBSCRIPTION_UPGRADE_NOT_ALLOWED':
+			return 'Subscription upgrade is not allowed'
+		case 'PAYMENT_PROVIDER_PAYMENT_ID_MISSING':
+			return 'Provider payment id is missing'
+		case 'PAYMENT_TRANSACTION_NOT_FOUND':
+			return 'Payment transaction not found'
+		case 'SUBSCRIPTION_PRODUCT_INVALID':
+			return 'Subscription product is invalid'
+		case 'PAYMENT_PROVIDER_NOT_AVAILABLE':
+			return 'Payment provider is not available'
+		case 'PAYMENT_PRODUCT_NOT_FOUND':
+			return 'Payment product not found'
+		case 'PAYMENT_PROVIDER_PRODUCT_ID_MISSING':
+			return 'Payment provider product id is missing'
+		case 'PAYMENT_PROVIDER_PRODUCT_NOT_FOUND':
+			return 'Payment provider product not found'
+		case 'PAYMENT_PRODUCT_TYPE_MISMATCH':
+			return 'Payment product type does not match provider product'
+		case 'PAYMENT_USER_NOT_FOUND':
+			return 'Payment user not found'
+		case 'PAYMENT_RETURN_PATH_INVALID':
+			return 'Payment return path is invalid'
 	}
 }
 

@@ -149,6 +149,7 @@ describe('adminUserMiddleware', () => {
 
 	type GivenDetail = {
 		authorization?: string
+		adminApiToken?: string | null
 		adminUserId?: string
 		sessionUserId?: string
 		sessionUserEmail?: string
@@ -245,6 +246,24 @@ describe('adminUserMiddleware', () => {
 				nextCalled: false,
 				setUserId: ''
 			}
+		},
+		{
+			scenario: 'reject missing configured admin api token',
+			given: 'missing admin api token and bearer undefined authorization',
+			when: 'running admin user middleware',
+			then: 'returns unauthorized',
+			givenDetail: {
+				authorization: 'Bearer undefined',
+				adminApiToken: null,
+				adminUserId: 'admin-user'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 401,
+				code: 'UNAUTHORIZED',
+				nextCalled: false,
+				setUserId: ''
+			}
 		}
 	]
 
@@ -267,6 +286,11 @@ describe('adminUserMiddleware', () => {
 		} as never)
 
 		const state = createContextState('/api/admin/generate_beta_codes', given.authorization)
+		if (given.adminApiToken === null) {
+			delete state.env['ADMIN_API_TOKEN']
+		} else if (given.adminApiToken !== undefined) {
+			state.env['ADMIN_API_TOKEN'] = given.adminApiToken
+		}
 		state.values['metaDb'] = {
 			query: {
 				user: {

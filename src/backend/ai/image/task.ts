@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { aiImageTask, type AIImageTaskRow } from '../../db/schema.shard'
+import { AIError } from '../error'
 import type { TenantShardDb } from '../../db'
 import type {
 	AIImageReference,
@@ -27,7 +28,7 @@ export async function createAIImageTask(
 ): Promise<AIImageTask> {
 	const now = Date.now()
 	const id = crypto.randomUUID()
-	const r2UploadIsPublic = input.r2UploadIsPublic ?? false
+	const r2UploadConfig = resolveR2UploadConfig(input)
 	await db.insert(aiImageTask).values({
 		id,
 		userId,
@@ -40,8 +41,8 @@ export async function createAIImageTask(
 		imageSize: input.imageSize,
 		lowCensorship: input.lowCensorship ? 1 : 0,
 		uploadToR2: input.uploadToR2 ? 1 : 0,
-		r2UploadDir: input.r2UploadDir,
-		r2UploadIsPublic: r2UploadIsPublic ? 1 : 0,
+		r2UploadDir: r2UploadConfig?.dir,
+		r2UploadIsPublic: r2UploadConfig?.isPublic ? 1 : 0,
 		referencesJson: JSON.stringify(input.references ?? []),
 		createdAt: now,
 		updatedAt: now
@@ -64,12 +65,30 @@ export async function createAIImageTask(
 		imageSize: input.imageSize,
 		lowCensorship: input.lowCensorship ?? false,
 		uploadToR2: input.uploadToR2 ?? false,
-		r2UploadDir: input.r2UploadDir,
-		r2UploadIsPublic,
+		r2UploadDir: r2UploadConfig?.dir,
+		r2UploadIsPublic: r2UploadConfig?.isPublic ?? false,
 		references: input.references ?? [],
 		attemptCount: 0,
 		createdAt: now,
 		updatedAt: now
+	}
+}
+
+function resolveR2UploadConfig(
+	input: AISimpleImageClientGenerateInput
+): { dir: string; isPublic: boolean } | undefined {
+	if (!input.uploadToR2) {
+		return undefined
+	}
+	if (!input.r2UploadDir) {
+		throw new AIError('AI_IMAGE_R2_UPLOAD_DIR_REQUIRED')
+	}
+	if (input.r2UploadIsPublic === undefined) {
+		throw new AIError('AI_IMAGE_R2_UPLOAD_IS_PUBLIC_REQUIRED')
+	}
+	return {
+		dir: input.r2UploadDir,
+		isPublic: input.r2UploadIsPublic
 	}
 }
 

@@ -15,6 +15,7 @@ export function logWarn(
 	const resolvedError = normalizeError(error)
 	console.warn(JSON.stringify({
 		message: resolvedError.message,
+		error: resolvedError,
 		fields
 	}))
 }
@@ -26,13 +27,35 @@ export function logError(
 	const resolvedError = normalizeError(error)
 	console.error(JSON.stringify({
 		message: resolvedError.message,
+		error: resolvedError,
 		fields
 	}))
 }
 
-function normalizeError(error: unknown): Error {
+type NormalizedError = {
+	name: string
+	message: string
+	code?: string
+	stack?: string
+}
+
+function normalizeError(error: unknown): NormalizedError {
 	if (error instanceof Error) {
-		return error
+		const record = error as Error & { code?: unknown }
+		const normalized: NormalizedError = {
+			name: error.name,
+			message: error.message
+		}
+		if (typeof record.code === 'string') {
+			normalized.code = record.code
+		}
+		if (error.stack) {
+			normalized.stack = error.stack
+		}
+		return normalized
 	}
-	return new Error(String(error))
+	return {
+		name: 'Error',
+		message: String(error)
+	}
 }

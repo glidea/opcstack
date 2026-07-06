@@ -1,4 +1,5 @@
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
 import { resolveImageReferences } from '../reference'
@@ -13,6 +14,8 @@ import type {
 	AISimpleImageClientGenerateInput,
 	AISimpleImageClientOptions
 } from '..'
+
+type R2Env = Env & { R2: R2Bucket }
 
 export interface AliyunNativeImageClient {
 	baseURL: string
@@ -34,8 +37,6 @@ export function createAliyunSimpleImageClient(
 ): AISimpleImageClient {
 	return new aliyunSimpleImageClient(env, userId, tenantDb, options)
 }
-
-type R2Env = Env & { R2: R2Bucket }
 
 interface AliyunImageRequest {
 	model: string
@@ -125,7 +126,10 @@ class aliyunSimpleImageClient implements AISimpleImageClient {
 				body: JSON.stringify(request)
 			})
 			if (!response.ok) {
-				throw new Error(`ALIYUN_IMAGE_GENERATION_FAILED: ${response.status}`)
+				throw new AIError(
+					'ALIYUN_IMAGE_GENERATION_FAILED',
+					`Aliyun image generation failed: ${response.status}`
+				)
 			}
 			return response
 		})
@@ -146,29 +150,29 @@ class aliyunSimpleImageClient implements AISimpleImageClient {
 
 function validateInput(model: string, input: AISimpleImageClientGenerateInput): void {
 	if (input.lowCensorship) {
-		throw new Error('ALIYUN_LOW_CENSORSHIP_UNSUPPORTED')
+		throw new AIError('ALIYUN_LOW_CENSORSHIP_UNSUPPORTED')
 	}
 	if (input.imageSize === '4K') {
-		throw new Error('UNSUPPORTED_ALIYUN_IMAGE_SIZE: 4K')
+		throw new AIError('UNSUPPORTED_ALIYUN_IMAGE_SIZE', 'Aliyun image size is unsupported: 4K')
 	}
 
 	const referenceCount: number = input.references?.length ?? 0
 	switch (model) {
 		case 'qwen-image-2.0-pro':
 			if ((input.numberOfImages ?? 1) > 6) {
-				throw new Error('ALIYUN_QWEN_NUMBER_OF_IMAGES_UNSUPPORTED')
+				throw new AIError('ALIYUN_QWEN_NUMBER_OF_IMAGES_UNSUPPORTED')
 			}
 			return
 		case 'z-image-turbo':
 			if (referenceCount > 0) {
-				throw new Error('ALIYUN_Z_IMAGE_REFERENCES_UNSUPPORTED')
+				throw new AIError('ALIYUN_Z_IMAGE_REFERENCES_UNSUPPORTED')
 			}
 			if ((input.numberOfImages ?? 1) > 1) {
-				throw new Error('ALIYUN_Z_IMAGE_NUMBER_OF_IMAGES_UNSUPPORTED')
+				throw new AIError('ALIYUN_Z_IMAGE_NUMBER_OF_IMAGES_UNSUPPORTED')
 			}
 			return
 		default:
-			throw new Error(`UNSUPPORTED_ALIYUN_IMAGE_MODEL: ${model}`)
+			throw new AIError('UNSUPPORTED_ALIYUN_IMAGE_MODEL', `Aliyun image model is unsupported: ${model}`)
 	}
 }
 
@@ -222,7 +226,7 @@ function toAliyunImageInput(
 function toAliyunImageSize(input: AISimpleImageClientGenerateInput): string {
 	const imageSize: AIImageSize = input.imageSize ?? '1K'
 	if (imageSize === '4K') {
-		throw new Error('UNSUPPORTED_ALIYUN_IMAGE_SIZE: 4K')
+		throw new AIError('UNSUPPORTED_ALIYUN_IMAGE_SIZE', 'Aliyun image size is unsupported: 4K')
 	}
 
 	const aspectRatio: AIImageAspectRatio = input.aspectRatio ?? '1:1'
@@ -251,7 +255,10 @@ async function downloadImageResults(results: AliyunImageOutput[]): Promise<AIIma
 	for (const result of results) {
 		const response: Response = await fetch(result.url)
 		if (!response.ok) {
-			throw new Error(`ALIYUN_IMAGE_DOWNLOAD_FAILED: ${response.status}`)
+			throw new AIError(
+				'ALIYUN_IMAGE_DOWNLOAD_FAILED',
+				`Aliyun image download failed: ${response.status}`
+			)
 		}
 
 		outputs.push({
@@ -271,7 +278,10 @@ function toSupportedMimeType(contentType: string | null): string {
 		return contentType
 	}
 
-	throw new Error(`ALIYUN_UNSUPPORTED_IMAGE_MIME_TYPE: ${contentType}`)
+	throw new AIError(
+		'ALIYUN_UNSUPPORTED_IMAGE_MIME_TYPE',
+		`Aliyun image MIME type is unsupported: ${contentType}`
+	)
 }
 
 async function uploadImageResults(
@@ -283,13 +293,19 @@ async function uploadImageResults(
 	if (!input.uploadToR2) {
 		return outputs
 	}
+	if (!input.r2UploadDir) {
+		throw new AIError('AI_IMAGE_R2_UPLOAD_DIR_REQUIRED')
+	}
+	if (input.r2UploadIsPublic === undefined) {
+		throw new AIError('AI_IMAGE_R2_UPLOAD_IS_PUBLIC_REQUIRED')
+	}
 
 	const client = createR2Client(env as R2Env, userId)
 	for (const output of outputs) {
-		output.r2 = await client.putImage({
-			dir: input.r2UploadDir ?? 'images',
-			imageBase64: output.imageBase64,
-			mimeType: output.mimeType,
+		output.r2 = await client.put({
+			dir: input.r2UploadDir,
+			body: base64ToBytes(output.imageBase64),
+			contentType: output.mimeType,
 			isPublic: input.r2UploadIsPublic
 		})
 	}
@@ -304,4 +320,13 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 		raw += String.fromCharCode(byte)
 	}
 	return btoa(raw)
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+	const raw = atob(base64)
+	const bytes = new Uint8Array(raw.length)
+	for (let index = 0; index < raw.length; index += 1) {
+		bytes[index] = raw.charCodeAt(index)
+	}
+	return bytes
 }

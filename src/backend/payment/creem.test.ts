@@ -7,6 +7,7 @@ import {
 	type CreemClient,
 	type CreemClientOptions
 } from './creem'
+import { PaymentProviderError } from './contract'
 
 describe('CreemPaymentProvider.listProducts', () => {
 	beforeEach(() => {
@@ -399,7 +400,7 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 			}
 		} catch (error) {
 			return {
-				errorCode: error instanceof Error ? error.message : 'UNKNOWN',
+				errorCode: error instanceof PaymentProviderError ? error.code : 'UNKNOWN',
 				eventType: '',
 				providerPaymentId: '',
 				providerRefundId: '',

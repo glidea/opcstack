@@ -139,7 +139,7 @@ describe('createResendSimpleEmailClient.send', () => {
 				html: '<a href="https://app/reset">https://app/reset</a>'
 			},
 			thenExpected: {
-				error: 'EMAIL_SEND_FAILED:429',
+				error: 'Email send failed: 429',
 				sendCallCount: 1,
 				from: 'openstack@glidea.app',
 				to: 'u2@example.com',

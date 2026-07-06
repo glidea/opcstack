@@ -2,6 +2,7 @@ import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
 	createR2Client,
+	R2Error,
 	verifyR2Origin,
 	type R2Client,
 	type R2GetResult,
@@ -71,7 +72,7 @@ async function readR2Object(
 export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, CreateR2TmpUploadUrlRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	try {
@@ -92,17 +93,9 @@ export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise
 			expires_at: result.expiresAt
 		} as CreateR2UploadUrlResponse)
 	} catch (error) {
-		if (error instanceof Error && error.message === 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED') {
-			return ctx.json({ code: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED' }, 500)
-		}
-		if (error instanceof Error && error.message === 'R2_NOT_CONFIGURED') {
-			return ctx.json({ code: 'R2_NOT_CONFIGURED' }, 500)
-		}
-		if (error instanceof Error && error.message === 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED') {
-			return ctx.json({ code: 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED' }, 400)
-		}
-		if (error instanceof Error && error.message === 'R2_USER_UPLOAD_SIZE_TOO_LARGE') {
-			return ctx.json({ code: 'R2_USER_UPLOAD_SIZE_TOO_LARGE' }, 400)
+		const handled: Response | undefined = mapR2UploadError(ctx, error)
+		if (handled) {
+			return handled
 		}
 		throw error
 	}
@@ -111,7 +104,7 @@ export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise
 export async function createR2UploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, CreateR2UploadUrlRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	try {
@@ -130,17 +123,9 @@ export async function createR2UploadUrlHandler(ctx: Context<ApiEnv>): Promise<Re
 			expires_at: result.expiresAt
 		} as CreateR2UploadUrlResponse)
 	} catch (error) {
-		if (error instanceof Error && error.message === 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED') {
-			return ctx.json({ code: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED' }, 500)
-		}
-		if (error instanceof Error && error.message === 'R2_NOT_CONFIGURED') {
-			return ctx.json({ code: 'R2_NOT_CONFIGURED' }, 500)
-		}
-		if (error instanceof Error && error.message === 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED') {
-			return ctx.json({ code: 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED' }, 400)
-		}
-		if (error instanceof Error && error.message === 'R2_USER_UPLOAD_SIZE_TOO_LARGE') {
-			return ctx.json({ code: 'R2_USER_UPLOAD_SIZE_TOO_LARGE' }, 400)
+		const handled: Response | undefined = mapR2UploadError(ctx, error)
+		if (handled) {
+			return handled
 		}
 		throw error
 	}
@@ -255,9 +240,23 @@ function privateOwner(key: string): string | undefined {
 	return remaining.slice(0, index)
 }
 
+function mapR2UploadError(ctx: Context<ApiEnv>, error: unknown): Response | undefined {
+	if (!(error instanceof R2Error)) {
+		return undefined
+	}
+
+	switch (error.code) {
+		case 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED':
+		case 'R2_USER_UPLOAD_SIZE_TOO_LARGE':
+			return ctx.json({ code: error.code, message: error.message }, 400)
+		default:
+			return undefined
+	}
+}
+
 function toR2Response(ctx: Context<ApiEnv>, result: R2GetResult): Response {
 	if (result.status === 'unavailable') {
-		return ctx.json({}, 500)
+		throw new R2Error('R2_NOT_CONFIGURED')
 	}
 	if (result.status === 'forbidden') {
 		return ctx.json({}, 403)

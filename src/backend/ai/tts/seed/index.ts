@@ -1,4 +1,5 @@
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
 import { createAITTSSourceTask, createAITTSTask, getAITTSTask } from '../task'
@@ -114,7 +115,7 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 				body: JSON.stringify(toSeedRequest(this.userId, this.model, input))
 			})
 			if (!response.ok) {
-				throw new Error('SEED_TTS_FAILED')
+				throw new AIError('SEED_TTS_FAILED')
 			}
 			return response
 		})
@@ -138,7 +139,7 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 
 	async generateSpeechFromSource(input: AITTSSourceInput): Promise<AITTSResult> {
 		if (this.model !== SEED_TTS_MODEL_DOUBAO_SEED_PODCAST) {
-			throw new Error('TTS_SOURCE_NOT_SUPPORTED')
+			throw new AIError('TTS_SOURCE_NOT_SUPPORTED')
 		}
 
 		return generateSeedPodcast(this.endpoints, this.env, this.userId, toSeedPodcastSourceRequest(input), input.uploadToR2)
@@ -150,7 +151,7 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 
 	async generateSpeechFromSourceAsync(input: AITTSSourceInput): Promise<AITTSTask> {
 		if (this.model !== SEED_TTS_MODEL_DOUBAO_SEED_PODCAST) {
-			throw new Error('TTS_SOURCE_NOT_SUPPORTED')
+			throw new AIError('TTS_SOURCE_NOT_SUPPORTED')
 		}
 
 		return createAITTSSourceTask(this.env, this.tenantDb, 'seed', this.model, this.userId, input)
@@ -226,7 +227,7 @@ async function generateSeedPodcast(
 
 export function toSeedPodcastScriptRequest(input: AITTSSpeechInput): SeedPodcastRequest {
 	if (input.speakers.length !== 2) {
-		throw new Error('INVALID_SPEAKER_COUNT')
+		throw new AIError('INVALID_SPEAKER_COUNT')
 	}
 
 	return {
@@ -347,7 +348,7 @@ async function openSeedPodcastSocket(endpoint: AIEndpoint, requestId: string): P
 		}
 	})
 	if (response.status !== 101 || !response.webSocket) {
-		throw new Error('SEED_PODCAST_CONNECT_FAILED')
+		throw new AIError('SEED_PODCAST_CONNECT_FAILED')
 	}
 
 	const socket: WebSocket = response.webSocket
@@ -390,13 +391,13 @@ function bytesToBase64(bytes: Uint8Array): string {
 
 function validateInput(input: AITTSSpeechInput): void {
 	if (input.speakers.length !== 1) {
-		throw new Error('INVALID_SPEAKER_COUNT')
+		throw new AIError('INVALID_SPEAKER_COUNT')
 	}
 
 	const speakerNames = new Set(input.speakers.map((speaker) => speaker.name))
 	for (const line of input.lines) {
 		if (!speakerNames.has(line.speakerName)) {
-			throw new Error(`UNKNOWN_SPEAKER: ${line.speakerName}`)
+			throw new AIError('UNKNOWN_SPEAKER', `Speaker is unknown: ${line.speakerName}`)
 		}
 	}
 }
@@ -442,7 +443,7 @@ function toSeedText(input: AITTSSpeechInput): string {
 async function readAudioBase64(response: Response): Promise<string> {
 	const reader = response.body?.getReader()
 	if (!reader) {
-		throw new Error('SEED_TTS_FAILED')
+		throw new AIError('SEED_TTS_FAILED')
 	}
 
 	const decoder = new TextDecoder()
@@ -478,7 +479,7 @@ function parseSeedLine(line: string): string {
 
 	const chunk = JSON.parse(trimmed) as SeedChunk
 	if (chunk.code !== 0 && chunk.code !== 20000000) {
-		throw new Error(chunk.message || 'SEED_TTS_FAILED')
+		throw new AIError('SEED_TTS_FAILED', chunk.message || 'Seed TTS failed')
 	}
 	return chunk.data ?? ''
 }

@@ -28,7 +28,7 @@ export const emailAuthMiddleware: MiddlewareHandler<ApiEnv> = async (
 	next
 ): Promise<Response | void> => {
 	if (ctx.req.path === emailOtpSignInRoute) {
-		return ctx.json({ code: 'EMAIL_OTP_SIGN_IN_DISABLED' }, 400)
+		return ctx.json({ code: 'EMAIL_OTP_SIGN_IN_DISABLED', message: 'Email OTP sign-in is disabled' }, 400)
 	}
 
 	const scene = resolveEmailActionScene(ctx.req.path)
@@ -38,12 +38,12 @@ export const emailAuthMiddleware: MiddlewareHandler<ApiEnv> = async (
 
 	const body = await parseAuthEmailBody(ctx.req.raw)
 	if (scene === 'send_verification_email' && body.type === 'sign-in') {
-		return ctx.json({ code: 'EMAIL_OTP_SIGN_IN_DISABLED' }, 400)
+		return ctx.json({ code: 'EMAIL_OTP_SIGN_IN_DISABLED', message: 'Email OTP sign-in is disabled' }, 400)
 	}
 
 	const emailSignupEnabled = ctx.env.EMAIL_SIGNUP_ENABLED === 'true'
 	if (scene === 'signup' && !emailSignupEnabled) {
-		return ctx.json({ code: 'EMAIL_SIGNUP_DISABLED' }, 400)
+		return ctx.json({ code: 'EMAIL_SIGNUP_DISABLED', message: 'Email signup is disabled' }, 400)
 	}
 
 	const signupDomainAllowlist = ctx.env.EMAIL_SIGNUP_DOMAIN_ALLOWLIST
@@ -60,7 +60,7 @@ export const emailAuthMiddleware: MiddlewareHandler<ApiEnv> = async (
 		email &&
 		!isEmailDomainAllowed(email, signupDomainAllowlist)
 	) {
-		return ctx.json({ code: 'EMAIL_DOMAIN_NOT_ALLOWED' }, 400)
+		return ctx.json({ code: 'EMAIL_DOMAIN_NOT_ALLOWED', message: 'Email domain is not allowed' }, 400)
 	}
 
 	if (!email) {
@@ -71,13 +71,13 @@ export const emailAuthMiddleware: MiddlewareHandler<ApiEnv> = async (
 	const now = Date.now()
 	const localExpiresAt = localCooldownStore.get(key) ?? 0
 	if (localExpiresAt > now) {
-		return ctx.json({ code: 'EMAIL_ACTION_RATE_LIMITED' }, 429)
+		return ctx.json({ code: 'EMAIL_ACTION_RATE_LIMITED', message: 'Email action is rate limited' }, 429)
 	}
 
 	const existing = await ctx.env.KV.get(key)
 	if (isCooldownActive(existing)) {
 		localCooldownStore.set(key, now + userActionCooldownSeconds * 1000)
-		return ctx.json({ code: 'EMAIL_ACTION_RATE_LIMITED' }, 429)
+		return ctx.json({ code: 'EMAIL_ACTION_RATE_LIMITED', message: 'Email action is rate limited' }, 429)
 	}
 
 	const cooldownExpiresAt = now + userActionCooldownSeconds * 1000

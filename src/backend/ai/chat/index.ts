@@ -1,5 +1,6 @@
 import type { z } from 'zod'
 import type OpenAI from 'openai'
+import { AIError } from '../error'
 import { createOpenAISimpleChatClient, createOpenAINativeChatClient } from './openai'
 
 export interface AIClients {
@@ -16,7 +17,7 @@ export function createAIClients(env: Env, options: AIChatClientOptions = {}): AI
         }
     }
 
-    throw new Error(`UNSUPPORTED_AI_PROVIDER: ${provider}`)
+    throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${provider}`)
 }
 
 export interface AISimpleChatClient {

@@ -31,8 +31,13 @@ export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Respon
 			invited_count: summary.invitedCount
 		} as GetAffSummaryResponse)
 	} catch (error) {
-		if (error instanceof AffError && error.code === 'AFF_USER_NOT_FOUND') {
-			return ctx.json({ code: error.code }, 404)
+		if (error instanceof AffError) {
+			switch (error.code) {
+				case 'AFF_USER_NOT_FOUND':
+					return ctx.json({ code: error.code, message: error.message }, 404)
+				default:
+					break
+			}
 		}
 		throw error
 	}
@@ -46,7 +51,7 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 
 	const req = await parseRequest(ctx, BindAffRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_AFF_CODE' }, 400)
+		return ctx.json({ code: 'INVALID_AFF_CODE', message: 'Affiliate code is invalid' }, 400)
 	}
 
 	const inviterAmount: number = parseDecimal(env.AFF_INVITER_CREDIT_AMOUNT)
@@ -87,11 +92,13 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 		return ctx.json({})
 	} catch (error) {
 		if (error instanceof AffError) {
-			if (error.code === 'INVALID_AFF_CODE') {
-				return ctx.json({ code: error.code }, 400)
-			}
-			if (error.code === 'AFF_ALREADY_BOUND') {
-				return ctx.json({ code: error.code }, 409)
+			switch (error.code) {
+				case 'INVALID_AFF_CODE':
+					return ctx.json({ code: error.code, message: error.message }, 400)
+				case 'AFF_ALREADY_BOUND':
+					return ctx.json({ code: error.code, message: error.message }, 409)
+				default:
+					break
 			}
 		}
 		throw error

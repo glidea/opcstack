@@ -983,7 +983,7 @@ describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 				sourceId: 'job-2',
 				description: 'paid action test',
 				execute: async (): Promise<void> => {
-					throw new CreditsError('BUSINESS_FAILED')
+					throw new Error('BUSINESS_FAILED')
 				}
 			})
 			return {
@@ -994,7 +994,7 @@ describe('CreditsService.deduct and CreditsService.runPaidAction', () => {
 			}
 		} catch (error) {
 			return {
-				errorCode: error instanceof CreditsError ? error.code : 'UNKNOWN',
+				errorCode: error instanceof Error ? error.message : 'UNKNOWN',
 				nextBalance: 0,
 				batchCalled: db._deductState.batchCalled,
 				duplicated: false

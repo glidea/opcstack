@@ -9,7 +9,7 @@ import {
 	listCreditTransactionsHandler,
 	redeemCreditCodeHandler
 } from './credits'
-import { CreditsError } from '../../credits'
+import { CreditsError, type CreditsErrorCode } from '../../credits'
 import type { ListCreditTransactionsRequest } from '../../../api-contract/credits'
 
 const creditServiceMocks = vi.hoisted(() => {
@@ -84,7 +84,7 @@ describe('getCreditSummaryHandler', () => {
 
 	type GivenDetail = {
 		dailyCheckinAmount: string
-		summaryErrorCode: string
+		summaryErrorCode: '' | CreditsErrorCode
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -170,7 +170,7 @@ describe('dailyCheckinHandler', () => {
 	type GivenDetail = {
 		enabled: string
 		amount: string
-		errorCode: string
+		errorCode: '' | CreditsErrorCode
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -448,7 +448,7 @@ describe('redeemCreditCodeHandler', () => {
 
 	type GivenDetail = {
 		body: unknown
-		errorCode: string
+		errorCode: '' | CreditsErrorCode
 		grantError: string
 		duplicatedGrant: boolean
 	}
@@ -628,7 +628,7 @@ describe('grantCreditsHandler', () => {
 	type GivenDetail = {
 		body: unknown
 		duplicated: boolean
-		errorCode: string
+		errorCode: '' | CreditsErrorCode
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {

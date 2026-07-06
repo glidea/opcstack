@@ -20,9 +20,9 @@ const {
 	generateMock,
 	editMock,
 	toFileMock,
-	r2PutImageMock,
+	r2PutMock,
 	r2GetMock,
-	r2GetVariantBytesMock,
+	r2GetImageVariantMock,
 	createR2ClientMock
 } = vi.hoisted(() => {
 	return {
@@ -30,9 +30,9 @@ const {
 		generateMock: vi.fn(),
 		editMock: vi.fn(),
 		toFileMock: vi.fn(),
-		r2PutImageMock: vi.fn(),
+		r2PutMock: vi.fn(),
 		r2GetMock: vi.fn(),
-		r2GetVariantBytesMock: vi.fn(),
+		r2GetImageVariantMock: vi.fn(),
 		createR2ClientMock: vi.fn()
 	}
 })
@@ -62,9 +62,9 @@ vi.mock('openai', () => {
 vi.mock('../../../r2', () => {
 	createR2ClientMock.mockImplementation(() => {
 		return {
-			putImage: r2PutImageMock,
+			put: r2PutMock,
 			get: r2GetMock,
-			getImageVariantBytes: r2GetVariantBytesMock
+			getImageVariant: r2GetImageVariantMock
 		}
 	})
 	return {
@@ -103,7 +103,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 		firstR2PutDir: string
 		firstR2PutIsPublic: boolean
 		r2GetCalls: number
-		r2GetVariantBytesCalls: number
+		r2GetImageVariantCalls: number
 		firstR2Key: string
 	}
 
@@ -147,7 +147,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: ''
 			}
 		},
@@ -187,7 +187,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: ''
 			}
 		},
@@ -230,7 +230,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: ''
 			}
 		},
@@ -241,7 +241,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 			then: 'attaches r2 key in output',
 			givenDetail: {
 				envModel: 'env-model',
-				generateEvents: [{ type: 'image_generation.completed', b64_json: 'd', output_format: 'png' }],
+				generateEvents: [{ type: 'image_generation.completed', b64_json: 'ZA==', output_format: 'png' }],
 				r2Results: [{ key: 'public/images/1.png', url: 'http://localhost:5173/api/r2/public/images/1.png' }]
 			},
 			whenDetail: {
@@ -271,7 +271,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 				firstR2PutDir: 'custom/images',
 				firstR2PutIsPublic: true,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: 'public/images/1.png'
 			}
 		},
@@ -310,7 +310,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				r2GetCalls: 1,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: ''
 			}
 		}
@@ -324,7 +324,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 		toFileMock.mockResolvedValue({ name: 'ref.png' } as unknown as File)
 
 		let r2Index = 0
-		r2PutImageMock.mockImplementation(async () => {
+		r2PutMock.mockImplementation(async () => {
 			const result = given.r2Results?.[r2Index]
 			r2Index += 1
 			return result ?? { key: '', url: '' }
@@ -339,9 +339,14 @@ describe('createOpenAISimpleImageClient.generate', () => {
 			}),
 			contentType: 'image/png'
 		})
-		r2GetVariantBytesMock.mockResolvedValue({
+		r2GetImageVariantMock.mockResolvedValue({
 			status: 'ok',
-			body: new TextEncoder().encode('variant').buffer,
+			body: new ReadableStream<Uint8Array>({
+				start(controller): void {
+					controller.enqueue(new TextEncoder().encode('variant'))
+					controller.close()
+				}
+			}),
 			contentType: 'image/png'
 		})
 
@@ -385,13 +390,13 @@ describe('createOpenAISimpleImageClient.generate', () => {
 			generateCalled: generateMock.mock.calls.length,
 			editCalled: editMock.mock.calls.length,
 			toFileCalls: toFileMock.mock.calls.length,
-			r2PutCalls: r2PutImageMock.mock.calls.length,
+			r2PutCalls: r2PutMock.mock.calls.length,
 			firstR2PutDir:
-				(r2PutImageMock.mock.calls[0]?.[0] as { dir?: string } | undefined)?.dir ?? '',
+				(r2PutMock.mock.calls[0]?.[0] as { dir?: string } | undefined)?.dir ?? '',
 			firstR2PutIsPublic:
-				(r2PutImageMock.mock.calls[0]?.[0] as { isPublic?: boolean } | undefined)?.isPublic ?? false,
+				(r2PutMock.mock.calls[0]?.[0] as { isPublic?: boolean } | undefined)?.isPublic ?? false,
 			r2GetCalls: r2GetMock.mock.calls.length,
-			r2GetVariantBytesCalls: r2GetVariantBytesMock.mock.calls.length,
+			r2GetImageVariantCalls: r2GetImageVariantMock.mock.calls.length,
 			firstR2Key: outputs[0]?.r2?.key ?? ''
 		}
 	})

@@ -78,7 +78,7 @@ describe('bindBetaCodeHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				body: { code: 'INVALID_BETA_CODE' }
+				body: { code: 'INVALID_BETA_CODE', message: 'Beta code is invalid' }
 			}
 		},
 		{
@@ -114,7 +114,7 @@ describe('bindBetaCodeHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 409,
-				body: { code: 'BETA_CODE_ALREADY_BOUND' }
+				body: { code: 'BETA_CODE_ALREADY_BOUND', message: 'Beta code is already bound' }
 			}
 		},
 		{
@@ -132,7 +132,7 @@ describe('bindBetaCodeHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				body: { code: 'INVALID_BETA_CODE' }
+				body: { code: 'INVALID_BETA_CODE', message: 'Beta code is invalid' }
 			}
 		}
 	]

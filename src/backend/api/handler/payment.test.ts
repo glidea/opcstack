@@ -12,6 +12,8 @@ import {
 	listPaymentTransactionsHandler,
 	upgradeSubscriptionHandler
 } from './payment'
+import { PaymentProviderError, type PaymentProviderErrorCode } from '../../payment/contract'
+import type { PaymentServiceErrorCode } from '../../payment'
 
 const paymentServiceMocks = vi.hoisted(() => {
 	return {
@@ -103,7 +105,7 @@ describe('createPaymentCheckoutHandler', () => {
 
 	type GivenDetail = {
 		body: unknown
-		errorCode: string
+		errorCode: '' | PaymentServiceErrorCode
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -381,7 +383,7 @@ describe('dodoWebhookHandler', () => {
 	})
 
 	type GivenDetail = {
-		signatureError: string
+		signatureError: '' | PaymentProviderErrorCode
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -422,7 +424,9 @@ describe('dodoWebhookHandler', () => {
 
 	runCases(cases, async (given) => {
 		if (given.signatureError !== '') {
-			vi.mocked(paymentServiceMocks.processWebhook).mockRejectedValue(new Error(given.signatureError))
+			vi.mocked(paymentServiceMocks.processWebhook).mockRejectedValue(
+				new PaymentProviderError(given.signatureError)
+			)
 		} else {
 			vi.mocked(paymentServiceMocks.processWebhook).mockResolvedValue(undefined)
 		}

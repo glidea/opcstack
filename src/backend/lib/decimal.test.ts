@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { addUnits, formatDecimal, parseDecimal, subtractUnits } from './decimal'
+import { addUnits, DecimalError, formatDecimal, parseDecimal, subtractUnits } from './decimal'
 
 describe('parseDecimal', () => {
 	test('parses integer text into scaled units', () => {
@@ -12,10 +12,10 @@ describe('parseDecimal', () => {
 	})
 
 	test('rejects invalid decimal text', () => {
-		expect(() => parseDecimal('0')).toThrow('INVALID_DECIMAL')
-		expect(() => parseDecimal('1.0000001')).toThrow('INVALID_DECIMAL')
-		expect(() => parseDecimal('1.')).toThrow('INVALID_DECIMAL')
-		expect(() => parseDecimal('-1')).toThrow('INVALID_DECIMAL')
+		expectErrorCode(() => parseDecimal('0'), 'INVALID_DECIMAL')
+		expectErrorCode(() => parseDecimal('1.0000001'), 'INVALID_DECIMAL')
+		expectErrorCode(() => parseDecimal('1.'), 'INVALID_DECIMAL')
+		expectErrorCode(() => parseDecimal('-1'), 'INVALID_DECIMAL')
 	})
 })
 
@@ -34,7 +34,19 @@ describe('unit arithmetic', () => {
 	})
 
 	test('rejects unsafe integer results', () => {
-		expect(() => addUnits(Number.MAX_SAFE_INTEGER, 1)).toThrow('DECIMAL_OVERFLOW')
-		expect(() => subtractUnits(Number.MIN_SAFE_INTEGER, 1)).toThrow('DECIMAL_OVERFLOW')
+		expectErrorCode(() => addUnits(Number.MAX_SAFE_INTEGER, 1), 'DECIMAL_OVERFLOW')
+		expectErrorCode(() => subtractUnits(Number.MIN_SAFE_INTEGER, 1), 'DECIMAL_OVERFLOW')
 	})
 })
+
+function expectErrorCode(fn: () => void, code: DecimalError['code']): void {
+	try {
+		fn()
+	} catch (error) {
+		expect(error).toBeInstanceOf(DecimalError)
+		expect((error as DecimalError).code).toBe(code)
+		return
+	}
+
+	throw new Error('Expected DecimalError')
+}

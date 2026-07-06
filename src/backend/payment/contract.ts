@@ -27,6 +27,37 @@ export type PaymentEventType =
 	| typeof PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE
 	| typeof PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED
 
+export type PaymentProviderErrorCode =
+	| 'PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID'
+	| 'DODO_WEBHOOK_SIGNATURE_INVALID'
+	| 'DODO_EVENT_TYPE_UNSUPPORTED'
+	| 'CREEM_WEBHOOK_SIGNATURE_INVALID'
+	| 'CREEM_EVENT_TYPE_UNSUPPORTED'
+
+export class PaymentProviderError extends Error {
+	public readonly code: PaymentProviderErrorCode
+
+	constructor(code: PaymentProviderErrorCode, message?: string) {
+		super(message ?? paymentProviderErrorMessage(code))
+		this.code = code
+	}
+}
+
+function paymentProviderErrorMessage(code: PaymentProviderErrorCode): string {
+	switch (code) {
+		case 'PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID':
+			return 'Payment provider product config is invalid'
+		case 'DODO_WEBHOOK_SIGNATURE_INVALID':
+			return 'Dodo webhook signature is invalid'
+		case 'DODO_EVENT_TYPE_UNSUPPORTED':
+			return 'Dodo event type is unsupported'
+		case 'CREEM_WEBHOOK_SIGNATURE_INVALID':
+			return 'Creem webhook signature is invalid'
+		case 'CREEM_EVENT_TYPE_UNSUPPORTED':
+			return 'Creem event type is unsupported'
+	}
+}
+
 export interface PaymentProvider {
 	readonly name: PaymentProviderName
 

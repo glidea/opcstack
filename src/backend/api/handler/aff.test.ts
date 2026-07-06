@@ -1,6 +1,6 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
-import { AffError } from '../../aff'
+import { AffError, type AffErrorCode } from '../../aff'
 import { bindAffHandler, getAffSummaryHandler } from './aff'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
@@ -80,7 +80,7 @@ describe('getAffSummaryHandler', () => {
 
 	type GivenDetail = {
 		enabled: string
-		errorCode: string
+		errorCode: '' | AffErrorCode
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -193,7 +193,7 @@ describe('bindAffHandler', () => {
 		body: { aff_code: string } | null
 		inviterAmount: string
 		inviteeAmount: string
-		errorCode: string
+		errorCode: '' | AffErrorCode
 		inviterGrantedAt: number | null
 	}
 	type WhenDetail = Record<string, never>

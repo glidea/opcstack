@@ -218,12 +218,40 @@ export interface CleanupCreditTransactionsResult {
 	deletedRows: number
 }
 
-export class CreditsError extends Error {
-	public readonly code: string
+export type CreditsErrorCode =
+	| 'INVALID_GENERATE_COUNT'
+	| 'INVALID_CREDIT_CODE'
+	| 'CREDIT_CODE_USED'
+	| 'CREDIT_USER_NOT_FOUND'
+	| 'DAILY_CHECKIN_ALREADY_DONE'
+	| 'INSUFFICIENT_CREDITS'
+	| 'INVALID_CREDIT_AMOUNT'
 
-	constructor(code: string) {
-		super(code)
+export class CreditsError extends Error {
+	public readonly code: CreditsErrorCode
+
+	constructor(code: CreditsErrorCode, message?: string) {
+		super(message ?? creditsErrorMessage(code))
 		this.code = code
+	}
+}
+
+function creditsErrorMessage(code: CreditsErrorCode): string {
+	switch (code) {
+		case 'INVALID_GENERATE_COUNT':
+			return 'Generate count is invalid'
+		case 'INVALID_CREDIT_CODE':
+			return 'Credit code is invalid'
+		case 'CREDIT_CODE_USED':
+			return 'Credit code has already been used'
+		case 'CREDIT_USER_NOT_FOUND':
+			return 'Credit user not found'
+		case 'DAILY_CHECKIN_ALREADY_DONE':
+			return 'Daily check-in has already been completed'
+		case 'INSUFFICIENT_CREDITS':
+			return 'Credits are insufficient'
+		case 'INVALID_CREDIT_AMOUNT':
+			return 'Credit amount is invalid'
 	}
 }
 

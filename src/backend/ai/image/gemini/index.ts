@@ -5,6 +5,7 @@ import {
 	type GenerateContentResponse
 } from '@google/genai'
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
 import { resolveImageReferences } from '../reference'
@@ -17,6 +18,8 @@ import type {
 	AIImageTask,
 	AIInlineImageReference
 } from '..'
+
+type R2Env = Env & { R2: R2Bucket }
 
 export function createGeminiNativeImageClient(env: Env): GoogleGenAI {
 	return new GoogleGenAI({
@@ -33,8 +36,6 @@ export function createGeminiSimpleImageClient(
 ): AISimpleImageClient {
 	return new geminiSimpleImageClient(env, userId, tenantDb, options)
 }
-
-type R2Env = Env & { R2: R2Bucket }
 
 class geminiSimpleImageClient implements AISimpleImageClient {
 	private readonly endpoints: AIEndpoint[]
@@ -119,26 +120,52 @@ async function toImageResults(
 				continue
 			}
 
-			const output: AIImageResult = {
+			outputs.push({
 				imageBase64: part.inlineData.data ?? '',
 				mimeType: part.inlineData.mimeType ?? ''
-			}
-
-			if (input.uploadToR2) {
-				const client = createR2Client(env as R2Env, userId)
-				output.r2 = await client.putImage({
-					dir: input.r2UploadDir ?? 'images',
-					imageBase64: output.imageBase64,
-					mimeType: output.mimeType,
-					isPublic: input.r2UploadIsPublic
-				})
-			}
-
-			outputs.push(output)
+			})
 		}
 	}
 
+	return uploadImageResults(env, input, userId, outputs)
+}
+
+async function uploadImageResults(
+	env: Env,
+	input: AISimpleImageClientGenerateInput,
+	userId: string,
+	outputs: AIImageResult[]
+): Promise<AIImageResult[]> {
+	if (!input.uploadToR2) {
+		return outputs
+	}
+	if (!input.r2UploadDir) {
+		throw new AIError('AI_IMAGE_R2_UPLOAD_DIR_REQUIRED')
+	}
+	if (input.r2UploadIsPublic === undefined) {
+		throw new AIError('AI_IMAGE_R2_UPLOAD_IS_PUBLIC_REQUIRED')
+	}
+
+	const client = createR2Client(env as R2Env, userId)
+	for (const output of outputs) {
+		output.r2 = await client.put({
+			dir: input.r2UploadDir,
+			body: base64ToBytes(output.imageBase64),
+			contentType: output.mimeType,
+			isPublic: input.r2UploadIsPublic
+		})
+	}
+
 	return outputs
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+	const raw = atob(base64)
+	const bytes = new Uint8Array(raw.length)
+	for (let index = 0; index < raw.length; index += 1) {
+		bytes[index] = raw.charCodeAt(index)
+	}
+	return bytes
 }
 
 function toRequestParts(

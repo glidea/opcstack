@@ -168,7 +168,7 @@ describe('createSeedSimpleTTSClient.generateSpeech', () => {
 					lines: [{ speakerName: 'Host', text: 'Hello' }]
 				}
 			},
-			thenExpected: createErrorExpected('INVALID_SPEAKER_COUNT')
+			thenExpected: createErrorExpected('Speaker count is invalid')
 		},
 		{
 			scenario: 'unknown speaker line is rejected',
@@ -185,7 +185,7 @@ describe('createSeedSimpleTTSClient.generateSpeech', () => {
 					lines: [{ speakerName: 'Guest', text: 'Hello' }]
 				}
 			},
-			thenExpected: createErrorExpected('UNKNOWN_SPEAKER: Guest')
+			thenExpected: createErrorExpected('Speaker is unknown: Guest')
 		}
 	]
 

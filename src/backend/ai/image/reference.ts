@@ -1,4 +1,5 @@
 import { createR2Client } from '../../r2'
+import { AIError } from '../error'
 import type { AIImageReference, AIInlineImageReference } from '.'
 
 type R2Env = Env & { R2: R2Bucket }
@@ -19,12 +20,12 @@ export async function resolveImageReferences(
 		}
 
 		if (reference.r2.variant) {
-			const result = await client.getImageVariantBytes(reference.r2.key, reference.r2.variant)
+			const result = await client.getImageVariant(reference.r2.key, reference.r2.variant)
 			if (result.status !== 'ok') {
-				throw new Error('AI_IMAGE_REFERENCE_R2_READ_FAILED')
+				throw new AIError('AI_IMAGE_REFERENCE_R2_READ_FAILED')
 			}
 			outputs.push({
-				imageBase64: arrayBufferToBase64(result.body),
+				imageBase64: arrayBufferToBase64(await new Response(result.body).arrayBuffer()),
 				mimeType: result.contentType
 			})
 			continue
@@ -32,7 +33,7 @@ export async function resolveImageReferences(
 
 		const result = await client.get(reference.r2.key)
 		if (result.status !== 'ok') {
-			throw new Error('AI_IMAGE_REFERENCE_R2_READ_FAILED')
+			throw new AIError('AI_IMAGE_REFERENCE_R2_READ_FAILED')
 		}
 		outputs.push({
 			imageBase64: arrayBufferToBase64(await new Response(result.body).arrayBuffer()),

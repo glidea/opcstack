@@ -1,6 +1,6 @@
 import { beforeEach, describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { createR2Client } from './index'
+import { createR2Client, R2Error } from './index'
 
 type StoredObject = {
 	body: string
@@ -83,103 +83,6 @@ describe('createR2Client.put', () => {
 		return {
 			key: result.key,
 			url: result.url
-		}
-	})
-})
-
-describe('createR2Client.putImage', () => {
-	type GivenDetail = Record<string, never>
-	type WhenDetail = {
-		userId?: string
-		dir: string
-		filename?: string
-		imageBase64: string
-		mimeType: string
-		isPublic?: boolean
-	}
-	type ThenExpected = {
-		key: string
-		keyStartsWith: boolean
-		keyEndsWith: boolean
-	}
-
-	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
-		{
-			scenario: 'creates image filename by mime type when filename is empty',
-			given: 'a public client',
-			when: 'uploading image without filename',
-			then: 'creates filename and keeps mime extension',
-			givenDetail: {},
-			whenDetail: {
-				dir: 'images',
-				imageBase64: 'aA==',
-				mimeType: 'image/webp'
-			},
-			thenExpected: {
-				key: '',
-				keyStartsWith: true,
-				keyEndsWith: true
-			}
-		},
-		{
-			scenario: 'uses private prefix for image upload when userId exists',
-			given: 'a private client with userId',
-			when: 'uploading image with filename',
-			then: 'stores key under private user prefix',
-			givenDetail: {},
-			whenDetail: {
-				userId: 'u1',
-				dir: 'images',
-				filename: 'a.png',
-				imageBase64: 'aA==',
-				mimeType: 'image/png'
-			},
-			thenExpected: {
-				key: 'private/u1/images/a.png',
-				keyStartsWith: true,
-				keyEndsWith: true
-			}
-		},
-		{
-			scenario: 'uses public prefix for image upload when isPublic is true',
-			given: 'a private client with public upload',
-			when: 'uploading image with filename',
-			then: 'stores key under public prefix',
-			givenDetail: {},
-			whenDetail: {
-				userId: 'u1',
-				dir: 'system/images',
-				filename: 'a.png',
-				imageBase64: 'aA==',
-				mimeType: 'image/png',
-				isPublic: true
-			},
-			thenExpected: {
-				key: 'public/system/images/a.png',
-				keyStartsWith: true,
-				keyEndsWith: true
-			}
-		}
-	]
-
-	runCases(cases, async (_given, when) => {
-		const env = createEnv()
-		const client = createR2Client(env, when.userId)
-		const result = await client.putImage({
-			dir: when.dir,
-			imageBase64: when.imageBase64,
-			mimeType: when.mimeType,
-			isPublic: when.isPublic,
-			...(when.filename ? { filename: when.filename } : {})
-		})
-		const prefix =
-			when.isPublic === true || !when.userId
-				? `public/${when.dir}/`
-				: `private/${when.userId}/${when.dir}/`
-		return {
-			key: when.filename ? result.key : '',
-			keyStartsWith: result.key.startsWith(prefix),
-			keyEndsWith: result.key.endsWith(when.filename ? when.filename : '.webp')
 		}
 	})
 })
@@ -434,7 +337,7 @@ describe('createR2Client.createUploadUrl', () => {
 				signedHeaders: '',
 				hasSignature: false,
 				expiresAtOffset: 0,
-				error: error instanceof Error ? error.message : ''
+				error: error instanceof R2Error ? error.code : ''
 			}
 		}
 	})
@@ -552,7 +455,7 @@ describe('createR2Client.createUploadUrl tmp', () => {
 				readUrl: '',
 				uploadPath: '',
 				hasSignature: false,
-				error: error instanceof Error ? error.message : ''
+				error: error instanceof R2Error ? error.code : ''
 			}
 		}
 	})
@@ -958,60 +861,8 @@ describe('createR2Client.getImageVariant', () => {
 				fit: '',
 				quality: 0,
 				format: '',
-				error: error instanceof Error ? error.message : ''
+				error: error instanceof R2Error ? error.code : ''
 			}
-		}
-	})
-})
-
-describe('createR2Client.getImageVariantBytes', () => {
-	type GivenDetail = Record<string, never>
-	type WhenDetail = Record<string, never>
-	type ThenExpected = {
-		status: string
-		contentType: string
-		text: string
-	}
-
-	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
-		{
-			scenario: 'returns variant bytes',
-			given: 'a public image and transformed response',
-			when: 'reading variant bytes',
-			then: 'returns array buffer and content type',
-			givenDetail: {},
-			whenDetail: {},
-			thenExpected: {
-				status: 'ok',
-				contentType: 'image/jpeg',
-				text: 'variant'
-			}
-		}
-	]
-
-	runCases(cases, async () => {
-		vi.stubGlobal('fetch', async (): Promise<Response> => {
-			return new Response('variant', {
-				status: 200,
-				headers: {
-					'content-type': 'image/jpeg'
-				}
-			})
-		})
-
-		const client = createR2Client(createEnv())
-		const result = await client.getImageVariantBytes('public/images/a.png', 'medium')
-		if (result.status !== 'ok') {
-			return {
-				status: result.status,
-				contentType: '',
-				text: ''
-			}
-		}
-		return {
-			status: result.status,
-			contentType: result.contentType,
-			text: await new Response(result.body).text()
 		}
 	})
 })

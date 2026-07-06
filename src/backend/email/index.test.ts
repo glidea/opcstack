@@ -57,7 +57,7 @@ describe('createEmailClients', () => {
 			},
 			whenDetail: {},
 			thenExpected: {
-				error: 'UNSUPPORTED_EMAIL_PROVIDER: unknown',
+				error: 'Email provider is unsupported: unknown',
 				hasSimpleClient: false,
 				hasResendClient: false,
 				hasCloudflareClient: false

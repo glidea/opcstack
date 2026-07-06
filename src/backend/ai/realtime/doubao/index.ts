@@ -6,6 +6,7 @@ import type {
 	AIRealtimeSession
 } from '..'
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import { AIError } from '../../error'
 import {
 	decodeDoubaoRealtimeFrame,
 	encodeDoubaoRealtimeConnectionFrame,
@@ -207,7 +208,7 @@ class WebSocketDoubaoRealtimeSession implements AIRealtimeSession {
 async function openDoubaoRealtimeSocket(endpoint: AIEndpoint, connectId: string): Promise<WebSocket> {
 	const response: Response = await fetch(createDoubaoRealtimeSocketRequestFromEndpoint(endpoint, connectId))
 	if (response.status !== 101 || !response.webSocket) {
-		throw new Error('DOUBAO_REALTIME_CONNECT_FAILED')
+		throw new AIError('DOUBAO_REALTIME_CONNECT_FAILED')
 	}
 	const socket: WebSocket = response.webSocket
 	socket.accept()
@@ -279,7 +280,7 @@ function toDoubaoRealtimeModel(model: string): DoubaoRealtimeModel {
 		case DOUBAO_REALTIME_MODEL_SC2:
 			return DOUBAO_REALTIME_MODEL_SC2
 		default:
-			throw new Error('DOUBAO_REALTIME_MODEL_UNSUPPORTED')
+			throw new AIError('DOUBAO_REALTIME_MODEL_UNSUPPORTED')
 	}
 }
 

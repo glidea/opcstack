@@ -5,15 +5,10 @@ const TMP_PRIVATE_PREFIX = 'tmp/private/'
 
 export interface R2Client {
 	put(input: R2PutInput): Promise<R2PutResult>
-	putImage(input: R2PutImageInput): Promise<R2PutResult>
 	createUploadUrl(input: R2CreateUploadUrlInput): Promise<R2CreateUploadUrlResult>
 	createReadUrl(input: R2CreateReadUrlInput): Promise<R2CreateReadUrlResult>
 	get(key: string): Promise<R2GetResult>
 	getImageVariant(key: string, preset: R2ImageVariantPreset): Promise<R2GetResult>
-	getImageVariantBytes(
-		key: string,
-		preset: R2ImageVariantPreset
-	): Promise<R2ImageVariantBytesResult>
 }
 
 export interface R2PutInput {
@@ -28,15 +23,6 @@ export interface R2PutInput {
 export interface R2PutResult {
 	key: string
 	url: string
-}
-
-export interface R2PutImageInput {
-	isTmp?: boolean
-	isPublic?: boolean
-	dir: string
-	filename?: string
-	imageBase64: string
-	mimeType: string
 }
 
 export interface R2CreateUploadUrlInput {
@@ -79,15 +65,6 @@ export type R2GetResult =
 	| { status: 'unavailable' }
 
 export type R2ImageVariantPreset = 'small' | 'medium'
-export type R2ImageVariantBytesResult =
-	| {
-		status: 'ok'
-		body: ArrayBuffer
-		contentType: string
-	}
-	| { status: 'forbidden' }
-	| { status: 'not_found' }
-	| { status: 'unavailable' }
 
 type R2AccessResult = { status: 'ok' } | { status: 'forbidden' } | { status: 'not_found' }
 
@@ -98,6 +75,52 @@ type R2UploadSigningConfig = {
 	accessKeyId: string
 	secretAccessKey: string
 	bucket: string
+}
+
+export type R2ErrorCode =
+	| 'R2_NOT_CONFIGURED'
+	| 'R2_UPLOAD_PATH_INVALID'
+	| 'R2_UPLOAD_USER_REQUIRED'
+	| 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED'
+	| 'R2_USER_UPLOAD_SIZE_TOO_LARGE'
+	| 'R2_READ_FORBIDDEN'
+	| 'R2_READ_PATH_INVALID'
+	| 'R2_ORIGIN_SIGNING_SECRET_REQUIRED'
+	| 'R2_PRIVATE_UPLOAD_USER_REQUIRED'
+	| 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED'
+
+export class R2Error extends Error {
+	public readonly code: R2ErrorCode
+
+	constructor(code: R2ErrorCode, message?: string) {
+		super(message ?? r2ErrorMessage(code))
+		this.code = code
+	}
+}
+
+function r2ErrorMessage(code: R2ErrorCode): string {
+	switch (code) {
+		case 'R2_NOT_CONFIGURED':
+			return 'R2 bucket is not configured'
+		case 'R2_UPLOAD_PATH_INVALID':
+			return 'Upload path is invalid'
+		case 'R2_UPLOAD_USER_REQUIRED':
+			return 'User is required for private upload'
+		case 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED':
+			return 'Upload content type is not allowed'
+		case 'R2_USER_UPLOAD_SIZE_TOO_LARGE':
+			return 'Upload size is too large'
+		case 'R2_READ_FORBIDDEN':
+			return 'R2 object access is forbidden'
+		case 'R2_READ_PATH_INVALID':
+			return 'R2 object path is invalid'
+		case 'R2_ORIGIN_SIGNING_SECRET_REQUIRED':
+			return 'R2 origin signing secret is required'
+		case 'R2_PRIVATE_UPLOAD_USER_REQUIRED':
+			return 'User is required for private upload'
+		case 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED':
+			return 'R2 upload signing config is required'
+	}
 }
 
 export function createR2Client(env: R2Env, userId?: string): R2Client {
@@ -115,7 +138,7 @@ class r2Client implements R2Client {
 
 	async put(input: R2PutInput): Promise<R2PutResult> {
 		if (!this.env.R2) {
-			throw new Error('R2_NOT_CONFIGURED')
+			throw new R2Error('R2_NOT_CONFIGURED')
 		}
 
 		const filename = input.filename ?? `${Date.now()}-${crypto.randomUUID()}`
@@ -133,40 +156,22 @@ class r2Client implements R2Client {
 		}
 	}
 
-	async putImage(input: R2PutImageInput): Promise<R2PutResult> {
-		if (!this.env.R2) {
-			throw new Error('R2_NOT_CONFIGURED')
-		}
-
-		const filename =
-			input.filename ??
-			`${Date.now()}-${crypto.randomUUID()}.${extensionByMimeType(input.mimeType)}`
-		return this.put({
-			dir: input.dir,
-			filename,
-			body: toBytes(input.imageBase64),
-			contentType: input.mimeType,
-			isPublic: input.isPublic,
-			isTmp: input.isTmp
-		})
-	}
-
 	async createUploadUrl(input: R2CreateUploadUrlInput): Promise<R2CreateUploadUrlResult> {
 		if (!this.env.R2) {
-			throw new Error('R2_NOT_CONFIGURED')
+			throw new R2Error('R2_NOT_CONFIGURED')
 		}
 		const path = buildObjectPath(input.dir, input.filename)
 		if (!isUploadPath(path)) {
-			throw new Error('R2_UPLOAD_PATH_INVALID')
+			throw new R2Error('R2_UPLOAD_PATH_INVALID')
 		}
 		if (input.isPublic !== true && !this.userId) {
-			throw new Error('R2_UPLOAD_USER_REQUIRED')
+			throw new R2Error('R2_UPLOAD_USER_REQUIRED')
 		}
 		if (!this.isUserUploadContentTypeAllowed(input.contentType)) {
-			throw new Error('R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED')
+			throw new R2Error('R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED')
 		}
 		if (input.size > this.userUploadMaxBytes()) {
-			throw new Error('R2_USER_UPLOAD_SIZE_TOO_LARGE')
+			throw new R2Error('R2_USER_UPLOAD_SIZE_TOO_LARGE')
 		}
 
 		const config = this.uploadSigningConfig()
@@ -184,10 +189,10 @@ class r2Client implements R2Client {
 	async createReadUrl(input: R2CreateReadUrlInput): Promise<R2CreateReadUrlResult> {
 		const access = this.checkAccess(input.key)
 		if (access.status === 'forbidden') {
-			throw new Error('R2_READ_FORBIDDEN')
+			throw new R2Error('R2_READ_FORBIDDEN')
 		}
 		if (access.status === 'not_found') {
-			throw new Error('R2_READ_PATH_INVALID')
+			throw new R2Error('R2_READ_PATH_INVALID')
 		}
 		return {
 			key: input.key,
@@ -232,7 +237,7 @@ class r2Client implements R2Client {
 
 		const secret = this.env.R2_ORIGIN_SIGNING_SECRET
 		if (!secret) {
-			throw new Error('R2_ORIGIN_SIGNING_SECRET_REQUIRED')
+			throw new R2Error('R2_ORIGIN_SIGNING_SECRET_REQUIRED')
 		}
 
 		const expires = Math.floor(Date.now() / 1000) + 60
@@ -260,21 +265,6 @@ class r2Client implements R2Client {
 			body: response.body as ReadableStream,
 			contentType: response.headers.get('content-type') ?? 'image/jpeg',
 			etag: response.headers.get('etag') ?? ''
-		}
-	}
-
-	async getImageVariantBytes(
-		key: string,
-		preset: R2ImageVariantPreset
-	): Promise<R2ImageVariantBytesResult> {
-		const result = await this.getImageVariant(key, preset)
-		if (result.status !== 'ok') {
-			return result
-		}
-		return {
-			status: 'ok',
-			body: await new Response(result.body).arrayBuffer(),
-			contentType: result.contentType
 		}
 	}
 
@@ -314,7 +304,7 @@ class r2Client implements R2Client {
 				return `${TMP_PUBLIC_PREFIX}${path}`
 			}
 			if (!this.userId) {
-				throw new Error('R2_PRIVATE_UPLOAD_USER_REQUIRED')
+				throw new R2Error('R2_PRIVATE_UPLOAD_USER_REQUIRED')
 			}
 			return `${TMP_PRIVATE_PREFIX}${this.userId}/${path}`
 		}
@@ -322,7 +312,7 @@ class r2Client implements R2Client {
 			return `${PUBLIC_PREFIX}${path}`
 		}
 		if (!this.userId) {
-			throw new Error('R2_PRIVATE_UPLOAD_USER_REQUIRED')
+			throw new R2Error('R2_PRIVATE_UPLOAD_USER_REQUIRED')
 		}
 		return `${PRIVATE_PREFIX}${this.userId}/${path}`
 	}
@@ -352,7 +342,7 @@ class r2Client implements R2Client {
 			!this.env.R2_SECRET_ACCESS_KEY ||
 			!this.env.APP_NAME
 		) {
-			throw new Error('R2_UPLOAD_SIGNING_CONFIG_REQUIRED')
+			throw new R2Error('R2_UPLOAD_SIGNING_CONFIG_REQUIRED')
 		}
 
 		return {
@@ -433,7 +423,7 @@ export async function signR2Origin(
 	expires: number
 ): Promise<string> {
 	if (!secret) {
-		throw new Error('R2_ORIGIN_SIGNING_SECRET_REQUIRED')
+		throw new R2Error('R2_ORIGIN_SIGNING_SECRET_REQUIRED')
 	}
 
 	const key = await crypto.subtle.importKey(
@@ -484,25 +474,6 @@ function buildObjectPath(dir: string, filename: string): string {
 		return filename
 	}
 	return `${dir}/${filename}`
-}
-
-function extensionByMimeType(mimeType: string): string {
-	if (mimeType === 'image/jpeg') {
-		return 'jpg'
-	}
-	if (mimeType === 'image/webp') {
-		return 'webp'
-	}
-	return 'png'
-}
-
-function toBytes(base64: string): Uint8Array {
-	const raw = atob(base64)
-	const bytes = new Uint8Array(raw.length)
-	for (let i = 0; i < raw.length; i += 1) {
-		bytes[i] = raw.charCodeAt(i)
-	}
-	return bytes
 }
 
 function awsDate(date: Date): string {

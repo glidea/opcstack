@@ -10,6 +10,7 @@ import {
 import { createGeminiNativeImageClient, createGeminiSimpleImageClient } from './gemini'
 import { createOpenAINativeImageClient, createOpenAISimpleImageClient } from './openai'
 import { createSeedDreamNativeImageClient, createSeedDreamSimpleImageClient } from './seedream'
+import { AIError } from '../error'
 
 export * from './aliyun/constants'
 export * from './gemini/constants'
@@ -56,7 +57,7 @@ export function createAIImageClients(
 		}
 	}
 
-	throw new Error(`UNSUPPORTED_AI_PROVIDER: ${provider}`)
+	throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${provider}`)
 }
 
 export interface AISimpleImageClient {
@@ -105,9 +106,9 @@ export interface AISimpleImageClientGenerateInput {
 	lowCensorship?: boolean
 	// Upload generated images to R2 when true
 	uploadToR2?: boolean
-	// Relative R2 upload dir under public/ or private/{userId}/. Defaults to images
+	// Relative R2 upload dir under public/ or private/{userId}/. Required when uploadToR2 is true
 	r2UploadDir?: string
-	// Generated image R2 public flag. Defaults to private
+	// Generated image R2 public flag. Required when uploadToR2 is true
 	r2UploadIsPublic?: boolean
 }
 

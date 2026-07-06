@@ -4,6 +4,35 @@ import { d1Shard, userShard } from './schema.meta'
 
 export type D1ShardRegion = 'wnam' | 'enam' | 'weur' | 'eeur' | 'apac' | 'oc'
 
+export type ShardRouterErrorCode =
+	| 'D1_SHARD_NOT_FOUND'
+	| 'D1_USER_SHARD_NOT_FOUND'
+	| 'NO_ACTIVE_D1_SHARD'
+	| 'TENANT_D1_BINDING_NOT_FOUND'
+
+export class ShardRouterError extends Error {
+	public readonly code: ShardRouterErrorCode
+
+	constructor(code: ShardRouterErrorCode, message?: string) {
+		super(message ?? shardRouterErrorMessage(code))
+		this.name = 'ShardRouterError'
+		this.code = code
+	}
+}
+
+function shardRouterErrorMessage(code: ShardRouterErrorCode): string {
+	switch (code) {
+		case 'D1_SHARD_NOT_FOUND':
+			return 'D1 shard not found'
+		case 'D1_USER_SHARD_NOT_FOUND':
+			return 'D1 user shard not found'
+		case 'NO_ACTIVE_D1_SHARD':
+			return 'No active D1 shard is available'
+		case 'TENANT_D1_BINDING_NOT_FOUND':
+			return 'Tenant D1 binding not found'
+	}
+}
+
 export type WorkerRegionSource = {
 	continent?: string
 }
@@ -120,7 +149,7 @@ async function resolveUserShard(
 			where: eq(d1Shard.id, existing.shardId)
 		})
 		if (!shard) {
-			throw new Error('D1_SHARD_NOT_FOUND')
+			throw new ShardRouterError('D1_SHARD_NOT_FOUND')
 		}
 		return {
 			shardId: existing.shardId,
@@ -138,7 +167,7 @@ async function resolveUserShard(
 			orderBy: [d1Shard.assignedCount, d1Shard.id]
 		}))
 	if (!shard) {
-		throw new Error('NO_ACTIVE_D1_SHARD')
+		throw new ShardRouterError('NO_ACTIVE_D1_SHARD')
 	}
 
 	const result = await metaDb
@@ -155,13 +184,13 @@ async function resolveUserShard(
 			where: eq(userShard.userId, userId)
 		})
 		if (!concurrent) {
-			throw new Error('D1_USER_SHARD_NOT_FOUND')
+			throw new ShardRouterError('D1_USER_SHARD_NOT_FOUND')
 		}
 		const concurrentShard = await metaDb.query.d1Shard.findFirst({
 			where: eq(d1Shard.id, concurrent.shardId)
 		})
 		if (!concurrentShard) {
-			throw new Error('D1_SHARD_NOT_FOUND')
+			throw new ShardRouterError('D1_SHARD_NOT_FOUND')
 		}
 		return {
 			shardId: concurrent.shardId,
@@ -186,7 +215,7 @@ async function resolveUserShard(
 function getTenantD1Binding(env: Env, bindingName: string): D1Database {
 	const d1 = (env as unknown as Record<string, D1Database | undefined>)[bindingName]
 	if (!d1) {
-		throw new Error('TENANT_D1_BINDING_NOT_FOUND')
+		throw new ShardRouterError('TENANT_D1_BINDING_NOT_FOUND')
 	}
 	return d1
 }

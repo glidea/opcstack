@@ -15,7 +15,7 @@ import { parseRequest } from '../../lib/request'
 export async function submitFeedbackHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, SubmitFeedbackRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const row: NewFeedback = {
@@ -33,7 +33,7 @@ export async function submitFeedbackHandler(ctx: Context<ApiEnv>): Promise<Respo
 export async function listFeedbacksHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, ListFeedbacksRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const conditions: SQL[] = []

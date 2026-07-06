@@ -8,6 +8,29 @@ import {
 } from './cloudflare'
 import type { Resend } from 'resend'
 
+export type EmailErrorCode =
+	| 'UNSUPPORTED_EMAIL_PROVIDER'
+	| 'EMAIL_SEND_FAILED'
+
+export class EmailError extends Error {
+	public readonly code: EmailErrorCode
+
+	constructor(code: EmailErrorCode, message?: string) {
+		super(message ?? emailErrorMessage(code))
+		this.name = 'EmailError'
+		this.code = code
+	}
+}
+
+function emailErrorMessage(code: EmailErrorCode): string {
+	switch (code) {
+		case 'UNSUPPORTED_EMAIL_PROVIDER':
+			return 'Email provider is unsupported'
+		case 'EMAIL_SEND_FAILED':
+			return 'Email send failed'
+	}
+}
+
 export interface EmailClients {
 	simple: EmailSimpleClient
 	resend?: Resend
@@ -34,7 +57,7 @@ export function createEmailClients(
 		}
 	}
 
-	throw new Error(`UNSUPPORTED_EMAIL_PROVIDER: ${provider}`)
+	throw new EmailError('UNSUPPORTED_EMAIL_PROVIDER', `Email provider is unsupported: ${provider}`)
 }
 
 export interface EmailSimpleClient {

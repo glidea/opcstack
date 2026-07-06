@@ -14,6 +14,7 @@ import {
 	PaymentServiceError,
 	type PaymentProviderName
 } from '../../payment'
+import { PaymentProviderError } from '../../payment/contract'
 import { formatDecimal } from '../../lib/decimal'
 import { logWarn } from '../../lib/log'
 
@@ -44,7 +45,7 @@ export async function listPaymentProductsHandler(ctx: Context<ApiEnv>): Promise<
 export async function createPaymentCheckoutHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, CreatePaymentCheckoutRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
@@ -112,7 +113,7 @@ export async function cancelSubscriptionHandler(ctx: Context<ApiEnv>): Promise<R
 export async function upgradeSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, UpgradeSubscriptionRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
@@ -136,7 +137,7 @@ export async function upgradeSubscriptionHandler(ctx: Context<ApiEnv>): Promise<
 export async function listPaymentTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, ListPaymentTransactionsRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	const result = await service.listPaymentTransactions({
@@ -169,7 +170,7 @@ export async function listPaymentTransactionsHandler(ctx: Context<ApiEnv>): Prom
 export async function listAdminPaymentTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, ListAdminPaymentTransactionsRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	const result = await service.listAdminPaymentTransactions({
@@ -218,11 +219,17 @@ async function processWebhook(
 		await service.processWebhook(provider, rawBody, ctx.req.raw.headers)
 		return ctx.json({})
 	} catch (error) {
-		if (error instanceof Error && error.message.endsWith('_SIGNATURE_INVALID')) {
-			logWarn(error, {
-				provider
-			})
-			return ctx.json({ code: error.message }, 400)
+		if (error instanceof PaymentProviderError) {
+			switch (error.code) {
+				case 'DODO_WEBHOOK_SIGNATURE_INVALID':
+				case 'CREEM_WEBHOOK_SIGNATURE_INVALID':
+					logWarn(error, {
+						provider
+					})
+					return ctx.json({ code: error.code, message: error.message }, 400)
+				default:
+					break
+			}
 		}
 		throw error
 	}
@@ -232,13 +239,23 @@ function mapPaymentServiceError(ctx: Context<ApiEnv>, error: unknown): Response 
 	if (!(error instanceof PaymentServiceError)) {
 		return null
 	}
-	if (error.code === 'SUBSCRIPTION_NOT_FOUND' || error.code === 'PAYMENT_USER_NOT_FOUND') {
-		return ctx.json({ code: error.code }, 404)
+	switch (error.code) {
+		case 'SUBSCRIPTION_NOT_FOUND':
+		case 'PAYMENT_USER_NOT_FOUND':
+			return ctx.json({ code: error.code, message: error.message }, 404)
+		case 'SUBSCRIPTION_ALREADY_CANCELED':
+			return ctx.json({ code: error.code, message: error.message }, 409)
+		case 'PAYMENT_DISABLED':
+		case 'SUBSCRIPTION_NOT_ACTIVE':
+		case 'SUBSCRIPTION_TARGET_INVALID':
+		case 'SUBSCRIPTION_CURRENT_INVALID':
+		case 'SUBSCRIPTION_UPGRADE_NOT_ALLOWED':
+		case 'PAYMENT_PRODUCT_NOT_FOUND':
+		case 'PAYMENT_RETURN_PATH_INVALID':
+			return ctx.json({ code: error.code, message: error.message }, 400)
+		default:
+			return null
 	}
-	if (error.code === 'SUBSCRIPTION_ALREADY_CANCELED') {
-		return ctx.json({ code: error.code }, 409)
-	}
-	return ctx.json({ code: error.code }, 400)
 }
 
 function formatNullableCreditAmount(units: number | null): string | null {

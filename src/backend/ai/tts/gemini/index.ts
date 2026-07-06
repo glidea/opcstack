@@ -1,5 +1,6 @@
 import { GoogleGenAI, type GenerateContentResponse } from '@google/genai'
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
 import { createAITTSTask, getAITTSTask } from '../task'
@@ -79,7 +80,7 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 	}
 
 	async generateSpeechFromSource(_input: AITTSSourceInput): Promise<AITTSResult> {
-		throw new Error('TTS_SOURCE_NOT_SUPPORTED')
+		throw new AIError('TTS_SOURCE_NOT_SUPPORTED')
 	}
 
 	async generateSpeechAsync(input: AITTSSpeechInput): Promise<AITTSTask> {
@@ -87,7 +88,7 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 	}
 
 	async generateSpeechFromSourceAsync(_input: AITTSSourceInput): Promise<AITTSTask> {
-		throw new Error('TTS_SOURCE_NOT_SUPPORTED')
+		throw new AIError('TTS_SOURCE_NOT_SUPPORTED')
 	}
 
 	async getTask(id: string): Promise<AITTSTask | undefined> {
@@ -104,13 +105,13 @@ function createGeminiClient(endpoint: AIEndpoint): GoogleGenAI {
 
 function validateInput(input: AITTSSpeechInput): void {
 	if (input.speakers.length < 1 || input.speakers.length > 2) {
-		throw new Error('INVALID_SPEAKER_COUNT')
+		throw new AIError('INVALID_SPEAKER_COUNT')
 	}
 
 	const speakerNames = new Set(input.speakers.map((speaker) => speaker.name))
 	for (const line of input.lines) {
 		if (!speakerNames.has(line.speakerName)) {
-			throw new Error(`UNKNOWN_SPEAKER: ${line.speakerName}`)
+			throw new AIError('UNKNOWN_SPEAKER', `Speaker is unknown: ${line.speakerName}`)
 		}
 	}
 }

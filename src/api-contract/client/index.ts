@@ -162,7 +162,7 @@ export class ApiClientError extends Error {
 	readonly body: ApiErrorResponse
 
 	constructor(status: number, body: ApiErrorResponse) {
-		super(body.code)
+		super(body.message)
 		this.name = 'ApiClientError'
 		this.status = status
 		this.body = body
@@ -493,7 +493,7 @@ function normalizeApiError(body: unknown): ApiErrorResponse {
 		return body
 	}
 
-	return { code: 'API_ERROR' }
+	return { code: 'API_ERROR', message: 'API error' }
 }
 
 function isApiErrorResponse(body: unknown): body is ApiErrorResponse {
@@ -502,7 +502,7 @@ function isApiErrorResponse(body: unknown): body is ApiErrorResponse {
 	}
 
 	const record: Record<string, unknown> = body as Record<string, unknown>
-	return typeof record['code'] === 'string'
+	return typeof record['code'] === 'string' && typeof record['message'] === 'string'
 }
 
 function readToken(data: unknown): string | undefined {

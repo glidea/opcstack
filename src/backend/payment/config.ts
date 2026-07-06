@@ -48,12 +48,28 @@ export interface PaymentConfig {
 	products: PaymentProductConfig[]
 }
 
-export class PaymentConfigError extends Error {
-	public readonly code: string
+export type PaymentConfigErrorCode =
+	| 'PAYMENT_PROVIDER_INVALID'
+	| 'PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID'
+	| 'PAYMENT_PRODUCTS_INVALID'
 
-	constructor(code: string) {
-		super(code)
+export class PaymentConfigError extends Error {
+	public readonly code: PaymentConfigErrorCode
+
+	constructor(code: PaymentConfigErrorCode, message?: string) {
+		super(message ?? paymentConfigErrorMessage(code))
 		this.code = code
+	}
+}
+
+function paymentConfigErrorMessage(code: PaymentConfigErrorCode): string {
+	switch (code) {
+		case 'PAYMENT_PROVIDER_INVALID':
+			return 'Payment provider config is invalid'
+		case 'PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID':
+			return 'Payment provider country overrides are invalid'
+		case 'PAYMENT_PRODUCTS_INVALID':
+			return 'Payment products config is invalid'
 	}
 }
 

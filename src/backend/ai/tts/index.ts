@@ -1,5 +1,6 @@
 import type { GoogleGenAI } from '@google/genai'
 import type { TenantShardDb } from '../../db'
+import { AIError } from '../error'
 import { createGeminiNativeTTSClient, createGeminiSimpleTTSClient } from './gemini'
 import { createSeedSimpleTTSClient } from './seed'
 
@@ -30,7 +31,7 @@ export function createAITTSClients(
 		}
 	}
 
-	throw new Error(`UNSUPPORTED_AI_PROVIDER: ${provider}`)
+	throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${provider}`)
 }
 
 export interface AISimpleTTSClient {

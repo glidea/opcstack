@@ -6,6 +6,7 @@ import {
 	createSeedDanceProviderTask,
 	getSeedDanceProviderTask
 } from '../ai/video/seedance'
+import { AIError } from '../ai/error'
 import { createR2Client } from '../r2'
 import { logError } from '../lib/log'
 import type { TenantShardDb } from '../db'
@@ -124,7 +125,7 @@ async function createProviderTask(
 		case 'seedance':
 			return createSeedDanceProviderTask(env, task.userId, model, input)
 		default:
-			throw new Error(`UNSUPPORTED_AI_PROVIDER: ${task.provider}`)
+			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${task.provider}`)
 	}
 }
 
@@ -138,7 +139,7 @@ async function ensureProviderTaskCompleted(
 		case 'running':
 			return undefined
 		case 'failed':
-			throw new Error(result.errorMessage)
+			throw new AIError('AI_VIDEO_PROVIDER_TASK_FAILED', result.errorMessage)
 		case 'completed':
 			return result.videoUrl
 	}
@@ -153,7 +154,7 @@ async function getProviderTask(
 		case 'seedance':
 			return getSeedDanceProviderTask(env, providerTaskId)
 		default:
-			throw new Error(`UNSUPPORTED_AI_PROVIDER: ${task.provider}`)
+			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${task.provider}`)
 	}
 }
 
@@ -166,7 +167,7 @@ async function completeVideoTask(
 	const input: AIVideoGenerateInput = toGenerateInput(task)
 	const response: Response = await fetch(videoUrl)
 	if (!response.ok || !response.body) {
-		throw new Error('AI_VIDEO_DOWNLOAD_FAILED')
+		throw new AIError('AI_VIDEO_DOWNLOAD_FAILED')
 	}
 
 	const r2 = await createR2Client(env, task.userId).put({

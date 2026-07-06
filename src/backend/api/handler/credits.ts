@@ -35,8 +35,13 @@ export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Res
 			daily_checkin_amount: formatCreditAmount(summary.dailyCheckinAmount)
 		})
 	} catch (error) {
-		if (error instanceof CreditsError && error.code === 'CREDIT_USER_NOT_FOUND') {
-			return ctx.json({ code: error.code }, 404)
+		if (error instanceof CreditsError) {
+			switch (error.code) {
+				case 'CREDIT_USER_NOT_FOUND':
+					return ctx.json({ code: error.code, message: error.message }, 404)
+				default:
+					break
+			}
 		}
 		throw error
 	}
@@ -45,7 +50,7 @@ export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Res
 export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, ListCreditTransactionsRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const credits = new CreditsService(ctx.get('tenantDb'))
@@ -74,7 +79,7 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 
 	const amount = toCreditUnits(env.CREDITS_DAILY_CHECKIN_AMOUNT)
 	if (amount <= 0) {
-		return ctx.json({ code: 'INVALID_DAILY_CHECKIN_AMOUNT' }, 400)
+		return ctx.json({ code: 'INVALID_DAILY_CHECKIN_AMOUNT', message: 'Daily check-in amount is invalid' }, 400)
 	}
 
 	try {
@@ -89,8 +94,13 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 			amount: formatCreditAmount(result.amount)
 		})
 	} catch (error) {
-		if (error instanceof CreditsError && error.code === 'DAILY_CHECKIN_ALREADY_DONE') {
-			return ctx.json({ code: error.code }, 409)
+		if (error instanceof CreditsError) {
+			switch (error.code) {
+				case 'DAILY_CHECKIN_ALREADY_DONE':
+					return ctx.json({ code: error.code, message: error.message }, 409)
+				default:
+					break
+			}
 		}
 		throw error
 	}
@@ -99,12 +109,12 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, GenerateCreditCodesRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const amount = toCreditUnits(req.amount)
 	if (amount <= 0) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const redemptions = new CreditRedemptionService(ctx.get('metaDb'))
@@ -129,12 +139,12 @@ export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<
 export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, ListCreditCodesRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const amount = req.amount === undefined ? undefined : toCreditUnits(req.amount)
 	if (req.amount !== undefined && (!amount || amount <= 0)) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const redemptions = new CreditRedemptionService(ctx.get('metaDb'))
@@ -171,7 +181,7 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, RedeemCreditCodeRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_CREDIT_CODE' }, 400)
+		return ctx.json({ code: 'INVALID_CREDIT_CODE', message: 'Credit code is invalid' }, 400)
 	}
 
 	const redemptions = new CreditRedemptionService(ctx.get('metaDb'))
@@ -199,15 +209,17 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 				amount: formatCreditAmount(claimed.amount)
 			})
 		} catch {
-			return ctx.json({ code: 'CREDIT_GRANT_PENDING' }, 202)
+			return ctx.json({ code: 'CREDIT_GRANT_PENDING', message: 'Credit grant is pending' }, 202)
 		}
 	} catch (error) {
 		if (error instanceof CreditsError) {
-			if (error.code === 'CREDIT_CODE_USED') {
-				return ctx.json({ code: error.code }, 409)
-			}
-			if (error.code === 'INVALID_CREDIT_CODE') {
-				return ctx.json({ code: error.code }, 400)
+			switch (error.code) {
+				case 'CREDIT_CODE_USED':
+					return ctx.json({ code: error.code, message: error.message }, 409)
+				case 'INVALID_CREDIT_CODE':
+					return ctx.json({ code: error.code, message: error.message }, 400)
+				default:
+					break
 			}
 		}
 		throw error
@@ -217,12 +229,12 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const req = await parseRequest(ctx, AdminGrantCreditsRequestSchema)
 	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	const amount = toCreditUnits(req.amount)
 	if (amount <= 0) {
-		return ctx.json({ code: 'INVALID_REQUEST' }, 400)
+		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
 	}
 
 	try {
@@ -238,18 +250,20 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 			expiresAt: req.expires_at
 		})
 		if (result.duplicated) {
-			return ctx.json({ code: 'CREDIT_GRANT_DUPLICATED' }, 409)
+			return ctx.json({ code: 'CREDIT_GRANT_DUPLICATED', message: 'Credit grant is duplicated' }, 409)
 		}
 		return ctx.json({
 			balance: formatCreditAmount(result.balance)
 		})
 	} catch (error) {
 		if (error instanceof CreditsError) {
-			if (error.code === 'CREDIT_USER_NOT_FOUND') {
-				return ctx.json({ code: error.code }, 404)
-			}
-			if (error.code === 'INVALID_CREDIT_AMOUNT') {
-				return ctx.json({ code: error.code }, 400)
+			switch (error.code) {
+				case 'CREDIT_USER_NOT_FOUND':
+					return ctx.json({ code: error.code, message: error.message }, 404)
+				case 'INVALID_CREDIT_AMOUNT':
+					return ctx.json({ code: error.code, message: error.message }, 400)
+				default:
+					break
 			}
 		}
 		throw error

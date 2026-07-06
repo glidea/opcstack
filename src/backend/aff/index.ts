@@ -39,12 +39,31 @@ export interface MarkAffRewardGrantedInput {
 	nowMs?: number
 }
 
-export class AffError extends Error {
-	public readonly code: string
+export type AffErrorCode =
+	| 'AFF_CODE_GENERATE_FAILED'
+	| 'AFF_USER_NOT_FOUND'
+	| 'INVALID_AFF_CODE'
+	| 'AFF_ALREADY_BOUND'
 
-	constructor(code: string) {
-		super(code)
+export class AffError extends Error {
+	public readonly code: AffErrorCode
+
+	constructor(code: AffErrorCode, message?: string) {
+		super(message ?? affErrorMessage(code))
 		this.code = code
+	}
+}
+
+function affErrorMessage(code: AffErrorCode): string {
+	switch (code) {
+		case 'AFF_CODE_GENERATE_FAILED':
+			return 'Failed to generate affiliate code'
+		case 'AFF_USER_NOT_FOUND':
+			return 'User not found'
+		case 'INVALID_AFF_CODE':
+			return 'Affiliate code is invalid'
+		case 'AFF_ALREADY_BOUND':
+			return 'Affiliate code is already bound'
 	}
 }
 

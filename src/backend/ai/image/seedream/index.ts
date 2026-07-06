@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
 import { resolveImageReferences } from '../reference'
@@ -14,6 +15,8 @@ import type {
 	AISimpleImageClientGenerateInput,
 	AISimpleImageClientOptions
 } from '..'
+
+type R2Env = Env & { R2: R2Bucket }
 
 export function createSeedDreamNativeImageClient(env: Env): OpenAI {
 	return new OpenAI({
@@ -30,8 +33,6 @@ export function createSeedDreamSimpleImageClient(
 ): AISimpleImageClient {
 	return new seedDreamSimpleImageClient(env, userId, tenantDb, options)
 }
-
-type R2Env = Env & { R2: R2Bucket }
 
 type SeedDreamImageStreamEvent = {
 	type:
@@ -122,7 +123,10 @@ async function toImageResultsFromStream(
 				})
 				break
 			case 'image_generation.partial_failed':
-				throw new Error(event.error ?? 'SEEDDREAM_IMAGE_GENERATION_FAILED')
+				throw new AIError(
+					'SEEDDREAM_IMAGE_GENERATION_FAILED',
+					event.error ?? 'SEEDDREAM_IMAGE_GENERATION_FAILED'
+				)
 			case 'image_generation.partial_image':
 			case 'image_generation.completed':
 				break
@@ -130,6 +134,16 @@ async function toImageResultsFromStream(
 	}
 
 	return outputs
+}
+
+function toSeedDreamImageSize(input: AISimpleImageClientGenerateInput): string {
+	const imageSize = input.imageSize ?? '2K'
+	const aspectRatio = input.aspectRatio ?? '1:1'
+	if (imageSize === '1K') {
+		throw new AIError('UNSUPPORTED_SEEDDREAM_IMAGE_SIZE', 'SeedDream image size is unsupported: 1K')
+	}
+
+	return SEEDDREAM_SIZE_MAP[imageSize][aspectRatio]
 }
 
 async function uploadImageResults(
@@ -141,13 +155,19 @@ async function uploadImageResults(
 	if (!input.uploadToR2) {
 		return outputs
 	}
+	if (!input.r2UploadDir) {
+		throw new AIError('AI_IMAGE_R2_UPLOAD_DIR_REQUIRED')
+	}
+	if (input.r2UploadIsPublic === undefined) {
+		throw new AIError('AI_IMAGE_R2_UPLOAD_IS_PUBLIC_REQUIRED')
+	}
 
 	const client = createR2Client(env as R2Env, userId)
 	for (const output of outputs) {
-		output.r2 = await client.putImage({
-			dir: input.r2UploadDir ?? 'images',
-			imageBase64: output.imageBase64,
-			mimeType: output.mimeType,
+		output.r2 = await client.put({
+			dir: input.r2UploadDir,
+			body: base64ToBytes(output.imageBase64),
+			contentType: output.mimeType,
 			isPublic: input.r2UploadIsPublic
 		})
 	}
@@ -155,14 +175,13 @@ async function uploadImageResults(
 	return outputs
 }
 
-function toSeedDreamImageSize(input: AISimpleImageClientGenerateInput): string {
-	const imageSize = input.imageSize ?? '2K'
-	const aspectRatio = input.aspectRatio ?? '1:1'
-	if (imageSize === '1K') {
-		throw new Error('UNSUPPORTED_SEEDDREAM_IMAGE_SIZE: 1K')
+function base64ToBytes(base64: string): Uint8Array {
+	const raw = atob(base64)
+	const bytes = new Uint8Array(raw.length)
+	for (let index = 0; index < raw.length; index += 1) {
+		bytes[index] = raw.charCodeAt(index)
 	}
-
-	return SEEDDREAM_SIZE_MAP[imageSize][aspectRatio]
+	return bytes
 }
 
 const SEEDDREAM_SIZE_MAP: Record<Exclude<AIImageSize, '1K'>, Record<AIImageAspectRatio, string>> = {

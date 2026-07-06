@@ -22,17 +22,17 @@ type R2PutResult = {
 const {
 	openAIConstructorMock,
 	generateMock,
-	r2PutImageMock,
+	r2PutMock,
 	r2GetMock,
-	r2GetVariantBytesMock,
+	r2GetImageVariantMock,
 	createR2ClientMock
 } = vi.hoisted(() => {
 	return {
 		openAIConstructorMock: vi.fn(),
 		generateMock: vi.fn(),
-		r2PutImageMock: vi.fn(),
+		r2PutMock: vi.fn(),
 		r2GetMock: vi.fn(),
-		r2GetVariantBytesMock: vi.fn(),
+		r2GetImageVariantMock: vi.fn(),
 		createR2ClientMock: vi.fn()
 	}
 })
@@ -59,9 +59,9 @@ vi.mock('openai', () => {
 vi.mock('../../../r2', () => {
 	createR2ClientMock.mockImplementation(() => {
 		return {
-			putImage: r2PutImageMock,
+			put: r2PutMock,
 			get: r2GetMock,
-			getImageVariantBytes: r2GetVariantBytesMock
+			getImageVariant: r2GetImageVariantMock
 		}
 	})
 	return {
@@ -97,7 +97,7 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 		firstR2PutDir: string
 		firstR2PutIsPublic: boolean
 		r2GetCalls: number
-		r2GetVariantBytesCalls: number
+		r2GetImageVariantCalls: number
 		firstR2Key: string
 		errorMessage: string
 	}
@@ -141,7 +141,7 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: '',
 				errorMessage: ''
 			}
@@ -183,7 +183,7 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: '',
 				errorMessage: ''
 			}
@@ -223,7 +223,7 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: '',
 				errorMessage: ''
 			}
@@ -266,7 +266,7 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: '',
 				errorMessage: ''
 			}
@@ -279,7 +279,7 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 			givenDetail: {
 				envModel: 'env-model',
 				events: [
-					{ type: 'image_generation.partial_succeeded', b64_json: 'e' },
+					{ type: 'image_generation.partial_succeeded', b64_json: 'ZQ==' },
 					{ type: 'image_generation.completed' }
 				],
 				r2Results: [{ key: 'public/images/1.png', url: 'http://localhost/api/r2/public/images/1.png' }]
@@ -309,7 +309,7 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 				firstR2PutDir: 'custom/images',
 				firstR2PutIsPublic: true,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: 'public/images/1.png',
 				errorMessage: ''
 			}
@@ -346,9 +346,9 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 				firstR2PutDir: '',
 				firstR2PutIsPublic: false,
 				r2GetCalls: 0,
-				r2GetVariantBytesCalls: 0,
+				r2GetImageVariantCalls: 0,
 				firstR2Key: '',
-				errorMessage: 'UNSUPPORTED_SEEDDREAM_IMAGE_SIZE: 1K'
+				errorMessage: 'SeedDream image size is unsupported: 1K'
 			}
 		}
 	]
@@ -358,7 +358,7 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 
 		generateMock.mockResolvedValue(createEventStream(given.events ?? []))
 		let r2Index = 0
-		r2PutImageMock.mockImplementation(async () => {
+		r2PutMock.mockImplementation(async () => {
 			const result = given.r2Results?.[r2Index]
 			r2Index += 1
 			return result ?? { key: '', url: '' }
@@ -373,9 +373,14 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 			}),
 			contentType: 'image/png'
 		})
-		r2GetVariantBytesMock.mockResolvedValue({
+		r2GetImageVariantMock.mockResolvedValue({
 			status: 'ok',
-			body: new TextEncoder().encode('variant').buffer,
+			body: new ReadableStream<Uint8Array>({
+				start(controller): void {
+					controller.enqueue(new TextEncoder().encode('variant'))
+					controller.close()
+				}
+			}),
 			contentType: 'image/png'
 		})
 
@@ -439,7 +444,7 @@ function toThenExpected(
 	firstR2PutDir: string
 	firstR2PutIsPublic: boolean
 	r2GetCalls: number
-	r2GetVariantBytesCalls: number
+	r2GetImageVariantCalls: number
 	firstR2Key: string
 	errorMessage: string
 } {
@@ -456,13 +461,13 @@ function toThenExpected(
 		imageType: Array.isArray(image) ? 'array' : image ? 'string' : 'none',
 		imageCount: Array.isArray(image) ? image.length : image ? 1 : 0,
 		firstImage: Array.isArray(image) ? image[0] ?? '' : image ?? '',
-		r2PutCalls: r2PutImageMock.mock.calls.length,
-		firstR2PutDir: (r2PutImageMock.mock.calls[0]?.[0] as { dir?: string } | undefined)?.dir ?? '',
+		r2PutCalls: r2PutMock.mock.calls.length,
+		firstR2PutDir: (r2PutMock.mock.calls[0]?.[0] as { dir?: string } | undefined)?.dir ?? '',
 		firstR2PutIsPublic:
-			(r2PutImageMock.mock.calls[0]?.[0] as { isPublic?: boolean } | undefined)?.isPublic ??
+			(r2PutMock.mock.calls[0]?.[0] as { isPublic?: boolean } | undefined)?.isPublic ??
 			false,
 		r2GetCalls: r2GetMock.mock.calls.length,
-		r2GetVariantBytesCalls: r2GetVariantBytesMock.mock.calls.length,
+		r2GetImageVariantCalls: r2GetImageVariantMock.mock.calls.length,
 		firstR2Key: outputs[0]?.r2?.key ?? '',
 		errorMessage
 	}

@@ -10,7 +10,8 @@ import {
 	PAYMENT_EVENT_TYPE_SUBSCRIPTION_CANCEL_AT_PERIOD_END,
 	PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED,
 	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAID,
-	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE
+	PAYMENT_EVENT_TYPE_SUBSCRIPTION_PAST_DUE,
+	PaymentProviderError
 } from './contract'
 import type {
 	CancelSubscriptionInput,
@@ -136,7 +137,7 @@ export class DodoPaymentProvider implements PaymentProvider {
 
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
 		if (input.providerConfig.kind !== 'remote_product') {
-			throw new Error('PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID')
+			throw new PaymentProviderError('PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID')
 		}
 
 		const session: DodoCheckoutSessionResponse = await this.client.checkoutSessions.create({
@@ -179,10 +180,18 @@ export class DodoPaymentProvider implements PaymentProvider {
 	}
 
 	async unwrapWebhook(input: UnwrapWebhookInput): Promise<PaymentEvent> {
-		const webhookEvent: DodoWebhookEvent = this.client.webhooks.unwrap(input.rawBody, {
-			headers: toRecordHeaders(input.headers),
-			key: this.webhookSecret
-		})
+		let webhookEvent: DodoWebhookEvent
+		try {
+			webhookEvent = this.client.webhooks.unwrap(input.rawBody, {
+				headers: toRecordHeaders(input.headers),
+				key: this.webhookSecret
+			})
+		} catch (error) {
+			throw new PaymentProviderError(
+				'DODO_WEBHOOK_SIGNATURE_INVALID',
+				error instanceof Error ? error.message : 'DODO_WEBHOOK_SIGNATURE_INVALID'
+			)
+		}
 		return mapDodoWebhookEvent(webhookEvent)
 	}
 }
@@ -311,7 +320,7 @@ function mapDodoWebhookEvent(event: DodoWebhookEvent): PaymentEvent {
 				occurredAt
 			}
 		default:
-			throw new Error(DODO_ERROR_EVENT_TYPE_UNSUPPORTED)
+			throw new PaymentProviderError(DODO_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
 }
 
@@ -335,7 +344,7 @@ function mapDodoEventType(rawEventType: DodoWebhookEvent['type']): PaymentEventT
 		case DODO_EVENT_SUBSCRIPTION_EXPIRED:
 			return PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED
 		default:
-			throw new Error(DODO_ERROR_EVENT_TYPE_UNSUPPORTED)
+			throw new PaymentProviderError(DODO_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
 }
 
@@ -355,7 +364,7 @@ function buildDodoWebhookId(event: DodoWebhookEvent): string {
 		case DODO_EVENT_SUBSCRIPTION_EXPIRED:
 			return `${event.type}:${event.data.subscription_id}:${event.timestamp}`
 		default:
-			throw new Error(DODO_ERROR_EVENT_TYPE_UNSUPPORTED)
+			throw new PaymentProviderError(DODO_ERROR_EVENT_TYPE_UNSUPPORTED)
 	}
 }
 

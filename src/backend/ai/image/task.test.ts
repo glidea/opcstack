@@ -75,14 +75,16 @@ describe('createAIImageTask', () => {
 			}
 		},
 		{
-			scenario: 'defaults task R2 upload to private',
-			given: 'async image input without isPublic',
+			scenario: 'stores explicit private R2 upload flag',
+			given: 'async image input with private upload config',
 			when: 'creating image task',
 			then: 'stores private upload flag',
 			givenDetail: {
 				input: {
 					prompt: 'draw',
-					uploadToR2: true
+					uploadToR2: true,
+					r2UploadDir: 'generated',
+					r2UploadIsPublic: false
 				}
 			},
 			whenDetail: {},
@@ -129,6 +131,80 @@ describe('createAIImageTask', () => {
 			referenceCount: task.references.length,
 			uploadToR2: task.uploadToR2,
 			r2UploadIsPublic: task.r2UploadIsPublic
+		}
+	})
+})
+
+describe('createAIImageTask validation', () => {
+	type GivenDetail = {
+		input: AISimpleImageClientGenerateInput
+	}
+	type WhenDetail = Record<string, never>
+	type ThenExpected = {
+		error: string
+		queueCalls: number
+	}
+
+	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'rejects R2 upload without directory',
+			given: 'uploadToR2 enabled without r2UploadDir',
+			when: 'creating image task',
+			then: 'throws before queueing',
+			givenDetail: {
+				input: {
+					prompt: 'draw',
+					uploadToR2: true,
+					r2UploadIsPublic: false
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				error: 'R2 upload directory is required',
+				queueCalls: 0
+			}
+		},
+		{
+			scenario: 'rejects R2 upload without visibility',
+			given: 'uploadToR2 enabled without r2UploadIsPublic',
+			when: 'creating image task',
+			then: 'throws before queueing',
+			givenDetail: {
+				input: {
+					prompt: 'draw',
+					uploadToR2: true,
+					r2UploadDir: 'generated'
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				error: 'R2 upload visibility is required',
+				queueCalls: 0
+			}
+		}
+	]
+
+	runCases(cases, async (given): Promise<ThenExpected> => {
+		const rows: InsertedRow[] = []
+		const sendMock = vi.fn()
+		const db = createDb(rows, () => {})
+		const env = {
+			Q_IMAGE_GENERATE: {
+				send: sendMock
+			}
+		} as unknown as Env
+
+		try {
+			await createAIImageTask(env, db, 'openai', 'm1', 'u1', given.input)
+			return {
+				error: '',
+				queueCalls: sendMock.mock.calls.length
+			}
+		} catch (error) {
+			return {
+				error: error instanceof Error ? error.message : String(error),
+				queueCalls: sendMock.mock.calls.length
+			}
 		}
 	})
 })

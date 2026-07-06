@@ -193,7 +193,9 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - `pnpm dev:extension` runs `prepare:public:dev` and starts WXT.
 - `pnpm build:extension` runs `prepare:public:prod` and packages the extension zip.
 - `scripts/prepare-public.mjs` generates `src/frontend/lib/config/client.generated.ts`, web logo, and extension icons.
-- `scripts/prepare-cloudflare.mjs` generates `wrangler.jsonc`, Cloudflare resources, bindings, migrations, runtime secrets, and public artifacts.
+- `scripts/prepare-cloudflare.mjs` generates `wrangler.jsonc`, `.wrangler/wrangler.types.jsonc`, Cloudflare resources, bindings, migrations, runtime secrets, and public artifacts.
+- `wrangler.jsonc` is the runtime config and should include only secrets required by enabled features.
+- `.wrangler/wrangler.types.jsonc` is type-generation-only config and may include the full secret schema so `Env` stays stable.
 - Public config lives in `.env.dev` and `.env.prod`. `.env` is a local override.
 - Secret config lives in `.env.secret.dev` and `.env.secret.prod`.
 - Agents must not read, print, search, edit, create, or copy secret files or token caches: `.env.secret.dev`, `.env.secret.prod`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
@@ -209,7 +211,7 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Add secret runtime config keys to `scripts/prepare-cloudflare.mjs` `SECRET_KEYS`.
 - When adding an env key, document it directly above the assignment with comments covering purpose, runtime usage, valid values, default semantics, external source, and operational best practices when they exist.
 - Secret env keys must be documented with placeholders in `.env.secret.example` only; do not read or edit real secret env files.
-- After changing config keys, run `pnpm exec wrangler types`.
+- After changing config keys, run `pnpm prepare:cloudflare:dev` and `pnpm exec wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false`.
 - Use generated `Env`; do not create feature-specific env interfaces.
 - Use `clientConfig` from `$frontend/config/client` for public frontend config.
 
@@ -397,6 +399,18 @@ pnpm exec wrangler types
 - Add queue: configure `QUEUE_NAMES`, add handler in `src/backend/consumers/index.ts`, send with `env.Q_<NAME>.send(payload)`.
 - Add cron: configure `CRONS`, add handler in `src/backend/jobs/index.ts`.
 - Add Durable Object: configure `DO_NAMES`, create class in `src/backend/do/`, export it from `src/index.ts`, run `pnpm dev`.
+
+---
+
+## Error Handling
+
+- Use return unions for expected business states the caller should branch on, such as `not_found`, `forbidden`, or `unavailable`.
+- Use exceptions for invalid calls, missing config, provider failures, and other non-normal failures.
+- Domain modules that throw handled errors should expose a typed error class with a typed `code` and a human-readable `message`, for example `R2Error`, `CreditsError`, or `PaymentServiceError`.
+- API handlers should map handled domain errors with `instanceof XxxError` and `switch (error.code)`, and return both `code` and human-readable `message`.
+- `code` is for machines. `message` is for humans. Do not set `message` to the same uppercase error code.
+- Do not branch on `error.message` for expected domain errors.
+- Do not add a global `AppError` hierarchy unless multiple domains genuinely need shared behavior.
 
 ---
 

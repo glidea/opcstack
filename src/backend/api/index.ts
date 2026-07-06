@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { adminUserMiddleware, authMiddleware } from './middleware/auth'
 import { emailAuthMiddleware } from './middleware/email-auth'
 import { betaGateMiddleware } from './middleware/beta-gate'
@@ -44,6 +44,8 @@ import {
 	readR2ObjectHandler
 } from './handler/r2'
 import { authCore } from './auth'
+import { logError } from '../lib/log'
+import type { ApiErrorResponse } from '../../api-contract/common'
 import type { MetaDb, TenantShardDb } from '../db'
 
 export type ApiEnv = {
@@ -120,3 +122,15 @@ api.route('/api', publicApi)
 api.route('/api', authOnlyApi)
 api.route('/api', adminApi)
 api.route('/api', userApi)
+api.onError(handleApiError)
+
+export function handleApiError(error: Error, ctx: Context<ApiEnv>): Response {
+	logError(error, {
+		method: ctx.req.method,
+		path: ctx.req.path
+	})
+	return ctx.json({
+		code: 'INTERNAL_ERROR',
+		message: 'Internal error'
+	} satisfies ApiErrorResponse, 500)
+}

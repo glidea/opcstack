@@ -1,4 +1,5 @@
 import type { TenantShardDb } from '../../db'
+import { AIError } from '../error'
 import { createSeedDanceSimpleVideoClient } from './seedance'
 
 export * from './seedance/constants'
@@ -20,7 +21,7 @@ export function createAIVideoClients(
 		}
 	}
 
-	throw new Error(`UNSUPPORTED_AI_PROVIDER: ${provider}`)
+	throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${provider}`)
 }
 
 export interface AISimpleVideoClient {

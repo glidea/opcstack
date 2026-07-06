@@ -1,4 +1,5 @@
 import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { resolveVideoReferences, type AIResolvedVideoReference } from '../reference'
 import { createAIVideoTask, getAIVideoTask } from '../task'
@@ -122,7 +123,7 @@ export async function createSeedDanceProviderTask(
 			body: JSON.stringify(toCreateTaskRequest(model, input, references))
 		})
 		if (!response.ok) {
-			throw new Error('SEEDDANCE_CREATE_TASK_FAILED')
+			throw new AIError('SEEDDANCE_CREATE_TASK_FAILED')
 		}
 		return response
 	})
@@ -130,7 +131,7 @@ export async function createSeedDanceProviderTask(
 	const body: SeedDanceCreateTaskResponse = await response.json()
 	const providerTaskId: string | undefined = body.id ?? body.task_id
 	if (!providerTaskId) {
-		throw new Error('SEEDDANCE_CREATE_TASK_ID_MISSING')
+		throw new AIError('SEEDDANCE_CREATE_TASK_ID_MISSING')
 	}
 	return providerTaskId
 }
@@ -148,7 +149,7 @@ export async function getSeedDanceProviderTask(
 			}
 		})
 		if (!response.ok) {
-			throw new Error('SEEDDANCE_GET_TASK_FAILED')
+			throw new AIError('SEEDDANCE_GET_TASK_FAILED')
 		}
 		return response
 	})
@@ -163,7 +164,7 @@ export async function getSeedDanceProviderTask(
 		case 'succeeded': {
 			const videoUrl: string | undefined = body.content?.video_url ?? body.content?.videoUrl
 			if (!videoUrl) {
-				throw new Error('SEEDDANCE_VIDEO_URL_MISSING')
+				throw new AIError('SEEDDANCE_VIDEO_URL_MISSING')
 			}
 			return {
 				status: 'completed',

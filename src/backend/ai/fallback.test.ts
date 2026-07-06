@@ -60,7 +60,7 @@ describe('resolveAIEndpoints', () => {
 			thenExpected: {
 				endpointCount: 0,
 				secondBaseURL: '',
-				errorMessage: 'AI_FALLBACK_CONFIG_INCOMPLETE'
+				errorMessage: 'AI fallback config is incomplete'
 			}
 		}
 	]

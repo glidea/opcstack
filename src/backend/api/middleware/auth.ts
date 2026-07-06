@@ -12,7 +12,7 @@ export const authMiddleware: MiddlewareHandler<ApiEnv> = async (
 		headers: ctx.req.raw.headers
 	})
 	if (!session) {
-		return ctx.json({ code: 'UNAUTHORIZED' }, 401)
+		return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
 	}
 
 	ctx.set('userId', session.user.id)
@@ -25,8 +25,9 @@ export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
 ): Promise<Response | void> => {
 	const authorization = ctx.req.header('authorization')
 	const adminEmail = ctx.env.SYSTEM_EMAIL.toLowerCase()
+	const adminApiToken = ctx.env.ADMIN_API_TOKEN
 
-	if (authorization === `Bearer ${ctx.env.ADMIN_API_TOKEN}`) {
+	if (adminApiToken && authorization === `Bearer ${adminApiToken}`) {
 		const adminUser = await ctx.get('metaDb').query.user.findFirst({
 			columns: {
 				id: true
@@ -34,7 +35,7 @@ export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
 			where: eq(user.email, adminEmail)
 		})
 		if (!adminUser) {
-			return ctx.json({ code: 'UNAUTHORIZED' }, 401)
+			return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
 		}
 
 		ctx.set('userId', adminUser.id)
@@ -45,7 +46,7 @@ export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
 		headers: ctx.req.raw.headers
 	})
 	if (!session || session.user.email !== adminEmail) {
-		return ctx.json({ code: 'UNAUTHORIZED' }, 401)
+		return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
 	}
 
 	ctx.set('userId', session.user.id)

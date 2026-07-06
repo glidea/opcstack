@@ -2,7 +2,7 @@ import { beforeEach, describe, vi } from 'vitest'
 import type { Context } from 'hono'
 import { runCases, type TestCase } from '../../testing/bdd'
 import type { ApiEnv } from '..'
-import { signR2Origin } from '../../r2'
+import { R2Error, signR2Origin } from '../../r2'
 import {
 	createR2TmpUploadUrlHandler,
 	createR2UploadUrlHandler,
@@ -447,6 +447,7 @@ describe('createR2UploadUrlHandler', () => {
 	type ThenExpected = {
 		status: number
 		code: string
+		errorCode: string
 		key: string
 		readUrl: string
 		hasUploadUrl: boolean
@@ -470,6 +471,7 @@ describe('createR2UploadUrlHandler', () => {
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_REQUEST',
+				errorCode: '',
 				key: '',
 				readUrl: '',
 				hasUploadUrl: false
@@ -492,6 +494,7 @@ describe('createR2UploadUrlHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
+				errorCode: '',
 				key: 'private/u1/avatars/me.png',
 				readUrl: 'http://localhost:5173/api/r2/private/u1/avatars/me.png',
 				hasUploadUrl: true
@@ -501,7 +504,7 @@ describe('createR2UploadUrlHandler', () => {
 			scenario: 'fails when upload signing config is missing',
 			given: 'access key is empty',
 			when: 'creating upload url',
-			then: 'returns server error',
+			then: 'throws server error for global handler',
 			givenDetail: {
 				userId: 'u1',
 				noAccessKey: true,
@@ -513,8 +516,9 @@ describe('createR2UploadUrlHandler', () => {
 			},
 			whenDetail: {},
 			thenExpected: {
-				status: 500,
-				code: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED',
+				status: 0,
+				code: '',
+				errorCode: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED',
 				key: '',
 				readUrl: '',
 				hasUploadUrl: false
@@ -538,6 +542,7 @@ describe('createR2UploadUrlHandler', () => {
 			thenExpected: {
 				status: 400,
 				code: 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED',
+				errorCode: '',
 				key: '',
 				readUrl: '',
 				hasUploadUrl: false
@@ -561,6 +566,7 @@ describe('createR2UploadUrlHandler', () => {
 			thenExpected: {
 				status: 400,
 				code: 'R2_USER_UPLOAD_SIZE_TOO_LARGE',
+				errorCode: '',
 				key: '',
 				readUrl: '',
 				hasUploadUrl: false
@@ -584,9 +590,21 @@ describe('createR2UploadUrlHandler', () => {
 			writableEnv.R2_USER_UPLOAD_MAX_BYTES = given.maxBytes
 		}
 
-		const response = await createR2UploadUrlHandler(
-			createJsonContext(given.userId, given.body, env)
-		)
+		let response: Response
+		try {
+			response = await createR2UploadUrlHandler(
+				createJsonContext(given.userId, given.body, env)
+			)
+		} catch (error) {
+			return {
+				status: 0,
+				code: '',
+				errorCode: error instanceof R2Error ? error.code : '',
+				key: '',
+				readUrl: '',
+				hasUploadUrl: false
+			}
+		}
 		const payload = (await response.json()) as {
 			code?: string
 			key?: string
@@ -596,6 +614,7 @@ describe('createR2UploadUrlHandler', () => {
 		return {
 			status: response.status,
 			code: payload.code ?? '',
+			errorCode: '',
 			key: payload.key ?? '',
 			readUrl: payload.read_url ?? '',
 			hasUploadUrl: Boolean(payload.upload_url)

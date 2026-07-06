@@ -1,3 +1,5 @@
+import { AIError } from './error'
+
 export interface AIEndpoint {
 	baseURL: string
 	apiKey: string
@@ -14,7 +16,7 @@ export function resolveAIEndpoints(
 		return endpoints
 	}
 	if (fallbackBaseURL === '' || fallbackApiKey === '') {
-		throw new Error('AI_FALLBACK_CONFIG_INCOMPLETE')
+		throw new AIError('AI_FALLBACK_CONFIG_INCOMPLETE')
 	}
 
 	endpoints.push({ baseURL: fallbackBaseURL, apiKey: fallbackApiKey })
