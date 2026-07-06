@@ -236,7 +236,7 @@ describe('bindAffHandler', () => {
 			scenario: 'reject invalid request payload',
 			given: 'body parse failed',
 			when: 'calling bindAffHandler',
-			then: 'returns invalid aff code',
+			then: 'returns invalid request',
 			givenDetail: {
 				enabled: 'true',
 				body: null,
@@ -248,7 +248,7 @@ describe('bindAffHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				code: 'INVALID_AFF_CODE',
+				code: 'INVALID_REQUEST',
 				grantCalls: 0,
 				markCalls: 0,
 				firstGrantUsesCurrentTenant: false,

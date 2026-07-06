@@ -52,21 +52,14 @@ export interface R2CreateReadUrlResult {
 	expiresAt: number
 }
 
-export type R2GetResult =
-	| {
-		status: 'ok'
-		isPublic: boolean
-		body: ReadableStream
-		contentType: string
-		etag: string
-	}
-	| { status: 'forbidden' }
-	| { status: 'not_found' }
-	| { status: 'unavailable' }
+export interface R2GetResult {
+	isPublic: boolean
+	body: ReadableStream
+	contentType: string
+	etag: string
+}
 
 export type R2ImageVariantPreset = 'small' | 'medium'
-
-type R2AccessResult = { status: 'ok' } | { status: 'forbidden' } | { status: 'not_found' }
 
 type R2Env = Env & { R2?: R2Bucket }
 
@@ -84,7 +77,9 @@ export type R2ErrorCode =
 	| 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED'
 	| 'R2_USER_UPLOAD_SIZE_TOO_LARGE'
 	| 'R2_READ_FORBIDDEN'
+	| 'R2_READ_NOT_FOUND'
 	| 'R2_READ_PATH_INVALID'
+	| 'R2_READ_FAILED'
 	| 'R2_ORIGIN_SIGNING_SECRET_REQUIRED'
 	| 'R2_PRIVATE_UPLOAD_USER_REQUIRED'
 	| 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED'
@@ -112,8 +107,12 @@ function r2ErrorMessage(code: R2ErrorCode): string {
 			return 'Upload size is too large'
 		case 'R2_READ_FORBIDDEN':
 			return 'R2 object access is forbidden'
+		case 'R2_READ_NOT_FOUND':
+			return 'R2 object was not found'
 		case 'R2_READ_PATH_INVALID':
 			return 'R2 object path is invalid'
+		case 'R2_READ_FAILED':
+			return 'R2 object read failed'
 		case 'R2_ORIGIN_SIGNING_SECRET_REQUIRED':
 			return 'R2 origin signing secret is required'
 		case 'R2_PRIVATE_UPLOAD_USER_REQUIRED':
@@ -187,13 +186,7 @@ class r2Client implements R2Client {
 	}
 
 	async createReadUrl(input: R2CreateReadUrlInput): Promise<R2CreateReadUrlResult> {
-		const access = this.checkAccess(input.key)
-		if (access.status === 'forbidden') {
-			throw new R2Error('R2_READ_FORBIDDEN')
-		}
-		if (access.status === 'not_found') {
-			throw new R2Error('R2_READ_PATH_INVALID')
-		}
+		this.assertReadableKey(input.key)
 		return {
 			key: input.key,
 			readUrl: await createR2OriginReadUrl(this.env, input.key, input.expiresAt),
@@ -203,21 +196,17 @@ class r2Client implements R2Client {
 
 	async get(key: string): Promise<R2GetResult> {
 		if (!this.env.R2) {
-			return { status: 'unavailable' }
+			throw new R2Error('R2_NOT_CONFIGURED')
 		}
 
-		const access = this.checkAccess(key)
-		if (access.status !== 'ok') {
-			return access
-		}
+		this.assertReadableKey(key)
 
 		const object = await this.env.R2.get(key)
 		if (!object) {
-			return { status: 'not_found' }
+			throw new R2Error('R2_READ_NOT_FOUND')
 		}
 
 		return {
-			status: 'ok',
 			isPublic: key.startsWith(PUBLIC_PREFIX),
 			body: object.body as ReadableStream,
 			contentType: object.httpMetadata?.contentType ?? 'application/octet-stream',
@@ -227,13 +216,10 @@ class r2Client implements R2Client {
 
 	async getImageVariant(key: string, preset: R2ImageVariantPreset): Promise<R2GetResult> {
 		if (!this.env.R2) {
-			return { status: 'unavailable' }
+			throw new R2Error('R2_NOT_CONFIGURED')
 		}
 
-		const access = this.checkAccess(key)
-		if (access.status !== 'ok') {
-			return access
-		}
+		this.assertReadableKey(key)
 
 		const secret = this.env.R2_ORIGIN_SIGNING_SECRET
 		if (!secret) {
@@ -250,17 +236,16 @@ class r2Client implements R2Client {
 		})
 
 		if (response.status === 403) {
-			return { status: 'forbidden' }
+			throw new R2Error('R2_READ_FORBIDDEN')
 		}
 		if (response.status === 404) {
-			return { status: 'not_found' }
+			throw new R2Error('R2_READ_NOT_FOUND')
 		}
 		if (!response.ok) {
-			return { status: 'unavailable' }
+			throw new R2Error('R2_READ_FAILED')
 		}
 
 		return {
-			status: 'ok',
 			isPublic: key.startsWith(PUBLIC_PREFIX),
 			body: response.body as ReadableStream,
 			contentType: response.headers.get('content-type') ?? 'image/jpeg',
@@ -268,32 +253,32 @@ class r2Client implements R2Client {
 		}
 	}
 
-	private checkAccess(key: string): R2AccessResult {
+	private assertReadableKey(key: string): void {
 		if (key.startsWith(PRIVATE_PREFIX)) {
 			const owner = this.privateOwner(key)
 			if (!this.userId || owner !== this.userId) {
-				return { status: 'forbidden' }
+				throw new R2Error('R2_READ_FORBIDDEN')
 			}
-			return { status: 'ok' }
+			return
 		}
 
 		if (key.startsWith(TMP_PRIVATE_PREFIX)) {
 			const owner = this.tmpOwner(key, TMP_PRIVATE_PREFIX)
 			if (!this.userId || owner !== this.userId) {
-				return { status: 'forbidden' }
+				throw new R2Error('R2_READ_FORBIDDEN')
 			}
-			return { status: 'ok' }
+			return
 		}
 
 		if (key.startsWith(PUBLIC_PREFIX)) {
-			return { status: 'ok' }
+			return
 		}
 
 		if (key.startsWith(TMP_PUBLIC_PREFIX)) {
-			return { status: 'ok' }
+			return
 		}
 
-		return { status: 'not_found' }
+		throw new R2Error('R2_READ_PATH_INVALID')
 	}
 
 	private buildKey(dir: string, filename: string, isPublic?: boolean, isTmp?: boolean): string {

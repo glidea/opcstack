@@ -5,9 +5,9 @@ import { betaCode } from '../../db/schema'
 import { parseRequest } from '../../lib/request'
 import type { ApiEnv } from '..'
 import {
-	BindBetaCodeRequestSchema,
-	GenerateBetaCodesRequestSchema,
-	ListBetaCodesRequestSchema,
+	BindBetaCodeApi,
+	GenerateBetaCodesApi,
+	ListBetaCodesApi,
 	type BindBetaCodeRequest,
 	type GenerateBetaCodesRequest,
 	type GenerateBetaCodesResponse,
@@ -28,10 +28,12 @@ export async function bindBetaCodeHandler(ctx: Context<ApiEnv>): Promise<Respons
 		return ctx.json({})
 	}
 
-	const req = await parseRequest(ctx, BindBetaCodeRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_BETA_CODE', message: 'Beta code is invalid' }, 400)
+	const request = await parseRequest(ctx, BindBetaCodeApi.request)
+	if (!request.success) {
+		const error = BindBetaCodeApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const userId = ctx.get('userId')
 	const db = ctx.get('metaDb')
@@ -51,20 +53,24 @@ export async function bindBetaCodeHandler(ctx: Context<ApiEnv>): Promise<Respons
 			where: eq(betaCode.usedBy, userId)
 		})
 		if (alreadyBoundBeta) {
-			return ctx.json({ code: 'BETA_CODE_ALREADY_BOUND', message: 'Beta code is already bound' }, 409)
+			const error = BindBetaCodeApi.errors.BETA_CODE_ALREADY_BOUND()
+			return ctx.json(error.body, error.status)
 		}
 
-		return ctx.json({ code: 'INVALID_BETA_CODE', message: 'Beta code is invalid' }, 400)
+		const error = BindBetaCodeApi.errors.INVALID_BETA_CODE()
+		return ctx.json(error.body, error.status)
 	}
 
 	return ctx.json({})
 }
 
 export async function generateBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, GenerateBetaCodesRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, GenerateBetaCodesApi.request)
+	if (!request.success) {
+		const error = GenerateBetaCodesApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const db = ctx.get('metaDb')
 	const now = Date.now()
@@ -92,10 +98,12 @@ export async function generateBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Re
 }
 
 export async function listBetaCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, ListBetaCodesRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, ListBetaCodesApi.request)
+	if (!request.success) {
+		const error = ListBetaCodesApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const db = ctx.get('metaDb')
 	const conditions: SQL[] = []

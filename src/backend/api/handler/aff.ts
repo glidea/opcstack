@@ -7,7 +7,8 @@ import type { TenantShardDb } from '../../db'
 import { parseDecimal } from '../../lib/decimal'
 import { parseRequest } from '../../lib/request'
 import {
-	BindAffRequestSchema,
+	BindAffApi,
+	GetAffSummaryApi,
 	type GetAffSummaryResponse
 } from '../../../api-contract/aff'
 
@@ -33,8 +34,10 @@ export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Respon
 	} catch (error) {
 		if (error instanceof AffError) {
 			switch (error.code) {
-				case 'AFF_USER_NOT_FOUND':
-					return ctx.json({ code: error.code, message: error.message }, 404)
+				case 'AFF_USER_NOT_FOUND': {
+					const response = GetAffSummaryApi.errors.AFF_USER_NOT_FOUND()
+					return ctx.json(response.body, response.status)
+				}
 				default:
 					break
 			}
@@ -49,10 +52,12 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 		return ctx.json({})
 	}
 
-	const req = await parseRequest(ctx, BindAffRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_AFF_CODE', message: 'Affiliate code is invalid' }, 400)
+	const request = await parseRequest(ctx, BindAffApi.request)
+	if (!request.success) {
+		const error = BindAffApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const inviterAmount: number = parseDecimal(env.AFF_INVITER_CREDIT_AMOUNT)
 	const inviteeAmount: number = parseDecimal(env.AFF_INVITEE_CREDIT_AMOUNT)
@@ -93,10 +98,14 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	} catch (error) {
 		if (error instanceof AffError) {
 			switch (error.code) {
-				case 'INVALID_AFF_CODE':
-					return ctx.json({ code: error.code, message: error.message }, 400)
-				case 'AFF_ALREADY_BOUND':
-					return ctx.json({ code: error.code, message: error.message }, 409)
+				case 'INVALID_AFF_CODE': {
+					const response = BindAffApi.errors.INVALID_AFF_CODE()
+					return ctx.json(response.body, response.status)
+				}
+				case 'AFF_ALREADY_BOUND': {
+					const response = BindAffApi.errors.AFF_ALREADY_BOUND()
+					return ctx.json(response.body, response.status)
+				}
 				default:
 					break
 			}

@@ -5,13 +5,14 @@ import {
 	R2Error,
 	verifyR2Origin,
 	type R2Client,
+	type R2CreateUploadUrlResult,
 	type R2GetResult,
 	type R2ImageVariantPreset
 } from '../../r2'
 import { parseRequest } from '../../lib/request'
 import {
-	CreateR2TmpUploadUrlRequestSchema,
-	CreateR2UploadUrlRequestSchema,
+	CreateR2PublicUploadUrlApi,
+	CreateR2UploadUrlApi,
 	type CreateR2UploadUrlResponse
 } from '../../../api-contract/r2'
 
@@ -56,44 +57,20 @@ async function readR2Object(
 	variant: string | undefined,
 	client: R2Client
 ): Promise<Response> {
-	if (!variant) {
-		const result: R2GetResult = await client.get(key)
-		return toR2Response(ctx, result)
-	}
-
-	if (!isR2ImageVariantPreset(variant)) {
-		return ctx.json({}, 404)
-	}
-
-	const result: R2GetResult = await client.getImageVariant(key, variant)
-	return toR2Response(ctx, result)
-}
-
-export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, CreateR2TmpUploadUrlRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
-	}
-
 	try {
-		const client = createR2Client(ctx.env, ctx.get('userId'))
-		const path = splitUploadPath(req.path)
-		const result = await client.createUploadUrl({
-			isPublic: req.is_public,
-			isTmp: true,
-			dir: path.dir,
-			filename: path.filename,
-			contentType: req.content_type,
-			size: req.size
-		})
-		return ctx.json({
-			key: result.key,
-			upload_url: result.uploadUrl,
-			read_url: result.readUrl,
-			expires_at: result.expiresAt
-		} as CreateR2UploadUrlResponse)
+		if (!variant) {
+			const result: R2GetResult = await client.get(key)
+			return toR2Response(ctx, result)
+		}
+
+		if (!isR2ImageVariantPreset(variant)) {
+			return ctx.json({}, 404)
+		}
+
+		const result: R2GetResult = await client.getImageVariant(key, variant)
+		return toR2Response(ctx, result)
 	} catch (error) {
-		const handled: Response | undefined = mapR2UploadError(ctx, error)
+		const handled: Response | undefined = mapR2ReadError(ctx, error)
 		if (handled) {
 			return handled
 		}
@@ -102,30 +79,78 @@ export async function createR2TmpUploadUrlHandler(ctx: Context<ApiEnv>): Promise
 }
 
 export async function createR2UploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, CreateR2UploadUrlRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, CreateR2UploadUrlApi.request)
+	if (!request.success) {
+		const error = CreateR2UploadUrlApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	try {
-		const client = createR2Client(ctx.env, ctx.get('userId'))
-		const path = splitUploadPath(req.path)
-		const result = await client.createUploadUrl({
+		const client: R2Client = createR2Client(ctx.env, ctx.get('userId'))
+		const path: { dir: string; filename: string } = splitUploadPath(req.path)
+		const result: R2CreateUploadUrlResult = await client.createUploadUrl({
+			isPublic: false,
+			isTmp: req.is_tmp,
 			dir: path.dir,
 			filename: path.filename,
 			contentType: req.content_type,
 			size: req.size
 		})
-		return ctx.json({
-			key: result.key,
-			upload_url: result.uploadUrl,
-			read_url: result.readUrl,
-			expires_at: result.expiresAt
-		} as CreateR2UploadUrlResponse)
+		return ctx.json(toCreateR2UploadUrlResponse(result))
 	} catch (error) {
-		const handled: Response | undefined = mapR2UploadError(ctx, error)
-		if (handled) {
-			return handled
+		if (error instanceof R2Error) {
+			switch (error.code) {
+				case 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED': {
+					const response = CreateR2UploadUrlApi.errors.R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED()
+					return ctx.json(response.body, response.status)
+				}
+				case 'R2_USER_UPLOAD_SIZE_TOO_LARGE': {
+					const response = CreateR2UploadUrlApi.errors.R2_USER_UPLOAD_SIZE_TOO_LARGE()
+					return ctx.json(response.body, response.status)
+				}
+				default:
+					break
+			}
+		}
+		throw error
+	}
+}
+
+export async function createR2PublicUploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, CreateR2PublicUploadUrlApi.request)
+	if (!request.success) {
+		const error = CreateR2PublicUploadUrlApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	const req = request.data
+
+	try {
+		const client: R2Client = createR2Client(ctx.env)
+		const path: { dir: string; filename: string } = splitUploadPath(req.path)
+		const result: R2CreateUploadUrlResult = await client.createUploadUrl({
+			isPublic: true,
+			dir: path.dir,
+			filename: path.filename,
+			contentType: req.content_type,
+			size: req.size
+		})
+		return ctx.json(toCreateR2UploadUrlResponse(result))
+	} catch (error) {
+		if (error instanceof R2Error) {
+			switch (error.code) {
+				case 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED': {
+					const response =
+						CreateR2PublicUploadUrlApi.errors.R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED()
+					return ctx.json(response.body, response.status)
+				}
+				case 'R2_USER_UPLOAD_SIZE_TOO_LARGE': {
+					const response = CreateR2PublicUploadUrlApi.errors.R2_USER_UPLOAD_SIZE_TOO_LARGE()
+					return ctx.json(response.body, response.status)
+				}
+				default:
+					break
+			}
 		}
 		throw error
 	}
@@ -156,8 +181,16 @@ export async function readR2ImageOriginHandler(ctx: Context<ApiEnv>): Promise<Re
 
 	const key = toR2OriginKey(ctx.req.path)
 	const client = createR2Client(ctx.env, privateOwner(key))
-	const result = await client.get(key)
-	return toR2Response(ctx, result)
+	try {
+		const result = await client.get(key)
+		return toR2Response(ctx, result)
+	} catch (error) {
+		const handled: Response | undefined = mapR2ReadError(ctx, error)
+		if (handled) {
+			return handled
+		}
+		throw error
+	}
 }
 
 export function toR2Key(path: string): string {
@@ -175,6 +208,17 @@ function splitUploadPath(path: string): { dir: string; filename: string } {
 	return {
 		dir: path.slice(0, index),
 		filename: path.slice(index + 1)
+	}
+}
+
+function toCreateR2UploadUrlResponse(
+	result: R2CreateUploadUrlResult
+): CreateR2UploadUrlResponse {
+	return {
+		key: result.key,
+		upload_url: result.uploadUrl,
+		read_url: result.readUrl,
+		expires_at: result.expiresAt
 	}
 }
 
@@ -240,31 +284,23 @@ function privateOwner(key: string): string | undefined {
 	return remaining.slice(0, index)
 }
 
-function mapR2UploadError(ctx: Context<ApiEnv>, error: unknown): Response | undefined {
+function mapR2ReadError(ctx: Context<ApiEnv>, error: unknown): Response | undefined {
 	if (!(error instanceof R2Error)) {
 		return undefined
 	}
 
 	switch (error.code) {
-		case 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED':
-		case 'R2_USER_UPLOAD_SIZE_TOO_LARGE':
-			return ctx.json({ code: error.code, message: error.message }, 400)
+		case 'R2_READ_FORBIDDEN':
+			return ctx.json({}, 403)
+		case 'R2_READ_NOT_FOUND':
+		case 'R2_READ_PATH_INVALID':
+			return ctx.json({}, 404)
 		default:
 			return undefined
 	}
 }
 
 function toR2Response(ctx: Context<ApiEnv>, result: R2GetResult): Response {
-	if (result.status === 'unavailable') {
-		throw new R2Error('R2_NOT_CONFIGURED')
-	}
-	if (result.status === 'forbidden') {
-		return ctx.json({}, 403)
-	}
-	if (result.status === 'not_found') {
-		return ctx.json({}, 404)
-	}
-
 	const headers = new Headers()
 	headers.set('content-type', result.contentType)
 	headers.set('etag', result.etag)

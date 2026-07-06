@@ -1,11 +1,13 @@
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
-	AdminGrantCreditsRequestSchema,
-	GenerateCreditCodesRequestSchema,
-	ListCreditCodesRequestSchema,
-	ListCreditTransactionsRequestSchema,
-	RedeemCreditCodeRequestSchema
+	AdminGrantCreditsApi,
+	DailyCheckinApi,
+	GenerateCreditCodesApi,
+	GetCreditSummaryApi,
+	ListCreditCodesApi,
+	ListCreditTransactionsApi,
+	RedeemCreditCodeApi
 } from '../../../api-contract/credits'
 import {
 	CREDIT_TRANSACTION_TYPE_MANUAL_GRANT,
@@ -37,8 +39,10 @@ export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Res
 	} catch (error) {
 		if (error instanceof CreditsError) {
 			switch (error.code) {
-				case 'CREDIT_USER_NOT_FOUND':
-					return ctx.json({ code: error.code, message: error.message }, 404)
+				case 'CREDIT_USER_NOT_FOUND': {
+					const response = GetCreditSummaryApi.errors.CREDIT_USER_NOT_FOUND()
+					return ctx.json(response.body, response.status)
+				}
 				default:
 					break
 			}
@@ -48,10 +52,12 @@ export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Res
 }
 
 export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, ListCreditTransactionsRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, ListCreditTransactionsApi.request)
+	if (!request.success) {
+		const error = ListCreditTransactionsApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const credits = new CreditsService(ctx.get('tenantDb'))
 	const result = await credits.listTransactions({
@@ -79,7 +85,8 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 
 	const amount = toCreditUnits(env.CREDITS_DAILY_CHECKIN_AMOUNT)
 	if (amount <= 0) {
-		return ctx.json({ code: 'INVALID_DAILY_CHECKIN_AMOUNT', message: 'Daily check-in amount is invalid' }, 400)
+		const error = DailyCheckinApi.errors.INVALID_DAILY_CHECKIN_AMOUNT()
+		return ctx.json(error.body, error.status)
 	}
 
 	try {
@@ -96,8 +103,10 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 	} catch (error) {
 		if (error instanceof CreditsError) {
 			switch (error.code) {
-				case 'DAILY_CHECKIN_ALREADY_DONE':
-					return ctx.json({ code: error.code, message: error.message }, 409)
+				case 'DAILY_CHECKIN_ALREADY_DONE': {
+					const response = DailyCheckinApi.errors.DAILY_CHECKIN_ALREADY_DONE()
+					return ctx.json(response.body, response.status)
+				}
 				default:
 					break
 			}
@@ -107,14 +116,17 @@ export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Respons
 }
 
 export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, GenerateCreditCodesRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, GenerateCreditCodesApi.request)
+	if (!request.success) {
+		const error = GenerateCreditCodesApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const amount = toCreditUnits(req.amount)
 	if (amount <= 0) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+		const error = GenerateCreditCodesApi.errors.INVALID_REQUEST('amount: Credit amount is invalid')
+		return ctx.json(error.body, error.status)
 	}
 
 	const redemptions = new CreditRedemptionService(ctx.get('metaDb'))
@@ -137,14 +149,17 @@ export async function generateCreditCodesHandler(ctx: Context<ApiEnv>): Promise<
 }
 
 export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, ListCreditCodesRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, ListCreditCodesApi.request)
+	if (!request.success) {
+		const error = ListCreditCodesApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const amount = req.amount === undefined ? undefined : toCreditUnits(req.amount)
 	if (req.amount !== undefined && (!amount || amount <= 0)) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+		const error = ListCreditCodesApi.errors.INVALID_REQUEST('amount: Credit amount is invalid')
+		return ctx.json(error.body, error.status)
 	}
 
 	const redemptions = new CreditRedemptionService(ctx.get('metaDb'))
@@ -179,10 +194,12 @@ export async function listCreditCodesHandler(ctx: Context<ApiEnv>): Promise<Resp
 }
 
 export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, RedeemCreditCodeRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_CREDIT_CODE', message: 'Credit code is invalid' }, 400)
+	const request = await parseRequest(ctx, RedeemCreditCodeApi.request)
+	if (!request.success) {
+		const error = RedeemCreditCodeApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const redemptions = new CreditRedemptionService(ctx.get('metaDb'))
 	try {
@@ -209,15 +226,20 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 				amount: formatCreditAmount(claimed.amount)
 			})
 		} catch {
-			return ctx.json({ code: 'CREDIT_GRANT_PENDING', message: 'Credit grant is pending' }, 202)
+			const error = RedeemCreditCodeApi.errors.CREDIT_GRANT_PENDING()
+			return ctx.json(error.body, error.status)
 		}
 	} catch (error) {
 		if (error instanceof CreditsError) {
 			switch (error.code) {
-				case 'CREDIT_CODE_USED':
-					return ctx.json({ code: error.code, message: error.message }, 409)
-				case 'INVALID_CREDIT_CODE':
-					return ctx.json({ code: error.code, message: error.message }, 400)
+				case 'CREDIT_CODE_USED': {
+					const response = RedeemCreditCodeApi.errors.CREDIT_CODE_USED()
+					return ctx.json(response.body, response.status)
+				}
+				case 'INVALID_CREDIT_CODE': {
+					const response = RedeemCreditCodeApi.errors.INVALID_CREDIT_CODE()
+					return ctx.json(response.body, response.status)
+				}
 				default:
 					break
 			}
@@ -227,14 +249,17 @@ export async function redeemCreditCodeHandler(ctx: Context<ApiEnv>): Promise<Res
 }
 
 export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, AdminGrantCreditsRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, AdminGrantCreditsApi.request)
+	if (!request.success) {
+		const error = AdminGrantCreditsApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const amount = toCreditUnits(req.amount)
 	if (amount <= 0) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+		const error = AdminGrantCreditsApi.errors.INVALID_REQUEST('amount: Credit amount is invalid')
+		return ctx.json(error.body, error.status)
 	}
 
 	try {
@@ -250,7 +275,8 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 			expiresAt: req.expires_at
 		})
 		if (result.duplicated) {
-			return ctx.json({ code: 'CREDIT_GRANT_DUPLICATED', message: 'Credit grant is duplicated' }, 409)
+			const error = AdminGrantCreditsApi.errors.CREDIT_GRANT_DUPLICATED()
+			return ctx.json(error.body, error.status)
 		}
 		return ctx.json({
 			balance: formatCreditAmount(result.balance)
@@ -258,10 +284,14 @@ export async function grantCreditsHandler(ctx: Context<ApiEnv>): Promise<Respons
 	} catch (error) {
 		if (error instanceof CreditsError) {
 			switch (error.code) {
-				case 'CREDIT_USER_NOT_FOUND':
-					return ctx.json({ code: error.code, message: error.message }, 404)
-				case 'INVALID_CREDIT_AMOUNT':
-					return ctx.json({ code: error.code, message: error.message }, 400)
+				case 'CREDIT_USER_NOT_FOUND': {
+					const response = AdminGrantCreditsApi.errors.CREDIT_USER_NOT_FOUND()
+					return ctx.json(response.body, response.status)
+				}
+				case 'INVALID_CREDIT_AMOUNT': {
+					const response = AdminGrantCreditsApi.errors.INVALID_CREDIT_AMOUNT()
+					return ctx.json(response.body, response.status)
+				}
 				default:
 					break
 			}

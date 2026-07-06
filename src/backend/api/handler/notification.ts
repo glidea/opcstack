@@ -2,11 +2,11 @@ import { and, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'dri
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
-	CreateNotificationRequestSchema,
-	ListNotificationsRequestSchema,
+	CreateNotificationApi,
+	ListNotificationsApi,
 	type ListNotificationsResponse,
 	type ListNotificationsResponseItem,
-	ReadNotificationRequestSchema
+	ReadNotificationApi
 } from '../../../api-contract/notifications'
 import type { NewNotification } from '../../db/schema'
 import { notification } from '../../db/schema'
@@ -15,10 +15,12 @@ import { notificationRead } from '../../db/schema.shard'
 import { parseRequest } from '../../lib/request'
 
 export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, CreateNotificationRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, CreateNotificationApi.request)
+	if (!request.success) {
+		const error = CreateNotificationApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const row: NewNotification = {
 		id: crypto.randomUUID(),
@@ -34,10 +36,12 @@ export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<R
 }
 
 export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, ListNotificationsRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, ListNotificationsApi.request)
+	if (!request.success) {
+		const error = ListNotificationsApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const userId = ctx.get('userId')
 	const visibleWhere = or(isNull(notification.targetUserId), eq(notification.targetUserId, userId))
@@ -118,10 +122,12 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 }
 
 export async function readNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, ReadNotificationRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, ReadNotificationApi.request)
+	if (!request.success) {
+		const error = ReadNotificationApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const row: NewNotificationRead = {
 		notificationId: req.id,

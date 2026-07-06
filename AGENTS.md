@@ -248,12 +248,17 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 
 ## API Contracts
 
-- Shared JSON API schemas, request types, response types, and typed client live in `src/api-contract/`.
-- API handlers must import request schemas and response types from `src/api-contract/`.
+- Shared JSON API contracts, request types, response types, error responses, and typed client live in `src/api-contract/`.
+- API handlers must import the API contract object from `src/api-contract/`, for example `CreateR2UploadUrlApi`.
 - Do not define route request or response contracts inside `src/backend/api/handler/`.
 - Keep one contract file per business area, for example `credits.ts`, `payment.ts`, or `notifications.ts`.
-- Request schemas use Zod and export both `XxxRequestSchema` and `XxxRequest`.
-- Response payloads use explicit named `type` exports.
+- Each JSON API contract object must contain `request`, `response`, and `errors`.
+- `request` and `response` use Zod schemas. Export named `XxxRequest`, `XxxResponse`, and schema symbols when frontend or tests need them.
+- `errors` contains functions that return `{ status, body: { code, message } }`.
+- Dynamic error messages, such as request validation errors, must be passed into the matching API error function.
+- Request validation failures should return `INVALID_REQUEST` with the concrete validation message, for example `content_type: Required`.
+- Do not hand-write JSON API errors in handlers when the error belongs to an API contract. Use `XxxApi.errors.CODE(...)`.
+- Response payloads use explicit named `type` exports derived from the response schema.
 - Handlers should cast `ctx.json(...)` payloads to the matching response type so contract drift is visible during type checking.
 - Frontend API callers should import request and response types from `src/api-contract/`, not from backend handler files.
 - Non-JSON streaming routes, webhook provider payloads, Better Auth routes, and raw file reads do not need a JSON API contract unless application code consumes typed JSON.
@@ -280,6 +285,8 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - Payment `price_amount` is provider minor currency units and must not be mixed with credit units.
 - R2 paths are `public/*`, `private/<userId>/*`, `tmp/public/*`, and `tmp/private/<userId>/*`.
 - R2 lifecycle rules may only target `tmp/public/` and `tmp/private/`.
+- User upload URLs may only write `private/<userId>/*` or `tmp/private/<userId>/*`; the request uses `is_tmp` to choose lifecycle.
+- Admin public upload URLs may only write `public/*`; do not use the admin public upload API for user-owned private files.
 - Use a single R2 bucket by default.
 - Payment is controlled by `PAYMENT_ENABLED`; enabled providers are Dodo and Creem via `src/backend/payment/`.
 - AI providers live under `src/backend/ai/`; async AI queue payloads carry only task id and user id.
@@ -407,7 +414,7 @@ pnpm exec wrangler types
 - Use return unions for expected business states the caller should branch on, such as `not_found`, `forbidden`, or `unavailable`.
 - Use exceptions for invalid calls, missing config, provider failures, and other non-normal failures.
 - Domain modules that throw handled errors should expose a typed error class with a typed `code` and a human-readable `message`, for example `R2Error`, `CreditsError`, or `PaymentServiceError`.
-- API handlers should map handled domain errors with `instanceof XxxError` and `switch (error.code)`, and return both `code` and human-readable `message`.
+- API handlers should map handled domain errors with `instanceof XxxError` and `switch (error.code)`, then return the matching `XxxApi.errors.CODE(...)`.
 - `code` is for machines. `message` is for humans. Do not set `message` to the same uppercase error code.
 - Do not branch on `error.message` for expected domain errors.
 - Do not add a global `AppError` hierarchy unless multiple domains genuinely need shared behavior.

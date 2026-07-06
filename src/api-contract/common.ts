@@ -11,7 +11,15 @@ export type PageResponse<T> = {
 	total: number
 }
 
-export type ApiErrorResponse = {
-	code: string
+export type ApiErrorResponse<Code extends string = string> = {
+	code: Code
 	message: string
+}
+
+export type ApiErrorResult<
+	Code extends string = string,
+	Status extends number = number
+> = {
+	status: Status
+	body: ApiErrorResponse<Code>
 }

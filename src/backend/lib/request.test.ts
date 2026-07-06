@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
-import { parseRequest, parseRequestResult } from './request'
+import { parseRequest } from './request'
 
 interface MockContext {
 	req: {
@@ -24,7 +24,10 @@ describe('parseRequest', () => {
 
 		const result = await parseRequest(ctx, TestSchema)
 
-		expect(result).toBeNull()
+		expect(result).toEqual({
+			success: false,
+			message: 'Invalid JSON'
+		})
 	})
 
 	test('returns schema error details without losing path', async () => {
@@ -38,19 +41,11 @@ describe('parseRequest', () => {
 			}
 		}
 
-		const result = await parseRequestResult(ctx, TestSchema)
+		const result = await parseRequest(ctx, TestSchema)
 
 		expect(result).toEqual({
 			success: false,
-			error: {
-				type: 'schema',
-				issues: [
-					{
-						path: 'name',
-						message: 'Too small: expected string to have >=1 characters'
-					}
-				]
-			}
+			message: 'name: Too small: expected string to have >=1 characters'
 		})
 	})
 })

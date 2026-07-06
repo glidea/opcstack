@@ -4,7 +4,7 @@ import { runCases, type TestCase } from '../../testing/bdd'
 import type { ApiEnv } from '..'
 import { R2Error, signR2Origin } from '../../r2'
 import {
-	createR2TmpUploadUrlHandler,
+	createR2PublicUploadUrlHandler,
 	createR2UploadUrlHandler,
 	readR2ImageOriginHandler,
 	readR2ObjectHandler,
@@ -462,6 +462,7 @@ describe('createR2UploadUrlHandler', () => {
 			givenDetail: {
 				userId: 'u1',
 				body: {
+					is_tmp: false,
 					path: '/avatars/me.png',
 					content_type: 'image/png',
 					size: 1024
@@ -485,6 +486,7 @@ describe('createR2UploadUrlHandler', () => {
 			givenDetail: {
 				userId: 'u1',
 				body: {
+					is_tmp: false,
 					path: 'avatars/me.png',
 					content_type: 'image/png',
 					size: 1024
@@ -501,6 +503,30 @@ describe('createR2UploadUrlHandler', () => {
 			}
 		},
 		{
+			scenario: 'creates upload url for current user tmp private path',
+			given: 'is_tmp is true',
+			when: 'creating upload url',
+			then: 'returns tmp private key and signed upload url',
+			givenDetail: {
+				userId: 'u1',
+				body: {
+					is_tmp: true,
+					path: 'avatars/me.png',
+					content_type: 'image/png',
+					size: 1024
+				}
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				errorCode: '',
+				key: 'tmp/private/u1/avatars/me.png',
+				readUrl: 'http://localhost:5173/api/r2/tmp/private/u1/avatars/me.png',
+				hasUploadUrl: true
+			}
+		},
+		{
 			scenario: 'fails when upload signing config is missing',
 			given: 'access key is empty',
 			when: 'creating upload url',
@@ -509,6 +535,7 @@ describe('createR2UploadUrlHandler', () => {
 				userId: 'u1',
 				noAccessKey: true,
 				body: {
+					is_tmp: false,
 					path: 'avatars/me.png',
 					content_type: 'image/png',
 					size: 1024
@@ -533,6 +560,7 @@ describe('createR2UploadUrlHandler', () => {
 				userId: 'u1',
 				allowedContentTypes: 'image/png',
 				body: {
+					is_tmp: false,
 					path: 'avatars/me.txt',
 					content_type: 'text/plain',
 					size: 1024
@@ -557,6 +585,7 @@ describe('createR2UploadUrlHandler', () => {
 				userId: 'u1',
 				maxBytes: '100',
 				body: {
+					is_tmp: false,
 					path: 'avatars/me.png',
 					content_type: 'image/png',
 					size: 101
@@ -622,7 +651,7 @@ describe('createR2UploadUrlHandler', () => {
 	})
 })
 
-describe('createR2TmpUploadUrlHandler', () => {
+describe('createR2PublicUploadUrlHandler', () => {
 	type GivenDetail = {
 		body: unknown
 		userId: string
@@ -638,15 +667,14 @@ describe('createR2TmpUploadUrlHandler', () => {
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'rejects invalid tmp upload isPublic',
-			given: 'is_public is not boolean',
-			when: 'creating tmp upload url',
+			scenario: 'rejects invalid public upload path',
+			given: 'path is absolute',
+			when: 'creating public upload url',
 			then: 'returns invalid request',
 			givenDetail: {
-				userId: 'u1',
+				userId: 'admin',
 				body: {
-					is_public: 'yes',
-					path: 'images/a.png',
+					path: '/images/a.png',
 					content_type: 'image/png',
 					size: 1024
 				}
@@ -661,14 +689,13 @@ describe('createR2TmpUploadUrlHandler', () => {
 			}
 		},
 		{
-			scenario: 'creates tmp upload url for public tmp path',
-			given: 'is_public is true',
-			when: 'creating tmp upload url',
-			then: 'returns tmp public key and signed upload url',
+			scenario: 'creates public upload url',
+			given: 'path and content type are valid',
+			when: 'creating public upload url',
+			then: 'returns public key and signed upload url',
 			givenDetail: {
-				userId: 'u1',
+				userId: 'admin',
 				body: {
-					is_public: true,
 					path: 'images/a.png',
 					content_type: 'image/png',
 					size: 1024
@@ -678,31 +705,8 @@ describe('createR2TmpUploadUrlHandler', () => {
 			thenExpected: {
 				status: 200,
 				code: '',
-				key: 'tmp/public/images/a.png',
-				readUrl: 'http://localhost:5173/api/r2/tmp/public/images/a.png',
-				hasUploadUrl: true
-			}
-		},
-		{
-			scenario: 'creates tmp upload url for private tmp path',
-			given: 'is_public is false',
-			when: 'creating tmp upload url',
-			then: 'returns tmp private key and signed upload url',
-			givenDetail: {
-				userId: 'u1',
-				body: {
-					is_public: false,
-					path: 'images/a.png',
-					content_type: 'image/png',
-					size: 1024
-				}
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 200,
-				code: '',
-				key: 'tmp/private/u1/images/a.png',
-				readUrl: 'http://localhost:5173/api/r2/tmp/private/u1/images/a.png',
+				key: 'public/images/a.png',
+				readUrl: 'http://localhost:5173/api/r2/public/images/a.png',
 				hasUploadUrl: true
 			}
 		}
@@ -710,7 +714,7 @@ describe('createR2TmpUploadUrlHandler', () => {
 
 	runCases(cases, async (given) => {
 		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-		const response = await createR2TmpUploadUrlHandler(
+		const response = await createR2PublicUploadUrlHandler(
 			createJsonContext(given.userId, given.body, createEnv())
 		)
 		const payload = (await response.json()) as {

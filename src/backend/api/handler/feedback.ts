@@ -2,10 +2,10 @@ import { and, desc, eq, gte, lte, type SQL } from 'drizzle-orm'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
-	ListFeedbacksRequestSchema,
+	ListFeedbacksApi,
 	type ListFeedbacksResponse,
 	type ListFeedbacksResponseItem,
-	SubmitFeedbackRequestSchema
+	SubmitFeedbackApi
 } from '../../../api-contract/feedback'
 import { createTenantShardAccess } from '../../db/shard-router'
 import type { Feedback, NewFeedback } from '../../db/schema.shard'
@@ -13,10 +13,12 @@ import { feedback } from '../../db/schema.shard'
 import { parseRequest } from '../../lib/request'
 
 export async function submitFeedbackHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, SubmitFeedbackRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, SubmitFeedbackApi.request)
+	if (!request.success) {
+		const error = SubmitFeedbackApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const row: NewFeedback = {
 		id: crypto.randomUUID(),
@@ -31,10 +33,12 @@ export async function submitFeedbackHandler(ctx: Context<ApiEnv>): Promise<Respo
 }
 
 export async function listFeedbacksHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, ListFeedbacksRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, ListFeedbacksApi.request)
+	if (!request.success) {
+		const error = ListFeedbacksApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const conditions: SQL[] = []
 	if (req.user_id) {

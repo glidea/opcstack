@@ -465,7 +465,7 @@ describe('redeemCreditCodeHandler', () => {
 			scenario: 'reject invalid redeem request',
 			given: 'body parse failed',
 			when: 'calling redeemCreditCodeHandler',
-			then: 'returns invalid credit code',
+			then: 'returns invalid request',
 			givenDetail: {
 				body: null,
 				errorCode: '',
@@ -475,7 +475,7 @@ describe('redeemCreditCodeHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				code: 'INVALID_CREDIT_CODE',
+				code: 'INVALID_REQUEST',
 				amount: '',
 				markedGranted: false
 			}

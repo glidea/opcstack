@@ -38,7 +38,7 @@ import {
 } from './handler/payment'
 import { aiRealtimeConnectHandler } from './handler/ai-realtime'
 import {
-	createR2TmpUploadUrlHandler,
+	createR2PublicUploadUrlHandler,
 	createR2UploadUrlHandler,
 	readR2ImageOriginHandler,
 	readR2ObjectHandler
@@ -90,6 +90,7 @@ adminApi.post('/admin/grant_credits', grantCreditsHandler)
 adminApi.post('/admin/list_feedbacks', listFeedbacksHandler)
 adminApi.post('/admin/create_notification', createNotificationHandler)
 adminApi.post('/admin/list_payment_transactions', listAdminPaymentTransactionsHandler)
+adminApi.post('/admin/create_r2_public_upload_url', createR2PublicUploadUrlHandler)
 adminApi.get('/admin/ai_realtime_connect', aiRealtimeConnectHandler)
 
 const userApi: Hono<ApiEnv> = new Hono<ApiEnv>()
@@ -97,7 +98,6 @@ userApi.use('*', authMiddleware, betaGateMiddleware, tenantDbMiddleware)
 userApi.get('/r2/private/*', readR2ObjectHandler)
 userApi.get('/r2/tmp/private/*', readR2ObjectHandler)
 userApi.post('/create_r2_upload_url', createR2UploadUrlHandler)
-userApi.post('/create_r2_tmp_upload_url', createR2TmpUploadUrlHandler)
 userApi.post('/get_credit_summary', getCreditSummaryHandler)
 userApi.post(
 	'/list_credit_transactions',

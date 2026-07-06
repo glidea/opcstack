@@ -67,7 +67,7 @@ describe('bindBetaCodeHandler', () => {
 			scenario: 'reject malformed request body',
 			given: 'beta code gate enabled and body parse failed',
 			when: 'binding beta code',
-			then: 'returns invalid beta code',
+			then: 'returns invalid request',
 			givenDetail: {
 				betaEnabled: 'true',
 				userId: 'u1',
@@ -78,7 +78,7 @@ describe('bindBetaCodeHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				body: { code: 'INVALID_BETA_CODE', message: 'Beta code is invalid' }
+				body: { code: 'INVALID_REQUEST', message: 'Invalid JSON' }
 			}
 		},
 		{

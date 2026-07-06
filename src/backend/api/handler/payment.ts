@@ -1,10 +1,11 @@
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
-	CreatePaymentCheckoutRequestSchema,
-	ListAdminPaymentTransactionsRequestSchema,
-	ListPaymentTransactionsRequestSchema,
-	UpgradeSubscriptionRequestSchema
+	CancelSubscriptionApi,
+	CreatePaymentCheckoutApi,
+	ListAdminPaymentTransactionsApi,
+	ListPaymentTransactionsApi,
+	UpgradeSubscriptionApi
 } from '../../../api-contract/payment'
 import { parseRequest } from '../../lib/request'
 import {
@@ -43,10 +44,12 @@ export async function listPaymentProductsHandler(ctx: Context<ApiEnv>): Promise<
 }
 
 export async function createPaymentCheckoutHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, CreatePaymentCheckoutRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, CreatePaymentCheckoutApi.request)
+	if (!request.success) {
+		const error = CreatePaymentCheckoutApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	try {
@@ -62,9 +65,23 @@ export async function createPaymentCheckoutHandler(ctx: Context<ApiEnv>): Promis
 			checkout_url: result.checkoutUrl
 		})
 	} catch (error) {
-		const handled = mapPaymentServiceError(ctx, error)
-		if (handled) {
-			return handled
+		if (error instanceof PaymentServiceError) {
+			switch (error.code) {
+				case 'PAYMENT_DISABLED': {
+					const response = CreatePaymentCheckoutApi.errors.PAYMENT_DISABLED()
+					return ctx.json(response.body, response.status)
+				}
+				case 'PAYMENT_PRODUCT_NOT_FOUND': {
+					const response = CreatePaymentCheckoutApi.errors.PAYMENT_PRODUCT_NOT_FOUND()
+					return ctx.json(response.body, response.status)
+				}
+				case 'PAYMENT_RETURN_PATH_INVALID': {
+					const response = CreatePaymentCheckoutApi.errors.PAYMENT_RETURN_PATH_INVALID()
+					return ctx.json(response.body, response.status)
+				}
+				default:
+					break
+			}
 		}
 		throw error
 	}
@@ -102,19 +119,31 @@ export async function cancelSubscriptionHandler(ctx: Context<ApiEnv>): Promise<R
 			canceled_at: result.canceledAt
 		})
 	} catch (error) {
-		const handled = mapPaymentServiceError(ctx, error)
-		if (handled) {
-			return handled
+		if (error instanceof PaymentServiceError) {
+			switch (error.code) {
+				case 'SUBSCRIPTION_NOT_FOUND': {
+					const response = CancelSubscriptionApi.errors.SUBSCRIPTION_NOT_FOUND()
+					return ctx.json(response.body, response.status)
+				}
+				case 'SUBSCRIPTION_ALREADY_CANCELED': {
+					const response = CancelSubscriptionApi.errors.SUBSCRIPTION_ALREADY_CANCELED()
+					return ctx.json(response.body, response.status)
+				}
+				default:
+					break
+			}
 		}
 		throw error
 	}
 }
 
 export async function upgradeSubscriptionHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, UpgradeSubscriptionRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, UpgradeSubscriptionApi.request)
+	if (!request.success) {
+		const error = UpgradeSubscriptionApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 
 	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	try {
@@ -126,19 +155,51 @@ export async function upgradeSubscriptionHandler(ctx: Context<ApiEnv>): Promise<
 			status: result.status
 		})
 	} catch (error) {
-		const handled = mapPaymentServiceError(ctx, error)
-		if (handled) {
-			return handled
+		if (error instanceof PaymentServiceError) {
+			switch (error.code) {
+				case 'PAYMENT_DISABLED': {
+					const response = UpgradeSubscriptionApi.errors.PAYMENT_DISABLED()
+					return ctx.json(response.body, response.status)
+				}
+				case 'SUBSCRIPTION_NOT_FOUND': {
+					const response = UpgradeSubscriptionApi.errors.SUBSCRIPTION_NOT_FOUND()
+					return ctx.json(response.body, response.status)
+				}
+				case 'SUBSCRIPTION_NOT_ACTIVE': {
+					const response = UpgradeSubscriptionApi.errors.SUBSCRIPTION_NOT_ACTIVE()
+					return ctx.json(response.body, response.status)
+				}
+				case 'SUBSCRIPTION_TARGET_INVALID': {
+					const response = UpgradeSubscriptionApi.errors.SUBSCRIPTION_TARGET_INVALID()
+					return ctx.json(response.body, response.status)
+				}
+				case 'SUBSCRIPTION_CURRENT_INVALID': {
+					const response = UpgradeSubscriptionApi.errors.SUBSCRIPTION_CURRENT_INVALID()
+					return ctx.json(response.body, response.status)
+				}
+				case 'SUBSCRIPTION_UPGRADE_NOT_ALLOWED': {
+					const response = UpgradeSubscriptionApi.errors.SUBSCRIPTION_UPGRADE_NOT_ALLOWED()
+					return ctx.json(response.body, response.status)
+				}
+				case 'PAYMENT_PRODUCT_NOT_FOUND': {
+					const response = UpgradeSubscriptionApi.errors.PAYMENT_PRODUCT_NOT_FOUND()
+					return ctx.json(response.body, response.status)
+				}
+				default:
+					break
+			}
 		}
 		throw error
 	}
 }
 
 export async function listPaymentTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, ListPaymentTransactionsRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, ListPaymentTransactionsApi.request)
+	if (!request.success) {
+		const error = ListPaymentTransactionsApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	const result = await service.listPaymentTransactions({
 		userId: ctx.get('userId'),
@@ -168,10 +229,12 @@ export async function listPaymentTransactionsHandler(ctx: Context<ApiEnv>): Prom
 }
 
 export async function listAdminPaymentTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const req = await parseRequest(ctx, ListAdminPaymentTransactionsRequestSchema)
-	if (!req) {
-		return ctx.json({ code: 'INVALID_REQUEST', message: 'Invalid request' }, 400)
+	const request = await parseRequest(ctx, ListAdminPaymentTransactionsApi.request)
+	if (!request.success) {
+		const error = ListAdminPaymentTransactionsApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
 	}
+	const req = request.data
 	const service = createPaymentService(ctx.get('metaDb'), ctx.env)
 	const result = await service.listAdminPaymentTransactions({
 		page: req.page,
@@ -232,29 +295,6 @@ async function processWebhook(
 			}
 		}
 		throw error
-	}
-}
-
-function mapPaymentServiceError(ctx: Context<ApiEnv>, error: unknown): Response | null {
-	if (!(error instanceof PaymentServiceError)) {
-		return null
-	}
-	switch (error.code) {
-		case 'SUBSCRIPTION_NOT_FOUND':
-		case 'PAYMENT_USER_NOT_FOUND':
-			return ctx.json({ code: error.code, message: error.message }, 404)
-		case 'SUBSCRIPTION_ALREADY_CANCELED':
-			return ctx.json({ code: error.code, message: error.message }, 409)
-		case 'PAYMENT_DISABLED':
-		case 'SUBSCRIPTION_NOT_ACTIVE':
-		case 'SUBSCRIPTION_TARGET_INVALID':
-		case 'SUBSCRIPTION_CURRENT_INVALID':
-		case 'SUBSCRIPTION_UPGRADE_NOT_ALLOWED':
-		case 'PAYMENT_PRODUCT_NOT_FOUND':
-		case 'PAYMENT_RETURN_PATH_INVALID':
-			return ctx.json({ code: error.code, message: error.message }, 400)
-		default:
-			return null
 	}
 }
 

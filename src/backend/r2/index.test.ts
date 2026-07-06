@@ -477,14 +477,15 @@ describe('createR2Client.get', () => {
 	type ThenExpected = {
 		status: string
 		contentType: string
+		error: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'returns unavailable when r2 binding is missing',
+			scenario: 'throws when r2 binding is missing',
 			given: 'runtime env does not include r2 bucket',
 			when: 'reading any key',
-			then: 'returns unavailable',
+			then: 'throws config error',
 			givenDetail: {
 				noR2: true
 			},
@@ -492,8 +493,9 @@ describe('createR2Client.get', () => {
 				key: 'public/assets/demo.txt'
 			},
 			thenExpected: {
-				status: 'unavailable',
-				contentType: ''
+				status: '',
+				contentType: '',
+				error: 'R2_NOT_CONFIGURED'
 			}
 		},
 		{
@@ -512,7 +514,8 @@ describe('createR2Client.get', () => {
 			},
 			thenExpected: {
 				status: 'ok',
-				contentType: 'text/plain'
+				contentType: 'text/plain',
+				error: ''
 			}
 		},
 		{
@@ -533,14 +536,15 @@ describe('createR2Client.get', () => {
 			},
 			thenExpected: {
 				status: 'ok',
-				contentType: 'text/plain'
+				contentType: 'text/plain',
+				error: ''
 			}
 		},
 		{
 			scenario: 'rejects private key for non-owner',
 			given: 'an existing private object',
 			when: 'reading with another user',
-			then: 'returns forbidden',
+			then: 'throws forbidden error',
 			givenDetail: {
 				writeUserId: 'u1',
 				writeDir: 'docs',
@@ -553,8 +557,9 @@ describe('createR2Client.get', () => {
 				key: 'private/u1/docs/a.txt'
 			},
 			thenExpected: {
-				status: 'forbidden',
-				contentType: ''
+				status: '',
+				contentType: '',
+				error: 'R2_READ_FORBIDDEN'
 			}
 		},
 		{
@@ -574,14 +579,15 @@ describe('createR2Client.get', () => {
 			},
 			thenExpected: {
 				status: 'ok',
-				contentType: 'image/png'
+				contentType: 'image/png',
+				error: ''
 			}
 		},
 		{
 			scenario: 'rejects tmp private key for non-owner',
 			given: 'an existing tmp private object',
 			when: 'reading with another user',
-			then: 'returns forbidden',
+			then: 'throws forbidden error',
 			givenDetail: {
 				writeUserId: 'u1',
 				writeDir: 'tmp-private/images',
@@ -594,29 +600,30 @@ describe('createR2Client.get', () => {
 				key: 'tmp/private/u1/images/a.png'
 			},
 			thenExpected: {
-				status: 'forbidden',
-				contentType: ''
+				status: '',
+				contentType: '',
+				error: 'R2_READ_FORBIDDEN'
 			}
 		},
 		{
-			scenario: 'returns not_found when key is missing',
+			scenario: 'throws not found when key is missing',
 			given: 'no object at requested key',
 			when: 'reading key',
-			then: 'returns not_found',
+			then: 'throws not found error',
 			givenDetail: {},
 			whenDetail: {
 				key: 'public/missing.txt'
 			},
 			thenExpected: {
-				status: 'not_found',
-				contentType: ''
+				status: '',
+				contentType: '',
+				error: 'R2_READ_NOT_FOUND'
 			}
 		}
 	]
 
 	runCases(cases, async (given, when) => {
 		const env = given.noR2 ? createEnvWithoutR2() : createEnv()
-		const r2Env = env as Env & { R2: R2Bucket }
 		if (
 			given.writeDir &&
 			given.writeFilename &&
@@ -653,16 +660,19 @@ describe('createR2Client.get', () => {
 		}
 
 		const reader = createR2Client(env, when.readUserId)
-		const result = await reader.get(when.key)
-		if (result.status !== 'ok') {
+		try {
+			const result = await reader.get(when.key)
 			return {
-				status: result.status,
-				contentType: ''
+				status: 'ok',
+				contentType: result.contentType,
+				error: ''
 			}
-		}
-		return {
-			status: result.status,
-			contentType: result.contentType
+		} catch (error) {
+			return {
+				status: '',
+				contentType: '',
+				error: error instanceof R2Error ? error.code : ''
+			}
 		}
 	})
 })
@@ -722,7 +732,7 @@ describe('createR2Client.getImageVariant', () => {
 			scenario: 'rejects private key for non owner',
 			given: 'a private object owned by another user',
 			when: 'reading variant with different user',
-			then: 'returns forbidden without fetching origin',
+			then: 'throws forbidden error without fetching origin',
 			givenDetail: {
 				writeUserId: 'u1'
 			},
@@ -732,7 +742,7 @@ describe('createR2Client.getImageVariant', () => {
 				preset: 'medium'
 			},
 			thenExpected: {
-				status: 'forbidden',
+				status: '',
 				contentType: '',
 				fetchCalls: 0,
 				url: '',
@@ -742,21 +752,21 @@ describe('createR2Client.getImageVariant', () => {
 				fit: '',
 				quality: 0,
 				format: '',
-				error: ''
+				error: 'R2_READ_FORBIDDEN'
 			}
 		},
 		{
 			scenario: 'rejects key without allowed prefix',
 			given: 'r2 exists',
 			when: 'reading variant for invalid key',
-			then: 'returns not found without fetching origin',
+			then: 'throws invalid path error without fetching origin',
 			givenDetail: {},
 			whenDetail: {
 				key: 'images/a.png',
 				preset: 'medium'
 			},
 			thenExpected: {
-				status: 'not_found',
+				status: '',
 				contentType: '',
 				fetchCalls: 0,
 				url: '',
@@ -766,7 +776,7 @@ describe('createR2Client.getImageVariant', () => {
 				fit: '',
 				quality: 0,
 				format: '',
-				error: ''
+				error: 'R2_READ_PATH_INVALID'
 			}
 		},
 		{
@@ -837,8 +847,8 @@ describe('createR2Client.getImageVariant', () => {
 			const result = await client.getImageVariant(when.key, when.preset)
 			const call = fetchCalls[0]
 			return {
-				status: result.status,
-				contentType: result.status === 'ok' ? result.contentType : '',
+				status: 'ok',
+				contentType: result.contentType,
 				fetchCalls: fetchCalls.length,
 				url: call?.url ?? '',
 				expires: call ? String(Number(call.expires) - 1767225600) : '',

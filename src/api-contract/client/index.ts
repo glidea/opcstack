@@ -49,7 +49,7 @@ import type {
 	UpgradeSubscriptionResponse
 } from '../payment'
 import type {
-	CreateR2TmpUploadUrlRequest,
+	CreateR2PublicUploadUrlRequest,
 	CreateR2UploadUrlRequest,
 	CreateR2UploadUrlResponse
 } from '../r2'
@@ -116,7 +116,7 @@ type ApiMethods = {
 	cancelSubscription(): Promise<CancelSubscriptionResponse>
 	createNotification(input: CreateNotificationRequest): Promise<CreateNotificationResponse>
 	createPaymentCheckout(input: CreatePaymentCheckoutRequest): Promise<CreatePaymentCheckoutResponse>
-	createR2TmpUploadUrl(input: CreateR2TmpUploadUrlRequest): Promise<CreateR2UploadUrlResponse>
+	createR2PublicUploadUrl(input: CreateR2PublicUploadUrlRequest): Promise<CreateR2UploadUrlResponse>
 	createR2UploadUrl(input: CreateR2UploadUrlRequest): Promise<CreateR2UploadUrlResponse>
 	dailyCheckin(): Promise<DailyCheckinResponse>
 	generateBetaCodes(input: GenerateBetaCodesRequest): Promise<GenerateBetaCodesResponse>
@@ -319,8 +319,10 @@ function createApiMethods(
 		createPaymentCheckout(input: CreatePaymentCheckoutRequest): Promise<CreatePaymentCheckoutResponse> {
 			return call({ path: '/api/create_payment_checkout', body: input })
 		},
-		createR2TmpUploadUrl(input: CreateR2TmpUploadUrlRequest): Promise<CreateR2UploadUrlResponse> {
-			return call({ path: '/api/create_r2_tmp_upload_url', body: input })
+		createR2PublicUploadUrl(
+			input: CreateR2PublicUploadUrlRequest
+		): Promise<CreateR2UploadUrlResponse> {
+			return call({ path: '/api/admin/create_r2_public_upload_url', body: input })
 		},
 		createR2UploadUrl(input: CreateR2UploadUrlRequest): Promise<CreateR2UploadUrlResponse> {
 			return call({ path: '/api/create_r2_upload_url', body: input })
