@@ -1,16 +1,16 @@
 # OPCStack
 
-让 OPC 开发更快，成本更低，生产即用
+让 OPC 开发更快，成本更低，生产可用
 
-OPCStack 是给 One Person Company 准备的 Cloudflare-native SaaS / AI 产品骨架。预先打通认证、支付、积分、D1 Sharding、R2、KV、Queues、Cron、AI 任务、部署自动化和测试体系
+OPCStack 是给 One Person Company 准备的 Cloudflare-native AI SaaS 模板。内置认证、支付、积分、D1 Sharding、R2、KV、Queues、Cron、AI 任务、部署自动化和测试体系
 
 ---
 
-## 基础模块都已经打通
+## 开发更快
 
-OPCStack 不是只给你页面、登录和几个示例接口
+多数模板只给你页面、登录和几个示例接口，剩下的活还是得自己从零搭
 
-按 Harness Engineering 思路，关键不是让 AI 多写几段代码，而是把需求、上下文、工具、约束、反馈、测试和部署收束成可重复执行的工程系统。OPCStack 做的正是这件事：先把 SaaS / AI 产品的底座、边界和验收方式固定住，让 AI 在稳定骨架里持续改业务，而不是每次从登录、支付、存储、队列和部署重新开始
+真正拖慢开发的，往往不是 AI 写不出代码，而是缺一套稳定的工程底座。OPCStack 按 Harness Engineering 思路，把需求、上下文、约束、反馈、测试和部署收束成可重复执行的系统：底座和验收方式固定下来，AI 只需在稳定骨架里持续改业务，不用每次都从登录、支付、存储、队列和部署重新开始
 
 | 模块       | 已内置能力                                                                             |
 | ---------- | -------------------------------------------------------------------------------------- |
@@ -41,17 +41,31 @@ OPCStack 不是只给你页面、登录和几个示例接口
 
 ## 选择 Cloudflare，是为了账单不被打爆
 
-One Person Company 不应该把时间花在养服务器、调扩缩容、维护 Kubernetes、对象存储、队列和 CDN 上。Serverless 是正确方向：业务没量时不烧钱，业务有量时平台自动承接流量
+One Person Company 不应该把时间花在养服务器、调扩缩容、维护 Kubernetes、对象存储、队列和 CDN 上，应首选免运维，按量付费的 Serverless 平台
 
-Vercel + Supabase 是很多独立开发者的 Serverless 组合，前期上手很顺。但业务一旦跑通，流量、调用、存储、队列和 CDN 成本会一起变成账单问题
+Vercel + Supabase 是很多独立开发者的首选，前期上手很顺。但业务一旦跑通，流量、调用、存储、队列和 CDN 成本会一起变成账单问题
 
-Cloudflare 的优势在这里：Workers、D1、R2、KV、Queues、Cron 和 CDN 都在同一套边缘平台里。可以用很低成本跑通注册、使用、付费、异步任务和文件存储，产品有量之后，计费面和运维面也更少
+Cloudflare 的优势在这里：Workers、D1、R2、KV、Queues、Cron 和 CDN 都在同一套边缘平台里。可以用很低成本跑通注册、使用、付费、异步任务和文件存储
 
 公开讨论里有类似迁移案例：同一个前端应用在 Vercel 的月账单从不到 $100 涨到 $800 以上，迁到 Cloudflare Workers 后同等流量预计低于 $20，Lighthouse 分数还提高了：[Is anyone else frustrated with Vercel pricing once you scale?](https://www.reddit.com/r/nextjs/comments/1qnld0e/is_anyone_else_frustrated_with_vercel_pricing/)
 
+免费额度足够跑通 MVP，用量上来后 Workers Paid Plan 每月 $5 起，按量付费。下面是 OPCStack 用到的核心产品定价：
+
+| 产品            | 免费额度                                             | Workers Paid Plan（$5/月起）                                                       |
+| --------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Workers         | 10 万请求/天，每次调用 10ms CPU                       | 含 1000 万请求/月，超出 $0.30/百万；含 3000 万 CPU 毫秒/月，超出 $0.02/百万毫秒     |
+| D1（数据库）    | 读 500 万行/天，写 10 万行/天，存储 5 GB              | 含读 250 亿行/月，超出 $0.001/百万；含写 5000 万行/月，超出 $1/百万；存储 $0.75/GB  |
+| R2（文件存储）  | 存储 10 GB，Class A 100 万/月，Class B 1000 万/月     | 存储 $0.015/GB；Class A $4.5/百万；Class B $0.36/百万；出网流量免费                 |
+| KV              | 读 10 万/天，写/删/列各 1000/天，存储 1 GB            | 含读 1000 万、写/删/列各 100 万/月；读超出 $0.50/百万，写/删/列超出 $5/百万         |
+| Queues（队列）  | 1 万次操作/天                                        | 含 100 万次操作/月，超出 $0.40/百万                                                 |
+| Cron 定时任务   | 随 Workers 免费，无额外费用                           | 随 Workers 计费，无额外费用                                                         |
+| CDN             | 免费，出网流量不额外计费                              | 免费，出网流量不额外计费                                                            |
+
+R2 出网流量免费是相对 S3 的关键优势，KV、Queues、D1 也都没有 egress 费用。上述为撰写时的公开定价，最新数字以 [Cloudflare 官方文档](https://developers.cloudflare.com/workers/platform/pricing/) 为准
+
 ---
 
-## 同样是 Cloudflare 模板，OPCStack 更接近生产级别
+## 同样是 Cloudflare 模板，OPCStack 更生产可用
 
 很多 Cloudflare starter 只是把 Workers、D1、R2 接起来，适合演示，不适合直接做 SaaS
 

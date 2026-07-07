@@ -1,7 +1,8 @@
 ---
 title: Architecture
 description: System shape, design decisions, and data model
-group: Architecture
+group: Getting Started
+group_order: 0
 order: 2
 ---
 
@@ -106,12 +107,12 @@ Everything enters from `src/index.ts`. For HTTP requests, it checks the path: `/
 
 The API is split into four route groups in `src/backend/api/index.ts`:
 
-| Group | Auth level | Purpose |
-| --- | --- | --- |
-| `publicApi` | None | Health check, auth login, payment webhooks, R2 public reads |
-| `authOnlyApi` | Logged in | Routes that only need identity (e.g. bind beta code) |
-| `userApi` | Logged in + beta gate | All authenticated user endpoints |
-| `adminApi` | Super admin | Admin operations |
+| Group         | Auth level            | Purpose                                                     |
+| ------------- | --------------------- | ----------------------------------------------------------- |
+| `publicApi`   | None                  | Health check, auth login, payment webhooks, R2 public reads |
+| `authOnlyApi` | Logged in             | Routes that only need identity (e.g. bind beta code)        |
+| `userApi`     | Logged in + beta gate | All authenticated user endpoints                            |
+| `adminApi`    | Super admin           | Admin operations                                            |
 
 The important idea: public routes skip auth entirely, user routes run the full middleware chain (auth, beta gate, tenant DB), admin routes replace normal auth with admin auth. You pick the group when you register a route.
 

@@ -2,6 +2,7 @@
 title: 快速开始
 description: 克隆、配置、运行、部署并构建扩展程序
 group: Getting Started
+group_order: 0
 order: 1
 ---
 
@@ -39,7 +40,7 @@ pnpm dev
 
 启动后打开 http://localhost:5173
 
-公共配置放在 `.env.dev` 和 `.env.prod`。密钥放在 `.env.secret.dev` 和 `.env.secret.prod`。不要提交密钥文件。完整的环境变量体系请参阅 [Config Reference](reference/config.md)。
+公共配置放在 `.env.dev` 和 `.env.prod`。密钥放在 `.env.secret.dev` 和 `.env.secret.prod`。不要提交密钥文件。完整的环境变量体系请参阅 [部署](guides/deployment.md)。
 
 ## 3. 部署到 Cloudflare
 
@@ -62,9 +63,7 @@ pnpm build:extension
 
 ## 可选：中国访问域名
 
-如需独立的中国入口，在 `.env.dev` 或 `.env.prod` 中设置 `APP_CN_DOMAIN`。`prepare:cloudflare:*` 会自动将其接入 Worker routes、R2 CORS 和 Turnstile 域名。
-
-如需自动配置 DNS，还需设置 `APP_CN_CNAME_TARGET`。脚本会创建或更新一条未代理的 CNAME 记录。加速目标需由你自己提供，来自你的 DNS 加速服务商。
+如需独立的中国入口，在 `.env.dev` 或 `.env.prod` 中设置 `APP_CN_DOMAIN`。`prepare:cloudflare:*` 会将其接入 R2 CORS 和 Turnstile 域名。不设置 `APP_CN_CNAME_TARGET` 时使用 Worker 自定义域名；设置后保留优选 CNAME，并通过普通 zone route 接入 Worker。
 
 ## 同步模板更新
 

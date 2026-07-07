@@ -1,6 +1,14 @@
+---
+title: 前端
+description: Web 应用、共享 UI、国际化、预渲染、SEO 以及 Chrome 插件
+group: Guides
+group_order: 1
+order: 9
+---
+
 # 前端
 
-OpcStack 的前端架构优先考虑简单性、直击要害以及类型安全，主要基于 **SvelteKit** 和 **Tailwind CSS**。
+OpcStack 的前端架构优先考虑简单性以及类型安全，主要基于 **SvelteKit** 和 **Tailwind CSS**。
 
 在 `src/frontend` 目录下有两个主要的子项目：
 

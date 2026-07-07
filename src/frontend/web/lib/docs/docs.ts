@@ -5,6 +5,7 @@ import remarkRehype from 'remark-rehype'
 import rehypeSlug from 'rehype-slug'
 import rehypeShiki from '@shikijs/rehype'
 import rehypeStringify from 'rehype-stringify'
+import { posix } from 'node:path'
 import type { Root, Element } from 'hast'
 
 function walkElements(node: Root | Element, fn: (el: Element) => void): void {
@@ -93,33 +94,37 @@ function rehypeMermaid(): (tree: Root) => void {
 	}
 }
 
-const markdownProcessor = unified()
-	.use(remarkParse)
-	.use(remarkGfm)
-	.use(remarkRehype)
-	.use(rehypeSlug)
-	.use(rehypeMermaid)
-	.use(rehypeShiki, {
-		themes: {
-			light: 'github-light',
-			dark: 'github-dark'
-		},
-		langs: ['typescript', 'javascript', 'bash', 'json', 'jsonc', 'yaml', 'svelte', 'go', 'sql'],
-		langAlias: {
-			ts: 'typescript',
-			js: 'javascript',
-			shell: 'bash',
-			sh: 'bash',
-			yml: 'yaml'
-		}
-	})
-	.use(rehypeLazyImages)
-	.use(rehypeStringify)
+function createMarkdownProcessor(linkContext: DocLinkContext) {
+	return unified()
+		.use(remarkParse)
+		.use(remarkGfm)
+		.use(remarkRehype)
+		.use(rehypeSlug)
+		.use(rehypeMermaid)
+		.use(rehypeShiki, {
+			themes: {
+				light: 'github-light',
+				dark: 'github-dark'
+			},
+			langs: ['typescript', 'javascript', 'bash', 'json', 'jsonc', 'yaml', 'svelte', 'go', 'sql'],
+			langAlias: {
+				ts: 'typescript',
+				js: 'javascript',
+				shell: 'bash',
+				sh: 'bash',
+				yml: 'yaml'
+			}
+		})
+		.use(rehypeDocLinks, linkContext)
+		.use(rehypeLazyImages)
+		.use(rehypeStringify)
+}
 
 export interface DocMetadata {
 	title?: string
 	description?: string
 	group?: string
+	groupOrder?: number
 	order?: number
 }
 
@@ -136,6 +141,7 @@ export interface DocItem {
 	title: string
 	description: string
 	group: string
+	groupOrder: number
 	order: number
 	headings: DocHeading[]
 	contentHtml: string
@@ -144,6 +150,7 @@ export interface DocItem {
 export interface DocGroup {
 	id: string
 	title: string
+	order: number
 	docs: DocItem[]
 }
 
@@ -162,6 +169,11 @@ export interface LocaleManifest {
 export interface DocsManifest {
 	locales: string[]
 	byLocale: Record<string, LocaleManifest>
+}
+
+interface DocLinkContext {
+	locale: string
+	slug: string
 }
 
 const DOC_PATH_PREFIX = '/public-docs/'
@@ -199,9 +211,9 @@ export async function buildDocsManifest(rawModules: Record<string, string>): Pro
 
 	for (const sourcePath in rawModules) {
 		const raw = rawModules[sourcePath] ?? ''
-		const rendered = await renderDoc(raw)
-		const contentHtml = stripLeadingH1(rendered.contentHtml)
 		const { locale, slug } = docPathToLocaleAndSlug(sourcePath)
+		const rendered = await renderDoc(raw, { locale, slug })
+		const contentHtml = stripLeadingH1(rendered.contentHtml)
 		const metadata = rendered.metadata
 		const group = metadata.group ?? fallbackDocGroup(slug)
 		const docs = docsByLocale.get(locale) ?? []
@@ -213,6 +225,7 @@ export async function buildDocsManifest(rawModules: Record<string, string>): Pro
 			title: metadata.title ?? fallbackDocTitle(slug),
 			description: metadata.description ?? '',
 			group,
+			groupOrder: metadata.groupOrder ?? DEFAULT_ORDER,
 			order: metadata.order ?? DEFAULT_ORDER,
 			headings: parseDocHeadingsFromHtml(contentHtml),
 			contentHtml
@@ -226,8 +239,8 @@ export async function buildDocsManifest(rawModules: Record<string, string>): Pro
 
 	for (const locale of locales) {
 		const docs = docsByLocale.get(locale) ?? []
-		const sortedDocs = docs.sort(compareDocs)
-		const groups = buildDocGroups(sortedDocs)
+		const groups = buildDocGroups(docs)
+		const sortedDocs = groups.flatMap((group) => group.docs)
 
 		byLocale[locale] = {
 			locale,
@@ -347,10 +360,13 @@ export function fallbackDocGroup(slug: string): string {
 		.join(' ')
 }
 
-async function renderDoc(raw: string): Promise<{ metadata: DocMetadata; contentHtml: string }> {
+async function renderDoc(
+	raw: string,
+	linkContext: DocLinkContext
+): Promise<{ metadata: DocMetadata; contentHtml: string }> {
 	const parsed = parseFrontmatter(raw)
 	const metadata = parsed.metadata
-	const contentHtml = await renderMarkdown(parsed.body)
+	const contentHtml = await renderMarkdown(parsed.body, linkContext)
 
 	return {
 		metadata,
@@ -374,10 +390,13 @@ function buildDocGroups(docs: DocItem[]): DocGroup[] {
 
 	const groups: DocGroup[] = []
 	for (const [title, items] of grouped) {
+		const sortedItems = items.sort(compareDocs)
+
 		groups.push({
 			id: slugify(title),
 			title,
-			docs: items
+			order: getGroupOrder(sortedItems),
+			docs: sortedItems
 		})
 	}
 
@@ -388,19 +407,26 @@ function compareDocs(a: DocItem, b: DocItem): number {
 	if (a.order !== b.order) {
 		return a.order - b.order
 	}
-	if (a.group !== b.group) {
-		return a.group.localeCompare(b.group)
-	}
 	return a.slug.localeCompare(b.slug)
 }
 
 function compareDocGroups(a: DocGroup, b: DocGroup): number {
-	const firstA = a.docs[0]
-	const firstB = b.docs[0]
-	if (firstA && firstB) {
-		return compareDocs(firstA, firstB)
+	if (a.order !== b.order) {
+		return a.order - b.order
 	}
 	return a.title.localeCompare(b.title)
+}
+
+function getGroupOrder(docs: DocItem[]): number {
+	let order = DEFAULT_ORDER
+
+	for (const doc of docs) {
+		if (doc.groupOrder < order) {
+			order = doc.groupOrder
+		}
+	}
+
+	return order
 }
 
 function stripFrontmatter(raw: string): string {
@@ -459,6 +485,12 @@ function parseFrontmatter(raw: string): { metadata: DocMetadata; body: string } 
 		if (key === 'group' && value !== '') {
 			metadata.group = value
 		}
+		if (key === 'group_order') {
+			const parsed = Number(value)
+			if (!Number.isNaN(parsed)) {
+				metadata.groupOrder = parsed
+			}
+		}
 		if (key === 'order') {
 			const parsed = Number(value)
 			if (!Number.isNaN(parsed)) {
@@ -506,9 +538,45 @@ function decodeHtmlEntities(text: string): string {
 		.replace(/&nbsp;/g, ' ')
 }
 
-async function renderMarkdown(raw: string): Promise<string> {
-	const result = await markdownProcessor.process(raw)
+async function renderMarkdown(raw: string, linkContext: DocLinkContext): Promise<string> {
+	const result = await createMarkdownProcessor(linkContext).process(raw)
 	return String(result)
+}
+
+function rehypeDocLinks(context: DocLinkContext): (tree: Root) => void {
+	return (tree: Root) => {
+		walkElements(tree, (node) => {
+			if (node.tagName !== 'a') {
+				return
+			}
+
+			const href = node.properties['href']
+			if (typeof href !== 'string') {
+				return
+			}
+
+			node.properties['href'] = rewriteDocMarkdownHref(href, context)
+		})
+	}
+}
+
+function rewriteDocMarkdownHref(href: string, context: DocLinkContext): string {
+	if (href.startsWith('/') || href.startsWith('#') || /^[a-z][a-z0-9+.-]*:/iu.test(href)) {
+		return href
+	}
+
+	const suffixIndex = href.search(/[?#]/u)
+	const path = suffixIndex === -1 ? href : href.slice(0, suffixIndex)
+	const suffix = suffixIndex === -1 ? '' : href.slice(suffixIndex)
+	if (!path.endsWith(DOC_PATH_SUFFIX)) {
+		return href
+	}
+
+	const currentDir = posix.dirname(context.slug)
+	const baseDir = currentDir === '.' ? '' : currentDir
+	const target = posix.normalize(posix.join(baseDir, path.slice(0, -DOC_PATH_SUFFIX.length)))
+
+	return `/${context.locale}/docs/${target}${suffix}`
 }
 
 function slugify(text: string): string {

@@ -20,7 +20,11 @@ const config = {
 	},
 	kit: {
 		adapter: adapter({
-			config: 'wrangler.svelte.jsonc'
+			config: 'wrangler.svelte.jsonc',
+			platformProxy: {
+				configPath: 'wrangler.svelte.jsonc',
+				envFiles: []
+			}
 		}),
 		files: {
 			assets: 'src/frontend/web/static',

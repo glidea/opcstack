@@ -2,6 +2,7 @@
 title: Authentication
 description: Better Auth, email OAuth, Turnstile, session, admin access, and frontend integration
 group: Guides
+group_order: 1
 order: 1
 ---
 

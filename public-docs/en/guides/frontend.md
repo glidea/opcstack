@@ -2,6 +2,7 @@
 title: Frontend
 description: Web app, shared UI, i18n, prerendering, SEO, and Chrome extension
 group: Guides
+group_order: 1
 order: 9
 ---
 

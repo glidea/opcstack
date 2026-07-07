@@ -2,6 +2,7 @@
 title: AI 集成
 description: 对话、图像、TTS、实时、视频、异步任务、队列、R2 输出与 provider 配置
 group: Guides
+group_order: 1
 order: 5
 ---
 

@@ -2,6 +2,7 @@
 title: Storage
 description: R2 object storage, upload flows, access control, and generated media
 group: Guides
+group_order: 1
 order: 3
 ---
 

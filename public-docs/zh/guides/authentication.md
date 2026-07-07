@@ -2,6 +2,7 @@
 title: 认证
 description: Better Auth、邮件 OAuth、Turnstile、会话、管理员访问与前端集成
 group: Guides
+group_order: 1
 order: 1
 ---
 

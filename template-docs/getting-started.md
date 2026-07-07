@@ -62,9 +62,9 @@ See [Frontend](guides/frontend.md) for extension entrypoints and shared frontend
 
 ## Optional: China access domain
 
-If you need a separate China entrypoint, set `APP_CN_DOMAIN` in `.env.dev` or `.env.prod`. `prepare:cloudflare:*` auto wires it into Worker routes, R2 CORS, and Turnstile domains.
+If you need a separate China entrypoint, set `APP_CN_DOMAIN` in `.env.dev` or `.env.prod`. `prepare:cloudflare:*` auto wires it into R2 CORS and Turnstile domains. It adds a Worker custom domain when no external CNAME target is configured.
 
-To auto configure DNS, also set `APP_CN_CNAME_TARGET`. The script creates or updates one unproxied CNAME. It does not pick acceleration targets; you provide the target from your DNS acceleration provider.
+To auto configure DNS, also set `APP_CN_CNAME_TARGET`. The script creates or updates one unproxied CNAME and adds a normal Worker zone route for that hostname. It does not pick acceleration targets; you provide the target from your DNS acceleration provider.
 
 ## Sync template updates
 

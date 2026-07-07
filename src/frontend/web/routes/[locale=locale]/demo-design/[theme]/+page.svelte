@@ -18,12 +18,14 @@
 		data,
 	}: {
 		data: {
+			locale: string;
 			siteName: string;
 			canonicalUrl: string;
 		};
 	} = $props();
 
-	const theme = $derived($page.params.theme)
+	const theme: string = $derived($page.params.theme ?? '')
+	const logoHref: string = $derived(`/${data.locale}/demo-design/${theme}`)
 
 	const navItems = [
 		{ href: "#foundations", label: "Foundations" },
@@ -62,7 +64,7 @@
 	<title>Design System: {theme} — {data.siteName}</title>
 </svelte:head>
 
-<AppHeader logoHref="/demo-design/{theme}">
+<AppHeader logoHref={logoHref}>
 	{#snippet center()}
 		<nav class="hidden items-center gap-1 md:flex">
 			{#each navItems as item (item.href)}

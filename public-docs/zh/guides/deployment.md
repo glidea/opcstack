@@ -2,6 +2,7 @@
 title: 部署
 description: Cloudflare 部署、prepare-cloudflare、DNS、CN 域名、密钥、生成配置与部署命令
 group: Guides
+group_order: 1
 order: 7
 ---
 
@@ -249,13 +250,14 @@ APP_CN_CNAME_TARGET=target.example.net
 
 当设置 `APP_CN_DOMAIN` 时：
 
-- Worker 获得第二个自定义域名路由
+- `APP_CN_CNAME_TARGET` 为空时，Worker 获得第二个自定义域名路由
 - R2 CORS 包含 CN origin
 - Turnstile widget 包含 CN 域名
 
 当在 prod 中同时设置 `APP_CN_DOMAIN` 和 `APP_CN_CNAME_TARGET` 时：
 
 - `prepare-cloudflare` 为 `APP_CN_DOMAIN` 创建或更新一条非代理 DNS CNAME
+- Worker 为 `APP_CN_DOMAIN` 使用普通 zone route，不使用自定义域名路由
 - 它不选择加速目标
 - `APP_CN_CNAME_TARGET` 必须来自你的 DNS 加速或路由服务商
 
@@ -486,7 +488,7 @@ CI 应直接设置 `CLOUDFLARE_API_TOKEN`。本地部署可使用缓存 token。
 
 **忘记 CN 的副作用**
 
-`APP_CN_DOMAIN` 影响 Worker 路由、R2 CORS 和 Turnstile 域名。将它视为真正的第二入口点。
+`APP_CN_DOMAIN` 影响 Worker 路由、R2 CORS 和 Turnstile 域名。设置 `APP_CN_CNAME_TARGET` 时，DNS 保留优选 CNAME，Worker 通过普通 zone route 接入。
 
 **启用功能但不提供密钥**
 

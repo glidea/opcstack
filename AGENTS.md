@@ -8,7 +8,8 @@ If architecture, core mechanisms, conventions, important dependencies, or workfl
 
 ## Must Follow
 
-- Inspect related source code before designing or editing.
+- Use progressive disclosure when learning a module: read the relevant `template-docs/` page first, then inspect the related source code before designing or editing.
+- Treat `template-docs/` as the map and source code as the final truth. If they disagree, trust code and update docs when the change affects architecture, mechanisms, conventions, dependencies, or workflows.
 - Prefer the smallest direct change that fits the existing architecture.
 - Do not add abstractions, files, config, queues, Durable Objects, or settings unless they solve a real current need.
 - Reuse existing modules, SDKs, UI primitives, and project conventions.
@@ -205,8 +206,8 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Keep related env keys together. Put a feature switch before its provider selection and provider-specific settings.
 - Keep optional settings after required settings inside the same group.
 - Keep `.env.secret.example` in the same business order as public env files.
-- `APP_CN_DOMAIN` is optional. When set, `prepare-cloudflare.mjs` adds it as a second Worker custom domain, R2 CORS origin, and Turnstile domain.
-- `APP_CN_CNAME_TARGET` is optional. When set with `APP_CN_DOMAIN` in prod mode, `prepare-cloudflare.mjs` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`; it does not choose acceleration targets.
+- `APP_CN_DOMAIN` is optional. When set without `APP_CN_CNAME_TARGET`, `prepare-cloudflare.mjs` adds it as a second Worker custom domain. It always adds it as an R2 CORS origin and Turnstile domain.
+- `APP_CN_CNAME_TARGET` is optional. When set with `APP_CN_DOMAIN` in prod mode, `prepare-cloudflare.mjs` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`, skips the Worker custom domain for that hostname, and adds a normal Worker zone route. It does not choose acceleration targets.
 - Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.
 - Add secret runtime config keys to `scripts/prepare-cloudflare.mjs` `SECRET_KEYS`.
 - When adding an env key, document it directly above the assignment with comments covering purpose, runtime usage, valid values, default semantics, external source, and operational best practices when they exist.
@@ -360,7 +361,8 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 - Product docs rendered by the app live in `public-docs/en/` and `public-docs/zh/`.
 - Template explanation docs live in `template-docs/` and are not rendered by the app.
 - Docs route is `/docs/[...slug]` when `DOCS_ENABLED=true`; client config exposes `docsEnabled`.
-- Docs use Markdown frontmatter with `title`, `description`, `group`, and `order`.
+- Docs use Markdown frontmatter with `title`, `description`, `group`, `group_order`, and `order`.
+- In docs frontmatter, `group_order` sorts groups and `order` sorts docs inside the same group.
 - Docs images live in `src/frontend/web/static/images/` and are referenced as `/images/...`.
 
 ---

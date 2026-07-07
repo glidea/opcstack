@@ -2,6 +2,7 @@
 title: Database
 description: D1 sharding, schema, migrations, reads, writes, and cross-DB flows
 group: Guides
+group_order: 1
 order: 3
 ---
 

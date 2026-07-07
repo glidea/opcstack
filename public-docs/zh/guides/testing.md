@@ -2,6 +2,7 @@
 title: 测试
 description: 单元测试、BDD 用例、E2E 测试、远端 E2E 限制与测试命令
 group: Guides
+group_order: 1
 order: 6
 ---
 

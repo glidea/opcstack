@@ -1,7 +1,8 @@
 ---
 title: 架构
 description: 系统形态、设计决策与数据模型
-group: Architecture
+group: Getting Started
+group_order: 0
 order: 2
 ---
 
@@ -106,12 +107,12 @@ Queue Consumer  -> src/backend/consumers/index.ts
 
 API 在 `src/backend/api/index.ts` 中被拆分为四个路由组：
 
-| 组 | 认证级别 | 用途 |
-| --- | --- | --- |
-| `publicApi` | 无 | 健康检查、认证登录、支付 Webhook、R2 公共读取 |
-| `authOnlyApi` | 已登录 | 仅需身份验证的路由（如绑定内测码） |
-| `userApi` | 已登录 + 内测门控 | 所有已认证的用户端点 |
-| `adminApi` | 超级管理员 | 管理员操作 |
+| 组            | 认证级别          | 用途                                          |
+| ------------- | ----------------- | --------------------------------------------- |
+| `publicApi`   | 无                | 健康检查、认证登录、支付 Webhook、R2 公共读取 |
+| `authOnlyApi` | 已登录            | 仅需身份验证的路由（如绑定内测码）            |
+| `userApi`     | 已登录 + 内测门控 | 所有已认证的用户端点                          |
+| `adminApi`    | 超级管理员        | 管理员操作                                    |
 
 核心思路：公共路由完全跳过认证，用户路由运行完整中间件链（认证、内测门控、租户 DB），管理员路由用管理员认证替代普通认证。注册路由时选择对应的组即可。
 

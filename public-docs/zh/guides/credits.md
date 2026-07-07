@@ -2,6 +2,7 @@
 title: 积分
 description: 积分钱包、账本、授予、兑换码、过期与管理员操作
 group: Guides
+group_order: 1
 order: 10
 ---
 

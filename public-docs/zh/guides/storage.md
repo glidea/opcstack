@@ -2,6 +2,7 @@
 title: 存储
 description: R2 对象存储、上传流程、访问控制与生成媒体
 group: Guides
+group_order: 1
 order: 3
 ---
 

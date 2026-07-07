@@ -340,7 +340,7 @@ export function selectCloudflareZone(zones, host) {
 	return matches[0]
 }
 
-export function buildWorkerRoutes(appBaseHost, appCnDomain) {
+export function buildWorkerRoutes(appBaseHost, appCnDomain, appCnCnameTarget, appCnZoneName) {
 	const routes = [
 		{
 			pattern: appBaseHost,
@@ -348,10 +348,17 @@ export function buildWorkerRoutes(appBaseHost, appCnDomain) {
 		}
 	]
 
-	if (appCnDomain !== '') {
+	if (appCnDomain !== '' && appCnCnameTarget === '') {
 		routes.push({
 			pattern: appCnDomain,
 			custom_domain: true
+		})
+	}
+
+	if (appCnDomain !== '' && appCnCnameTarget !== '' && appCnZoneName !== '') {
+		routes.push({
+			pattern: `${appCnDomain}/*`,
+			zone_name: appCnZoneName
 		})
 	}
 
@@ -1159,12 +1166,12 @@ async function updateDnsCnameRecord(zoneId, token, recordId, name, target) {
 
 async function ensureAppCnDnsRecord(accountId, token, appCnDomain, appCnCnameTarget) {
 	if (appCnDomain === '' || appCnCnameTarget === '') {
-		return
+		return ''
 	}
 
 	const zones = await listZones(accountId, token)
 	const zone = selectCloudflareZone(zones, appCnDomain)
-	if (!zone?.id) {
+	if (!zone?.id || !zone.name) {
 		console.error(`Cloudflare zone not found for APP_CN_DOMAIN ${appCnDomain}`)
 		process.exit(1)
 	}
@@ -1181,16 +1188,17 @@ async function ensureAppCnDnsRecord(accountId, token, appCnDomain, appCnCnameTar
 	if (!record) {
 		console.log(`Creating DNS CNAME '${appCnDomain}' -> '${appCnCnameTarget}'...`)
 		await createDnsCnameRecord(zone.id, token, appCnDomain, appCnCnameTarget)
-		return
+		return zone.name
 	}
 
 	if (record.content === appCnCnameTarget && record.proxied === false) {
 		console.log(`DNS CNAME '${appCnDomain}' already points to '${appCnCnameTarget}'.`)
-		return
+		return zone.name
 	}
 
 	console.log(`Updating DNS CNAME '${appCnDomain}' -> '${appCnCnameTarget}'...`)
 	await updateDnsCnameRecord(zone.id, token, record.id, appCnDomain, appCnCnameTarget)
+	return zone.name
 }
 
 async function enableImageTransformations(accountId, token, rawDomain) {
@@ -1506,6 +1514,7 @@ async function main() {
 	let accountId = ''
 	let cloudflareApiToken = ''
 	let r2S3Token = null
+	let appCnZoneName = ''
 
 	if (isRemote) {
 		console.log('\nResolving Cloudflare API token...')
@@ -1516,7 +1525,7 @@ async function main() {
 		accountId = await getSingleCloudflareAccountId(cloudflareApiToken)
 		console.log(`Account ID: ${accountId}`)
 
-		await ensureAppCnDnsRecord(
+		appCnZoneName = await ensureAppCnDnsRecord(
 			accountId,
 			cloudflareApiToken,
 			env.APP_CN_DOMAIN,
@@ -1724,7 +1733,12 @@ async function main() {
 		config.migrations = [durableObjectConfig.migration]
 	}
 
-	config.routes = buildWorkerRoutes(env.APP_BASE_HOST, env.APP_CN_DOMAIN)
+	config.routes = buildWorkerRoutes(
+		env.APP_BASE_HOST,
+		env.APP_CN_DOMAIN,
+		env.APP_CN_CNAME_TARGET,
+		appCnZoneName
+	)
 	config.vars.R2_ENABLED = r2Enabled ? 'true' : 'false'
 	config.vars.R2_ACCOUNT_ID = r2S3Token?.accountId || accountId || 'local'
 	config.vars.R2_ACCESS_KEY_ID = r2S3Token?.accessKeyId || 'local'

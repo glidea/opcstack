@@ -1,7 +1,8 @@
 ---
 title: Overview
 description: OPCStack template documentation index and reading guide
-group: Overview
+group: Getting Started
+group_order: 0
 order: 0
 ---
 
@@ -11,19 +12,19 @@ OPCStack is a Cloudflare-native product skeleton for one-person or small teams t
 
 ## Module Map
 
-| Module | What it gives you | Doc |
-| --- | --- | --- |
-| Web + API | SvelteKit SSR, Hono API, prerendered static pages | [Frontend](guides/frontend.md), [API Contracts](reference/api-contracts.md) |
-| Database | D1, Drizzle, user data sharding, read replicas, auto migration | [Database](guides/database.md) |
-| Storage | R2 public/private/tmp paths, browser direct upload, image variants | [Storage](guides/storage.md) |
-| Async | Queues, Cron, Durable Objects | [Queues and Cron](guides/queues-cron.md) |
-| Auth | Better Auth, email, Google, GitHub, LinuxDO, Turnstile, beta code | [Authentication](guides/authentication.md) |
-| Credits | Wallet, ledger, signup grant, daily checkin, invite reward, redeem code, expiry | [Credits](guides/credits.md) |
-| Payments | Dodo, Creem, one-time packs, subscriptions, webhooks, refund clawback | [Payments](guides/payments.md) |
-| AI | Chat, image, TTS, realtime, video providers, async tasks with R2 output | [AI](guides/ai.md) |
-| Operations | User feedback, system notifications, global and targeted announcements | [Operations](guides/operations.md) |
-| Testing | Vitest, BDD helper, mock D1 and R2, E2E, coverage | [Testing](guides/testing.md) |
-| Deployment | prepare-cloudflare automation, DNS, CN domain, secrets, deploy commands | [Deployment](guides/deployment.md) |
+| Module     | What it gives you                                                               | Doc                                                                         |
+| ---------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Web + API  | SvelteKit SSR, Hono API, prerendered static pages                               | [Frontend](guides/frontend.md), API contracts                               |
+| Database   | D1, Drizzle, user data sharding, read replicas, auto migration                  | [Database](guides/database.md)                                              |
+| Storage    | R2 public/private/tmp paths, browser direct upload, image variants              | [Storage](guides/storage.md)                                                |
+| Async      | Queues, Cron, Durable Objects                                                   | [Queues and Cron](guides/queues-cron.md)                                    |
+| Auth       | Better Auth, email, Google, GitHub, LinuxDO, Turnstile, beta code               | [Authentication](guides/authentication.md)                                  |
+| Credits    | Wallet, ledger, signup grant, daily checkin, invite reward, redeem code, expiry | [Credits](guides/credits.md)                                                |
+| Payments   | Dodo, Creem, one-time packs, subscriptions, webhooks, refund clawback           | [Payments](guides/payments.md)                                              |
+| AI         | Chat, image, TTS, realtime, video providers, async tasks with R2 output         | [AI](guides/ai.md)                                                          |
+| Operations | User feedback, system notifications, global and targeted announcements          | [Operations](guides/operations.md)                                          |
+| Testing    | Vitest, BDD helper, mock D1 and R2, E2E, coverage                               | [Testing](guides/testing.md)                                                |
+| Deployment | prepare-cloudflare automation, DNS, CN domain, secrets, deploy commands         | [Deployment](guides/deployment.md)                                          |
 
 ## Reading Guide
 
@@ -43,8 +44,4 @@ Start with [Getting Started](getting-started.md). The fastest path is to let an 
 1. [Architecture](architecture.md) for design principles and system overview.
 2. [Database](guides/database.md) for the sharding model and saga rules.
 3. [Deployment](guides/deployment.md) for the prepare-cloudflare automation.
-4. [API Contracts](reference/api-contracts.md) for the contract conventions.
-
-## Source Is Truth
-
-These docs explain how to use and extend the template. They are not the primary source of truth. When a doc and the code disagree, the code wins. Inspect the related source before making changes.
+4. API contracts in `src/api-contract/` for the contract conventions.

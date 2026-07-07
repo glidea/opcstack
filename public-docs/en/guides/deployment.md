@@ -2,6 +2,7 @@
 title: Deployment
 description: Cloudflare deployment, prepare-cloudflare, DNS, CN domain, secrets, generated config, and deploy commands
 group: Guides
+group_order: 1
 order: 7
 ---
 
@@ -249,13 +250,14 @@ APP_CN_CNAME_TARGET=target.example.net
 
 When `APP_CN_DOMAIN` is set:
 
-- Worker gets a second custom domain route
+- Worker gets a second custom domain route when `APP_CN_CNAME_TARGET` is empty
 - R2 CORS includes the CN origin
 - Turnstile widget includes the CN domain
 
 When both `APP_CN_DOMAIN` and `APP_CN_CNAME_TARGET` are set in prod:
 
 - `prepare-cloudflare` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`
+- Worker gets a normal zone route for `APP_CN_DOMAIN`, not a custom domain route
 - it does not choose the acceleration target
 - `APP_CN_CNAME_TARGET` must come from your DNS acceleration or routing provider
 
@@ -486,7 +488,7 @@ Remote E2E verifies an existing deployment. Deployment is done by `prepare-cloud
 
 **Forgetting CN side effects**
 
-`APP_CN_DOMAIN` affects Worker routes, R2 CORS, and Turnstile domains. Treat it as a real second entrypoint.
+`APP_CN_DOMAIN` affects Worker routing, R2 CORS, and Turnstile domains. With `APP_CN_CNAME_TARGET`, DNS stays on your preferred CNAME and the Worker is attached through a normal zone route.
 
 **Leaving enabled features without secrets**
 

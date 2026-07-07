@@ -2,6 +2,7 @@
 title: Queues and Cron
 description: Cloudflare Queues, Cron Triggers, async consumers, and scheduled jobs
 group: Guides
+group_order: 1
 order: 4
 ---
 

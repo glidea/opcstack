@@ -2,6 +2,7 @@
 title: AI Integration
 description: Chat, image, TTS, realtime, video, async tasks, queues, R2 outputs, and provider config
 group: Guides
+group_order: 1
 order: 5
 ---
 

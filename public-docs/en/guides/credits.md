@@ -2,6 +2,7 @@
 title: Credits
 description: Credit wallet, ledger, grants, redemption codes, expiration, and admin operations
 group: Guides
+group_order: 1
 order: 10
 ---
 

@@ -273,7 +273,7 @@
 	}
 
 	.docs-content a {
-		@apply text-primary underline-offset-2 transition-colors hover:underline;
+		@apply font-medium text-primary underline decoration-primary/45 underline-offset-4 transition-colors hover:decoration-primary;
 	}
 
 	.docs-content ul {
@@ -339,7 +339,11 @@
 	}
 
 	.docs-content table {
-		@apply w-full border-collapse overflow-hidden rounded-lg border border-border/70 text-sm;
+		@apply mt-6 w-full border-collapse overflow-hidden rounded-lg border border-border/70 text-sm;
+	}
+
+	.docs-content .table-wrapper table {
+		@apply mt-0;
 	}
 
 	.docs-content thead {

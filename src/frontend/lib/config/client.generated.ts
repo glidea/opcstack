@@ -23,8 +23,8 @@ export type ClientConfig = {
 export const clientConfig: ClientConfig = {
 	"appName": "opcstack",
 	"appVersion": "0.1.0",
-	"apiBaseUrl": "http://localhost:5173",
-	"webBaseUrl": "http://localhost:5173",
+	"apiBaseUrl": "https://opcstack.glidea.app",
+	"webBaseUrl": "https://opcstack.glidea.app",
 	"supportEmail": "yourfriend@glidea.app",
 	"designSystem": "apple-saas",
 	"docsEnabled": true,

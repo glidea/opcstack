@@ -249,13 +249,14 @@ APP_CN_CNAME_TARGET=target.example.net
 
 When `APP_CN_DOMAIN` is set:
 
-- Worker gets a second custom domain route
+- Worker gets a second custom domain route when `APP_CN_CNAME_TARGET` is empty
 - R2 CORS includes the CN origin
 - Turnstile widget includes the CN domain
 
 When both `APP_CN_DOMAIN` and `APP_CN_CNAME_TARGET` are set in prod:
 
 - `prepare-cloudflare` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`
+- Worker gets a normal zone route for `APP_CN_DOMAIN`, not a custom domain route
 - it does not choose the acceleration target
 - `APP_CN_CNAME_TARGET` must come from your DNS acceleration or routing provider
 

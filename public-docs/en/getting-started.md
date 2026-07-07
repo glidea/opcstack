@@ -2,6 +2,7 @@
 title: Getting Started
 description: Clone, configure, run, deploy, and build the extension
 group: Getting Started
+group_order: 0
 order: 1
 ---
 
@@ -39,7 +40,7 @@ pnpm dev
 
 After startup open http://localhost:5173
 
-Public config lives in `.env.dev` and `.env.prod`. Secrets live in `.env.secret.dev` and `.env.secret.prod`. Do not commit secret files. See [Config Reference](reference/config.md) for the full env system.
+Public config lives in `.env.dev` and `.env.prod`. Secrets live in `.env.secret.dev` and `.env.secret.prod`. Do not commit secret files. See [Deployment](guides/deployment.md) for the full env system.
 
 ## 3. Deploy to Cloudflare
 
@@ -62,9 +63,7 @@ See [Frontend](guides/frontend.md) for extension entrypoints and shared frontend
 
 ## Optional: China access domain
 
-If you need a separate China entrypoint, set `APP_CN_DOMAIN` in `.env.dev` or `.env.prod`. `prepare:cloudflare:*` auto wires it into Worker routes, R2 CORS, and Turnstile domains.
-
-To auto configure DNS, also set `APP_CN_CNAME_TARGET`. The script creates or updates one unproxied CNAME. It does not pick acceleration targets; you provide the target from your DNS acceleration provider.
+If you need a separate China entrypoint, set `APP_CN_DOMAIN` in `.env.dev` or `.env.prod`. `prepare:cloudflare:*` wires it into R2 CORS and Turnstile domains. Without `APP_CN_CNAME_TARGET`, it uses a Worker custom domain. With `APP_CN_CNAME_TARGET`, it keeps your preferred CNAME and attaches the Worker through a normal zone route.
 
 ## Sync template updates
 

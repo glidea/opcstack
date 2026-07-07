@@ -4,6 +4,7 @@ import {
 	buildRequiredSecretKeys,
 	buildRuntimeSecretLines,
 	buildTypesWranglerConfig,
+	buildWorkerRoutes,
 	selectDnsCnameRecord,
 	validateRuntimeConfig
 } from './prepare-cloudflare.mjs'
@@ -101,6 +102,49 @@ describe('prepare cloudflare dns config', () => {
 				'cn.example.com'
 			)
 		}).toThrow('APP_CN_DOMAIN_DNS_RECORD_TYPE_INVALID')
+	})
+
+	it('adds cn custom domain route without external cname target', () => {
+		const routes = buildWorkerRoutes('app.example.com', 'cn.example.com', '', '')
+
+		expect({
+			routes
+		}).toEqual({
+			routes: [
+				{
+					pattern: 'app.example.com',
+					custom_domain: true
+				},
+				{
+					pattern: 'cn.example.com',
+					custom_domain: true
+				}
+			]
+		})
+	})
+
+	it('adds cn zone route with external cname target', () => {
+		const routes = buildWorkerRoutes(
+			'app.example.com',
+			'cn.example.com',
+			'target.example.net',
+			'example.com'
+		)
+
+		expect({
+			routes
+		}).toEqual({
+			routes: [
+				{
+					pattern: 'app.example.com',
+					custom_domain: true
+				},
+				{
+					pattern: 'cn.example.com/*',
+					zone_name: 'example.com'
+				}
+			]
+		})
 	})
 })
 

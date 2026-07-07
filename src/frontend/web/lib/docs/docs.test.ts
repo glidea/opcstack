@@ -113,6 +113,10 @@ type ManifestExpected = {
 	zhGroups: string[]
 	firstDocHeadings: Array<{ id: string; text: string; level: 2 | 3 }>
 	firstDocHasLeadingH1: boolean
+	firstDocLinks: {
+		frontend: boolean
+		database: boolean
+	}
 	switchPathForExistingSlug: string
 	switchPathForMissingSlug: string
 	nextTitle: string | null
@@ -133,6 +137,7 @@ describe('buildDocsManifest', () => {
 						'title: Intro',
 						'description: Intro desc',
 						'group: Start',
+						'group_order: 2',
 						'order: 2',
 						'---',
 						'# Intro',
@@ -143,6 +148,7 @@ describe('buildDocsManifest', () => {
 						'---',
 						'title: Setup',
 						'group: Start',
+						'group_order: 2',
 						'order: 1',
 						'---',
 						'# Setup',
@@ -152,6 +158,7 @@ describe('buildDocsManifest', () => {
 						'---',
 						'title: Architecture',
 						'group: Architecture',
+						'group_order: 1',
 						'order: 2',
 						'---',
 						'# Architecture'
@@ -160,10 +167,15 @@ describe('buildDocsManifest', () => {
 						'---',
 						'title: Overview',
 						'group: Overview',
+						'group_order: 0',
 						'order: 0',
 						'---',
-						'# Overview'
+						'# Overview',
+						'[Frontend](guides/frontend.md)',
+						'[Database](./guides/database.md)'
 					].join('\n'),
+					'/public-docs/zh/guides/frontend.md': '# Frontend',
+					'/public-docs/zh/guides/database.md': '# Database',
 					'/public-docs/en/intro.md': '# Intro'
 				}
 			},
@@ -171,13 +183,17 @@ describe('buildDocsManifest', () => {
 			thenExpected: {
 				locales: ['en', 'zh'],
 				zhHomeSlug: 'index',
-				zhDocSlugs: ['index', 'setup', 'architecture', 'intro'],
-				zhGroups: ['Overview', 'Start', 'Architecture'],
+				zhDocSlugs: ['index', 'architecture', 'setup', 'intro', 'guides/database', 'guides/frontend'],
+				zhGroups: ['Overview', 'Architecture', 'Start', 'Guides'],
 				firstDocHeadings: [],
 				firstDocHasLeadingH1: false,
+				firstDocLinks: {
+					frontend: true,
+					database: true
+				},
 				switchPathForExistingSlug: '/zh/docs/intro',
 				switchPathForMissingSlug: '/zh/docs/index',
-				nextTitle: 'Setup',
+				nextTitle: 'Architecture',
 				previousTitle: null
 			}
 		}
@@ -196,6 +212,10 @@ describe('buildDocsManifest', () => {
 			zhGroups: zhManifest?.groups.map((group) => group.title) ?? [],
 			firstDocHeadings: zhDocs[0]?.headings ?? [],
 			firstDocHasLeadingH1: zhDocs[0]?.contentHtml.includes('<h1') ?? false,
+			firstDocLinks: {
+				frontend: zhDocs[0]?.contentHtml.includes('href="/zh/docs/guides/frontend"') ?? false,
+				database: zhDocs[0]?.contentHtml.includes('href="/zh/docs/guides/database"') ?? false
+			},
 			switchPathForExistingSlug: getDocSwitchPath(manifest, 'zh', 'intro'),
 			switchPathForMissingSlug: getDocSwitchPath(manifest, 'zh', 'missing'),
 			nextTitle: neighbors.next?.title ?? null,

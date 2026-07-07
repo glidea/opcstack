@@ -2,6 +2,7 @@
 title: Payments
 description: Dodo and Creem checkout, subscriptions, webhooks, refunds, and disputes
 group: Guides
+group_order: 1
 order: 8
 ---
 
