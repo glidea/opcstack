@@ -1,5 +1,6 @@
-import { createR2Client } from '../../r2'
+import { createR2Client, R2Error, type R2GetResult } from '../../r2'
 import { AIError } from '../error'
+import { arrayBufferToBase64 } from '../../lib/base64'
 import type { AIImageReference, AIInlineImageReference } from '.'
 
 type R2Env = Env & { R2: R2Bucket }
@@ -19,36 +20,32 @@ export async function resolveImageReferences(
 			continue
 		}
 
-		if (reference.r2.variant) {
-			const result = await client.getImageVariant(reference.r2.key, reference.r2.variant)
-			if (result.status !== 'ok') {
-				throw new AIError('AI_IMAGE_REFERENCE_R2_READ_FAILED')
+		try {
+			let result: R2GetResult
+			if (reference.r2.variant) {
+				result = await client.getImageVariant(reference.r2.key, reference.r2.variant)
+			} else {
+				result = await client.get(reference.r2.key)
 			}
 			outputs.push({
 				imageBase64: arrayBufferToBase64(await new Response(result.body).arrayBuffer()),
 				mimeType: result.contentType
 			})
-			continue
+		} catch (error) {
+			if (error instanceof R2Error) {
+				switch (error.code) {
+					case 'R2_READ_FORBIDDEN':
+					case 'R2_READ_NOT_FOUND':
+					case 'R2_READ_PATH_INVALID':
+					case 'R2_READ_FAILED':
+						throw new AIError('AI_IMAGE_REFERENCE_R2_READ_FAILED')
+					default:
+						throw error
+				}
+			}
+			throw error
 		}
-
-		const result = await client.get(reference.r2.key)
-		if (result.status !== 'ok') {
-			throw new AIError('AI_IMAGE_REFERENCE_R2_READ_FAILED')
-		}
-		outputs.push({
-			imageBase64: arrayBufferToBase64(await new Response(result.body).arrayBuffer()),
-			mimeType: result.contentType
-		})
 	}
 
 	return outputs
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-	const bytes = new Uint8Array(buffer)
-	let raw = ''
-	for (const byte of bytes) {
-		raw += String.fromCharCode(byte)
-	}
-	return btoa(raw)
 }

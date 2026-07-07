@@ -3,6 +3,7 @@ import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fa
 import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
+import { base64ToBytes } from '../../../lib/base64'
 import { createAITTSTask, getAITTSTask } from '../task'
 import type {
 	AISimpleTTSClient,
@@ -132,7 +133,7 @@ async function toSpeechResult(
 		const client = createR2Client(env as R2Env, userId)
 		output.r2 = await client.put({
 			dir: 'audio',
-			body: toBytes(output.audioBase64),
+			body: base64ToBytes(output.audioBase64),
 			contentType: output.mimeType,
 			filename: `${Date.now()}-${crypto.randomUUID()}.wav`
 		})
@@ -210,13 +211,4 @@ function toPrompt(input: AITTSSpeechInput): string {
 	sections.push(`Speakers:\n${speakerLines.join('\n')}`)
 	sections.push(`Transcript:\n${transcriptLines.join('\n')}`)
 	return sections.join('\n\n')
-}
-
-function toBytes(base64: string): Uint8Array {
-	const raw = atob(base64)
-	const bytes = new Uint8Array(raw.length)
-	for (let i = 0; i < raw.length; i += 1) {
-		bytes[i] = raw.charCodeAt(i)
-	}
-	return bytes
 }

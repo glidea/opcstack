@@ -2,6 +2,7 @@ import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fa
 import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
+import { arrayBufferToBase64, base64ToBytes } from '../../../lib/base64'
 import { resolveImageReferences } from '../reference'
 import { createAIImageTask, getAIImageTask } from '../task'
 import type {
@@ -311,22 +312,4 @@ async function uploadImageResults(
 	}
 
 	return outputs
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-	const bytes: Uint8Array = new Uint8Array(buffer)
-	let raw = ''
-	for (const byte of bytes) {
-		raw += String.fromCharCode(byte)
-	}
-	return btoa(raw)
-}
-
-function base64ToBytes(base64: string): Uint8Array {
-	const raw = atob(base64)
-	const bytes = new Uint8Array(raw.length)
-	for (let index = 0; index < raw.length; index += 1) {
-		bytes[index] = raw.charCodeAt(index)
-	}
-	return bytes
 }

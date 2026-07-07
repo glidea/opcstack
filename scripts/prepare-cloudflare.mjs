@@ -22,6 +22,7 @@ const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
 const R2_S3_TOKEN_CACHE_PATH = '.wrangler/r2-s3-token.json'
 const RUNTIME_SECRETS_PATH = '.wrangler/runtime-secrets.env'
+const TYPES_WRANGLER_CONFIG_PATH = '.wrangler/wrangler.types.jsonc'
 const SECRET_KEYS = [
 	'BETTER_AUTH_SECRET',
 	'SUPER_ADMIN_PASSWORD',
@@ -240,18 +241,88 @@ function formatEnvValue(value) {
 	return JSON.stringify(String(value ?? ''))
 }
 
-function writeRuntimeSecrets(env) {
-	mkdirSync('.wrangler', { recursive: true })
+export function buildRequiredSecretKeys(env) {
+	const keys = ['BETTER_AUTH_SECRET']
 
-	const lines = []
-	for (const key of SECRET_KEYS) {
-		if (env[key] !== undefined && env[key] !== '') {
-			lines.push(`${key}=${formatEnvValue(env[key])}`)
+	if (String(env.ADMIN_API_TOKEN ?? '').trim() !== '') {
+		keys.push('ADMIN_API_TOKEN')
+	}
+	if (env.TURNSTILE_ENABLED === 'true') {
+		keys.push('TURNSTILE_SECRET_KEY')
+	}
+	if (env.GOOGLE_AUTH_ENABLED === 'true') {
+		keys.push('GOOGLE_CLIENT_SECRET')
+	}
+	if (env.GITHUB_AUTH_ENABLED === 'true') {
+		keys.push('GITHUB_CLIENT_SECRET')
+	}
+	if (env.LINUXDO_AUTH_ENABLED === 'true') {
+		keys.push('LINUXDO_CLIENT_SECRET')
+	}
+	if (env.EMAIL_PROVIDER === 'resend') {
+		keys.push('EMAIL_RESEND_API_KEY')
+	}
+	if (env.R2_ENABLED === 'true') {
+		keys.push('R2_ORIGIN_SIGNING_SECRET')
+		keys.push('R2_SECRET_ACCESS_KEY')
+	}
+	if (env.PAYMENT_ENABLED === 'true') {
+		const providers = collectPaymentProviders(parsePaymentProducts(env.PAYMENT_PRODUCTS))
+		if (providers.includes('dodo')) {
+			keys.push('PAYMENT_DODO_API_KEY')
+			keys.push('PAYMENT_DODO_WEBHOOK_SECRET')
+		}
+		if (providers.includes('creem')) {
+			keys.push('PAYMENT_CREEM_API_KEY')
+			keys.push('PAYMENT_CREEM_WEBHOOK_SECRET')
 		}
 	}
 
+	for (const [baseUrlKey, apiKeyKey] of fallbackSecretPairs()) {
+		if (String(env[baseUrlKey] ?? '').trim() !== '') {
+			keys.push(apiKeyKey)
+		}
+	}
+	for (const key of aiPrimarySecretKeys()) {
+		if (String(env[key] ?? '').trim() !== '') {
+			keys.push(key)
+		}
+	}
+
+	return keys
+}
+
+export function buildRuntimeSecretLines(env) {
+	const lines = []
+	for (const key of buildRequiredSecretKeys(env)) {
+		lines.push(`${key}=${formatEnvValue(env[key])}`)
+	}
+	return lines
+}
+
+function writeRuntimeSecrets(env) {
+	mkdirSync('.wrangler', { recursive: true })
+
+	const lines = buildRuntimeSecretLines(env)
+
 	writeFileSync(RUNTIME_SECRETS_PATH, `${lines.join('\n')}\n`, { mode: 0o600 })
 	console.log(`Runtime secrets written to ${RUNTIME_SECRETS_PATH}`)
+}
+
+export function buildTypesWranglerConfig(config) {
+	const typesConfig = JSON.parse(JSON.stringify(config))
+	typesConfig.secrets = {
+		required: SECRET_KEYS
+	}
+	return typesConfig
+}
+
+function writeTypesWranglerConfig(config) {
+	mkdirSync('.wrangler', { recursive: true })
+
+	const typesConfig = buildTypesWranglerConfig(config)
+	writeFileSync(TYPES_WRANGLER_CONFIG_PATH, JSON.stringify(typesConfig, null, 4))
+	console.log(`Wrangler types config written to ${TYPES_WRANGLER_CONFIG_PATH}`)
 }
 
 export function resolveCloudflareHost(rawDomain) {
@@ -493,7 +564,15 @@ function validatePaymentCountryOverrides(raw, providers) {
 }
 
 function validateFallbackRuntimeConfig(env) {
-	const pairs = [
+	for (const [baseUrlKey, apiKeyKey] of fallbackSecretPairs()) {
+		if (String(env[baseUrlKey] ?? '').trim() !== '') {
+			requireSecret(env, apiKeyKey)
+		}
+	}
+}
+
+function fallbackSecretPairs() {
+	return [
 		['CHAT_OPENAI_FALLBACK_BASE_URL', 'CHAT_OPENAI_FALLBACK_API_KEY'],
 		['IMAGE_GEMINI_FALLBACK_BASE_URL', 'IMAGE_GEMINI_FALLBACK_API_KEY'],
 		['IMAGE_OPENAI_FALLBACK_BASE_URL', 'IMAGE_OPENAI_FALLBACK_API_KEY'],
@@ -504,12 +583,20 @@ function validateFallbackRuntimeConfig(env) {
 		['REALTIME_DOUBAO_FALLBACK_BASE_URL', 'REALTIME_DOUBAO_FALLBACK_API_KEY'],
 		['VIDEO_SEEDDANCE_FALLBACK_BASE_URL', 'VIDEO_SEEDDANCE_FALLBACK_API_KEY']
 	]
+}
 
-	for (const [baseUrlKey, apiKeyKey] of pairs) {
-		if (String(env[baseUrlKey] ?? '').trim() !== '') {
-			requireSecret(env, apiKeyKey)
-		}
-	}
+function aiPrimarySecretKeys() {
+	return [
+		'CHAT_OPENAI_API_KEY',
+		'IMAGE_GEMINI_API_KEY',
+		'IMAGE_OPENAI_API_KEY',
+		'IMAGE_SEEDDREAM_API_KEY',
+		'IMAGE_ALIYUN_API_KEY',
+		'TTS_GEMINI_API_KEY',
+		'TTS_SEED_API_KEY',
+		'REALTIME_DOUBAO_API_KEY',
+		'VIDEO_SEEDDANCE_API_KEY'
+	]
 }
 
 function requireSecret(env, key) {
@@ -1643,7 +1730,7 @@ async function main() {
 	config.vars.R2_ACCESS_KEY_ID = r2S3Token?.accessKeyId || 'local'
 	env.R2_SECRET_ACCESS_KEY = r2S3Token?.secretAccessKey || env.R2_SECRET_ACCESS_KEY || 'local'
 	config.secrets = {
-		required: SECRET_KEYS
+		required: buildRequiredSecretKeys(env)
 	}
 	config.d1_databases = buildD1DatabaseBindings(appName, databaseId, shards, shardDatabaseIds)
 
@@ -1665,6 +1752,7 @@ async function main() {
 
 	writeFileSync('wrangler.jsonc', JSON.stringify(config, null, 4))
 	console.log('wrangler.jsonc generated successfully')
+	writeTypesWranglerConfig(config)
 	writeRuntimeSecrets(env)
 
 	console.log('\nGenerating migrations...')

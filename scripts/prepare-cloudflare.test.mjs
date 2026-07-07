@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
 	buildDnsCnameRecordPayload,
+	buildRequiredSecretKeys,
+	buildRuntimeSecretLines,
+	buildTypesWranglerConfig,
 	selectDnsCnameRecord,
 	validateRuntimeConfig
 } from './prepare-cloudflare.mjs'
@@ -102,6 +105,84 @@ describe('prepare cloudflare dns config', () => {
 })
 
 describe('prepare cloudflare runtime config validation', () => {
+	it('omits disabled optional secrets from runtime required keys', () => {
+		const keys = buildRequiredSecretKeys(createRuntimeEnv())
+
+		expect({
+			keys
+		}).toEqual({
+			keys: ['BETTER_AUTH_SECRET']
+		})
+	})
+
+	it('writes only runtime required secret values', () => {
+		const lines = buildRuntimeSecretLines(createRuntimeEnv())
+
+		expect({
+			lines
+		}).toEqual({
+			lines: ['BETTER_AUTH_SECRET="auth-secret"']
+		})
+	})
+
+	it('declares optional admin api token when configured', () => {
+		const keys = buildRequiredSecretKeys(createRuntimeEnv({ ADMIN_API_TOKEN: 'admin-token' }))
+
+		expect({
+			keys
+		}).toEqual({
+			keys: ['BETTER_AUTH_SECRET', 'ADMIN_API_TOKEN']
+		})
+	})
+
+	it('keeps full secret schema for wrangler types config', () => {
+		const config = {
+			secrets: {
+				required: ['BETTER_AUTH_SECRET']
+			}
+		}
+
+		const typesConfig = buildTypesWranglerConfig(config)
+
+		expect({
+			runtimeKeys: config.secrets.required,
+			typeHasPaymentSecret: typesConfig.secrets.required.includes('PAYMENT_DODO_API_KEY')
+		}).toEqual({
+			runtimeKeys: ['BETTER_AUTH_SECRET'],
+			typeHasPaymentSecret: true
+		})
+	})
+
+	it('requires enabled feature secrets', () => {
+		const env = createRuntimeEnv({
+			GOOGLE_AUTH_ENABLED: 'true',
+			GOOGLE_CLIENT_ID: 'google-client',
+			GOOGLE_CLIENT_SECRET: 'google-secret',
+			PAYMENT_ENABLED: 'true',
+			PAYMENT_PROVIDER: 'creem',
+			PAYMENT_PRODUCTS:
+				'[{"product_id":"credits_100","type":"one_time","credits_amount":"100","providers":{"creem":{"kind":"remote_product","product_id":"prod_1"}}}]',
+			PAYMENT_CREEM_API_KEY: 'creem-key',
+			PAYMENT_CREEM_WEBHOOK_SECRET: 'creem-webhook',
+			IMAGE_GEMINI_FALLBACK_BASE_URL: 'https://fallback.example.com',
+			IMAGE_GEMINI_FALLBACK_API_KEY: 'fallback-key'
+		})
+
+		const keys = buildRequiredSecretKeys(env)
+
+		expect({
+			keys
+		}).toEqual({
+			keys: [
+				'BETTER_AUTH_SECRET',
+				'GOOGLE_CLIENT_SECRET',
+				'PAYMENT_CREEM_API_KEY',
+				'PAYMENT_CREEM_WEBHOOK_SECRET',
+				'IMAGE_GEMINI_FALLBACK_API_KEY'
+			]
+		})
+	})
+
 	it('rejects enabled r2 without origin signing secret', () => {
 		const env = createRuntimeEnv({
 			R2_ENABLED: 'true',
@@ -155,10 +236,13 @@ describe('prepare cloudflare runtime config validation', () => {
 function createRuntimeEnv(overrides = {}) {
 	return {
 		BETTER_AUTH_SECRET: 'auth-secret',
+		ADMIN_API_TOKEN: '',
 		R2_ENABLED: 'false',
 		R2_ORIGIN_SIGNING_SECRET: '',
+		R2_SECRET_ACCESS_KEY: '',
 		TURNSTILE_ENABLED: 'false',
 		TURNSTILE_SITE_KEY: '',
+		TURNSTILE_SECRET_KEY: '',
 		GOOGLE_AUTH_ENABLED: 'false',
 		GOOGLE_CLIENT_ID: '',
 		GOOGLE_CLIENT_SECRET: '',

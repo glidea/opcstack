@@ -2,6 +2,7 @@ import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fa
 import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
+import { base64ToBytes } from '../../../lib/base64'
 import { createAITTSSourceTask, createAITTSTask, getAITTSTask } from '../task'
 import type {
 	AISimpleTTSClient,
@@ -128,7 +129,7 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 			const client = createR2Client(this.env as R2Env, this.userId)
 			output.r2 = await client.put({
 				dir: 'audio',
-				body: toBytes(output.audioBase64),
+				body: base64ToBytes(output.audioBase64),
 				contentType: output.mimeType,
 				filename: `${Date.now()}-${crypto.randomUUID()}.mp3`
 			})
@@ -482,15 +483,6 @@ function parseSeedLine(line: string): string {
 		throw new AIError('SEED_TTS_FAILED', chunk.message || 'Seed TTS failed')
 	}
 	return chunk.data ?? ''
-}
-
-function toBytes(base64: string): Uint8Array {
-	const raw = atob(base64)
-	const bytes = new Uint8Array(raw.length)
-	for (let i = 0; i < raw.length; i += 1) {
-		bytes[i] = raw.charCodeAt(i)
-	}
-	return bytes
 }
 
 function trimRightSlash(rawUrl: string): string {

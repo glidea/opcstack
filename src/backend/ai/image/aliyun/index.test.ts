@@ -399,7 +399,6 @@ describe('createAliyunSimpleImageClient.generate', () => {
 			return result ?? { key: '', url: '' }
 		})
 		r2GetMock.mockResolvedValue({
-			status: 'ok',
 			body: new ReadableStream<Uint8Array>({
 				start(controller): void {
 					controller.enqueue(new TextEncoder().encode('origin'))
@@ -409,7 +408,6 @@ describe('createAliyunSimpleImageClient.generate', () => {
 			contentType: 'image/png'
 		})
 		r2GetImageVariantMock.mockResolvedValue({
-			status: 'ok',
 			body: new ReadableStream<Uint8Array>({
 				start(controller): void {
 					controller.enqueue(new TextEncoder().encode('variant'))

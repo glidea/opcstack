@@ -381,17 +381,26 @@ function buildDocGroups(docs: DocItem[]): DocGroup[] {
 		})
 	}
 
-	return groups.sort((a, b) => a.title.localeCompare(b.title))
+	return groups.sort(compareDocGroups)
 }
 
 function compareDocs(a: DocItem, b: DocItem): number {
-	if (a.group !== b.group) {
-		return a.group.localeCompare(b.group)
-	}
 	if (a.order !== b.order) {
 		return a.order - b.order
 	}
+	if (a.group !== b.group) {
+		return a.group.localeCompare(b.group)
+	}
 	return a.slug.localeCompare(b.slug)
+}
+
+function compareDocGroups(a: DocGroup, b: DocGroup): number {
+	const firstA = a.docs[0]
+	const firstB = b.docs[0]
+	if (firstA && firstB) {
+		return compareDocs(firstA, firstB)
+	}
+	return a.title.localeCompare(b.title)
 }
 
 function stripFrontmatter(raw: string): string {

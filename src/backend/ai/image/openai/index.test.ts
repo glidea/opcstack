@@ -330,7 +330,6 @@ describe('createOpenAISimpleImageClient.generate', () => {
 			return result ?? { key: '', url: '' }
 		})
 		r2GetMock.mockResolvedValue({
-			status: 'ok',
 			body: new ReadableStream<Uint8Array>({
 				start(controller): void {
 					controller.enqueue(new TextEncoder().encode('origin'))
@@ -340,7 +339,6 @@ describe('createOpenAISimpleImageClient.generate', () => {
 			contentType: 'image/png'
 		})
 		r2GetImageVariantMock.mockResolvedValue({
-			status: 'ok',
 			body: new ReadableStream<Uint8Array>({
 				start(controller): void {
 					controller.enqueue(new TextEncoder().encode('variant'))

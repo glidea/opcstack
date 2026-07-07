@@ -148,20 +148,36 @@ describe('buildDocsManifest', () => {
 						'# Setup',
 						'## Configure'
 					].join('\n'),
+					'/public-docs/zh/architecture.md': [
+						'---',
+						'title: Architecture',
+						'group: Architecture',
+						'order: 2',
+						'---',
+						'# Architecture'
+					].join('\n'),
+					'/public-docs/zh/index.md': [
+						'---',
+						'title: Overview',
+						'group: Overview',
+						'order: 0',
+						'---',
+						'# Overview'
+					].join('\n'),
 					'/public-docs/en/intro.md': '# Intro'
 				}
 			},
 			whenDetail: {},
 			thenExpected: {
 				locales: ['en', 'zh'],
-				zhHomeSlug: 'setup',
-				zhDocSlugs: ['setup', 'intro'],
-				zhGroups: ['Start'],
-				firstDocHeadings: [{ id: 'configure', text: 'Configure', level: 2 }],
+				zhHomeSlug: 'index',
+				zhDocSlugs: ['index', 'setup', 'architecture', 'intro'],
+				zhGroups: ['Overview', 'Start', 'Architecture'],
+				firstDocHeadings: [],
 				firstDocHasLeadingH1: false,
 				switchPathForExistingSlug: '/zh/docs/intro',
-				switchPathForMissingSlug: '/zh/docs/setup',
-				nextTitle: 'Intro',
+				switchPathForMissingSlug: '/zh/docs/index',
+				nextTitle: 'Setup',
 				previousTitle: null
 			}
 		}
@@ -171,7 +187,7 @@ describe('buildDocsManifest', () => {
 		const manifest: DocsManifest = await buildDocsManifest(given.modules)
 		const zhManifest = manifest.byLocale['zh']
 		const zhDocs = zhManifest?.docs ?? []
-		const neighbors = getDocNeighbors(zhDocs, 'setup')
+		const neighbors = getDocNeighbors(zhDocs, 'index')
 
 		return {
 			locales: manifest.locales,

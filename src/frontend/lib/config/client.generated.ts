@@ -29,13 +29,13 @@ export const clientConfig: ClientConfig = {
 	"designSystem": "apple-saas",
 	"docsEnabled": true,
 	"emailSignupEnabled": true,
-	"emailRequireVerification": true,
+	"emailRequireVerification": false,
 	"emailUserActionCooldownSeconds": 50,
 	"googleAuthEnabled": false,
 	"githubAuthEnabled": false,
 	"linuxdoAuthEnabled": false,
-	"turnstileEnabled": true,
-	"turnstileSiteKey": "1x00000000000000000000AA",
+	"turnstileEnabled": false,
+	"turnstileSiteKey": "",
 	"paymentEnabled": false,
 	"extension": {
 		"hostPermissions": [
