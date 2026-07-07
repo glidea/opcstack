@@ -1,304 +1,163 @@
 ---
 title: Architecture
-description: Understand the overall architecture design
-group: Getting Started
+description: System shape, design decisions, and data model
+group: Architecture
 order: 2
 ---
 
 # Architecture
 
-## Design principles
+## Design Principles
 
-### Convention over configuration
+**One Worker as the runtime container.** API, SSR, Cron, and Queue all run in one Worker. Development and deployment follow the same path. No service splitting, no extra glue layer.
 
-You do not need to hand write config files. Configure environment variables and `scripts/prepare-cloudflare.mjs` generates config automatically.
+**Convention over configuration.** No hand-written `wrangler.jsonc`. Set env vars, `scripts/prepare-cloudflare.mjs` generates config, creates resources, and applies migrations.
 
-### One Worker as the runtime container
+**Cloudflare stack first.** Workers, D1, R2, KV, Queues, and Cron are one integrated path. The free tier runs the full loop.
 
-API, SSR, Cron, and Queue run in one Worker so development and deployment follow the same path.
+**Automation first.** No manual resource creation in any environment. `prepare-cloudflare.mjs` handles local and remote provisioning.
 
-### Cloudflare stack first
-
-Workers, D1, R2, KV, Queues, and Cron are integrated as one path. The free tier can run the full loop.
-
-### Automation first
-
-If it can be automated, automate it. Avoid manual steps.
-
-## Overview
+## System Overview
 
 ```mermaid
 flowchart TB
-  A[User] --> B[Cloudflare Edge]
-  B --> C[Worker src/index.ts]
-  C -->|/api/*| D[Hono API src/api]
-  C -->|other path| E[SvelteKit SSR src/web]
-  D --> F[(D1)]
-  D --> G[(R2)]
-  D --> H[(KV)]
-  D --> I[(Queues)]
-  J[Cron Trigger] --> C
-  K[Queue Consumer] --> C
+  subgraph Clients
+    Browser["Browser web app"]
+    Extension["Chrome extension"]
+  end
+
+  subgraph Edge["Cloudflare edge"]
+    DNS["DNS + TLS"]
+    Routes["Worker routes"]
+  end
+
+  subgraph Worker["Single Worker deployment"]
+    Entry["Entry src/index.ts"]
+    Web["SvelteKit SSR\nstatic pages"]
+    Api["Hono API\nauth + business"]
+    Webhooks["Payment webhooks"]
+    Jobs["Cron jobs"]
+    Consumers["Queue consumers"]
+  end
+
+  subgraph Data["Data plane"]
+    Meta["Meta DB\nshard registry\nuser_shards\nauth\npayments\nnotifications"]
+    Shards["Tenant Shard DBs\ncredit balances\nfeedbacks\nAI tasks\n..."]
+    R2["R2\npublic/private objects"]
+    KV["KV"]
+    Queues["Queues"]
+  end
+
+  subgraph External["External SaaS"]
+    OAuth["Google / GitHub / LinuxDO"]
+    Payment["Dodo / Creem"]
+    AI["OpenAI / Gemini / ..."]
+    Email["Resend / Cloudflare Email"]
+  end
+
+  Browser --> DNS
+  Extension --> DNS
+  DNS --> Routes
+  Routes --> Entry
+  Entry --> Web
+  Entry --> Api
+  Entry --> Webhooks
+  Entry --> Jobs
+  Entry --> Consumers
+
+  Api --> Meta
+  Api --> Shards
+  Api --> R2
+  Api --> KV
+  Api --> Queues
+  Api --> OAuth
+  Api --> Payment
+  Api --> AI
+  Api --> Email
+  Webhooks --> Meta
+  Jobs --> Meta
+  Jobs --> Shards
+  Consumers --> Shards
+  Consumers --> R2
+  Consumers --> AI
 ```
 
-The diagram shows the full request flow:
-1. User sends HTTP request to Cloudflare edge
-2. Edge network routes request to Worker
-3. Worker dispatches by path: `/api/*` -> Hono, otherwise -> SvelteKit
-4. Hono middleware chain handles auth, session, and permission
-5. Worker calls Cloudflare services like D1, R2, KV, and Queue
-6. Response is returned with D1 consistency guaranteed by bookmark
+A few things to notice:
 
-### Request routing
+- There is only **one Worker deployment**. Web pages, API, webhooks, cron, and queue consumers all live in the same codebase and ship together. You do not run separate services.
+- The **edge** is Cloudflare's global network. DNS and TLS terminate there, and the request is routed to the nearest Worker instance automatically.
+- **Clients** are the web app (browser) and the Chrome extension. They share most of the frontend code in `src/frontend/lib/`.
+- **External SaaS** are third-party providers. You only pay for what you enable via env vars.
+
+## Request Flow
 
 ```
 HTTP Request
-  ├── /api/*      -> Hono API      (src/api/)
-  └── other path  -> SvelteKit SSR (src/web/)
+  ├── /api/* -> Hono API (src/backend/api/)
+  └── other  -> SvelteKit SSR (src/frontend/web/)
 
-Cron Trigger       -> src/jobs/index.ts
-Queue Consumer     -> src/consumers/index.ts
+Cron Trigger    -> src/backend/jobs/index.ts
+Queue Consumer  -> src/backend/consumers/index.ts
 ```
 
-All requests enter from `src/index.ts` and are dispatched by path.
+Everything enters from `src/index.ts`. For HTTP requests, it checks the path: `/api/*` goes to Hono, everything else goes to SvelteKit. Cron and queue are separate entry points but live in the same Worker.
 
-### Why this design
+## API Layer
 
-One Worker as the runtime container:
-- API, SSR, Cron, and Queue are all in one Worker
-- Development and deployment follow the same path with lower debug cost
-- No service splitting and no extra glue layer
+The API is split into four route groups in `src/backend/api/index.ts`:
 
-Convention over configuration:
-- `pnpm dev` auto generates `wrangler.jsonc`
-- Auto creates D1, R2, KV, and Queues
-- Auto applies migrations
-- No hand written config files
+| Group | Auth level | Purpose |
+| --- | --- | --- |
+| `publicApi` | None | Health check, auth login, payment webhooks, R2 public reads |
+| `authOnlyApi` | Logged in | Routes that only need identity (e.g. bind beta code) |
+| `userApi` | Logged in + beta gate | All authenticated user endpoints |
+| `adminApi` | Super admin | Admin operations |
 
-## Directory structure
+The important idea: public routes skip auth entirely, user routes run the full middleware chain (auth, beta gate, tenant DB), admin routes replace normal auth with admin auth. You pick the group when you register a route.
+
+## Data Architecture
+
+Two database tiers with different ownership:
+
+**Meta DB** (`META_DB`): global control state. One database for the whole product. Holds shard registry, user-to-shard mapping, auth, payments, subscriptions, webhooks, notifications. Accessed via `ctx.get('metaDb')`.
+
+**Tenant Shard DB**: user-scoped runtime data. Sharded across multiple D1 databases by region. Holds credit balances, credit transactions, feedbacks, notification reads, AI async task tables. Accessed via `ctx.get('tenantDb')`.
+
+Why split: Meta DB is the single source of truth for anything cross-user (payments, shard assignment). Tenant shards scale horizontally by region, so more users just means more shards. A user's data lives in exactly one shard for its lifetime.
+
+Supported shard regions: `wnam`, `enam`, `weur`, `eeur`, `apac`, `oc`. Configured via `D1_SHARDS` env var as `region:count` pairs.
+
+New user assignment prefers the Worker's continent bucket, then any active shard:
 
 ```
-src/
-  index.ts              # Worker entry, dispatch fetch/cron/queue
-  api/
-    index.ts            # API route registration
-    auth/               # Better Auth config
-    handler/            # API handlers
-    middleware/         # Middleware
-      auth.ts           # Auth middleware
-      beta-gate.ts      # Beta code middleware
-      d1-session.ts     # D1 session middleware
-      email-auth.ts     # Email auth middleware
-  web/
-    routes/             # SvelteKit pages
-    lib/
-      ui/               # UI components
-      i18n/             # I18n
-  db/
-    schema.ts           # Drizzle schema
-    schema.auth.ts      # Better Auth schema
-    migrations/         # Auto generated migrations
-  jobs/
-    index.ts            # Cron handlers
-  consumers/
-    index.ts            # Queue handlers
-  ai/
-    chat/openai/        # Chat client
-    image/gemini/       # Image client
-    tts/gemini/         # TTS client
-  r2/
-    index.ts            # R2 helpers
-  testing/
-    bdd.ts              # BDD style test helper
+AS -> apac | EU -> weur | OC -> oc | default -> apac
 ```
 
-### Directory responsibilities
+Existing users always follow their `user_shards` record, even if they move to a different region. This prevents data fragmentation.
 
-`src/index.ts`:
-- Worker entry
-- Dispatch `fetch`, `cron`, and `queue`
-- No business logic
+## Read Consistency
 
-`src/api/`:
-- Backend API layer
-- `handler/` contains API business logic
-- `middleware/` contains middlewares like auth and beta code
-- `index.ts` registers routes
+D1 has one primary node per database. Without read replication, all reads and writes hit primary, which limits latency and throughput under load.
 
-`src/web/`:
-- Frontend page layer
-- `routes/` for pages
-- `lib/ui/` for components
-- `lib/i18n/` for i18n messages
+In production, `prepare-cloudflare.mjs` enables read replication automatically. After that, reads go to global replica nodes (closer to the user), while writes still go to primary.
 
-`src/db/`:
-- Data layer
-- `schema.ts` defines table schema
-- `migrations/` stores auto generated migration files
+The consistency problem this creates: after a user writes, a later read might hit a replica that has not caught up. OPCStack solves this with **bookmarks**. Each D1 session returns a bookmark that represents a consistent point-in-time snapshot. The bookmark flows through response headers and cookies back to the client, and the client sends it back on the next request. This gives monotonic reads ("read your own writes") without distributed transactions.
 
-`src/jobs/`:
-- Scheduled jobs
-- Dispatch by cron expression
+Meta DB and Tenant Shard DB each maintain independent bookmark flows, because they are separate databases with separate primaries.
 
-`src/consumers/`:
-- Queue consumers
-- Dispatch by queue name
+## prepare-cloudflare Automation
 
-## scripts/prepare-cloudflare.mjs automation
-
-### Workflow
+`scripts/prepare-cloudflare.mjs` is the single entry point for provisioning:
 
 ```
 pnpm dev / pnpm deploy:cloudflare
-  ↓
-scripts/prepare-cloudflare.mjs
-  ↓
-1. Load env vars (.env.dev or .env.prod)
-2. Parse APP_DOMAIN and generate APP_BASE_URL
-3. Validate email config
-4. In remote mode:
-   - Get Wrangler token
-   - Get Cloudflare account ID
-   - Create or check D1 database
-   - Enable D1 read replication
-   - Create or check Queues, R2, KV
-5. Render wrangler.jsonc
-6. Generate Drizzle migration
-7. Apply D1 migration
-  ↓
-wrangler dev / wrangler deploy
+  -> load env
+  -> generate wrangler.jsonc
+  -> create D1, R2, KV, Queues, Turnstile (remote only)
+  -> generate and apply migrations
+  -> wrangler dev / wrangler deploy
 ```
 
-### Local vs remote mode
+Local mode uses placeholder UUIDs and applies migrations locally. Remote mode creates real Cloudflare resources, enables read replication, and applies migrations remotely.
 
-Local mode (`node scripts/prepare-cloudflare.mjs --mode dev`):
-- Uses placeholder UUID
-- Does not create remote resources
-- Runs `migration apply --local`
-
-Remote mode (`node scripts/prepare-cloudflare.mjs --mode prod`):
-- Auto creates all resources
-- Enables D1 read replication
-- Runs `migration apply --remote`
-
-### Why prepare-cloudflare is needed
-
-Problem: creating and configuring Cloudflare resources manually is tedious.
-
-Solution: `scripts/prepare-cloudflare.mjs` automates everything:
-- No manual `wrangler.jsonc`
-- No manual D1, R2, KV, Queue creation
-- No manual migration apply
-- Only environment variables are required
-
-## Middleware mechanism
-
-### Execution order
-
-```
-Request
-  ↓
-d1SessionMiddleware      # Create D1 session
-  ↓
-authMiddleware           # Inject userId
-  ↓
-betaGateMiddleware       # Block by beta code
-  ↓
-emailAuthMiddleware      # Block by email auth
-  ↓
-handler                  # Business logic
-```
-
-### Middleware responsibilities
-
-`d1SessionMiddleware`:
-- Read `x-d1-bookmark` header or `d1_bookmark` cookie
-- Create D1 session
-- Inject `db` into `ctx.variables`
-- Write bookmark back on response
-
-`authMiddleware`:
-- Parse Bearer token
-- Inject `userId` into `ctx.variables`
-- Does not block requests even when user is not logged in
-
-`betaGateMiddleware`:
-- If `BETA_CODE_ENABLED=true`, check whether user is bound to beta code
-- Block request when not bound
-
-`emailAuthMiddleware`:
-- Check email auth request rules such as OTP sign in block, signup switch, domain allowlist, and cooldown
-- Block requests that do not match rules
-
-## D1 read replication
-
-### Mechanism
-
-Remote mode enables D1 read replication automatically with D1 Sessions API.
-
-Bookmark flow:
-```
-Request
-  ↓
-Read x-d1-bookmark header or d1_bookmark cookie
-  ↓
-Create D1 session: env.DB.withSession(bookmark)
-  ↓
-Execute SQL query
-  ↓
-Get new bookmark: session.getBookmark()
-  ↓
-Write x-d1-bookmark header and d1_bookmark cookie
-  ↓
-Response
-```
-
-Default bookmark: `first-primary` for correctness.
-
-### Why read replication is needed
-
-Problem: D1 has one primary node. Both reads and writes hit primary so latency and throughput are limited.
-
-Solution: after read replication is enabled, reads are distributed to global replicas to reduce latency.
-
-Consistency: bookmark guarantees monotonic reads, read your own writes, and writes follow reads.
-
-## Environment variable system
-
-### Load order
-
-```
-.env.dev / .env.prod  (default)
-  ↓
-.env  (override)
-  ↓
-process.env  (highest priority)
-```
-
-### Why this design
-
-Problem: different environments need different config, but manual switching is error prone.
-
-Solution:
-- `.env.dev` for local development
-- `.env.prod` for production
-- `.env` for local override that should not be committed
-- `process.env` for CI/CD variables
-
-## Conventions
-
-### Queue binding
-
-Queue name `task-check` -> binding `Q_TASK_CHECK`
-
-Rule: `Q_<QUEUE_NAME_UPPER>`
-
-### R2 file path
-
-- Public file: `public/*`
-- Private file: `private/<userId>/*`
-
-### Test files
-
-- Unit tests: `src/**/*.test.ts`
-- E2E tests: `e2e/**/*.test.ts`
+This is an architectural decision, not just a convenience: the infrastructure is code-generated from env vars, not hand-configured in a dashboard. Adding a queue, a shard, or a Durable Object is an env var change, not a manual session.

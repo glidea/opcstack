@@ -1,14 +1,12 @@
 # OPCStack
 
-OPCStack 是给 One Person Company 准备的 Cloudflare-native 产品骨架
+让 OPC 开发更快，成本更低，生产即用
 
-它帮一个人或小团队用 AI 快速构建可上线、低成本运行的 SaaS 或 AI 产品
-
-OPCStack 已经打通认证、支付、积分、R2、D1 Sharding、KV、Queues、Cron、部署自动化和测试体系
+OPCStack 是给 One Person Company 准备的 Cloudflare-native SaaS / AI 产品骨架。预先打通认证、支付、积分、D1 Sharding、R2、KV、Queues、Cron、AI 任务、部署自动化和测试体系
 
 ---
 
-## 该有的 SaaS / AI 产品基础模块都已经打通
+## 基础模块都已经打通
 
 OPCStack 不是只给你页面、登录和几个示例接口
 
@@ -53,7 +51,7 @@ Cloudflare 的优势在这里：Workers、D1、R2、KV、Queues、Cron 和 CDN �
 
 ---
 
-## 同样是 Cloudflare 模板，OPCStack 更接近生产骨架
+## 同样是 Cloudflare 模板，OPCStack 更接近生产级别
 
 很多 Cloudflare starter 只是把 Workers、D1、R2 接起来，适合演示，不适合直接做 SaaS
 
@@ -102,10 +100,6 @@ vim .env.secret.dev
 pnpm dev
 ```
 
-公开配置放在 `.env.dev` 和 `.env.prod`。密钥放在 `.env.secret.dev` 和 `.env.secret.prod`，不要提交密钥文件
-
-如果需要大陆访问优化，可以配置 `APP_CN_DOMAIN`。`prepare:cloudflare:*` 会自动把它接入 Worker 路由、R2 CORS 和 Turnstile 域名。需要自动配置 DNS 时，再配置 `APP_CN_CNAME_TARGET`，脚本会创建或更新一条未代理的 CNAME。优选目标必须由你提供，脚本不会内置第三方加速池
-
 部署到 Cloudflare：
 
 ```bash
@@ -124,8 +118,6 @@ pnpm build:extension
 ---
 
 ## 项目地图
-
-README 只负责让用户快速理解项目价值和入口。具体开发规则、架构上下文和实现约定放在对应文件里
 
 | 文件或目录                       | 职责                                                                    |
 | -------------------------------- | ----------------------------------------------------------------------- |

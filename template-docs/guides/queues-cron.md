@@ -1,154 +1,366 @@
 ---
 title: Queues and Cron
-description: Queue and Cron usage
+description: Cloudflare Queues, Cron Triggers, async consumers, and scheduled jobs
 group: Guides
 order: 4
 ---
 
 # Queues and Cron
 
-OPC Stack supports Cloudflare Queues and Cron Triggers.
+OPCStack uses Cloudflare Queues for async work and Cloudflare Cron Triggers for periodic jobs. Both enter the same Worker deployment through `src/index.ts`, then dispatch to backend handlers.
 
-## Queue
-
-### Define queues
-
-Define queue names in `.env.dev` or `.env.prod`:
-
-```bash
-QUEUE_NAMES=task-check;email-send
+```
+Cloudflare Worker
+  |
+  +-- queue(batch, env, ctx)
+  |     |
+  |     +-- src/backend/consumers/index.ts
+  |
+  +-- scheduled(controller, env, ctx)
+        |
+        +-- src/backend/jobs/index.ts
 ```
 
-`scripts/prepare-cloudflare.mjs` auto creates queues and generates bindings:
-- `task-check` -> `Q_TASK_CHECK`
-- `email-send` -> `Q_EMAIL_SEND`
+Keep queues and cron boring. A queue message should identify durable state. It should not carry the whole job payload.
 
-Limit consumer concurrency when needed:
+## Runtime Model
+
+`src/index.ts` exports three Worker entrypoints:
+
+| Entrypoint | Handler | Purpose |
+| --- | --- | --- |
+| `fetch` | API or SvelteKit SSR | User requests and webhooks |
+| `queue` | `handleQueue` | Cloudflare Queue batches |
+| `scheduled` | `handleScheduled` | Cron Trigger events |
+
+Queues are configured by name. Cron jobs are configured by exact cron expression. Unknown queues or unknown cron expressions are skipped.
+
+## Config
+
+Queue and cron config lives in `.env.dev` and `.env.prod`.
 
 ```bash
-QUEUE_MAX_CONCURRENCY=1
+QUEUE_NAMES=image-generate;tts-generate;video-generate
+QUEUE_MAX_CONCURRENCY=
+CRONS=*/10 * * * *
 ```
 
-Empty `QUEUE_MAX_CONCURRENCY` keeps Cloudflare Queues automatic concurrency.
+Rules:
 
-### Send messages
+| Key | Format | Meaning |
+| --- | --- | --- |
+| `QUEUE_NAMES` | Semicolon-separated names | Queue resources and Worker producer/consumer bindings |
+| `QUEUE_MAX_CONCURRENCY` | Empty or integer `1..250` | Optional Cloudflare consumer max concurrency |
+| `CRONS` | Semicolon-separated cron expressions | Worker Cron Triggers |
+
+Empty `QUEUE_NAMES` means no queue bindings. Empty `CRONS` means no cron triggers.
+
+`prepare-cloudflare.mjs` deduplicates queue names after trimming whitespace. It does not validate queue names beyond binding-name conversion, so keep names lowercase and hyphenated.
+
+## Generated Bindings
+
+`prepare-cloudflare.mjs` converts queue names to Worker bindings:
+
+| Queue name | Binding |
+| --- | --- |
+| `image-generate` | `Q_IMAGE_GENERATE` |
+| `tts-generate` | `Q_TTS_GENERATE` |
+| `video-generate` | `Q_VIDEO_GENERATE` |
+| `task-check` | `Q_TASK_CHECK` |
+
+Binding rule:
+
+```
+Q_<QUEUE_NAME_UPPER_WITH_NON_ALNUM_AS_UNDERSCORE>
+```
+
+Generated `wrangler.jsonc` contains both producers and consumers:
+
+```json
+{
+  "queues": {
+    "producers": [
+      {
+        "binding": "Q_IMAGE_GENERATE",
+        "queue": "image-generate"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "image-generate"
+      }
+    ]
+  }
+}
+```
+
+When `QUEUE_MAX_CONCURRENCY=1`, each consumer entry also gets `max_concurrency: 1`.
+
+## Queue Dispatch
+
+All queue dispatch starts at `src/backend/consumers/index.ts`.
 
 ```typescript
-// src/api/handler/tasks.ts
-await ctx.env.Q_TASK_CHECK.send({
-  taskId: 'task-123',
-  userId: 'user-456',
-  timestamp: Date.now()
+export async function handleQueue(
+  batch: MessageBatch<unknown>,
+  env: Env,
+  ctx: ExecutionContext
+): Promise<void> {
+  const handler = queueHandlers[batch.queue]
+  if (!handler) {
+    return
+  }
+
+  await handler(batch, env, ctx)
+}
+```
+
+Registered handlers:
+
+| Queue | Handler |
+| --- | --- |
+| `image-generate` | `handleAIImageQueue` |
+| `tts-generate` | `handleAITTSQueue` |
+| `video-generate` | `handleAIVideoQueue` |
+
+Do not add branching inside `src/index.ts`. Add a handler to `queueHandlers`.
+
+## Queue Message Rules
+
+Queue messages should be small and durable-state based.
+
+Current AI queues use this shape:
+
+```typescript
+{
+  taskId: string
+  userId: string
+}
+```
+
+This is intentional:
+
+- `taskId` points to the row that contains prompt, provider, model, references, and output options
+- `userId` lets the consumer reopen the correct Tenant Shard DB through Meta DB
+- retry is idempotent because the task row is the source of truth
+
+Do not put prompts, API keys, provider configs, R2 options, or full user payloads into queue messages.
+
+## Existing AI Queues
+
+Image, TTS, and video async tasks are tenant-owned. They are stored in Tenant Shard DB tables:
+
+| Queue | Table | Task creator |
+| --- | --- | --- |
+| `image-generate` | `ai_image_tasks` | `createAIImageTask` |
+| `tts-generate` | `ai_tts_tasks` | `createAITTSTask`, `createAITTSSourceTask` |
+| `video-generate` | `ai_video_tasks` | `createAIVideoTask` |
+
+Flow:
+
+```
+request handler or service
+  |
+  +-- insert processing task row in Tenant Shard DB
+  |
+  +-- env.Q_*.send({ taskId, userId })
+        |
+        +-- consumer opens user's Tenant Shard DB
+        |
+        +-- load task row
+        |
+        +-- call AI provider
+        |
+        +-- update task row to completed or failed
+```
+
+The consumer opens the user's DB with:
+
+```typescript
+const metaDb = getMetaDb(env.META_DB)
+const tenant = await createTenantShardAccess(metaDb, env).openUserDb(userId)
+```
+
+That lookup is required because queue events do not have request middleware context.
+
+## Retry and Ack Rules
+
+Consumers must explicitly finish each message:
+
+| Action | Meaning |
+| --- | --- |
+| `message.ack()` | Message is done and should not retry |
+| `message.retry({ delaySeconds })` | Message should be retried later |
+
+Current AI retry behavior:
+
+| Queue | Max attempts | Delay |
+| --- | --- | --- |
+| `image-generate` | 3 | 10s, 30s |
+| `tts-generate` | 3 | 10s, 30s |
+| `video-generate` | 3 failure attempts | 10s, 30s |
+
+Video has one extra rule: if the remote SeedDance provider task is still running, the consumer retries the queue message after 30 seconds without incrementing `attemptCount`.
+
+Consumers ack missing or non-processing tasks. That is not swallowing a bug. It is idempotency: a duplicate message should not re-run a completed task.
+
+## Cron Dispatch
+
+All Cron Trigger dispatch starts at `src/backend/jobs/index.ts`.
+
+```typescript
+export async function handleScheduled(
+  controller: ScheduledController,
+  env: Env,
+  ctx: ExecutionContext
+): Promise<void> {
+  const handler = scheduledHandlers[controller.cron]
+  if (!handler) {
+    return
+  }
+
+  await handler(controller, env, ctx)
+}
+```
+
+The key is the exact cron expression string from Cloudflare. If `CRONS` contains `*/10 * * * *`, the handler map must also use `*/10 * * * *`.
+
+## Existing Cron Jobs
+
+Current registered job:
+
+| Cron | Job |
+| --- | --- |
+| `*/10 * * * *` | Expire credits and clean old credit transactions on every active tenant shard |
+
+The job:
+
+1. Opens Meta DB
+2. Lists active tenant shard DBs
+3. Runs `CreditsService.expire({ limit: 20 })` on each shard
+4. Runs `CreditsService.cleanupTransactions({ limit: 100 })` on each shard
+5. Logs structured job results
+
+`CREDITS_HISTORY_RETENTION_DAYS` controls transaction cleanup retention. Current parsing falls back to `90` when the value is missing or invalid. That is existing behavior; do not copy this pattern into new config without a product reason.
+
+## Add A Queue
+
+Add a queue only when work must continue outside the request lifecycle.
+
+Steps:
+
+1. Add the queue name to `QUEUE_NAMES`
+2. Run `pnpm prepare:cloudflare:dev`
+3. Use the generated binding, for example `env.Q_TASK_CHECK.send(...)`
+4. Add a message type near the domain that owns the task
+5. Add a consumer handler under `src/backend/consumers/`
+6. Register it in `queueHandlers`
+7. Add unit tests for dispatch, ack, retry, and idempotent duplicate handling
+
+Minimal message shape:
+
+```typescript
+export interface TaskCheckQueueMessage {
+  taskId: string
+  userId: string
+}
+```
+
+Send:
+
+```typescript
+await env.Q_TASK_CHECK.send({
+  taskId,
+  userId
 })
-
-// Batch send
-await ctx.env.Q_TASK_CHECK.sendBatch([
-  { body: { taskId: 'task-1' } },
-  { body: { taskId: 'task-2' } },
-  { body: { taskId: 'task-3' } }
-])
 ```
 
-### Consume messages
+Do not create a generic queue framework. The map in `queueHandlers` is enough.
 
-Handle queue messages in `src/consumers/index.ts` and dispatch to different handlers by queue name.
+## Add A Cron
 
-### Error handling
+Add cron only when the job is truly periodic. If the work is user-triggered or provider-triggered, use a queue or webhook.
 
-Use `message.ack()` for success and `message.retry()` for retry on failure.
+Steps:
 
-## Cron
+1. Add the cron expression to `CRONS`
+2. Add a handler in `scheduledHandlers`
+3. Keep the handler short
+4. For long work, enqueue tasks instead of doing everything inside the scheduled event
+5. Add unit tests for registered and unknown cron behavior
 
-### Define cron expressions
+Example:
 
-Define cron expressions in `.env.dev` or `.env.prod`:
-
-```bash
-CRONS=0 0 * * *,0 */6 * * *
+```typescript
+export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
+  '*/10 * * * *': async (controller, env): Promise<void> => {
+    // existing credits job
+  },
+  '0 0 * * *': async (_controller, _env): Promise<void> => {
+    // daily maintenance
+  }
+}
 ```
 
-`scripts/prepare-cloudflare.mjs` auto generates `wrangler.jsonc` config.
+Cron format:
 
-### Handle cron jobs
-
-Handle scheduled jobs in `src/jobs/index.ts` and dispatch by cron expression.
-
-### Cron format
-
-```
+```text
 * * * * *
-│ │ │ │ │
-│ │ │ │ └─ day of week (0-7 and both 0 and 7 mean Sunday)
-│ │ │ └─── month (1-12)
-│ │ └───── day of month (1-31)
-│ └─────── hour (0-23)
-└───────── minute (0-59)
+| | | | |
+| | | | +-- day of week
+| | | +---- month
+| | +------ day of month
+| +-------- hour
++---------- minute
 ```
 
-Common examples:
-- `0 0 * * *` every day at 00:00
-- `0 */6 * * *` every 6 hours
-- `*/15 * * * *` every 15 minutes
-- `0 9 * * 1` every Monday at 09:00
+## Local Testing
 
-## Local testing
+For unit tests, call handlers directly:
 
-### Test queue
+```typescript
+await handleQueue(batch, env, ctx)
+await handleScheduled(controller, env, ctx)
+```
+
+For local scheduled events:
 
 ```bash
-# Send test message
-curl -X POST http://localhost:8787/api/test-queue
+pnpm prepare:cloudflare:dev
+pnpm exec wrangler dev --test-scheduled --env-file .wrangler/runtime-secrets.env
 ```
 
-### Test cron
+For generated bindings and types:
 
 ```bash
-# Trigger cron manually
-wrangler dev --test-scheduled
+pnpm prepare:cloudflare:dev
+pnpm exec wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false
 ```
 
-## Monitoring
+Do not run remote E2E to test resource creation. Remote E2E should only call HTTP APIs against an already deployed environment.
 
-### Queue status
+## Common Mistakes
 
-```bash
-# Show queue list
-wrangler queues list
-```
+**Adding queue logic to `src/index.ts`**
 
-### Cron logs
+Keep `src/index.ts` as the Worker entrypoint only. Register queue handlers in `src/backend/consumers/index.ts`.
 
-```bash
-# Show logs
-wrangler tail
-```
+**Using comma-separated config**
 
-## Best practices
+`QUEUE_NAMES` and `CRONS` use semicolons.
 
-### Queue
+**Putting full job payloads in messages**
 
-1. Idempotency: make message handling idempotent to avoid duplicates
-2. Timeout control: keep single message handling within 30 seconds
-3. Batch processing: use `sendBatch` for efficiency
-4. Retry errors: use `message.retry()` instead of `message.ack()` for failures
+Put the durable row in D1 and send `{ taskId, userId }`.
 
-### Cron
+**Forgetting the generated binding name**
 
-1. Avoid long running task: keep one run within 30 seconds
-2. Use queue: send long tasks to queue for async processing
-3. Handle errors: catch errors to avoid impacting next run
-4. Idempotency: repeated execution should not create side effects
+`task-check` becomes `Q_TASK_CHECK`. Use the generated `Env` type instead of hand-writing env interfaces.
 
-## FAQ
+**Doing long work inside cron**
 
-**Q: What if queue messages are lost**
+Cron should coordinate. Queue should execute long or retryable jobs.
 
-Check whether `message.ack()` is called correctly and inspect queue metrics in Cloudflare dashboard.
+**Changing the existing `*/10 * * * *` cron casually**
 
-**Q: Why cron does not run**
-
-Check cron expression and verify `wrangler.jsonc` was generated correctly.
-
-**Q: How to implement delayed queue**
-
-Cloudflare Queues does not support delay directly. Put timestamp in message and check due time during consumption.
+That expression drives credit expiry and cleanup. Changing it changes real business timing.

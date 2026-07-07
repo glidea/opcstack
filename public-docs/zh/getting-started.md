@@ -1,13 +1,13 @@
 ---
 title: 快速开始
-description: 快速开始运行这个开发模板
-group: 入门
+description: 克隆、配置、运行、部署并构建扩展程序
+group: Getting Started
 order: 1
 ---
 
 # 快速开始
 
-## 1. 获取项目并配置上游追踪
+## 1. 创建项目
 
 ```bash
 git clone https://github.com/glidea/opcstack <your-app-name>
@@ -20,140 +20,55 @@ pnpm install
 
 ## 2. 初始化项目
 
-推荐使用 AI 自动引导
+推荐使用 AI 引导配置：
 
 ```bash
-claude
 @AGENTS.md @BOOTSTRAP.md
 ```
 
-手动初始化
+`BOOTSTRAP.md` 引导 AI 助手完成本地配置。`AGENTS.md` 是助手在后续所有开发工作中使用的开发上下文。
+
+手动配置：
 
 ```bash
-vim .env.dev # 公开配置
+vim .env.dev
 cp .env.secret.example .env.secret.dev
-vim .env.secret.dev # 密钥配置
+vim .env.secret.dev
 pnpm dev
 ```
 
-启动后访问 http://localhost:5173
+启动后打开 http://localhost:5173
 
-## 3. 后续同步模板更新
+公共配置放在 `.env.dev` 和 `.env.prod`。密钥放在 `.env.secret.dev` 和 `.env.secret.prod`。不要提交密钥文件。完整的环境变量体系请参阅 [Config Reference](reference/config.md)。
+
+## 3. 部署到 Cloudflare
+
+```bash
+pnpm deploy:cloudflare
+```
+
+首次远程部署时会提示创建 Cloudflare API Token。按链接创建后粘贴一次即可。之后 Token 会缓存在 `.wrangler/cloudflare-api-token`。
+
+完整的资源供给和部署流程请参阅 [部署](guides/deployment.md)。
+
+## 4. 开发浏览器扩展
+
+```bash
+pnpm dev:extension
+pnpm build:extension
+```
+
+扩展的入口点和共享前端层请参阅 [前端](guides/frontend.md)。
+
+## 可选：中国访问域名
+
+如需独立的中国入口，在 `.env.dev` 或 `.env.prod` 中设置 `APP_CN_DOMAIN`。`prepare:cloudflare:*` 会自动将其接入 Worker routes、R2 CORS 和 Turnstile 域名。
+
+如需自动配置 DNS，还需设置 `APP_CN_CNAME_TARGET`。脚本会创建或更新一条未代理的 CNAME 记录。加速目标需由你自己提供，来自你的 DNS 加速服务商。
+
+## 同步模板更新
 
 ```bash
 git fetch upstream --tags
 git merge upstream/main
-```
-
-## 核心概念
-
-### 请求分流
-
-```
-HTTP Request
-  ├── /api/*      -> Hono API（后端接口）
-  └── other path  -> SvelteKit SSR（前端页面）
-
-Cron Trigger       -> 定时任务
-Queue Consumer     -> 队列消费
-```
-
-所有 `/api/*` 的请求会被 Hono 处理，其他请求会被 SvelteKit 处理。
-
-### 目录结构
-
-```
-src/
-  api/              # 后端 API
-    handler/        # 写你的 API handler
-    middleware/     # 中间件（认证、内测码等）
-  web/              # 前端页面
-    routes/         # 写你的页面
-    lib/ui/         # UI 组件
-  db/               # 数据库
-    schema.ts       # 定义表结构
-  jobs/             # 定时任务
-  consumers/        # 队列消费
-```
-
-### 约定
-
-- **API 路由**：在 `src/api/index.ts` 注册
-- **数据库**：修改 `src/db/schema.ts`，重启 `pnpm dev` 自动 migration
-- **队列 Binding**：`Q_<QUEUE_NAME_UPPER>`（例如 `task-check` → `Q_TASK_CHECK`）
-- **R2 文件**：公共 `public/*`，私有 `private/<userId>/*`
-
-## 开发第一个功能
-
-### 后端 API
-
-1. 在 `src/api/handler/` 创建 handler
-2. 在 `src/api/index.ts` 注册路由
-3. 使用 `ctx.get('userId')` 获取用户 ID
-4. 使用 `ctx.get('db')` 获取数据库实例
-
-### 前端页面
-
-1. 在 `src/web/routes/` 创建页面
-2. 组件放 `src/web/lib/ui/`
-3. 国际化文案放 `src/web/lib/i18n/messages/`
-
-### 数据库
-
-1. 编辑 `src/db/schema.ts` 定义表结构
-2. 重启 `pnpm dev` 自动生成并执行 migration
-
-## 使用 AI 辅助开发
-
-推荐使用 `@AGENTS.md` 让 AI 帮助你开发：
-
-```bash
-# 在项目根目录
-claude
-
-# 引用 AGENTS.md
-@AGENTS.md 帮我实现一个用户资料页面
-```
-
-AGENTS.md 包含了完整的项目上下文，AI 能够理解项目结构并生成正确的代码。
-
-## 推荐的开发流程
-
-1. **明确需求**：想清楚要实现什么功能
-2. **设计数据**：需要哪些表，字段是什么
-3. **使用 AI**：`@AGENTS.md` 让 AI 帮你实现
-4. **测试验证**：运行 `pnpm test` 和 `pnpm test:e2e`
-5. **部署上线**：`pnpm deploy:cloudflare`
-
-## 常见问题
-
-### 如何获取当前用户？
-
-```ts
-const userId = ctx.get('userId')
-if (!userId) {
-  return ctx.json({ error: 'Unauthorized' }, 401)
-}
-```
-
-### 如何查询数据库？
-
-```ts
-const db = ctx.get('db')
-const users = await db.select().from(userTable)
-```
-
-### 如何上传文件到 R2？
-
-```ts
-import { createR2Client } from './src/r2'
-
-const client = createR2Client(env, userId)
-await client.putImage({ dir, imageBase64, mimeType })
-```
-
-### 如何发送队列消息？
-
-```ts
-await env.Q_TASK_CHECK.send({ data: 'hello' })
 ```

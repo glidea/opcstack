@@ -1,304 +1,163 @@
 ---
 title: 架构
-description: 理解整体架构设计
-group: 入门
+description: 系统形态、设计决策与数据模型
+group: Architecture
 order: 2
 ---
 
-# 架构说明
+# 架构
 
-## 设计理念
+## 设计原则
 
-### 约定大于配置
+**单一 Worker 作为运行时容器。** API、SSR、Cron 和队列都运行在同一个 Worker 里。开发和部署走相同的路径，无需拆分服务，也无需额外的胶水层。
 
-不需要手写配置文件，只需要配置环境变量，scripts/prepare-cloudflare.mjs 自动生成配置。
+**约定优于配置。** 不手写 `wrangler.jsonc`。设置环境变量，`scripts/prepare-cloudflare.mjs` 自动生成配置、创建资源并应用迁移。
 
-### 一个 Worker 统一承载
+**优先使用 Cloudflare 技术栈。** Workers、D1、R2、KV、Queues 和 Cron 是一条集成路径。免费套餐可以跑通整个循环。
 
-API、SSR、Cron、Queue 都在一个 Worker 中，开发和部署路径一致。
+**自动化优先。** 任何环境下都不手动创建资源。`prepare-cloudflare.mjs` 负责本地和远程的资源供给。
 
-### Cloudflare 全家桶优先
-
-Workers、D1、R2、KV、Queues、Cron 一套打通，免费额度可跑通完整链路。
-
-### 自动化优先
-
-能自动化的就自动化，不需要手动操作。
-
-## 整体架构
+## 系统概览
 
 ```mermaid
 flowchart TB
-  A[用户] --> B[Cloudflare Edge]
-  B --> C[Worker src/index.ts]
-  C -->|/api/*| D[Hono API src/api]
-  C -->|其他路径| E[SvelteKit SSR src/web]
-  D --> F[(D1)]
-  D --> G[(R2)]
-  D --> H[(KV)]
-  D --> I[(Queues)]
-  J[Cron Trigger] --> C
-  K[Queue Consumer] --> C
+  subgraph Clients
+    Browser["Browser web app"]
+    Extension["Chrome extension"]
+  end
+
+  subgraph Edge["Cloudflare edge"]
+    DNS["DNS + TLS"]
+    Routes["Worker routes"]
+  end
+
+  subgraph Worker["Single Worker deployment"]
+    Entry["Entry src/index.ts"]
+    Web["SvelteKit SSR\nstatic pages"]
+    Api["Hono API\nauth + business"]
+    Webhooks["Payment webhooks"]
+    Jobs["Cron jobs"]
+    Consumers["Queue consumers"]
+  end
+
+  subgraph Data["Data plane"]
+    Meta["Meta DB\nshard registry\nuser_shards\nauth\npayments\nnotifications"]
+    Shards["Tenant Shard DBs\ncredit balances\nfeedbacks\nAI tasks\n..."]
+    R2["R2\npublic/private objects"]
+    KV["KV"]
+    Queues["Queues"]
+  end
+
+  subgraph External["External SaaS"]
+    OAuth["Google / GitHub / LinuxDO"]
+    Payment["Dodo / Creem"]
+    AI["OpenAI / Gemini / ..."]
+    Email["Resend / Cloudflare Email"]
+  end
+
+  Browser --> DNS
+  Extension --> DNS
+  DNS --> Routes
+  Routes --> Entry
+  Entry --> Web
+  Entry --> Api
+  Entry --> Webhooks
+  Entry --> Jobs
+  Entry --> Consumers
+
+  Api --> Meta
+  Api --> Shards
+  Api --> R2
+  Api --> KV
+  Api --> Queues
+  Api --> OAuth
+  Api --> Payment
+  Api --> AI
+  Api --> Email
+  Webhooks --> Meta
+  Jobs --> Meta
+  Jobs --> Shards
+  Consumers --> Shards
+  Consumers --> R2
+  Consumers --> AI
 ```
 
-上图展示了完整的请求流程：
-1. 用户发起 HTTP 请求 → Cloudflare 边缘网络
-2. 边缘网络路由到 Worker
-3. Worker 根据路径分发：`/api/*` → Hono，其他 → SvelteKit
-4. Hono 中间件链处理认证、session、权限
-5. Worker 调用 D1/R2/KV/Queue 等 Cloudflare 服务
-6. 返回响应（D1 通过 bookmark 机制保证一致性）
+几点关键说明：
 
-### 请求分流
+- 只有**一个 Worker 部署**。Web 页面、API、Webhook、Cron 和队列消费者都在同一个代码库里，一起发布。不需要运行独立服务。
+- **边缘**是 Cloudflare 的全球网络。DNS 和 TLS 在那里终结，请求自动路由到最近的 Worker 实例。
+- **客户端**是 Web 应用（浏览器）和 Chrome 扩展。它们共享 `src/frontend/lib/` 中的大部分前端代码。
+- **外部 SaaS** 是第三方提供商。通过环境变量启用，只为你实际使用的部分付费。
+
+## 请求流程
 
 ```
 HTTP Request
-  ├── /api/*      -> Hono API      (src/api/)
-  └── other path  -> SvelteKit SSR (src/web/)
+  ├── /api/* -> Hono API (src/backend/api/)
+  └── other  -> SvelteKit SSR (src/frontend/web/)
 
-Cron Trigger       -> src/jobs/index.ts
-Queue Consumer     -> src/consumers/index.ts
+Cron Trigger    -> src/backend/jobs/index.ts
+Queue Consumer  -> src/backend/consumers/index.ts
 ```
 
-所有请求在 `src/index.ts` 统一入口，根据路径分发到不同的处理器。
+所有请求都从 `src/index.ts` 进入。对于 HTTP 请求，它检查路径：`/api/*` 走 Hono，其余走 SvelteKit。Cron 和队列是独立的入口点，但同属一个 Worker。
 
-### 为什么这样设计？
+## API 层
 
-**一个 Worker 统一承载**：
-- API、SSR、Cron、Queue 都在一个 Worker 中
-- 开发和部署路径一致，调试成本低
-- 不需要多个服务拆分，没有复杂胶水层
+API 在 `src/backend/api/index.ts` 中被拆分为四个路由组：
 
-**约定大于配置**：
-- 运行 `pnpm dev` 自动生成 wrangler.jsonc
-- 自动创建 D1、R2、KV、Queues
-- 自动执行 migration
-- 不需要手写配置文件
+| 组 | 认证级别 | 用途 |
+| --- | --- | --- |
+| `publicApi` | 无 | 健康检查、认证登录、支付 Webhook、R2 公共读取 |
+| `authOnlyApi` | 已登录 | 仅需身份验证的路由（如绑定内测码） |
+| `userApi` | 已登录 + 内测门控 | 所有已认证的用户端点 |
+| `adminApi` | 超级管理员 | 管理员操作 |
 
-## 目录结构
+核心思路：公共路由完全跳过认证，用户路由运行完整中间件链（认证、内测门控、租户 DB），管理员路由用管理员认证替代普通认证。注册路由时选择对应的组即可。
+
+## 数据架构
+
+两层数据库，各自负责不同的所有权：
+
+**Meta DB**（`META_DB`）：全局控制状态。整个产品共用一个数据库。存储分片注册表、用户到分片的映射、认证、支付、订阅、Webhook、通知等。通过 `ctx.get('metaDb')` 访问。
+
+**租户分片 DB**：用户级别的运行时数据。按地区分片到多个 D1 数据库中。存储积分余额、积分交易、反馈、通知已读状态、AI 异步任务表等。通过 `ctx.get('tenantDb')` 访问。
+
+为什么要拆分：Meta DB 是所有跨用户数据（支付、分片分配）的单一事实来源。租户分片按地区水平扩展，用户越多只需要增加分片。用户数据在其生命周期内始终存放在同一个分片里。
+
+支持的分片地区：`wnam`、`enam`、`weur`、`eeur`、`apac`、`oc`。通过 `D1_SHARDS` 环境变量以 `region:count` 键值对配置。
+
+新用户分配优先选择 Worker 所在大陆对应的分片，否则选择任意活跃分片：
 
 ```
-src/
-  index.ts              # Worker 入口，分发 fetch/cron/queue
-  api/
-    index.ts            # API 路由注册
-    auth/               # Better Auth 配置
-    handler/            # API handlers
-    middleware/         # 中间件
-      auth.ts           # 认证中间件
-      beta-gate.ts      # 内测码中间件
-      d1-session.ts     # D1 session 中间件
-      email-auth.ts     # 邮箱认证中间件
-  web/
-    routes/             # SvelteKit 页面
-    lib/
-      ui/               # UI 组件
-      i18n/             # 国际化
-  db/
-    schema.ts           # Drizzle schema
-    schema.auth.ts      # Better Auth schema
-    migrations/         # 自动生成的迁移文件
-  jobs/
-    index.ts            # Cron handlers
-  consumers/
-    index.ts            # Queue handlers
-  ai/
-    chat/openai/        # Chat 客户端
-    image/gemini/       # Image 客户端
-    tts/gemini/         # TTS 客户端
-  r2/
-    index.ts            # R2 工具函数
-  testing/
-    bdd.ts              # BDD 风格测试工具
+AS -> apac | EU -> weur | OC -> oc | default -> apac
 ```
 
-### 目录职责
+已有用户始终遵循其 `user_shards` 记录，即使迁移到其他地区也不会改变。这防止了数据碎片化。
 
-**src/index.ts**：
-- Worker 主入口
-- 分发 fetch、cron、queue 请求
-- 不写业务逻辑
+## 读一致性
 
-**src/api/**：
-- 后端 API 层
-- handler/ 写具体的 API 逻辑
-- middleware/ 写中间件（认证、内测码等）
-- index.ts 注册路由
+每个 D1 数据库有一个主节点。不开启读副本时，所有读写都打到主节点，在高负载下会限制延迟和吞吐量。
 
-**src/web/**：
-- 前端页面层
-- routes/ 写页面
-- lib/ui/ 写组件
-- lib/i18n/ 写国际化文案
+生产环境中，`prepare-cloudflare.mjs` 会自动启用读副本。此后，读取走全球副本节点（离用户更近），写入仍然走主节点。
 
-**src/db/**：
-- 数据层
-- schema.ts 定义表结构
-- migrations/ 自动生成的迁移文件
+这带来了一致性问题：用户写入后，后续读取可能命中尚未同步的副本。OPCStack 用 **bookmark** 来解决这个问题。每个 D1 会话返回一个表示某个一致时间点快照的 bookmark，它通过响应头和 Cookie 流转回客户端，客户端在下次请求时带上它。这实现了单调读（"读到自己写入的内容"），而无需分布式事务。
 
-**src/jobs/**：
-- 定时任务
-- 按 cron 表达式分发
+Meta DB 和租户分片 DB 各自维护独立的 bookmark 流，因为它们是拥有各自主节点的独立数据库。
 
-**src/consumers/**：
-- 队列消费
-- 按 queue 名称分发
+## prepare-cloudflare 自动化
 
-## scripts/prepare-cloudflare.mjs 自动化
-
-### 工作流程
+`scripts/prepare-cloudflare.mjs` 是资源供给的唯一入口：
 
 ```
 pnpm dev / pnpm deploy:cloudflare
-  ↓
-scripts/prepare-cloudflare.mjs
-  ↓
-1. 加载环境变量（.env.dev 或 .env.prod）
-2. 解析 APP_DOMAIN，生成 APP_BASE_URL
-3. 验证邮箱配置
-4. remote 模式：
-   - 获取 Wrangler token
-   - 获取 Cloudflare account ID
-   - 创建/检查 D1 数据库
-   - 开启 D1 read replication
-   - 创建/检查 Queues、R2、KV
-5. 渲染 wrangler.jsonc
-6. 生成 Drizzle migration
-7. 执行 D1 migration apply
-  ↓
-wrangler dev / wrangler deploy
+  -> load env
+  -> generate wrangler.jsonc
+  -> create D1, R2, KV, Queues, Turnstile (remote only)
+  -> generate and apply migrations
+  -> wrangler dev / wrangler deploy
 ```
 
-### 本地 vs 远程模式
+本地模式使用占位 UUID 并在本地应用迁移。远程模式创建真实的 Cloudflare 资源，启用读副本，并远程应用迁移。
 
-**本地模式**（`node scripts/prepare-cloudflare.mjs --mode dev`）：
-- 使用占位 UUID
-- 不创建远程资源
-- migration apply --local
-
-**远程模式**（`node scripts/prepare-cloudflare.mjs --mode prod`）：
-- 自动创建所有资源
-- 开启 D1 read replication
-- migration apply --remote
-
-### 为什么需要 prepare-cloudflare？
-
-**问题**：Cloudflare 资源需要手动创建和配置，非常繁琐。
-
-**解决**：scripts/prepare-cloudflare.mjs 自动化一切：
-- 不需要手写 wrangler.jsonc
-- 不需要手动创建 D1、R2、KV、Queues
-- 不需要手动执行 migration
-- 只需要配置环境变量
-
-## 中间件机制
-
-### 执行顺序
-
-```
-Request
-  ↓
-d1SessionMiddleware      # 创建 D1 session
-  ↓
-authMiddleware           # 注入 userId
-  ↓
-betaGateMiddleware       # 内测码拦截
-  ↓
-emailAuthMiddleware      # 邮箱认证拦截
-  ↓
-handler                  # 业务逻辑
-```
-
-### 中间件职责
-
-**d1SessionMiddleware**：
-- 读取 `x-d1-bookmark` header 或 `d1_bookmark` cookie
-- 创建 D1 session
-- 注入 `db` 到 `ctx.variables`
-- 响应时写回 bookmark
-
-**authMiddleware**：
-- 解析 Bearer Token
-- 注入 `userId` 到 `ctx.variables`
-- 不拦截请求（即使未登录也放行）
-
-**betaGateMiddleware**：
-- 如果 `BETA_CODE_ENABLED=true`，检查用户是否绑定内测码
-- 未绑定则拦截请求
-
-**emailAuthMiddleware**：
-- 检查邮箱认证请求规则，例如禁止 OTP 登录、注册开关、域名白名单和冷却时间
-- 拦截不符合规则的请求
-
-## D1 Read Replication
-
-### 机制
-
-远程模式自动开启 D1 read replication，使用 D1 Sessions API。
-
-**Bookmark 流程**：
-```
-Request
-  ↓
-读取 x-d1-bookmark header 或 d1_bookmark cookie
-  ↓
-创建 D1 session：env.DB.withSession(bookmark)
-  ↓
-执行 SQL 查询
-  ↓
-获取新 bookmark：session.getBookmark()
-  ↓
-写回 x-d1-bookmark header 和 d1_bookmark cookie
-  ↓
-Response
-```
-
-**默认值**：`first-primary`（保证正确性）
-
-### 为什么需要 Read Replication？
-
-**问题**：D1 数据库只有一个主节点，读写都在主节点，性能受限。
-
-**解决**：开启 read replication 后，读请求会分发到全球的读副本，降低延迟。
-
-**保证一致性**：通过 bookmark 机制，保证 monotonic reads、read your own writes、writes follow reads。
-
-## 环境变量系统
-
-### 加载顺序
-
-```
-.env.dev / .env.prod  (默认)
-  ↓
-.env  (覆盖)
-  ↓
-process.env  (最高优先级)
-```
-
-### 为什么这样设计？
-
-**问题**：不同环境需要不同配置，但又不想每次都手动修改。
-
-**解决**：
-- `.env.dev` 本地开发配置
-- `.env.prod` 生产环境配置
-- `.env` 本地覆盖（不提交到 git）
-- `process.env` CI/CD 环境变量
-
-## 约定
-
-### Queue Binding
-
-队列名 `task-check` → Binding `Q_TASK_CHECK`
-
-规则：`Q_<QUEUE_NAME_UPPER>`
-
-### R2 文件路径
-
-- 公共文件：`public/*`
-- 私有文件：`private/<userId>/*`
-
-### 测试文件
-
-- 单元测试：`src/**/*.test.ts`
-- E2E 测试：`e2e/**/*.test.ts`
+这是一个架构决策，而不只是便利性考量：基础设施由环境变量代码生成，而非在控制台手动配置。添加一个队列、一个分片或一个 Durable Object，改一个环境变量就够了，不需要手动操作。
