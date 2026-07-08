@@ -189,7 +189,7 @@
 					</div>
 				</div>
 
-				<div class="cf-hero-visual hidden lg:block">
+				<div class="cf-hero-visual">
 					<div class="cf-global-globe" aria-hidden="true">
 						<svg viewBox="0 0 420 420" focusable="false">
 							<defs>
@@ -855,9 +855,9 @@ pnpm dev  # or pnpm deploy:cloudflare</code
 	}
 
 	.cf-hero-visual {
+		display: none;
 		position: relative;
 		min-height: 360px;
-		display: flex;
 		align-items: flex-end;
 	}
 
@@ -1768,6 +1768,12 @@ pnpm dev  # or pnpm deploy:cloudflare</code
 		}
 	}
 
+	@media (min-width: 1024px) {
+		.cf-hero-visual {
+			display: flex;
+		}
+	}
+
 	@media (max-width: 640px) {
 		.cf-section {
 			padding-block: 64px;
@@ -1801,7 +1807,16 @@ pnpm dev  # or pnpm deploy:cloudflare</code
 		}
 
 		.cf-hero-title {
-			font-size: clamp(40px, 13vw, 58px);
+			font-size: clamp(34px, 10vw, 44px);
+		}
+
+		.cf-hero-mark {
+			white-space: normal;
+		}
+
+		.cf-marquee-track {
+			animation: none;
+			transform: translateX(0);
 		}
 
 		.cf-loop-cell {
