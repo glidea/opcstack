@@ -6,6 +6,7 @@ type StoredObject = {
 	body: string
 	contentType: string
 	etag: string
+	size: number
 }
 
 type FetchCall = {
@@ -87,380 +88,6 @@ describe('createR2Client.put', () => {
 	})
 })
 
-describe('createR2Client.createUploadUrl', () => {
-	type GivenDetail = {
-		userId?: string
-		noAccessKey?: boolean
-		allowedContentTypes?: string
-		maxBytes?: string
-	}
-	type WhenDetail = {
-		path: string
-		contentType: string
-		size: number
-	}
-	type ThenExpected = {
-		key: string
-		readUrl: string
-		uploadHost: string
-		uploadPath: string
-		algorithm: string
-		signedHeaders: string
-		hasSignature: boolean
-		expiresAtOffset: number
-		error: string
-	}
-
-	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
-		{
-			scenario: 'creates private presigned upload url',
-			given: 'a user r2 client',
-			when: 'creating upload url for a relative path',
-			then: 'scopes upload to current user private directory',
-			givenDetail: {
-				userId: 'u1'
-			},
-			whenDetail: {
-				path: 'avatars/me.png',
-				contentType: 'image/png',
-				size: 1024
-			},
-			thenExpected: {
-				key: 'private/u1/avatars/me.png',
-				readUrl: 'http://localhost:5173/api/r2/private/u1/avatars/me.png',
-				uploadHost: 'abc.r2.cloudflarestorage.com',
-				uploadPath: '/opcstack/private/u1/avatars/me.png',
-				algorithm: 'AWS4-HMAC-SHA256',
-				signedHeaders: 'content-type;host',
-				hasSignature: true,
-				expiresAtOffset: 60,
-				error: ''
-			}
-		},
-		{
-			scenario: 'rejects upload url without user id',
-			given: 'a public r2 client',
-			when: 'creating upload url',
-			then: 'throws user required error',
-			givenDetail: {},
-			whenDetail: {
-				path: 'avatars/me.png',
-				contentType: 'image/png',
-				size: 1024
-			},
-			thenExpected: {
-				key: '',
-				readUrl: '',
-				uploadHost: '',
-				uploadPath: '',
-				algorithm: '',
-				signedHeaders: '',
-				hasSignature: false,
-				expiresAtOffset: 0,
-				error: 'R2_UPLOAD_USER_REQUIRED'
-			}
-		},
-		{
-			scenario: 'rejects absolute upload path',
-			given: 'a user r2 client',
-			when: 'creating upload url for absolute path',
-			then: 'throws invalid path error',
-			givenDetail: {
-				userId: 'u1'
-			},
-			whenDetail: {
-				path: '/avatars/me.png',
-				contentType: 'image/png',
-				size: 1024
-			},
-			thenExpected: {
-				key: '',
-				readUrl: '',
-				uploadHost: '',
-				uploadPath: '',
-				algorithm: '',
-				signedHeaders: '',
-				hasSignature: false,
-				expiresAtOffset: 0,
-				error: 'R2_UPLOAD_PATH_INVALID'
-			}
-		},
-		{
-			scenario: 'rejects parent segment upload path',
-			given: 'a user r2 client',
-			when: 'creating upload url with parent segment',
-			then: 'throws invalid path error',
-			givenDetail: {
-				userId: 'u1'
-			},
-			whenDetail: {
-				path: 'avatars/../me.png',
-				contentType: 'image/png',
-				size: 1024
-			},
-			thenExpected: {
-				key: '',
-				readUrl: '',
-				uploadHost: '',
-				uploadPath: '',
-				algorithm: '',
-				signedHeaders: '',
-				hasSignature: false,
-				expiresAtOffset: 0,
-				error: 'R2_UPLOAD_PATH_INVALID'
-			}
-		},
-		{
-			scenario: 'throws when upload signing config is missing',
-			given: 'a user r2 client without access key',
-			when: 'creating upload url',
-			then: 'throws config error',
-			givenDetail: {
-				userId: 'u1',
-				noAccessKey: true
-			},
-			whenDetail: {
-				path: 'avatars/me.png',
-				contentType: 'image/png',
-				size: 1024
-			},
-			thenExpected: {
-				key: '',
-				readUrl: '',
-				uploadHost: '',
-				uploadPath: '',
-				algorithm: '',
-				signedHeaders: '',
-				hasSignature: false,
-				expiresAtOffset: 0,
-				error: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED'
-			}
-		},
-		{
-			scenario: 'rejects disallowed upload content type',
-			given: 'a user r2 client with png allowlist',
-			when: 'creating upload url for text content',
-			then: 'throws content type error',
-			givenDetail: {
-				userId: 'u1',
-				allowedContentTypes: 'image/png'
-			},
-			whenDetail: {
-				path: 'avatars/me.txt',
-				contentType: 'text/plain',
-				size: 1024
-			},
-			thenExpected: {
-				key: '',
-				readUrl: '',
-				uploadHost: '',
-				uploadPath: '',
-				algorithm: '',
-				signedHeaders: '',
-				hasSignature: false,
-				expiresAtOffset: 0,
-				error: 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED'
-			}
-		},
-		{
-			scenario: 'rejects upload size over limit',
-			given: 'a user r2 client with small max bytes',
-			when: 'creating upload url for oversized file',
-			then: 'throws size limit error',
-			givenDetail: {
-				userId: 'u1',
-				maxBytes: '100'
-			},
-			whenDetail: {
-				path: 'avatars/me.png',
-				contentType: 'image/png',
-				size: 101
-			},
-			thenExpected: {
-				key: '',
-				readUrl: '',
-				uploadHost: '',
-				uploadPath: '',
-				algorithm: '',
-				signedHeaders: '',
-				hasSignature: false,
-				expiresAtOffset: 0,
-				error: 'R2_USER_UPLOAD_SIZE_TOO_LARGE'
-			}
-		}
-	]
-
-	runCases(cases, async (given, when) => {
-		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-		const env = createEnv()
-		if (given.noAccessKey) {
-			const writableEnv = env as unknown as { R2_ACCESS_KEY_ID: string }
-			writableEnv.R2_ACCESS_KEY_ID = ''
-		}
-		if (given.allowedContentTypes) {
-			const writableEnv = env as unknown as { R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: string }
-			writableEnv.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES = given.allowedContentTypes
-		}
-		if (given.maxBytes) {
-			const writableEnv = env as unknown as { R2_USER_UPLOAD_MAX_BYTES: string }
-			writableEnv.R2_USER_UPLOAD_MAX_BYTES = given.maxBytes
-		}
-
-		try {
-			const client = createR2Client(env, given.userId)
-			const path = splitPath(when.path)
-			const result = await client.createUploadUrl({
-				dir: path.dir,
-				filename: path.filename,
-				contentType: when.contentType,
-				size: when.size
-			})
-			const uploadUrl = new URL(result.uploadUrl)
-			return {
-				key: result.key,
-				readUrl: result.readUrl,
-				uploadHost: uploadUrl.host,
-				uploadPath: uploadUrl.pathname,
-				algorithm: uploadUrl.searchParams.get('X-Amz-Algorithm') ?? '',
-				signedHeaders: uploadUrl.searchParams.get('X-Amz-SignedHeaders') ?? '',
-				hasSignature: Boolean(uploadUrl.searchParams.get('X-Amz-Signature')),
-				expiresAtOffset: result.expiresAt - 1767225600,
-				error: ''
-			}
-		} catch (error) {
-			return {
-				key: '',
-				readUrl: '',
-				uploadHost: '',
-				uploadPath: '',
-				algorithm: '',
-				signedHeaders: '',
-				hasSignature: false,
-				expiresAtOffset: 0,
-				error: error instanceof R2Error ? error.code : ''
-			}
-		}
-	})
-})
-
-describe('createR2Client.createUploadUrl tmp', () => {
-	type GivenDetail = {
-		userId?: string
-	}
-	type WhenDetail = {
-		isPublic: boolean
-		path: string
-		contentType: string
-		size: number
-	}
-	type ThenExpected = {
-		key: string
-		readUrl: string
-		uploadPath: string
-		hasSignature: boolean
-		error: string
-	}
-
-	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
-		{
-			scenario: 'creates public tmp upload url',
-			given: 'a user r2 client',
-			when: 'creating public tmp upload url',
-			then: 'scopes key under tmp public directory',
-			givenDetail: {
-				userId: 'u1'
-			},
-			whenDetail: {
-				isPublic: true,
-				path: 'images/a.png',
-				contentType: 'image/png',
-				size: 1024
-			},
-			thenExpected: {
-				key: 'tmp/public/images/a.png',
-				readUrl: 'http://localhost:5173/api/r2/tmp/public/images/a.png',
-				uploadPath: '/opcstack/tmp/public/images/a.png',
-				hasSignature: true,
-				error: ''
-			}
-		},
-		{
-			scenario: 'creates private tmp upload url',
-			given: 'a user r2 client',
-			when: 'creating private tmp upload url',
-			then: 'scopes key under tmp private user directory',
-			givenDetail: {
-				userId: 'u1'
-			},
-			whenDetail: {
-				isPublic: false,
-				path: 'images/a.png',
-				contentType: 'image/png',
-				size: 1024
-			},
-			thenExpected: {
-				key: 'tmp/private/u1/images/a.png',
-				readUrl: 'http://localhost:5173/api/r2/tmp/private/u1/images/a.png',
-				uploadPath: '/opcstack/tmp/private/u1/images/a.png',
-				hasSignature: true,
-				error: ''
-			}
-		},
-		{
-			scenario: 'rejects tmp upload url without user id',
-			given: 'a public r2 client',
-			when: 'creating tmp upload url',
-			then: 'throws user required error',
-			givenDetail: {},
-			whenDetail: {
-				isPublic: false,
-				path: 'images/a.png',
-				contentType: 'image/png',
-				size: 1024
-			},
-			thenExpected: {
-				key: '',
-				readUrl: '',
-				uploadPath: '',
-				hasSignature: false,
-				error: 'R2_UPLOAD_USER_REQUIRED'
-			}
-		}
-	]
-
-	runCases(cases, async (given, when) => {
-		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-		try {
-			const client = createR2Client(createEnv(), given.userId)
-			const path = splitPath(when.path)
-			const result = await client.createUploadUrl({
-				isPublic: when.isPublic,
-				isTmp: true,
-				dir: path.dir,
-				filename: path.filename,
-				contentType: when.contentType,
-				size: when.size
-			})
-			const uploadUrl = new URL(result.uploadUrl)
-			return {
-				key: result.key,
-				readUrl: result.readUrl,
-				uploadPath: uploadUrl.pathname,
-				hasSignature: Boolean(uploadUrl.searchParams.get('X-Amz-Signature')),
-				error: ''
-			}
-		} catch (error) {
-			return {
-				key: '',
-				readUrl: '',
-				uploadPath: '',
-				hasSignature: false,
-				error: error instanceof R2Error ? error.code : ''
-			}
-		}
-	})
-})
-
 describe('createR2Client.get', () => {
 	type GivenDetail = {
 		noR2?: boolean
@@ -477,6 +104,7 @@ describe('createR2Client.get', () => {
 	type ThenExpected = {
 		status: string
 		contentType: string
+		size: number
 		error: string
 	}
 
@@ -495,6 +123,7 @@ describe('createR2Client.get', () => {
 			thenExpected: {
 				status: '',
 				contentType: '',
+				size: 0,
 				error: 'R2_NOT_CONFIGURED'
 			}
 		},
@@ -515,6 +144,7 @@ describe('createR2Client.get', () => {
 			thenExpected: {
 				status: 'ok',
 				contentType: 'text/plain',
+				size: 4,
 				error: ''
 			}
 		},
@@ -537,6 +167,7 @@ describe('createR2Client.get', () => {
 			thenExpected: {
 				status: 'ok',
 				contentType: 'text/plain',
+				size: 5,
 				error: ''
 			}
 		},
@@ -559,6 +190,7 @@ describe('createR2Client.get', () => {
 			thenExpected: {
 				status: '',
 				contentType: '',
+				size: 0,
 				error: 'R2_READ_FORBIDDEN'
 			}
 		},
@@ -580,6 +212,7 @@ describe('createR2Client.get', () => {
 			thenExpected: {
 				status: 'ok',
 				contentType: 'image/png',
+				size: 5,
 				error: ''
 			}
 		},
@@ -602,6 +235,7 @@ describe('createR2Client.get', () => {
 			thenExpected: {
 				status: '',
 				contentType: '',
+				size: 0,
 				error: 'R2_READ_FORBIDDEN'
 			}
 		},
@@ -617,6 +251,7 @@ describe('createR2Client.get', () => {
 			thenExpected: {
 				status: '',
 				contentType: '',
+				size: 0,
 				error: 'R2_READ_NOT_FOUND'
 			}
 		}
@@ -662,18 +297,20 @@ describe('createR2Client.get', () => {
 		const reader = createR2Client(env, when.readUserId)
 		try {
 			const result = await reader.get(when.key)
-			return {
-				status: 'ok',
-				contentType: result.contentType,
-				error: ''
+				return {
+					status: 'ok',
+					contentType: result.contentType,
+					size: result.size,
+					error: ''
+				}
+			} catch (error) {
+				return {
+					status: '',
+					contentType: '',
+					size: 0,
+					error: error instanceof R2Error ? error.code : ''
+				}
 			}
-		} catch (error) {
-			return {
-				status: '',
-				contentType: '',
-				error: error instanceof R2Error ? error.code : ''
-			}
-		}
 	})
 })
 
@@ -894,7 +531,8 @@ function createEnv(): Env & { R2: R2Bucket } {
 			objects.set(key, {
 				body: textBody,
 				contentType,
-				etag: `"${key}-etag"`
+				etag: `"${key}-etag"`,
+				size: textBody.length
 			})
 			return {} as R2Object
 		},
@@ -908,7 +546,8 @@ function createEnv(): Env & { R2: R2Bucket } {
 				httpMetadata: {
 					contentType: item.contentType
 				},
-				httpEtag: item.etag
+				httpEtag: item.etag,
+				size: item.size
 			} as unknown as R2ObjectBody
 		}
 	} as R2Bucket
@@ -917,8 +556,6 @@ function createEnv(): Env & { R2: R2Bucket } {
 		APP_NAME: 'opcstack',
 		APP_BASE_URL: 'http://localhost:5173',
 		R2_ACCOUNT_ID: 'abc',
-		R2_ACCESS_KEY_ID: 'access-key',
-		R2_SECRET_ACCESS_KEY: 'secret-key',
 		R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
 		R2_USER_UPLOAD_MAX_BYTES: '5242880',
 		R2_ORIGIN_SIGNING_SECRET: 'test-secret',
@@ -931,24 +568,8 @@ function createEnvWithoutR2(): Env {
 		APP_NAME: 'opcstack',
 		APP_BASE_URL: 'http://localhost:5173',
 		R2_ACCOUNT_ID: 'abc',
-		R2_ACCESS_KEY_ID: 'access-key',
-		R2_SECRET_ACCESS_KEY: 'secret-key',
 		R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
 		R2_USER_UPLOAD_MAX_BYTES: '5242880',
 		R2_ORIGIN_SIGNING_SECRET: 'test-secret'
 	} as unknown as Env
-}
-
-function splitPath(path: string): { dir: string; filename: string } {
-	const index = path.lastIndexOf('/')
-	if (index === -1) {
-		return {
-			dir: '',
-			filename: path
-		}
-	}
-	return {
-		dir: path.slice(0, index),
-		filename: path.slice(index + 1)
-	}
 }

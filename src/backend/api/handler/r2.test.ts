@@ -4,11 +4,11 @@ import { runCases, type TestCase } from '../../testing/bdd'
 import type { ApiEnv } from '..'
 import { R2Error, signR2Origin } from '../../r2'
 import {
-	createR2PublicUploadUrlHandler,
-	createR2UploadUrlHandler,
 	readR2ImageOriginHandler,
 	readR2ObjectHandler,
-	toR2Key
+	toR2Key,
+	uploadR2ObjectHandler,
+	uploadR2PublicObjectHandler
 } from './r2'
 
 beforeEach(() => {
@@ -218,7 +218,28 @@ describe('readR2ObjectHandler cache', () => {
 				cacheMatchCount: 2,
 				cachePutCount: 1
 			}
-		}
+		},
+		{
+			scenario: 'bypasses cache for large public object',
+			given: 'an existing large public object',
+			when: 'reading the same public url twice',
+			then: 'returns bypass and reads r2 every time',
+			givenDetail: {
+				path: '/api/r2/public/videos/large.mp4'
+			},
+			whenDetail: {
+				readCount: 2
+			},
+			thenExpected: {
+				firstStatus: 200,
+				secondStatus: 200,
+					firstCache: 'bypass',
+					secondCache: 'bypass',
+					r2GetCount: 2,
+					cacheMatchCount: 2,
+					cachePutCount: 0
+				}
+			}
 	]
 
 	runCases(cases, async (given, when) => {
@@ -435,11 +456,13 @@ describe('readR2ImageOriginHandler', () => {
 	})
 })
 
-describe('createR2UploadUrlHandler', () => {
+describe('uploadR2ObjectHandler', () => {
 	type GivenDetail = {
-		body: unknown
+		path: string
 		userId: string
-		noAccessKey?: boolean
+		body: string
+		contentLength?: string
+		contentType?: string
 		allowedContentTypes?: string
 		maxBytes?: string
 	}
@@ -447,169 +470,143 @@ describe('createR2UploadUrlHandler', () => {
 	type ThenExpected = {
 		status: number
 		code: string
-		errorCode: string
 		key: string
 		readUrl: string
-		hasUploadUrl: boolean
+		storedBody: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'rejects invalid upload url request',
-			given: 'path is absolute',
-			when: 'creating upload url',
+			scenario: 'uploads private object for current user',
+			given: 'a private r2 path owned by the current user',
+			when: 'uploading bytes through worker',
+			then: 'stores object and returns read url',
+			givenDetail: {
+				userId: 'u1',
+				path: '/api/r2/private/u1/avatars/me.png',
+				body: 'image',
+				contentLength: '5',
+				contentType: 'image/png'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				key: 'private/u1/avatars/me.png',
+				readUrl: 'http://localhost:5173/api/r2/private/u1/avatars/me.png',
+				storedBody: 'image'
+			}
+		},
+		{
+			scenario: 'uploads tmp private object for current user',
+			given: 'a tmp private r2 path owned by the current user',
+			when: 'uploading bytes through worker',
+			then: 'stores tmp object and returns read url',
+			givenDetail: {
+				userId: 'u1',
+				path: '/api/r2/tmp/private/u1/drafts/input.png',
+				body: 'draft',
+				contentLength: '5',
+				contentType: 'image/png'
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 200,
+				code: '',
+				key: 'tmp/private/u1/drafts/input.png',
+				readUrl: 'http://localhost:5173/api/r2/tmp/private/u1/drafts/input.png',
+				storedBody: 'draft'
+			}
+		},
+		{
+			scenario: 'rejects private upload for another user',
+			given: 'a private r2 path owned by another user',
+			when: 'uploading bytes through worker',
 			then: 'returns invalid request',
 			givenDetail: {
 				userId: 'u1',
-				body: {
-					is_tmp: false,
-					path: '/avatars/me.png',
-					content_type: 'image/png',
-					size: 1024
-				}
+				path: '/api/r2/private/u2/avatars/me.png',
+				body: 'image',
+				contentLength: '5',
+				contentType: 'image/png'
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
 				code: 'INVALID_REQUEST',
-				errorCode: '',
 				key: '',
 				readUrl: '',
-				hasUploadUrl: false
+				storedBody: ''
 			}
 		},
 		{
-			scenario: 'creates upload url for current user private path',
-			given: 'path and content type are valid',
-			when: 'creating upload url',
-			then: 'returns private key and signed upload url',
+			scenario: 'rejects upload without content length',
+			given: 'content length is missing',
+			when: 'uploading bytes through worker',
+			then: 'returns content length error',
 			givenDetail: {
 				userId: 'u1',
-				body: {
-					is_tmp: false,
-					path: 'avatars/me.png',
-					content_type: 'image/png',
-					size: 1024
-				}
+				path: '/api/r2/private/u1/avatars/me.png',
+				body: 'image',
+				contentType: 'image/png'
 			},
 			whenDetail: {},
 			thenExpected: {
-				status: 200,
-				code: '',
-				errorCode: '',
-				key: 'private/u1/avatars/me.png',
-				readUrl: 'http://localhost:5173/api/r2/private/u1/avatars/me.png',
-				hasUploadUrl: true
-			}
-		},
-		{
-			scenario: 'creates upload url for current user tmp private path',
-			given: 'is_tmp is true',
-			when: 'creating upload url',
-			then: 'returns tmp private key and signed upload url',
-			givenDetail: {
-				userId: 'u1',
-				body: {
-					is_tmp: true,
-					path: 'avatars/me.png',
-					content_type: 'image/png',
-					size: 1024
-				}
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 200,
-				code: '',
-				errorCode: '',
-				key: 'tmp/private/u1/avatars/me.png',
-				readUrl: 'http://localhost:5173/api/r2/tmp/private/u1/avatars/me.png',
-				hasUploadUrl: true
-			}
-		},
-		{
-			scenario: 'fails when upload signing config is missing',
-			given: 'access key is empty',
-			when: 'creating upload url',
-			then: 'throws server error for global handler',
-			givenDetail: {
-				userId: 'u1',
-				noAccessKey: true,
-				body: {
-					is_tmp: false,
-					path: 'avatars/me.png',
-					content_type: 'image/png',
-					size: 1024
-				}
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 0,
-				code: '',
-				errorCode: 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED',
+				status: 400,
+				code: 'R2_UPLOAD_CONTENT_LENGTH_REQUIRED',
 				key: '',
 				readUrl: '',
-				hasUploadUrl: false
+				storedBody: ''
 			}
 		},
 		{
 			scenario: 'rejects disallowed upload content type',
 			given: 'content type is not configured as allowed',
-			when: 'creating upload url',
+			when: 'uploading bytes through worker',
 			then: 'returns content type error',
 			givenDetail: {
 				userId: 'u1',
+				path: '/api/r2/private/u1/avatars/me.txt',
+				body: 'text',
+				contentLength: '4',
+				contentType: 'text/plain',
 				allowedContentTypes: 'image/png',
-				body: {
-					is_tmp: false,
-					path: 'avatars/me.txt',
-					content_type: 'text/plain',
-					size: 1024
-				}
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
 				code: 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED',
-				errorCode: '',
 				key: '',
 				readUrl: '',
-				hasUploadUrl: false
+				storedBody: ''
 			}
 		},
 		{
 			scenario: 'rejects upload size over limit',
-			given: 'size is greater than configured max bytes',
-			when: 'creating upload url',
+			given: 'content length is greater than configured max bytes',
+			when: 'uploading bytes through worker',
 			then: 'returns size error',
 			givenDetail: {
 				userId: 'u1',
+				path: '/api/r2/private/u1/avatars/me.png',
+				body: 'image',
+				contentLength: '101',
+				contentType: 'image/png',
 				maxBytes: '100',
-				body: {
-					is_tmp: false,
-					path: 'avatars/me.png',
-					content_type: 'image/png',
-					size: 101
-				}
 			},
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
 				code: 'R2_USER_UPLOAD_SIZE_TOO_LARGE',
-				errorCode: '',
 				key: '',
 				readUrl: '',
-				hasUploadUrl: false
+				storedBody: ''
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
-		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
 		const env = createEnv()
-		if (given.noAccessKey) {
-			const writableEnv = env as unknown as { R2_ACCESS_KEY_ID: string }
-			writableEnv.R2_ACCESS_KEY_ID = ''
-		}
 		if (given.allowedContentTypes) {
 			const writableEnv = env as unknown as { R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: string }
 			writableEnv.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES = given.allowedContentTypes
@@ -619,42 +616,35 @@ describe('createR2UploadUrlHandler', () => {
 			writableEnv.R2_USER_UPLOAD_MAX_BYTES = given.maxBytes
 		}
 
-		let response: Response
-		try {
-			response = await createR2UploadUrlHandler(
-				createJsonContext(given.userId, given.body, env)
-			)
-		} catch (error) {
-			return {
-				status: 0,
-				code: '',
-				errorCode: error instanceof R2Error ? error.code : '',
-				key: '',
-				readUrl: '',
-				hasUploadUrl: false
-			}
-		}
+		const response = await uploadR2ObjectHandler(
+			createUploadContext(given.path, given.userId, given.body, env, {
+				contentLength: given.contentLength,
+				contentType: given.contentType
+			})
+		)
 		const payload = (await response.json()) as {
 			code?: string
 			key?: string
 			read_url?: string
-			upload_url?: string
 		}
+		const storedBody = payload.key ? await readStoredBody(env.R2, payload.key) : ''
 		return {
 			status: response.status,
 			code: payload.code ?? '',
-			errorCode: '',
 			key: payload.key ?? '',
 			readUrl: payload.read_url ?? '',
-			hasUploadUrl: Boolean(payload.upload_url)
+			storedBody
 		}
 	})
 })
 
-describe('createR2PublicUploadUrlHandler', () => {
+describe('uploadR2PublicObjectHandler', () => {
 	type GivenDetail = {
-		body: unknown
+		path: string
 		userId: string
+		body: string
+		contentLength?: string
+		contentType?: string
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -662,22 +652,21 @@ describe('createR2PublicUploadUrlHandler', () => {
 		code: string
 		key: string
 		readUrl: string
-		hasUploadUrl: boolean
+		storedBody: string
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
 			scenario: 'rejects invalid public upload path',
-			given: 'path is absolute',
-			when: 'creating public upload url',
+			given: 'path is not under admin public r2 path',
+			when: 'uploading public bytes through worker',
 			then: 'returns invalid request',
 			givenDetail: {
 				userId: 'admin',
-				body: {
-					path: '/images/a.png',
-					content_type: 'image/png',
-					size: 1024
-				}
+				path: '/api/admin/r2/private/u1/a.png',
+				body: 'image',
+				contentLength: '5',
+				contentType: 'image/png'
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -685,21 +674,20 @@ describe('createR2PublicUploadUrlHandler', () => {
 				code: 'INVALID_REQUEST',
 				key: '',
 				readUrl: '',
-				hasUploadUrl: false
+				storedBody: ''
 			}
 		},
 		{
-			scenario: 'creates public upload url',
-			given: 'path and content type are valid',
-			when: 'creating public upload url',
-			then: 'returns public key and signed upload url',
+			scenario: 'uploads public object',
+			given: 'a public admin r2 path',
+			when: 'uploading public bytes through worker',
+			then: 'stores public object and returns read url',
 			givenDetail: {
 				userId: 'admin',
-				body: {
-					path: 'images/a.png',
-					content_type: 'image/png',
-					size: 1024
-				}
+				path: '/api/admin/r2/public/images/a.png',
+				body: 'image',
+				contentLength: '5',
+				contentType: 'image/png'
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -707,28 +695,31 @@ describe('createR2PublicUploadUrlHandler', () => {
 				code: '',
 				key: 'public/images/a.png',
 				readUrl: 'http://localhost:5173/api/r2/public/images/a.png',
-				hasUploadUrl: true
+				storedBody: 'image'
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
-		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-		const response = await createR2PublicUploadUrlHandler(
-			createJsonContext(given.userId, given.body, createEnv())
+		const env = createEnv()
+		const response = await uploadR2PublicObjectHandler(
+			createUploadContext(given.path, given.userId, given.body, env, {
+				contentLength: given.contentLength,
+				contentType: given.contentType
+			})
 		)
 		const payload = (await response.json()) as {
 			code?: string
 			key?: string
 			read_url?: string
-			upload_url?: string
 		}
+		const storedBody = payload.key ? await readStoredBody(env.R2, payload.key) : ''
 		return {
 			status: response.status,
 			code: payload.code ?? '',
 			key: payload.key ?? '',
 			readUrl: payload.read_url ?? '',
-			hasUploadUrl: Boolean(payload.upload_url)
+			storedBody
 		}
 	})
 })
@@ -737,6 +728,7 @@ type StoredObject = {
 	body: string
 	contentType: string
 	etag: string
+	size: number
 }
 
 type CreateContextOptions = {
@@ -756,45 +748,14 @@ function createEnv(): Env & { R2: R2Bucket } {
 
 function createEnvWithR2(r2: R2Bucket): Env & { R2: R2Bucket } {
 	return {
-		APP_NAME: 'opcstack',
-		APP_BASE_URL: 'http://localhost:5173',
-		R2_ACCOUNT_ID: 'abc',
-		R2_ACCESS_KEY_ID: 'access-key',
-		R2_SECRET_ACCESS_KEY: 'secret-key',
-		R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
-		R2_USER_UPLOAD_MAX_BYTES: '5242880',
+			APP_NAME: 'opcstack',
+			APP_BASE_URL: 'http://localhost:5173',
+			R2_ACCOUNT_ID: 'abc',
+			R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
+			R2_USER_UPLOAD_MAX_BYTES: '5242880',
 		R2_ORIGIN_SIGNING_SECRET: 'test-secret',
 		R2: r2
 	} as unknown as Env & { R2: R2Bucket }
-}
-
-function createJsonContext(
-	userId: string,
-	body: unknown,
-	env: Env & { R2: R2Bucket }
-): Context<ApiEnv> {
-	return {
-		env,
-		req: {
-			json: async <T>(): Promise<T> => {
-				return body as T
-			}
-		},
-		get: (key: string): unknown => {
-			if (key === 'userId') {
-				return userId
-			}
-			return undefined
-		},
-		json: (payload: unknown, status?: number): Response => {
-			return new Response(JSON.stringify(payload), {
-				status: status ?? 200,
-				headers: {
-					'content-type': 'application/json'
-				}
-			})
-		}
-	} as unknown as Context<ApiEnv>
 }
 
 function createContext(
@@ -838,25 +799,103 @@ function createContext(
 	} as unknown as Context<ApiEnv>
 }
 
+type CreateUploadContextOptions = {
+	contentLength?: string
+	contentType?: string
+}
+
+function createUploadContext(
+	path: string,
+	userId: string,
+	body: string,
+	env: Env & { R2: R2Bucket },
+	options: CreateUploadContextOptions
+): Context<ApiEnv> {
+	const headers = new Headers()
+	if (options.contentLength !== undefined) {
+		headers.set('content-length', options.contentLength)
+	}
+	if (options.contentType !== undefined) {
+		headers.set('content-type', options.contentType)
+	}
+
+	return {
+		env,
+		req: {
+			path,
+			raw: new Request(createRequestUrl(env.APP_BASE_URL, path), {
+				method: 'PUT',
+				headers,
+				body
+			}),
+			header: (name: string): string | undefined => {
+				return headers.get(name) ?? undefined
+			}
+		},
+		get: (key: string): unknown => {
+			if (key === 'userId') {
+				return userId
+			}
+			return undefined
+		},
+		json: (payload: unknown, status?: number): Response => {
+			return new Response(JSON.stringify(payload), {
+				status: status ?? 200,
+				headers: {
+					'content-type': 'application/json'
+				}
+			})
+		}
+	} as unknown as Context<ApiEnv>
+}
+
 function createR2Bucket(onGet?: (key: string) => void): R2Bucket {
 	const objects: Map<string, StoredObject> = new Map()
 	objects.set('public/images/a.png', {
 		body: 'image',
 		contentType: 'image/png',
-		etag: '"etag"'
+		etag: '"etag"',
+		size: 5
 	})
 	objects.set('tmp/public/a.txt', {
 		body: 'tmp',
 		contentType: 'text/plain',
-		etag: '"tmp-etag"'
+		etag: '"tmp-etag"',
+		size: 3
 	})
 	objects.set('private/u1/a.txt', {
 		body: 'private',
 		contentType: 'text/plain',
-		etag: '"private-etag"'
+		etag: '"private-etag"',
+		size: 7
+	})
+	objects.set('public/videos/large.mp4', {
+		body: 'video',
+		contentType: 'video/mp4',
+		etag: '"large-etag"',
+		size: 10485761
 	})
 
 	const r2 = {
+		put: async (
+			key: string,
+			value: string | ArrayBuffer | Uint8Array | ReadableStream,
+			options?: R2PutOptions
+		): Promise<R2Object> => {
+			const body = await new Response(value as BodyInit).text()
+			const metadata = options?.httpMetadata
+			const contentType =
+				metadata instanceof Headers
+					? metadata.get('content-type') ?? 'application/octet-stream'
+					: metadata?.contentType ?? 'application/octet-stream'
+			objects.set(key, {
+				body,
+				contentType,
+				etag: `"${key}-etag"`,
+				size: body.length
+			})
+			return {} as R2Object
+		},
 		get: async (key: string): Promise<R2ObjectBody | null> => {
 			if (onGet) {
 				onGet(key)
@@ -870,11 +909,20 @@ function createR2Bucket(onGet?: (key: string) => void): R2Bucket {
 				httpMetadata: {
 					contentType: item.contentType
 				},
-				httpEtag: item.etag
+				httpEtag: item.etag,
+				size: item.size
 			} as unknown as R2ObjectBody
 		}
 	} as R2Bucket
 	return r2
+}
+
+async function readStoredBody(r2: R2Bucket, key: string): Promise<string> {
+	const object = await r2.get(key)
+	if (!object) {
+		return ''
+	}
+	return new Response(object.body).text()
 }
 
 function createRequestUrl(

@@ -20,7 +20,6 @@ const SVELTE_MANIFEST_PATH = '.svelte-kit/cloudflare-tmp/manifest.js'
 const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
 const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
-const R2_S3_TOKEN_CACHE_PATH = '.wrangler/r2-s3-token.json'
 const RUNTIME_SECRETS_PATH = '.wrangler/runtime-secrets.env'
 const TYPES_WRANGLER_CONFIG_PATH = '.wrangler/wrangler.types.jsonc'
 const SECRET_KEYS = [
@@ -54,10 +53,8 @@ const SECRET_KEYS = [
 	'REALTIME_DOUBAO_FALLBACK_API_KEY',
 	'VIDEO_SEEDDANCE_API_KEY',
 	'VIDEO_SEEDDANCE_FALLBACK_API_KEY',
-	'R2_ORIGIN_SIGNING_SECRET',
-	'R2_SECRET_ACCESS_KEY'
+	'R2_ORIGIN_SIGNING_SECRET'
 ]
-const R2_BUCKET_WRITE_PERMISSION_NAME = 'Workers R2 Storage Bucket Item Write'
 const CLOUDFLARE_TOKEN_PERMISSIONS = [
 	{ key: 'api_tokens', type: 'edit' },
 	{ key: 'memberships', type: 'read' },
@@ -264,7 +261,6 @@ export function buildRequiredSecretKeys(env) {
 	}
 	if (env.R2_ENABLED === 'true') {
 		keys.push('R2_ORIGIN_SIGNING_SECRET')
-		keys.push('R2_SECRET_ACCESS_KEY')
 	}
 	if (env.PAYMENT_ENABLED === 'true') {
 		const providers = collectPaymentProviders(parsePaymentProducts(env.PAYMENT_PRODUCTS))
@@ -1234,87 +1230,6 @@ async function putR2CorsRules(accountId, token, bucketName, appBaseUrl, appCnDom
 	)
 }
 
-async function listPermissionGroups(token) {
-	const result = await cfApiRequest(token, 'GET', '/user/tokens/permission_groups', undefined)
-	return Array.isArray(result) ? result : []
-}
-
-async function createUserToken(token, body) {
-	return cfApiRequest(token, 'POST', '/user/tokens', body)
-}
-
-function readCachedR2S3Token(accountId, bucket) {
-	if (!existsSync(R2_S3_TOKEN_CACHE_PATH)) {
-		return null
-	}
-
-	const raw = readFileSync(R2_S3_TOKEN_CACHE_PATH, 'utf-8')
-	const token = JSON.parse(raw)
-	if (token.accountId !== accountId || token.bucket !== bucket) {
-		return null
-	}
-	if (!token.accessKeyId || !token.secretAccessKey) {
-		return null
-	}
-	return token
-}
-
-function writeCachedR2S3Token(token) {
-	mkdirSync('.wrangler', { recursive: true })
-	writeFileSync(R2_S3_TOKEN_CACHE_PATH, `${JSON.stringify(token, null, 2)}\n`, { mode: 0o600 })
-}
-
-export function selectPermissionGroup(permissionGroups, permissionName) {
-	const group = permissionGroups.find((item) => item?.name === permissionName)
-	if (!group?.id) {
-		console.error(`Cloudflare permission group missing: ${permissionName}`)
-		process.exit(1)
-	}
-	return group
-}
-
-async function ensureR2S3Token(accountId, token, bucket) {
-	const cachedToken = readCachedR2S3Token(accountId, bucket)
-	if (cachedToken) {
-		console.log(`Using cached R2 S3 token for bucket '${bucket}'`)
-		return cachedToken
-	}
-
-	console.log(`Creating R2 S3 token for bucket '${bucket}'...`)
-	const permissionGroups = await listPermissionGroups(token)
-	const r2WritePermission = selectPermissionGroup(permissionGroups, R2_BUCKET_WRITE_PERMISSION_NAME)
-	const createdToken = await createUserToken(token, {
-		name: `OPCStack R2 Upload ${bucket}`,
-		policies: [
-			{
-				effect: 'allow',
-				resources: {
-					[`com.cloudflare.edge.r2.bucket.${accountId}_default_${bucket}`]: '*'
-				},
-				permission_groups: [
-					{
-						id: r2WritePermission.id
-					}
-				]
-			}
-		]
-	})
-
-	if (!createdToken?.id || !createdToken?.value) {
-		console.error('Failed to create R2 S3 token')
-		process.exit(1)
-	}
-
-	const r2Token = {
-		accountId,
-		bucket,
-		accessKeyId: createdToken.id,
-		secretAccessKey: createHash('sha256').update(createdToken.value).digest('hex')
-	}
-	writeCachedR2S3Token(r2Token)
-	return r2Token
-}
-
 async function listKVNamespaces(accountId, token) {
 	const result = await cfApiRequest(
 		token,
@@ -1513,7 +1428,6 @@ async function main() {
 	let kvNamespaceId = '00000000000000000000000000000000'
 	let accountId = ''
 	let cloudflareApiToken = ''
-	let r2S3Token = null
 	let appCnZoneName = ''
 
 	if (isRemote) {
@@ -1631,8 +1545,6 @@ async function main() {
 			console.log('R2 tmp lifecycle rules synced')
 		}
 
-		r2S3Token = await ensureR2S3Token(accountId, cloudflareApiToken, appName)
-
 		console.log('\nEnabling Image Transformations...')
 		await enableImageTransformations(accountId, cloudflareApiToken, env.APP_DOMAIN)
 	}
@@ -1740,9 +1652,7 @@ async function main() {
 		appCnZoneName
 	)
 	config.vars.R2_ENABLED = r2Enabled ? 'true' : 'false'
-	config.vars.R2_ACCOUNT_ID = r2S3Token?.accountId || accountId || 'local'
-	config.vars.R2_ACCESS_KEY_ID = r2S3Token?.accessKeyId || 'local'
-	env.R2_SECRET_ACCESS_KEY = r2S3Token?.secretAccessKey || env.R2_SECRET_ACCESS_KEY || 'local'
+	config.vars.R2_ACCOUNT_ID = accountId || 'local'
 	config.secrets = {
 		required: buildRequiredSecretKeys(env)
 	}

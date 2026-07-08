@@ -5,7 +5,6 @@ const TMP_PRIVATE_PREFIX = 'tmp/private/'
 
 export interface R2Client {
 	put(input: R2PutInput): Promise<R2PutResult>
-	createUploadUrl(input: R2CreateUploadUrlInput): Promise<R2CreateUploadUrlResult>
 	createReadUrl(input: R2CreateReadUrlInput): Promise<R2CreateReadUrlResult>
 	get(key: string): Promise<R2GetResult>
 	getImageVariant(key: string, preset: R2ImageVariantPreset): Promise<R2GetResult>
@@ -25,22 +24,6 @@ export interface R2PutResult {
 	url: string
 }
 
-export interface R2CreateUploadUrlInput {
-	isTmp?: boolean
-	isPublic?: boolean
-	dir: string
-	filename: string
-	contentType: string
-	size: number
-}
-
-export interface R2CreateUploadUrlResult {
-	key: string
-	uploadUrl: string
-	readUrl: string
-	expiresAt: number
-}
-
 export interface R2CreateReadUrlInput {
 	key: string
 	expiresAt: number
@@ -57,32 +40,21 @@ export interface R2GetResult {
 	body: ReadableStream
 	contentType: string
 	etag: string
+	size: number
 }
 
 export type R2ImageVariantPreset = 'small' | 'medium'
 
 type R2Env = Env & { R2?: R2Bucket }
 
-type R2UploadSigningConfig = {
-	accountId: string
-	accessKeyId: string
-	secretAccessKey: string
-	bucket: string
-}
-
 export type R2ErrorCode =
 	| 'R2_NOT_CONFIGURED'
-	| 'R2_UPLOAD_PATH_INVALID'
-	| 'R2_UPLOAD_USER_REQUIRED'
-	| 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED'
-	| 'R2_USER_UPLOAD_SIZE_TOO_LARGE'
 	| 'R2_READ_FORBIDDEN'
 	| 'R2_READ_NOT_FOUND'
 	| 'R2_READ_PATH_INVALID'
 	| 'R2_READ_FAILED'
 	| 'R2_ORIGIN_SIGNING_SECRET_REQUIRED'
 	| 'R2_PRIVATE_UPLOAD_USER_REQUIRED'
-	| 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED'
 
 export class R2Error extends Error {
 	public readonly code: R2ErrorCode
@@ -97,14 +69,6 @@ function r2ErrorMessage(code: R2ErrorCode): string {
 	switch (code) {
 		case 'R2_NOT_CONFIGURED':
 			return 'R2 bucket is not configured'
-		case 'R2_UPLOAD_PATH_INVALID':
-			return 'Upload path is invalid'
-		case 'R2_UPLOAD_USER_REQUIRED':
-			return 'User is required for private upload'
-		case 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED':
-			return 'Upload content type is not allowed'
-		case 'R2_USER_UPLOAD_SIZE_TOO_LARGE':
-			return 'Upload size is too large'
 		case 'R2_READ_FORBIDDEN':
 			return 'R2 object access is forbidden'
 		case 'R2_READ_NOT_FOUND':
@@ -117,8 +81,6 @@ function r2ErrorMessage(code: R2ErrorCode): string {
 			return 'R2 origin signing secret is required'
 		case 'R2_PRIVATE_UPLOAD_USER_REQUIRED':
 			return 'User is required for private upload'
-		case 'R2_UPLOAD_SIGNING_CONFIG_REQUIRED':
-			return 'R2 upload signing config is required'
 	}
 }
 
@@ -155,36 +117,6 @@ class r2Client implements R2Client {
 		}
 	}
 
-	async createUploadUrl(input: R2CreateUploadUrlInput): Promise<R2CreateUploadUrlResult> {
-		if (!this.env.R2) {
-			throw new R2Error('R2_NOT_CONFIGURED')
-		}
-		const path = buildObjectPath(input.dir, input.filename)
-		if (!isUploadPath(path)) {
-			throw new R2Error('R2_UPLOAD_PATH_INVALID')
-		}
-		if (input.isPublic !== true && !this.userId) {
-			throw new R2Error('R2_UPLOAD_USER_REQUIRED')
-		}
-		if (!this.isUserUploadContentTypeAllowed(input.contentType)) {
-			throw new R2Error('R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED')
-		}
-		if (input.size > this.userUploadMaxBytes()) {
-			throw new R2Error('R2_USER_UPLOAD_SIZE_TOO_LARGE')
-		}
-
-		const config = this.uploadSigningConfig()
-		const key = this.buildKey(input.dir, input.filename, input.isPublic, input.isTmp)
-		const expiresAt = Math.floor(Date.now() / 1000) + 60
-		const uploadUrl = await createR2PresignedPutUrl(config, key, input.contentType, expiresAt)
-		return {
-			key,
-			uploadUrl,
-			readUrl: `${trimRightSlash(this.env.APP_BASE_URL)}/api/r2/${key}`,
-			expiresAt
-		}
-	}
-
 	async createReadUrl(input: R2CreateReadUrlInput): Promise<R2CreateReadUrlResult> {
 		this.assertReadableKey(input.key)
 		return {
@@ -210,7 +142,8 @@ class r2Client implements R2Client {
 			isPublic: key.startsWith(PUBLIC_PREFIX),
 			body: object.body as ReadableStream,
 			contentType: object.httpMetadata?.contentType ?? 'application/octet-stream',
-			etag: object.httpEtag
+			etag: object.httpEtag,
+			size: object.size
 		}
 	}
 
@@ -249,7 +182,8 @@ class r2Client implements R2Client {
 			isPublic: key.startsWith(PUBLIC_PREFIX),
 			body: response.body as ReadableStream,
 			contentType: response.headers.get('content-type') ?? 'image/jpeg',
-			etag: response.headers.get('etag') ?? ''
+			etag: response.headers.get('etag') ?? '',
+			size: Number(response.headers.get('content-length') ?? '0')
 		}
 	}
 
@@ -320,72 +254,6 @@ class r2Client implements R2Client {
 		return remaining.slice(0, index)
 	}
 
-	private uploadSigningConfig(): R2UploadSigningConfig {
-		if (
-			!this.env.R2_ACCOUNT_ID ||
-			!this.env.R2_ACCESS_KEY_ID ||
-			!this.env.R2_SECRET_ACCESS_KEY ||
-			!this.env.APP_NAME
-		) {
-			throw new R2Error('R2_UPLOAD_SIGNING_CONFIG_REQUIRED')
-		}
-
-		return {
-			accountId: this.env.R2_ACCOUNT_ID,
-			accessKeyId: this.env.R2_ACCESS_KEY_ID,
-			secretAccessKey: this.env.R2_SECRET_ACCESS_KEY,
-			bucket: this.env.APP_NAME
-		}
-	}
-
-	private isUserUploadContentTypeAllowed(contentType: string): boolean {
-		const allowedTypes = this.env.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES.split(';')
-		return allowedTypes.includes(contentType)
-	}
-
-	private userUploadMaxBytes(): number {
-		return Number(this.env.R2_USER_UPLOAD_MAX_BYTES)
-	}
-}
-
-async function createR2PresignedPutUrl(
-	config: R2UploadSigningConfig,
-	key: string,
-	contentType: string,
-	expiresAt: number
-): Promise<string> {
-	const now = new Date((expiresAt - 60) * 1000)
-	const date = awsDate(now)
-	const dateScope = date.slice(0, 8)
-	const credentialScope = `${dateScope}/auto/s3/aws4_request`
-	const host = `${config.accountId}.r2.cloudflarestorage.com`
-	const encodedKey = key.split('/').map(encodeURIComponent).join('/')
-	const path = `/${config.bucket}/${encodedKey}`
-	const params = new URLSearchParams()
-	params.set('X-Amz-Algorithm', 'AWS4-HMAC-SHA256')
-	params.set('X-Amz-Credential', `${config.accessKeyId}/${credentialScope}`)
-	params.set('X-Amz-Date', date)
-	params.set('X-Amz-Expires', '60')
-	params.set('X-Amz-SignedHeaders', 'content-type;host')
-
-	const canonicalRequest = [
-		'PUT',
-		path,
-		params.toString(),
-		`content-type:${contentType}\nhost:${host}\n`,
-		'content-type;host',
-		'UNSIGNED-PAYLOAD'
-	].join('\n')
-	const stringToSign = [
-		'AWS4-HMAC-SHA256',
-		date,
-		credentialScope,
-		await sha256Hex(canonicalRequest)
-	].join('\n')
-	const signingKey = await awsSigningKey(config.secretAccessKey, dateScope)
-	const signature = toHex(await hmacBytes(signingKey, stringToSign))
-	params.set('X-Amz-Signature', signature)
-	return `https://${host}${path}?${params.toString()}`
 }
 
 async function createR2OriginReadUrl(
@@ -444,53 +312,11 @@ function trimRightSlash(rawUrl: string): string {
 	return rawUrl
 }
 
-function isUploadPath(path: string): boolean {
-	if (path.length === 0) {
-		return false
-	}
-	if (path.startsWith('/')) {
-		return false
-	}
-	return !path.split('/').includes('..')
-}
-
 function buildObjectPath(dir: string, filename: string): string {
 	if (dir.length === 0) {
 		return filename
 	}
 	return `${dir}/${filename}`
-}
-
-function awsDate(date: Date): string {
-	return date.toISOString().replaceAll('-', '').replaceAll(':', '').slice(0, 15) + 'Z'
-}
-
-async function sha256Hex(value: string): Promise<string> {
-	const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
-	return toHex(new Uint8Array(hash))
-}
-
-async function hmacBytes(key: Uint8Array, value: string): Promise<Uint8Array> {
-	const keyBytes = new Uint8Array(key)
-	const cryptoKey = await crypto.subtle.importKey(
-		'raw',
-		keyBytes.buffer,
-		{
-			name: 'HMAC',
-			hash: 'SHA-256'
-		},
-		false,
-		['sign']
-	)
-	const signature = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(value))
-	return new Uint8Array(signature)
-}
-
-async function awsSigningKey(secretAccessKey: string, dateScope: string): Promise<Uint8Array> {
-	const dateKey = await hmacBytes(new TextEncoder().encode(`AWS4${secretAccessKey}`), dateScope)
-	const regionKey = await hmacBytes(dateKey, 'auto')
-	const serviceKey = await hmacBytes(regionKey, 's3')
-	return hmacBytes(serviceKey, 'aws4_request')
 }
 
 function toCfImageOptions(preset: R2ImageVariantPreset): RequestInitCfPropertiesImage {

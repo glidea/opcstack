@@ -136,7 +136,7 @@ pnpm dev
 | D1 | Uses local placeholder IDs | Creates or resolves Meta DB and Tenant Shard DBs |
 | D1 read replication | No | Enables read replication |
 | Queues | Generates bindings | Creates queues and generates bindings |
-| R2 | Generates binding only when enabled | Creates bucket, CORS, tmp lifecycle, S3 token, image transformations |
+| R2 | Generates binding only when enabled | Creates bucket, CORS, tmp lifecycle, image transformations |
 | KV | Local placeholder namespace | Creates or resolves KV namespace |
 | Turnstile | Uses local config/test behavior | Creates or updates widget when enabled |
 | Config | Generates `wrangler.jsonc` | Generates `wrangler.jsonc` |
@@ -330,9 +330,8 @@ When enabled in prod, `prepare-cloudflare`:
 1. Creates or resolves an R2 bucket named `APP_NAME`
 2. Syncs CORS for `APP_BASE_URL` and optional `APP_CN_DOMAIN`
 3. Syncs tmp lifecycle rules
-4. Creates or reuses an R2 S3 token
-5. Enables Cloudflare Image Transformations
-6. Adds binding `R2`
+4. Enables Cloudflare Image Transformations
+5. Adds binding `R2`
 
 Only these tmp prefixes are valid lifecycle targets:
 
@@ -346,7 +345,6 @@ Runtime R2 secrets:
 | Secret | Purpose |
 | --- | --- |
 | `R2_ORIGIN_SIGNING_SECRET` | Signed origin/read URL behavior |
-| `R2_SECRET_ACCESS_KEY` | R2 S3-compatible upload credentials |
 
 ## Queues, Cron, and Durable Objects
 
@@ -405,7 +403,7 @@ Conditionally required:
 | GitHub OAuth | `GITHUB_CLIENT_SECRET` |
 | LinuxDO OAuth | `LINUXDO_CLIENT_SECRET` |
 | Resend email | `EMAIL_RESEND_API_KEY` |
-| R2 | `R2_ORIGIN_SIGNING_SECRET`, `R2_SECRET_ACCESS_KEY` |
+| R2 | `R2_ORIGIN_SIGNING_SECRET` |
 | Dodo | `PAYMENT_DODO_API_KEY`, `PAYMENT_DODO_WEBHOOK_SECRET` |
 | Creem | `PAYMENT_CREEM_API_KEY`, `PAYMENT_CREEM_WEBHOOK_SECRET` |
 | AI providers | Provider API keys when configured |

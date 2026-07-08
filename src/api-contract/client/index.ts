@@ -49,9 +49,10 @@ import type {
 	UpgradeSubscriptionResponse
 } from '../payment'
 import type {
-	CreateR2PublicUploadUrlRequest,
-	CreateR2UploadUrlRequest,
-	CreateR2UploadUrlResponse
+	UploadR2ObjectRequest,
+	UploadR2ObjectResponse,
+	UploadR2PublicObjectRequest,
+	UploadR2PublicObjectResponse
 } from '../r2'
 import type { ApiErrorResponse } from '../common'
 
@@ -116,8 +117,6 @@ type ApiMethods = {
 	cancelSubscription(): Promise<CancelSubscriptionResponse>
 	createNotification(input: CreateNotificationRequest): Promise<CreateNotificationResponse>
 	createPaymentCheckout(input: CreatePaymentCheckoutRequest): Promise<CreatePaymentCheckoutResponse>
-	createR2PublicUploadUrl(input: CreateR2PublicUploadUrlRequest): Promise<CreateR2UploadUrlResponse>
-	createR2UploadUrl(input: CreateR2UploadUrlRequest): Promise<CreateR2UploadUrlResponse>
 	dailyCheckin(): Promise<DailyCheckinResponse>
 	generateBetaCodes(input: GenerateBetaCodesRequest): Promise<GenerateBetaCodesResponse>
 	generateCreditCodes(input: GenerateCreditCodesRequest): Promise<GenerateCreditCodesResponse>
@@ -142,6 +141,8 @@ type ApiMethods = {
 	readNotification(input: ReadNotificationRequest): Promise<Record<string, never>>
 	redeemCreditCode(input: RedeemCreditCodeRequest): Promise<RedeemCreditCodeResponse>
 	submitFeedback(input: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse>
+	uploadR2Object(input: UploadR2ObjectRequest): Promise<UploadR2ObjectResponse>
+	uploadR2PublicObject(input: UploadR2PublicObjectRequest): Promise<UploadR2PublicObjectResponse>
 	upgradeSubscription(input: UpgradeSubscriptionRequest): Promise<UpgradeSubscriptionResponse>
 }
 
@@ -281,9 +282,15 @@ function createApiClient(options: ClientOptions): ApiClient {
 	): Promise<TResponse> => {
 		return callApiJson<TResponse>(apiFetch, request)
 	}
+	const upload: <TResponse>(path: string, input: UploadR2ObjectRequest) => Promise<TResponse> = async <TResponse>(
+		path: string,
+		input: UploadR2ObjectRequest
+	): Promise<TResponse> => {
+		return callApiUpload<TResponse>(apiFetch, path, input)
+	}
 
 	return {
-		...createApiMethods(call),
+		...createApiMethods(call, upload),
 		fetch: apiFetch
 	}
 }
@@ -301,7 +308,8 @@ async function fetchWithClientState(
 }
 
 function createApiMethods(
-	call: <TResponse>(request: ApiJsonRequest) => Promise<TResponse>
+	call: <TResponse>(request: ApiJsonRequest) => Promise<TResponse>,
+	upload: <TResponse>(path: string, input: UploadR2ObjectRequest) => Promise<TResponse>
 ): ApiMethods {
 	return {
 		bindAff(input: BindAffRequest): Promise<Record<string, never>> {
@@ -318,14 +326,6 @@ function createApiMethods(
 		},
 		createPaymentCheckout(input: CreatePaymentCheckoutRequest): Promise<CreatePaymentCheckoutResponse> {
 			return call({ path: '/api/create_payment_checkout', body: input })
-		},
-		createR2PublicUploadUrl(
-			input: CreateR2PublicUploadUrlRequest
-		): Promise<CreateR2UploadUrlResponse> {
-			return call({ path: '/api/admin/create_r2_public_upload_url', body: input })
-		},
-		createR2UploadUrl(input: CreateR2UploadUrlRequest): Promise<CreateR2UploadUrlResponse> {
-			return call({ path: '/api/create_r2_upload_url', body: input })
 		},
 		dailyCheckin(): Promise<DailyCheckinResponse> {
 			return call({ path: '/api/daily_checkin', body: {} })
@@ -387,10 +387,37 @@ function createApiMethods(
 		submitFeedback(input: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse> {
 			return call({ path: '/api/submit_feedback', body: input })
 		},
+		uploadR2Object(input: UploadR2ObjectRequest): Promise<UploadR2ObjectResponse> {
+			return upload(`/api/r2/${encodeR2Key(input.key)}`, input)
+		},
+		uploadR2PublicObject(input: UploadR2PublicObjectRequest): Promise<UploadR2PublicObjectResponse> {
+			return upload(`/api/admin/r2/${encodeR2Key(input.key)}`, input)
+		},
 		upgradeSubscription(input: UpgradeSubscriptionRequest): Promise<UpgradeSubscriptionResponse> {
 			return call({ path: '/api/upgrade_subscription', body: input })
 		}
 	}
+}
+
+async function callApiUpload<TResponse>(
+	apiFetch: (input: string | Request, init?: RequestInit) => Promise<Response>,
+	path: string,
+	input: UploadR2ObjectRequest
+): Promise<TResponse> {
+	const response: Response = await apiFetch(path, {
+		method: 'PUT',
+		headers: {
+			'content-type': input.content_type
+		},
+		body: input.body
+	})
+
+	const body: unknown = await response.json()
+	if (!response.ok) {
+		throw new ApiClientError(response.status, normalizeApiError(body))
+	}
+
+	return body as TResponse
 }
 
 async function callApiJson<TResponse>(
@@ -411,6 +438,10 @@ async function callApiJson<TResponse>(
 	}
 
 	return body as TResponse
+}
+
+function encodeR2Key(key: string): string {
+	return key.split('/').map(encodeURIComponent).join('/')
 }
 
 async function buildRequest(

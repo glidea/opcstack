@@ -5,24 +5,24 @@ import {
 	R2Error,
 	verifyR2Origin,
 	type R2Client,
-	type R2CreateUploadUrlResult,
 	type R2GetResult,
 	type R2ImageVariantPreset
 } from '../../r2'
-import { parseRequest } from '../../lib/request'
-import {
-	CreateR2PublicUploadUrlApi,
-	CreateR2UploadUrlApi,
-	type CreateR2UploadUrlResponse
-} from '../../../api-contract/r2'
 
 const R2_ROUTE_PREFIX = '/api/r2/'
+const R2_ADMIN_PUBLIC_ROUTE_PREFIX = '/api/admin/r2/public/'
 const R2_IMAGE_ORIGIN_ROUTE_PREFIX = '/api/internal/r2_image_origin/'
 
 const PUBLIC_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 const TMP_PUBLIC_CACHE_CONTROL = 'public, max-age=300'
 const PRIVATE_CACHE_CONTROL = 'private, no-store'
 const R2_WORKER_CACHE_HEADER = 'x-r2-worker-cache'
+const R2_WORKER_CACHE_MAX_BYTES = 10485760
+
+type R2ReadObjectResult = {
+	response: Response
+	size: number
+}
 
 export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const key: string = toR2Key(ctx.req.path)
@@ -31,8 +31,8 @@ export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Respons
 	const client: R2Client = createR2Client(ctx.env, userId)
 
 	if (!isCacheableR2ReadPath(ctx.req.path)) {
-		const response: Response = await readR2Object(ctx, key, variant, client)
-		return withR2WorkerCacheHeader(response, 'bypass')
+		const result: R2ReadObjectResult = await readR2Object(ctx, key, variant, client)
+		return withR2WorkerCacheHeader(result.response, 'bypass')
 	}
 
 	const cacheKey: Request = new Request(ctx.req.raw.url, {
@@ -44,11 +44,12 @@ export async function readR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Respons
 		return withR2WorkerCacheHeader(cachedResponse, 'hit')
 	}
 
-	const response: Response = await readR2Object(ctx, key, variant, client)
-	if (response.status === 200) {
-		await cache.put(cacheKey, response.clone())
+	const result: R2ReadObjectResult = await readR2Object(ctx, key, variant, client)
+	if (result.response.status === 200 && result.size <= R2_WORKER_CACHE_MAX_BYTES) {
+		await cache.put(cacheKey, result.response.clone())
+		return withR2WorkerCacheHeader(result.response, 'miss')
 	}
-	return withR2WorkerCacheHeader(response, 'miss')
+	return withR2WorkerCacheHeader(result.response, 'bypass')
 }
 
 async function readR2Object(
@@ -56,104 +57,58 @@ async function readR2Object(
 	key: string,
 	variant: string | undefined,
 	client: R2Client
-): Promise<Response> {
+): Promise<R2ReadObjectResult> {
 	try {
 		if (!variant) {
 			const result: R2GetResult = await client.get(key)
-			return toR2Response(ctx, result)
+			return {
+				response: toR2Response(ctx, result),
+				size: result.size
+			}
 		}
 
 		if (!isR2ImageVariantPreset(variant)) {
-			return ctx.json({}, 404)
+			return {
+				response: ctx.json({}, 404),
+				size: 0
+			}
 		}
 
 		const result: R2GetResult = await client.getImageVariant(key, variant)
-		return toR2Response(ctx, result)
+		return {
+			response: toR2Response(ctx, result),
+			size: result.size
+		}
 	} catch (error) {
 		const handled: Response | undefined = mapR2ReadError(ctx, error)
 		if (handled) {
-			return handled
-		}
-		throw error
-	}
-}
-
-export async function createR2UploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const request = await parseRequest(ctx, CreateR2UploadUrlApi.request)
-	if (!request.success) {
-		const error = CreateR2UploadUrlApi.errors.INVALID_REQUEST(request.message)
-		return ctx.json(error.body, error.status)
-	}
-	const req = request.data
-
-	try {
-		const client: R2Client = createR2Client(ctx.env, ctx.get('userId'))
-		const path: { dir: string; filename: string } = splitUploadPath(req.path)
-		const result: R2CreateUploadUrlResult = await client.createUploadUrl({
-			isPublic: false,
-			isTmp: req.is_tmp,
-			dir: path.dir,
-			filename: path.filename,
-			contentType: req.content_type,
-			size: req.size
-		})
-		return ctx.json(toCreateR2UploadUrlResponse(result))
-	} catch (error) {
-		if (error instanceof R2Error) {
-			switch (error.code) {
-				case 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED': {
-					const response = CreateR2UploadUrlApi.errors.R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED()
-					return ctx.json(response.body, response.status)
-				}
-				case 'R2_USER_UPLOAD_SIZE_TOO_LARGE': {
-					const response = CreateR2UploadUrlApi.errors.R2_USER_UPLOAD_SIZE_TOO_LARGE()
-					return ctx.json(response.body, response.status)
-				}
-				default:
-					break
+			return {
+				response: handled,
+				size: 0
 			}
 		}
 		throw error
 	}
 }
 
-export async function createR2PublicUploadUrlHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const request = await parseRequest(ctx, CreateR2PublicUploadUrlApi.request)
-	if (!request.success) {
-		const error = CreateR2PublicUploadUrlApi.errors.INVALID_REQUEST(request.message)
-		return ctx.json(error.body, error.status)
+export async function uploadR2ObjectHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const key: string = toR2Key(ctx.req.path)
+	const userId: string = ctx.get('userId')
+	if (!isWritablePrivateKey(key, userId)) {
+		return uploadError(ctx, 'INVALID_REQUEST')
 	}
-	const req = request.data
+	return uploadR2Object(ctx, key)
+}
 
-	try {
-		const client: R2Client = createR2Client(ctx.env)
-		const path: { dir: string; filename: string } = splitUploadPath(req.path)
-		const result: R2CreateUploadUrlResult = await client.createUploadUrl({
-			isPublic: true,
-			dir: path.dir,
-			filename: path.filename,
-			contentType: req.content_type,
-			size: req.size
-		})
-		return ctx.json(toCreateR2UploadUrlResponse(result))
-	} catch (error) {
-		if (error instanceof R2Error) {
-			switch (error.code) {
-				case 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED': {
-					const response =
-						CreateR2PublicUploadUrlApi.errors.R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED()
-					return ctx.json(response.body, response.status)
-				}
-				case 'R2_USER_UPLOAD_SIZE_TOO_LARGE': {
-					const response = CreateR2PublicUploadUrlApi.errors.R2_USER_UPLOAD_SIZE_TOO_LARGE()
-					return ctx.json(response.body, response.status)
-				}
-				default:
-					break
-			}
-		}
-		throw error
+export async function uploadR2PublicObjectHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	if (!ctx.req.path.startsWith(R2_ADMIN_PUBLIC_ROUTE_PREFIX)) {
+		return uploadError(ctx, 'INVALID_REQUEST')
 	}
+	const key: string = toR2AdminPublicKey(ctx.req.path)
+	if (!isWritablePublicKey(key)) {
+		return uploadError(ctx, 'INVALID_REQUEST')
+	}
+	return uploadR2Object(ctx, key)
 }
 
 export async function readR2ImageOriginHandler(ctx: Context<ApiEnv>): Promise<Response> {
@@ -197,33 +152,109 @@ export function toR2Key(path: string): string {
 	return path.slice(R2_ROUTE_PREFIX.length)
 }
 
-function splitUploadPath(path: string): { dir: string; filename: string } {
-	const index = path.lastIndexOf('/')
-	if (index === -1) {
-		return {
-			dir: '',
-			filename: path
-		}
-	}
-	return {
-		dir: path.slice(0, index),
-		filename: path.slice(index + 1)
-	}
-}
-
-function toCreateR2UploadUrlResponse(
-	result: R2CreateUploadUrlResult
-): CreateR2UploadUrlResponse {
-	return {
-		key: result.key,
-		upload_url: result.uploadUrl,
-		read_url: result.readUrl,
-		expires_at: result.expiresAt
-	}
-}
-
 function toR2OriginKey(path: string): string {
 	return path.slice(R2_IMAGE_ORIGIN_ROUTE_PREFIX.length)
+}
+
+function toR2AdminPublicKey(path: string): string {
+	return `public/${path.slice(R2_ADMIN_PUBLIC_ROUTE_PREFIX.length)}`
+}
+
+async function uploadR2Object(ctx: Context<ApiEnv>, key: string): Promise<Response> {
+	const contentLength: number | undefined = parseContentLength(ctx.req.header('content-length'))
+	if (contentLength === undefined) {
+		return uploadError(ctx, 'R2_UPLOAD_CONTENT_LENGTH_REQUIRED')
+	}
+	if (contentLength > Number(ctx.env.R2_USER_UPLOAD_MAX_BYTES)) {
+		return uploadError(ctx, 'R2_USER_UPLOAD_SIZE_TOO_LARGE')
+	}
+
+	const contentType: string = ctx.req.header('content-type') ?? ''
+	if (!isAllowedUploadContentType(ctx.env, contentType)) {
+		return uploadError(ctx, 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED')
+	}
+	const env: Env & { R2?: R2Bucket } = ctx.env as Env & { R2?: R2Bucket }
+	if (!env.R2) {
+		throw new R2Error('R2_NOT_CONFIGURED')
+	}
+	const body: ReadableStream | null = ctx.req.raw.body
+	if (!body) {
+		return uploadError(ctx, 'INVALID_REQUEST')
+	}
+
+	await env.R2.put(key, body, {
+		httpMetadata: {
+			contentType
+		}
+	})
+
+	return ctx.json({
+		key,
+		read_url: `${trimRightSlash(ctx.env.APP_BASE_URL)}/api/r2/${key}`
+	})
+}
+
+function parseContentLength(value: string | undefined): number | undefined {
+	if (value === undefined || value === '') {
+		return undefined
+	}
+	const size: number = Number(value)
+	if (!Number.isInteger(size) || size <= 0) {
+		return undefined
+	}
+	return size
+}
+
+function isAllowedUploadContentType(env: Env, contentType: string): boolean {
+	const allowedTypes: string[] = env.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES.split(';')
+	return allowedTypes.includes(contentType)
+}
+
+function isWritablePrivateKey(key: string, userId: string): boolean {
+	if (!isUploadKeyPath(key)) {
+		return false
+	}
+	if (key.startsWith(`private/${userId}/`)) {
+		return true
+	}
+	return key.startsWith(`tmp/private/${userId}/`)
+}
+
+function isWritablePublicKey(key: string): boolean {
+	if (!key.startsWith('public/')) {
+		return false
+	}
+	return isUploadKeyPath(key)
+}
+
+function isUploadKeyPath(key: string): boolean {
+	if (key.length === 0) {
+		return false
+	}
+	if (key.split('/').includes('..')) {
+		return false
+	}
+	return !key.endsWith('/')
+}
+
+function uploadError(
+	ctx: Context<ApiEnv>,
+	code:
+		| 'INVALID_REQUEST'
+		| 'R2_UPLOAD_CONTENT_LENGTH_REQUIRED'
+		| 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED'
+		| 'R2_USER_UPLOAD_SIZE_TOO_LARGE'
+): Response {
+	switch (code) {
+		case 'INVALID_REQUEST':
+			return ctx.json({ code, message: 'Invalid request' }, 400)
+		case 'R2_UPLOAD_CONTENT_LENGTH_REQUIRED':
+			return ctx.json({ code, message: 'Upload content length is required' }, 400)
+		case 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED':
+			return ctx.json({ code, message: 'Upload content type is not allowed' }, 400)
+		case 'R2_USER_UPLOAD_SIZE_TOO_LARGE':
+			return ctx.json({ code, message: 'Upload size is too large' }, 400)
+	}
 }
 
 function isR2ImageVariantPreset(value: string): value is R2ImageVariantPreset {
@@ -319,4 +350,11 @@ function cacheControlForR2Key(path: string, isPublic: boolean): string {
 		return PUBLIC_CACHE_CONTROL
 	}
 	return PRIVATE_CACHE_CONTROL
+}
+
+function trimRightSlash(rawUrl: string): string {
+	if (rawUrl.endsWith('/')) {
+		return rawUrl.slice(0, -1)
+	}
+	return rawUrl
 }

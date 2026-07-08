@@ -283,7 +283,6 @@ function createRuntimeEnv(overrides = {}) {
 		ADMIN_API_TOKEN: '',
 		R2_ENABLED: 'false',
 		R2_ORIGIN_SIGNING_SECRET: '',
-		R2_SECRET_ACCESS_KEY: '',
 		TURNSTILE_ENABLED: 'false',
 		TURNSTILE_SITE_KEY: '',
 		TURNSTILE_SECRET_KEY: '',

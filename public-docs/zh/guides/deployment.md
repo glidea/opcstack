@@ -137,7 +137,7 @@ pnpm dev
 | D1 | 使用本地占位 ID | 创建或解析 Meta DB 和 Tenant Shard DB |
 | D1 read replication | 否 | 启用 read replication |
 | Queues | 生成 bindings | 创建队列并生成 bindings |
-| R2 | 仅在启用时生成 binding | 创建 bucket、CORS、tmp 生命周期、S3 token、图片转换 |
+| R2 | 仅在启用时生成 binding | 创建 bucket、CORS、tmp 生命周期、图片转换 |
 | KV | 本地占位命名空间 | 创建或解析 KV 命名空间 |
 | Turnstile | 使用本地配置/测试行为 | 启用时创建或更新 widget |
 | Config | 生成 `wrangler.jsonc` | 生成 `wrangler.jsonc` |
@@ -331,9 +331,8 @@ R2_TMP_LIFECYCLE_RULES=tmp/public/:7;tmp/private/:1
 1. 创建或解析名为 `APP_NAME` 的 R2 bucket
 2. 为 `APP_BASE_URL` 和可选的 `APP_CN_DOMAIN` 同步 CORS
 3. 同步 tmp 生命周期规则
-4. 创建或复用 R2 S3 token
-5. 启用 Cloudflare Image Transformations
-6. 添加 binding `R2`
+4. 启用 Cloudflare Image Transformations
+5. 添加 binding `R2`
 
 有效的 tmp 生命周期前缀只有：
 
@@ -347,7 +346,6 @@ tmp/private/
 | 密钥 | 用途 |
 | --- | --- |
 | `R2_ORIGIN_SIGNING_SECRET` | 签名 origin/读取 URL 行为 |
-| `R2_SECRET_ACCESS_KEY` | R2 S3 兼容上传凭据 |
 
 ## 队列、Cron 与 Durable Objects
 
@@ -406,7 +404,7 @@ Binding 和类命名：
 | GitHub OAuth | `GITHUB_CLIENT_SECRET` |
 | LinuxDO OAuth | `LINUXDO_CLIENT_SECRET` |
 | Resend 邮件 | `EMAIL_RESEND_API_KEY` |
-| R2 | `R2_ORIGIN_SIGNING_SECRET`、`R2_SECRET_ACCESS_KEY` |
+| R2 | `R2_ORIGIN_SIGNING_SECRET` |
 | Dodo | `PAYMENT_DODO_API_KEY`、`PAYMENT_DODO_WEBHOOK_SECRET` |
 | Creem | `PAYMENT_CREEM_API_KEY`、`PAYMENT_CREEM_WEBHOOK_SECRET` |
 | AI providers | 配置时需要 provider API keys |

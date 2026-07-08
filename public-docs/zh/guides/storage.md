@@ -8,7 +8,7 @@ order: 3
 
 # 存储
 
-OPCStack 使用 Cloudflare R2 存储对象字节。数据库存储业务行和 R2 对象键。Worker 负责上传签名、读取授权、缓存头、图片变体和生成媒体写入。
+OPCStack 使用 Cloudflare R2 存储对象字节。数据库存储业务行和 R2 对象键。Worker 负责上传、读取授权、缓存头、图片变体和生成媒体写入。
 
 不要将 R2 当数据库用。将文件存入 R2，然后将键存入赋予该对象业务含义的 Meta DB 或 Tenant DB 行中。
 
@@ -22,7 +22,7 @@ flowchart TB
   end
 
   subgraph Worker["Single Worker deployment"]
-    UploadApi["Upload URL APIs<br/>POST /api/create_r2_upload_url<br/>POST /api/admin/create_r2_public_upload_url"]
+    UploadApi["Upload APIs<br/>PUT /api/r2/private/*<br/>PUT /api/r2/tmp/private/*<br/>PUT /api/admin/r2/public/*"]
     ReadApi["Read APIs<br/>GET /api/r2/public/*<br/>GET /api/r2/tmp/public/*<br/>GET /api/r2/private/*<br/>GET /api/r2/tmp/private/*"]
     OriginApi["Signed image origin<br/>GET /api/internal/r2_image_origin/*"]
     BusinessApi["Business handlers<br/>profiles, AI tasks, files"]
@@ -37,7 +37,6 @@ flowchart TB
   end
 
   subgraph Cloudflare["Cloudflare services"]
-    S3Api["R2 S3 API<br/>presigned PUT"]
     ImageResize["Image Resizing<br/>variant=small / medium"]
     Lifecycle["R2 lifecycle<br/>tmp prefixes only"]
   end
@@ -48,11 +47,7 @@ flowchart TB
 
   Browser --> UploadApi
   Extension --> UploadApi
-  UploadApi --> R2Client
-  R2Client --> S3Api
-  S3Api -->|"60s upload_url"| Browser
-  Browser -->|"PUT object bytes"| S3Api
-  S3Api --> R2
+  UploadApi --> R2
 
   Browser --> ReadApi
   Extension --> ReadApi
@@ -75,7 +70,7 @@ flowchart TB
   Lifecycle --> R2
 ```
 
-关键边界是 Worker。浏览器和扩展客户端只能通过短期预签名 URL 直接上传到 R2。读取仍通过 `/api/r2/*` 进行，以便 Worker 能够强制执行私有对象所有权并设置缓存头。
+关键边界是 Worker。浏览器和扩展上传走 Worker 代理路由，以便 Worker 强制执行所有权、MIME 允许列表和上传大小。读取也通过 `/api/r2/*` 进行，以便 Worker 强制执行私有对象所有权并设置缓存头。
 
 ## 对象命名空间
 
@@ -105,51 +100,39 @@ R2 键使用四个命名空间：
 持久私有上传：
 
 ```typescript
-const upload = await apiClient.createR2UploadUrl({
-	is_tmp: false,
-	path: 'avatars/me.png',
-	content_type: file.type,
-	size: file.size
-})
-
-await fetch(upload.upload_url, {
-	method: 'PUT',
-	headers: {
-		'Content-Type': file.type
-	},
-	body: file
+const upload = await apiClient.uploadR2Object({
+	key: `private/${userId}/avatars/me.png`,
+	body: file,
+	content_type: file.type
 })
 ```
 
 临时上传：
 
 ```typescript
-const upload = await apiClient.createR2UploadUrl({
-	is_tmp: true,
-	path: 'drafts/input.png',
-	content_type: file.type,
-	size: file.size
+const upload = await apiClient.uploadR2Object({
+	key: `tmp/private/${userId}/drafts/input.png`,
+	body: file,
+	content_type: file.type
 })
 ```
 
 管理员公共上传：
 
 ```typescript
-const upload = await apiClient.createR2PublicUploadUrl({
-	path: 'images/hero.png',
-	content_type: file.type,
-	size: file.size
+const upload = await apiClient.uploadR2PublicObject({
+	key: 'public/images/hero.png',
+	body: file,
+	content_type: file.type
 })
 ```
 
 上传 API 强制执行以下规则：
 
-- 上传路径是相对路径，不能包含 `..`
-- 上传 URL 60 秒后过期
-- `content_type` 必须在 `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` 中列出
-- `size` 不能超过 `R2_USER_UPLOAD_MAX_BYTES`
-- 用户上传始终是私有的
-- 用户上传通过 `is_tmp` 选择 `private/<userId>/*` 或 `tmp/private/<userId>/*`
+- 上传路径不能包含 `..`
+- `Content-Length` 必须存在且不能超过 `R2_USER_UPLOAD_MAX_BYTES`
+- `Content-Type` 必须在 `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` 中列出
+- 用户上传只能写入 `private/<userId>/*` 或 `tmp/private/<userId>/*`
 - 管理员公共上传写入 `public/*`
 
 上传后，应用代码应将 `upload.key` 存储在相关业务行中。键是稳定的引用，返回的 `read_url` 只是方便使用的 URL。
@@ -272,9 +255,8 @@ AI 生成的文件应存入 R2，而不是 D1。
 | `R2_USER_UPLOAD_MAX_BYTES` | 用户最大上传大小 |
 | `R2_TMP_LIFECYCLE_RULES` | 临时对象删除规则 |
 | `R2_ORIGIN_SIGNING_SECRET` | 对内部图片 origin 读取进行签名 |
-| `R2_SECRET_ACCESS_KEY` | R2 S3 写入 Token 的密钥部分 |
 
-`prepare-cloudflare` 会创建存储桶、配置 Worker binding、准备 R2 S3 写入 Token、同步临时生命周期规则并写入生成的运行时配置。
+`prepare-cloudflare` 会创建存储桶、配置 Worker binding、同步临时生命周期规则并写入生成的运行时配置。
 
 ## 常见错误
 

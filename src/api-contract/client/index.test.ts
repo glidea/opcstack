@@ -47,6 +47,36 @@ describe('api contract client', () => {
 		}
 	]
 
+	type UploadGivenDetail = Record<string, never>
+	type UploadWhenDetail = Record<string, never>
+	type UploadThenExpected = {
+		url: string
+		method: string
+		contentType: string
+		body: string
+		key: string
+		readUrl: string
+	}
+
+	const uploadCases: TestCase<UploadGivenDetail, UploadWhenDetail, UploadThenExpected>[] = [
+		{
+			scenario: 'upload private r2 object',
+			given: 'client has token auth',
+			when: 'uploading a private object',
+			then: 'sends a put request to the r2 object route',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: {
+				url: 'https://app.example.com/api/r2/private/u1/images/a.png',
+				method: 'PUT',
+				contentType: 'image/png',
+				body: 'image',
+				key: 'private/u1/images/a.png',
+				readUrl: 'https://app.example.com/api/r2/private/u1/images/a.png'
+			}
+		}
+	]
+
 	type FetchGivenDetail = Record<string, never>
 	type FetchWhenDetail = Record<string, never>
 	type FetchThenExpected = {
@@ -246,6 +276,42 @@ describe('api contract client', () => {
 			resultBalance: result.balance,
 			storedMetaBookmark: bookmarks.meta ?? '',
 			storedTenantBookmark: bookmarks.tenant ?? ''
+		}
+	})
+
+	runCases(uploadCases, async (): Promise<UploadThenExpected> => {
+		let request: Request | undefined
+		const fetchApi = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+			request = new Request(input, init)
+			return Response.json({
+				key: 'private/u1/images/a.png',
+				read_url: 'https://app.example.com/api/r2/private/u1/images/a.png'
+			})
+		}
+		const testClient = createClient({
+			baseUrl: 'https://app.example.com',
+			fetchApi,
+			auth: { type: 'cookie' },
+			bookmarks: { type: 'cookie' }
+		})
+
+		const result = await testClient.api.uploadR2Object({
+			key: 'private/u1/images/a.png',
+			body: 'image',
+			content_type: 'image/png'
+		})
+
+		if (request === undefined) {
+			throw new Error('REQUEST_MISSING')
+		}
+
+		return {
+			url: request.url,
+			method: request.method,
+			contentType: request.headers.get('content-type') ?? '',
+			body: await request.text(),
+			key: result.key,
+			readUrl: result.read_url
 		}
 	})
 

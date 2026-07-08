@@ -7,7 +7,7 @@ order: 3
 
 # Storage
 
-OPCStack uses Cloudflare R2 for object bytes. The database stores business rows and R2 object keys. The Worker owns upload signing, read authorization, cache headers, image variants, and generated media writes.
+OPCStack uses Cloudflare R2 for object bytes. The database stores business rows and R2 object keys. The Worker owns uploads, read authorization, cache headers, image variants, and generated media writes.
 
 Do not treat R2 as a database. Store the file in R2, then store the key in the Meta DB or Tenant DB row that gives the object business meaning.
 
@@ -21,7 +21,7 @@ flowchart TB
   end
 
   subgraph Worker["Single Worker deployment"]
-    UploadApi["Upload URL APIs<br/>POST /api/create_r2_upload_url<br/>POST /api/admin/create_r2_public_upload_url"]
+    UploadApi["Upload APIs<br/>PUT /api/r2/private/*<br/>PUT /api/r2/tmp/private/*<br/>PUT /api/admin/r2/public/*"]
     ReadApi["Read APIs<br/>GET /api/r2/public/*<br/>GET /api/r2/tmp/public/*<br/>GET /api/r2/private/*<br/>GET /api/r2/tmp/private/*"]
     OriginApi["Signed image origin<br/>GET /api/internal/r2_image_origin/*"]
     BusinessApi["Business handlers<br/>profiles, AI tasks, files"]
@@ -36,7 +36,6 @@ flowchart TB
   end
 
   subgraph Cloudflare["Cloudflare services"]
-    S3Api["R2 S3 API<br/>presigned PUT"]
     ImageResize["Image Resizing<br/>variant=small / medium"]
     Lifecycle["R2 lifecycle<br/>tmp prefixes only"]
   end
@@ -47,11 +46,7 @@ flowchart TB
 
   Browser --> UploadApi
   Extension --> UploadApi
-  UploadApi --> R2Client
-  R2Client --> S3Api
-  S3Api -->|"60s upload_url"| Browser
-  Browser -->|"PUT object bytes"| S3Api
-  S3Api --> R2
+  UploadApi --> R2
 
   Browser --> ReadApi
   Extension --> ReadApi
@@ -74,7 +69,7 @@ flowchart TB
   Lifecycle --> R2
 ```
 
-The important boundary is the Worker. Browser and extension clients may upload directly to R2 only through a short-lived presigned URL. Reads still go through `/api/r2/*` so the Worker can enforce private object ownership and set cache headers.
+The important boundary is the Worker. Browser and extension uploads go through Worker proxy routes so the Worker can enforce ownership, MIME allowlist, and upload size. Reads also go through `/api/r2/*` so the Worker can enforce private object ownership and set cache headers.
 
 ## Object Namespaces
 
@@ -104,51 +99,39 @@ When the object belongs to a business row, store the R2 key on that row. User-ow
 Persistent private upload:
 
 ```typescript
-const upload = await apiClient.createR2UploadUrl({
-	is_tmp: false,
-	path: 'avatars/me.png',
-	content_type: file.type,
-	size: file.size
-})
-
-await fetch(upload.upload_url, {
-	method: 'PUT',
-	headers: {
-		'Content-Type': file.type
-	},
-	body: file
+const upload = await apiClient.uploadR2Object({
+	key: `private/${userId}/avatars/me.png`,
+	body: file,
+	content_type: file.type
 })
 ```
 
 Temporary upload:
 
 ```typescript
-const upload = await apiClient.createR2UploadUrl({
-	is_tmp: true,
-	path: 'drafts/input.png',
-	content_type: file.type,
-	size: file.size
+const upload = await apiClient.uploadR2Object({
+	key: `tmp/private/${userId}/drafts/input.png`,
+	body: file,
+	content_type: file.type
 })
 ```
 
 Admin public upload:
 
 ```typescript
-const upload = await apiClient.createR2PublicUploadUrl({
-	path: 'images/hero.png',
-	content_type: file.type,
-	size: file.size
+const upload = await apiClient.uploadR2PublicObject({
+	key: 'public/images/hero.png',
+	body: file,
+	content_type: file.type
 })
 ```
 
 The upload API enforces the real rules:
 
-- Upload paths are relative and cannot contain `..`
-- Upload URLs expire after 60 seconds
-- `content_type` must be listed in `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES`
-- `size` must not exceed `R2_USER_UPLOAD_MAX_BYTES`
-- User uploads are always private
-- User uploads use `is_tmp` to select `private/<userId>/*` or `tmp/private/<userId>/*`
+- Upload paths cannot contain `..`
+- `Content-Length` is required and must not exceed `R2_USER_UPLOAD_MAX_BYTES`
+- `Content-Type` must be listed in `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES`
+- User uploads may only write `private/<userId>/*` or `tmp/private/<userId>/*`
 - Admin public uploads write `public/*`
 
 After upload, application code should store `upload.key` in the relevant business row. The key is the stable reference. The returned `read_url` is a convenience URL.
@@ -271,9 +254,8 @@ The main storage settings are:
 | `R2_USER_UPLOAD_MAX_BYTES` | Max user upload size |
 | `R2_TMP_LIFECYCLE_RULES` | Temporary object deletion rules |
 | `R2_ORIGIN_SIGNING_SECRET` | Signs internal image origin reads |
-| `R2_SECRET_ACCESS_KEY` | Secret half of the R2 S3 write token |
 
-`prepare-cloudflare` creates the bucket, configures the Worker binding, prepares the R2 S3 write token, syncs temporary lifecycle rules, and writes generated runtime config.
+`prepare-cloudflare` creates the bucket, configures the Worker binding, syncs temporary lifecycle rules, and writes generated runtime config.
 
 ## Common Mistakes
 
