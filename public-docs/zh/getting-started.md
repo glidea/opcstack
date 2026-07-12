@@ -14,8 +14,7 @@ order: 1
 git clone https://github.com/glidea/opcstack <your-app-name>
 cd <your-app-name>
 git remote rename origin upstream
-git remote add origin <your-repo-url>
-git push -u origin main
+gh repo create <your-app-name> --private --source=. --remote=origin --push # 保留代码版权，禁止创建公开仓库
 pnpm install
 ```
 
