@@ -1,111 +1,110 @@
 # OPCStack
 
-让 OPC 开发更快，成本更低，生产可用
+Build OPC products faster, at lower cost, and ready for production.
 
-OPCStack 是给 One Person Company 准备的 Cloudflare-native AI SaaS 模板。内置认证、支付、积分、D1 Sharding、R2、KV、Queues、Cron、AI 任务、部署自动化和测试体系
+OPCStack is a Cloudflare-native AI SaaS template for One Person Companies. It includes authentication, payments, credits, D1 sharding, R2, KV, Queues, Cron, AI tasks, deployment automation, and a test suite.
 
 ---
 
-## 开发更快
+## Build Faster
 
-多数模板只给你页面、登录和几个示例接口，剩下的活还是得自己从零搭
+Most templates provide pages, login, and a few sample APIs. You still have to build everything else from scratch.
 
-真正拖慢开发的，往往不是 AI 写不出代码，而是缺一套稳定的工程底座。OPCStack 按 Harness Engineering 思路，把需求、上下文、约束、反馈、测试和部署收束成可重复执行的系统：底座和验收方式固定下来，AI 只需在稳定骨架里持续改业务，不用每次都从登录、支付、存储、队列和部署重新开始
+What slows development down is usually not that AI cannot write code. It is the lack of a stable engineering foundation. OPCStack follows Harness Engineering: requirements, context, constraints, feedback, testing, and deployment are made repeatable. With a fixed foundation and acceptance process, AI can focus on product changes instead of rebuilding login, payments, storage, queues, and deployment for every project.
 
-| 模块       | 已内置能力                                                                             |
-| ---------- | -------------------------------------------------------------------------------------- |
-| Web / API  | Cloudflare Workers，SvelteKit，Hono API，静态页面预渲染                                |
-| 数据库     | Cloudflare D1，Drizzle，用户数据分片，读副本，自动 migration                           |
-| 文件存储   | Cloudflare R2，公开文件，私有文件，临时文件，浏览器直传，图片变体                      |
-| 异步任务   | Cloudflare Queues，Cron 定时任务，Durable Objects                                      |
-| 账号系统   | Better Auth，邮箱登录，Google，GitHub，LinuxDO，Turnstile，内测码                      |
-| 积分系统   | 积分钱包，积分流水，注册赠送，每日签到，邀请奖励，兑换码，过期清理                     |
-| 支付订阅   | Dodo，Creem，一次性积分包，订阅，Webhook，退款扣回                                     |
-| 运营功能   | 用户反馈，系统通知，全局公告，定向通知，通知已读                                       |
-| AI 能力    | OpenAI，Gemini，SeedDream，Aliyun，Doubao，SeedDance，异步任务，R2 结果存储            |
-| 前端体验   | Tailwind CSS，shadcn-svelte，共享 UI，中英文 i18n，Web 端                              |
-| 浏览器扩展 | Chrome extension，WXT，popup，options，background，content script                      |
-| 文档和 SEO | Markdown 文档，sitemap，robots，Open Graph，Twitter Card，JSON-LD                      |
-| 部署配置   | Cloudflare 资源创建，环境变量模板，Worker 配置生成，独立 CN 域名自动优选加速，扩展打包 |
-| 测试       | TypeScript，Svelte Check，Vitest，BDD helper，E2E，本地和远程测试                      |
+| Area                  | Included capabilities                                                                                                               |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Web / API             | Cloudflare Workers, SvelteKit, Hono API, static page prerendering                                                                   |
+| Database              | Cloudflare D1, Drizzle, user data sharding, read replicas, automatic migrations                                                     |
+| File storage          | Cloudflare R2, public, private, and temporary files, browser direct uploads, image variants                                         |
+| Async work            | Cloudflare Queues, Cron jobs, Durable Objects                                                                                       |
+| Accounts              | Better Auth, email login, Google, GitHub, LinuxDO, Turnstile, beta codes                                                            |
+| Credits               | Credit wallet, ledger, signup grants, daily check-ins, referral rewards, redemption codes, expiry cleanup                           |
+| Payments              | Dodo, Creem, one-time credit packs, subscriptions, webhooks, refund reversals                                                       |
+| Operations            | User feedback, system announcements, targeted notifications, notification read state                                                |
+| AI                    | OpenAI, Gemini, SeedDream, Aliyun, Doubao, SeedDance, async tasks, R2 output storage                                                |
+| Frontend              | Tailwind CSS, shadcn-svelte, shared UI, English and Chinese i18n, web app                                                           |
+| Browser extension     | Chrome extension, WXT, popup, options, background, content scripts                                                                  |
+| Documentation and SEO | Markdown docs, sitemap, robots, Open Graph, Twitter Card, JSON-LD                                                                   |
+| Deployment            | Cloudflare resource provisioning, environment templates, Worker config generation, separate China domain setup, extension packaging |
+| Testing               | TypeScript, Svelte Check, Vitest, BDD helper, local and remote E2E tests                                                            |
 
-这些模块不是孤立 demo，而是围绕真实产品流程组织起来：
+These are not isolated demos. They are organized around a real product flow:
 
-```txt
-注册 -> 内测码 -> 积分 -> 邀请返利 -> 支付订阅 -> 通知 -> 反馈 -> 管理接口
+```text
+Signup -> Beta code -> Credits -> Referral rewards -> Payments and subscriptions -> Notifications -> Feedback -> Admin API
 ```
 
-你可以删除不需要的模块，但不用从零把这些基础流程再设计一遍
+Remove the modules you do not need without redesigning these foundational flows from scratch.
 
 ---
 
-## 选择 Cloudflare，是为了账单不被打爆
+## Why Cloudflare
 
-One Person Company 不应该把时间花在养服务器、调扩缩容、维护 Kubernetes、对象存储、队列和 CDN 上，应首选免运维，按量付费的 Serverless 平台
+One Person Companies should not spend time maintaining servers, autoscaling, Kubernetes, object storage, queues, or CDNs. A serverless platform with usage-based pricing is a better default.
 
-Vercel + Supabase 是很多独立开发者的首选，前期上手很顺。但业务一旦跑通，流量、调用、存储、队列和 CDN 成本会一起变成账单问题
+Vercel and Supabase are common choices for independent developers and work well at the beginning. Once a product gains traction, traffic, invocations, storage, queues, and CDN usage can turn into a serious bill.
 
-Cloudflare 的优势在这里：Workers、D1、R2、KV、Queues、Cron 和 CDN 都在同一套边缘平台里。可以用很低成本跑通注册、使用、付费、异步任务和文件存储
+Cloudflare puts Workers, D1, R2, KV, Queues, Cron, and CDN on one edge platform. It can run signup, usage, payments, async tasks, and file storage at low cost.
 
-公开讨论里有类似迁移案例：同一个前端应用在 Vercel 的月账单从不到 $100 涨到 $800 以上，迁到 Cloudflare Workers 后同等流量预计低于 $20，Lighthouse 分数还提高了：[Is anyone else frustrated with Vercel pricing once you scale?](https://www.reddit.com/r/nextjs/comments/1qnld0e/is_anyone_else_frustrated_with_vercel_pricing/)
+A public migration discussion describes a frontend application whose Vercel bill grew from under $100 to over $800 per month. After moving to Cloudflare Workers, the same traffic was estimated to cost under $20, while Lighthouse scores improved: [Is anyone else frustrated with Vercel pricing once you scale?](https://www.reddit.com/r/nextjs/comments/1qnld0e/is_anyone_else_frustrated_with_vercel_pricing/)
 
-免费额度足够跑通 MVP，用量上来后 Workers Paid Plan 每月 $5 起，按量付费。下面是 OPCStack 用到的核心产品定价：
+The free tier is enough to validate an MVP. When usage grows, the Workers Paid plan starts at $5 per month with usage-based billing. The table below summarizes the core products used by OPCStack:
 
-| 产品            | 免费额度                                             | Workers Paid Plan（$5/月起）                                                       |
-| --------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Workers         | 10 万请求/天，每次调用 10ms CPU                       | 含 1000 万请求/月，超出 $0.30/百万；含 3000 万 CPU 毫秒/月，超出 $0.02/百万毫秒     |
-| D1（数据库）    | 读 500 万行/天，写 10 万行/天，存储 5 GB              | 含读 250 亿行/月，超出 $0.001/百万；含写 5000 万行/月，超出 $1/百万；存储 $0.75/GB  |
-| R2（文件存储）  | 存储 10 GB，Class A 100 万/月，Class B 1000 万/月     | 存储 $0.015/GB；Class A $4.5/百万；Class B $0.36/百万；出网流量免费                 |
-| KV              | 读 10 万/天，写/删/列各 1000/天，存储 1 GB            | 含读 1000 万、写/删/列各 100 万/月；读超出 $0.50/百万，写/删/列超出 $5/百万         |
-| Queues（队列）  | 1 万次操作/天                                        | 含 100 万次操作/月，超出 $0.40/百万                                                 |
-| Cron 定时任务   | 随 Workers 免费，无额外费用                           | 随 Workers 计费，无额外费用                                                         |
-| CDN             | 免费，出网流量不额外计费                              | 免费，出网流量不额外计费                                                            |
+| Product       | Free tier                                                                              | Workers Paid plan, starting at $5/month                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Workers       | 100,000 requests/day, 10 ms CPU per invocation                                         | Includes 10 million requests/month, then $0.30/million; includes 30 million CPU ms/month, then $0.02/million CPU ms                              |
+| D1            | 5 million rows read/day, 100,000 rows written/day, 5 GB storage                        | Includes 25 billion rows read/month, then $0.001/million; includes 50 million rows written/month, then $1/million; storage is $0.75/GB           |
+| R2            | 10 GB storage, 1 million Class A operations/month, 10 million Class B operations/month | Storage is $0.015/GB; Class A is $4.50/million; Class B is $0.36/million; egress is free                                                         |
+| KV            | 100,000 reads/day, 1,000 writes, deletes, and lists each/day, 1 GB storage             | Includes 10 million reads and 1 million writes, deletes, and lists each/month; then $0.50/million reads and $5/million writes, deletes, or lists |
+| Queues        | 10,000 operations/day                                                                  | Includes 1 million operations/month, then $0.40/million                                                                                          |
+| Cron Triggers | Included with Workers                                                                  | Billed with Workers, with no separate charge                                                                                                     |
+| CDN           | Free, with no separate egress charge                                                   | Free, with no separate egress charge                                                                                                             |
 
-R2 出网流量免费是相对 S3 的关键优势，KV、Queues、D1 也都没有 egress 费用。上述为撰写时的公开定价，最新数字以 [Cloudflare 官方文档](https://developers.cloudflare.com/workers/platform/pricing/) 为准
-
----
-
-## 同样是 Cloudflare 模板，OPCStack 更生产可用
-
-很多 Cloudflare starter 只是把 Workers、D1、R2 接起来，适合演示，不适合直接做 SaaS
-
-OPCStack 多做了这些生产级工作：
-
-- Meta DB 和 Tenant Shard DB 分层，近乎无限的横向拓展
-- 新用户自动分配到 active shard
-- shard 支持 active / draining 状态
-- D1 read replication 和 bookmark 已接入
-- 跨 Meta DB + Tenant DB 的流程按 saga 和幂等副作用设计
-- R2 路径区分 public、private、tmp public、tmp private
-- AI 图片、语音、视频任务走 Queue + Tenant DB + R2
-- 本地和生产环境的 Cloudflare 资源自动准备
+R2's free egress is a major advantage over S3. KV, Queues, and D1 also have no egress fees. These are public prices at the time of writing. Refer to the [official Cloudflare pricing documentation](https://developers.cloudflare.com/workers/platform/pricing/) for current pricing.
 
 ---
 
-## 快速开始
+## More Production-Ready Than a Typical Cloudflare Template
 
-### 1. 创建你的项目
+Many Cloudflare starters connect Workers, D1, and R2. That is sufficient for a demo, but not for a SaaS product.
+
+OPCStack additionally provides:
+
+- Separate Meta DB and Tenant Shard DB layers for near-unbounded horizontal growth
+- Automatic assignment of new users to active shards
+- Active and draining shard states
+- D1 read replication and bookmarks
+- Saga-style and idempotent side effects for flows spanning Meta DB and Tenant DB
+- R2 paths separated into public, private, temporary public, and temporary private data
+- AI image, voice, and video tasks backed by Queues, Tenant DB, and R2
+- Automated Cloudflare resource preparation for local and production environments
+
+---
+
+## Quick Start
+
+### 1. Create your project
 
 ```bash
 git clone https://github.com/glidea/opcstack <your-app-name>
 cd <your-app-name>
 git remote rename origin upstream
-git remote add origin <your-repo-url>
-git push -u origin main
+gh repo create <your-app-name> --private --source=. --remote=origin --push # Keep the source private
 pnpm install
 ```
 
-### 2. 推荐：让 Agent 引导初始化
+### 2. Recommended: let an agent guide initialization
 
 ```text
 @AGENTS.md @BOOTSTRAP.md
 ```
 
-`BOOTSTRAP.md` 负责引导你完成项目初始化。`AGENTS.md` 是开发上下文，后续让 AI 改代码时继续使用
+`BOOTSTRAP.md` guides project initialization. `AGENTS.md` provides development context and should continue to be used when AI modifies the code.
 
-这个路径是推荐路径。README 不重复写完整配置手册，初始化细节应该由 Agent 根据当前环境逐步确认并执行
+This is the recommended path. The README deliberately does not duplicate the full configuration guide. An agent should inspect the current environment and guide setup step by step.
 
-### 3. 手动启动
+### 3. Start manually
 
 ```bash
 vim .env.dev
@@ -114,15 +113,15 @@ vim .env.secret.dev
 pnpm dev
 ```
 
-部署到 Cloudflare：
+Deploy to Cloudflare:
 
 ```bash
 pnpm deploy:cloudflare
 ```
 
-首次远程部署会提示创建 Cloudflare API Token。按命令行链接创建并粘贴一次，后续 token 会缓存在 `.wrangler/cloudflare-api-token`
+The first remote deployment prompts you to create a Cloudflare API Token. Open the CLI link, create the token, and paste it once. It is then cached in `.wrangler/cloudflare-api-token`.
 
-扩展开发：
+Develop the extension:
 
 ```bash
 pnpm dev:extension
@@ -131,65 +130,65 @@ pnpm build:extension
 
 ---
 
-## 项目地图
+## Project Map
 
-| 文件或目录                       | 职责                                                                    |
-| -------------------------------- | ----------------------------------------------------------------------- |
-| `AGENTS.md`                      | AI 开发上下文，包含架构、目录、运行时、数据库、R2、队列、前端、测试约定 |
-| `BOOTSTRAP.md`                   | 新项目初始化流程，让 Agent 引导配置和启动                               |
-| `SYNC_TEMPLATE.md`               | 从上游模板同步更新的流程                                                |
-| `scripts/prepare-public.mjs`     | 生成公开前端产物，包括客户端配置、Web logo 和扩展图标                   |
-| `scripts/prepare-cloudflare.mjs` | 本地和部署前 Cloudflare 自动化，生成配置、创建资源、应用迁移            |
-| `wrangler.jsonc.tpl`             | Cloudflare Worker 配置模板                                              |
-| `.env.dev` / `.env.prod`         | 可提交的公开环境配置                                                    |
-| `.env.secret.example`            | 密钥配置模板                                                            |
-| `src/api-contract/`              | API 请求、响应、schema 和共享类型                                       |
-| `src/frontend/lib/`              | 多端共享前端层，复用 UI、i18n、配置和客户端逻辑                         |
-| `src/frontend/web/`              | Web 端入口，SvelteKit 页面、路由、静态资源和 Web shell                  |
-| `src/frontend/extension/`        | Chrome extension 端入口，popup、options、background 和 content script   |
-| `src/backend/api/`               | Hono API、认证、middleware、业务接口                                    |
-| `src/backend/db/`                | Drizzle schema 和 D1 migration                                          |
-| `src/backend/r2/`                | R2 上传、读取、签名、图片变体                                           |
-| `src/backend/ai/`                | Chat、Image、TTS、Realtime、Video provider                              |
-| `src/backend/payment/`           | Dodo、Creem 支付和订阅逻辑                                              |
-| `src/backend/credits/`           | 积分钱包、流水、发放、扣减、过期                                        |
-| `src/backend/consumers/`         | Cloudflare Queue 消费者                                                 |
-| `src/backend/jobs/`              | Cron 定时任务                                                           |
-| `src/backend/do/`                | Durable Object                                                          |
-| `public-docs/`                   | 用户可见产品文档                                                        |
-| `template-docs/`                 | 模板开发说明文档                                                        |
-| `e2e/`                           | E2E 测试                                                                |
+| Path                             | Responsibility                                                                                                   |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `AGENTS.md`                      | AI development context: architecture, directories, runtime, database, R2, queues, frontend, and test conventions |
+| `BOOTSTRAP.md`                   | New project initialization workflow guided by an agent                                                           |
+| `SYNC_TEMPLATE.md`               | Process for syncing updates from the upstream template                                                           |
+| `scripts/prepare-public.mjs`     | Generates public frontend artifacts, including client config, web logo, and extension icons                      |
+| `scripts/prepare-cloudflare.mjs` | Local and pre-deployment Cloudflare automation: config generation, resource provisioning, and migrations         |
+| `wrangler.jsonc.tpl`             | Cloudflare Worker configuration template                                                                         |
+| `.env.dev` / `.env.prod`         | Committable public environment configuration                                                                     |
+| `.env.secret.example`            | Secret configuration template                                                                                    |
+| `src/api-contract/`              | API requests, responses, schemas, and shared types                                                               |
+| `src/frontend/lib/`              | Shared frontend layer for UI, i18n, configuration, and client logic                                              |
+| `src/frontend/web/`              | Web entrypoint: SvelteKit pages, routes, static assets, and web shell                                            |
+| `src/frontend/extension/`        | Chrome extension entrypoint: popup, options, background, and content scripts                                     |
+| `src/backend/api/`               | Hono API, authentication, middleware, and business endpoints                                                     |
+| `src/backend/db/`                | Drizzle schemas and D1 migrations                                                                                |
+| `src/backend/r2/`                | R2 uploads, reads, signing, and image variants                                                                   |
+| `src/backend/ai/`                | Chat, image, TTS, realtime, and video providers                                                                  |
+| `src/backend/payment/`           | Dodo and Creem payment and subscription logic                                                                    |
+| `src/backend/credits/`           | Credit wallet, ledger, grants, debits, and expiry                                                                |
+| `src/backend/consumers/`         | Cloudflare Queue consumers                                                                                       |
+| `src/backend/jobs/`              | Cron jobs                                                                                                        |
+| `src/backend/do/`                | Durable Objects                                                                                                  |
+| `public-docs/`                   | Product documentation visible to users                                                                           |
+| `template-docs/`                 | Template development documentation                                                                               |
+| `e2e/`                           | E2E tests                                                                                                        |
 
 ---
 
-## 路线图
+## Roadmap
 
-### 运营和运维
+### Operations
 
-- [ ] 统一的运营运维管理后台
-- [ ] 基于 Cloudflare Analytics 的指标监控和告警
+- [ ] Unified operations and administration console
+- [ ] Metrics monitoring and alerts based on Cloudflare Analytics
 
-### 支付和计费
+### Payments and Billing
 
-- [ ] 支持支付宝
-- [ ] 支持 ZPay、启润支付等低门槛支付渠道
-- [ ] 支持余额订阅
-- [ ] 完善支付渠道路由和商品配置
+- [ ] Alipay support
+- [ ] Lower-barrier payment providers such as ZPay and Qirun Pay
+- [ ] Balance-funded subscriptions
+- [ ] Better payment routing and product configuration
 
-### 稳定性和用量控制
+### Reliability and Usage Control
 
-- [ ] 统一限流
-- [ ] 用户级 quota
-- [ ] API、AI 任务、存储、积分消费的用量控制
+- [ ] Unified rate limiting
+- [ ] Per-user quotas
+- [ ] Usage controls for APIs, AI tasks, storage, and credit consumption
 
 ### Agent Runtime
 
-- [ ] 支持大规模多租 agent runtime
-- [ ] 集成长期记忆
-- [ ] 集成 skill 系统
-- [ ] 集成工具调用和运行时隔离
+- [ ] Large-scale multi-tenant agent runtime
+- [ ] Long-term memory
+- [ ] Skill system
+- [ ] Tool calling and runtime isolation
 
-### 多端支持
+### Multi-Platform Support
 
-- [ ] 支持移动端
-- [ ] 支持桌面端
+- [ ] Mobile support
+- [ ] Desktop support
