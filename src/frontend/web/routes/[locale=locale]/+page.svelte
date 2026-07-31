@@ -869,6 +869,7 @@ pnpm dev  # or pnpm deploy:cloudflare</code
 		height: 1400px;
 		opacity: 0.9;
 		filter: drop-shadow(0 24px 56px rgba(32, 26, 22, 0.16));
+		pointer-events: none;
 	}
 
 	.cf-global-globe svg {

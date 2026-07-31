@@ -58,4 +58,14 @@ describe('home hero mobile layout', () => {
 			desktopVisible: true
 		})
 	})
+
+	test('keeps decorative globe from blocking hero actions', () => {
+		const globeRule: string = extractRule('.cf-global-globe')
+
+		expect({
+			ignoresPointerEvents: globeRule.includes('pointer-events: none')
+		}).toEqual({
+			ignoresPointerEvents: true
+		})
+	})
 })
