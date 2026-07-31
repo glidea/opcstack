@@ -150,6 +150,8 @@ Key rules:
 
 ```
 .
+  QUICK_START.md        # Installs and invokes the create-opcstack-app Skill
+  CREATE_OPCSTACK_APP.md # Canonical project creation workflow fetched by the Skill
   e2e/                  # E2E tests
   template-docs/        # Template context docs for humans and agents
   public-docs/          # Product docs served at /docs/

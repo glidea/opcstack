@@ -8,29 +8,32 @@ order: 1
 
 # 快速开始
 
-## 1. 创建项目
+## 1. 使用 Agent 创建
+
+首次使用：
+
+```text
+Create an OPCStack app named <APP_NAME> by following:
+https://raw.githubusercontent.com/glidea/opcstack/main/QUICK_START.md
+```
+
+Agent 会按照当前平台规范安装用户级 `create-opcstack-app` Skill，然后创建并初始化项目。如果 `<APP_NAME>` 没有替换，Agent 会先询问应用名。
+
+以后创建新项目时直接调用已安装的 Skill：
+
+```text
+Use create-opcstack-app to create an app named <APP_NAME>.
+```
+
+Skill 每次运行都会读取最新流程，不需要手动更新。
+
+## 2. 手动安装
 
 ```bash
 git clone https://github.com/glidea/opcstack <your-app-name>
 cd <your-app-name>
 git remote rename origin upstream
-gh repo create <your-app-name> --private --source=. --remote=origin --push # 保留代码版权，禁止创建公开仓库
 pnpm install
-```
-
-## 2. 初始化项目
-
-推荐使用 AI 引导配置：
-
-```bash
-@AGENTS.md @BOOTSTRAP.md
-```
-
-`BOOTSTRAP.md` 引导 AI 助手完成本地配置。`AGENTS.md` 是助手在后续所有开发工作中使用的开发上下文。
-
-手动配置：
-
-```bash
 vim .env.dev
 cp .env.secret.example .env.secret.dev
 vim .env.secret.dev

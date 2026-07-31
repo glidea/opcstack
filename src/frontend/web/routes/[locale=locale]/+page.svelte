@@ -544,10 +544,8 @@
 						</strong>
 					</div>
 					<pre><code
-							>git clone https://github.com/glidea/opcstack your-app
-cd your-app && pnpm install
-@AGENTS.md @BOOTSTRAP.md
-pnpm dev  # or pnpm deploy:cloudflare</code
+							>Create an OPCStack app named &lt;APP_NAME&gt; by following:
+https://raw.githubusercontent.com/glidea/opcstack/main/QUICK_START.md</code
 						></pre>
 				</div>
 			</div>

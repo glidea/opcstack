@@ -30,7 +30,7 @@ OPCStack 是给 One Person Company 准备的 Cloudflare-native AI SaaS 模板。
 
 **刚刚克隆了模板？**
 
-从 [快速开始](getting-started.md) 开始。最快的方式是让 AI 助手引导你：打开你的 AI 编码工具，引用 `@BOOTSTRAP.md @AGENTS.md`，它会逐步带你完成本地配置。
+从 [快速开始](getting-started.md) 开始。首次使用时把 Quick Start 链接交给 AI 助手，它会安装 `create-opcstack-app`，以后创建项目可以直接调用这个 Skill。
 
 **即将上生产？**
 

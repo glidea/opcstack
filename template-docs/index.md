@@ -29,7 +29,7 @@ OPCStack is a Cloudflare-native product skeleton for one-person or small teams t
 
 **Just cloned the template?**
 
-Start with [Getting Started](getting-started.md). The fastest path is to let an AI agent guide you: open your AI coding tool, reference `@BOOTSTRAP.md @AGENTS.md`, and it will walk you through local setup step by step.
+Start with [Getting Started](getting-started.md). On first use, give the Quick Start URL to an AI coding agent. It installs `create-opcstack-app`; later projects can invoke the Skill directly.
 
 **Going to production?**
 

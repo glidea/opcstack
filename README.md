@@ -1,5 +1,7 @@
 # OPCStack
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Build OPC products faster, at lower cost, and ready for production.
 
 OPCStack is a Cloudflare-native AI SaaS template for One Person Companies. It includes authentication, payments, credits, D1 sharding, R2, KV, Queues, Cron, AI tasks, deployment automation, and a test suite.
@@ -84,29 +86,32 @@ OPCStack additionally provides:
 
 ## Quick Start
 
-### 1. Create your project
+First use:
+
+```text
+Create an OPCStack app named <APP_NAME> by following:
+https://raw.githubusercontent.com/glidea/opcstack/main/QUICK_START.md
+```
+
+The Agent installs the user-level `create-opcstack-app` Skill for its platform, then guides project creation. If `<APP_NAME>` is unchanged, it asks for the app name first.
+
+Later, create another app with the installed Skill:
+
+```text
+Use create-opcstack-app to create an app named <APP_NAME>.
+```
+
+The Skill reads the latest workflow on every run, so it does not need manual updates.
+
+### Manual Setup
+
+Create the project:
 
 ```bash
 git clone https://github.com/glidea/opcstack <your-app-name>
 cd <your-app-name>
 git remote rename origin upstream
-gh repo create <your-app-name> --private --source=. --remote=origin --push # Keep the source private
 pnpm install
-```
-
-### 2. Recommended: let an agent guide initialization
-
-```text
-@AGENTS.md @BOOTSTRAP.md
-```
-
-`BOOTSTRAP.md` guides project initialization. `AGENTS.md` provides development context and should continue to be used when AI modifies the code.
-
-This is the recommended path. The README deliberately does not duplicate the full configuration guide. An agent should inspect the current environment and guide setup step by step.
-
-### 3. Start manually
-
-```bash
 vim .env.dev
 cp .env.secret.example .env.secret.dev
 vim .env.secret.dev
@@ -135,7 +140,8 @@ pnpm build:extension
 | Path                             | Responsibility                                                                                                   |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `AGENTS.md`                      | AI development context: architecture, directories, runtime, database, R2, queues, frontend, and test conventions |
-| `BOOTSTRAP.md`                   | New project initialization workflow guided by an agent                                                           |
+| `QUICK_START.md`                 | Installs and invokes the platform-native `create-opcstack-app` Skill                                             |
+| `CREATE_OPCSTACK_APP.md`         | Canonical project creation and local initialization workflow                                                     |
 | `SYNC_TEMPLATE.md`               | Process for syncing updates from the upstream template                                                           |
 | `scripts/prepare-public.mjs`     | Generates public frontend artifacts, including client config, web logo, and extension icons                      |
 | `scripts/prepare-cloudflare.mjs` | Local and pre-deployment Cloudflare automation: config generation, resource provisioning, and migrations         |
@@ -192,3 +198,9 @@ pnpm build:extension
 
 - [ ] Mobile support
 - [ ] Desktop support
+
+---
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).

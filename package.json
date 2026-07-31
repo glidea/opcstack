@@ -1,5 +1,6 @@
 {
 	"private": true,
+	"license": "Apache-2.0",
 	"type": "module",
 	"scripts": {
 		"dev": "pnpm exec svelte-kit sync && pnpm prepare:cloudflare:dev && wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false && (wrangler dev --env-file .wrangler/runtime-secrets.env --port 8787 & vite dev --mode dev --port 5173 --strictPort)",

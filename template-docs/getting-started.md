@@ -7,29 +7,32 @@ order: 1
 
 # Getting Started
 
-## 1. Create your project
+## 1. Create with an Agent
+
+First use:
+
+```text
+Create an OPCStack app named <APP_NAME> by following:
+https://raw.githubusercontent.com/glidea/opcstack/main/QUICK_START.md
+```
+
+The Agent installs the user-level `create-opcstack-app` Skill for its platform, then creates and initializes the project. If `<APP_NAME>` is unchanged, it asks for the app name first.
+
+Later, create another app with the installed Skill:
+
+```text
+Use create-opcstack-app to create an app named <APP_NAME>.
+```
+
+The Skill reads the latest workflow on every run, so it does not need manual updates.
+
+## 2. Manual Setup
 
 ```bash
 git clone https://github.com/glidea/opcstack <your-app-name>
 cd <your-app-name>
 git remote rename origin upstream
-gh repo create <your-app-name> --private --source=. --remote=origin --push # 保留代码版权，禁止创建公开仓库
 pnpm install
-```
-
-## 2. Initialize the project
-
-AI guided setup is recommended:
-
-```bash
-@AGENTS.md @BOOTSTRAP.md
-```
-
-`BOOTSTRAP.md` guides the agent through local setup. `AGENTS.md` is the development context the agent uses for all future work.
-
-Manual setup:
-
-```bash
 vim .env.dev
 cp .env.secret.example .env.secret.dev
 vim .env.secret.dev

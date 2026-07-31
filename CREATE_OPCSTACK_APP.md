@@ -1,20 +1,20 @@
-# Bootstrap Onboarding Flow
+# Create OPCStack App
 
-> Agent workflow for bringing a freshly cloned OPCStack project to a local running state
+> Canonical workflow used by the `create-opcstack-app` Skill
 
 ---
 
 ## Goal
 
-Help the user run the project locally with the smallest required setup.
+Create a new OPCStack project and run it locally with the smallest required setup.
 
-Bootstrap is not a full product configuration guide. Its job is to get the user to a working `http://localhost:5173`, then route them to the right next action.
+This is not a full product configuration guide. Its job is to get the user to a working `http://localhost:5173`, then route them to the right next action.
 
 ---
 
 ## Non-goals
 
-Do not front-load these tasks during local bootstrap:
+Do not front-load these tasks during local setup:
 
 - Production domain setup
 - Resend domain verification
@@ -25,7 +25,7 @@ Do not front-load these tasks during local bootstrap:
 - Product documentation rewrite
 - Cloudflare remote deployment
 
-Only discuss these after local bootstrap succeeds, or when the user explicitly asks.
+Only discuss these after local setup succeeds, or when the user explicitly asks.
 
 ---
 
@@ -54,7 +54,8 @@ Use the right source for the right job.
 | Path | Role |
 | --- | --- |
 | `README.md` | Project value, positioning, quick entry |
-| `BOOTSTRAP.md` | Agent workflow for local first-run onboarding |
+| `QUICK_START.md` | Installs and invokes the `create-opcstack-app` Skill |
+| `CREATE_OPCSTACK_APP.md` | Canonical project creation workflow |
 | `AGENTS.md` | Stable Agent development context, architecture, rules, workflows |
 | `template-docs/` | Template context docs for Agents and developers |
 | `public-docs/` | Product-facing docs rendered by the app at `/docs/` |
@@ -68,11 +69,16 @@ When the user wants to understand or modify a template module, inspect `AGENTS.m
 
 ---
 
-## Phase 1: Check Local Prerequisites
+## Phase 1: Create The Project
 
-Run these checks:
+Use the `APP_NAME` passed to the Skill. If it is missing or still contains `<APP_NAME>`, ask the user for it before running commands.
+
+The app name must use lowercase letters, numbers, and hyphens. Example: `my-saas`.
+
+Run these checks from the parent directory where the project should be created:
 
 ```bash
+git --version
 node --version
 pnpm --version
 ```
@@ -82,13 +88,18 @@ Requirements:
 - Node.js `>= 20`
 - pnpm `>= 9`
 
-If dependencies are not installed, run:
+Create the project:
 
 ```bash
+git clone https://github.com/glidea/opcstack <app-name>
+cd <app-name>
+git remote rename origin upstream
 pnpm install
 ```
 
-Do not require Cloudflare login for local bootstrap. `pnpm dev` runs `scripts/prepare-cloudflare.mjs` in local mode and does not need remote Cloudflare provisioning.
+Keep `upstream` even when the user does not create their own GitHub repository. It is required for syncing template updates.
+
+Do not require Cloudflare login for local setup. `pnpm dev` runs `scripts/prepare-cloudflare.mjs` in local mode and does not need remote Cloudflare provisioning.
 
 ---
 
@@ -96,16 +107,11 @@ Do not require Cloudflare login for local bootstrap. `pnpm dev` runs `scripts/pr
 
 Ask only for the minimum information needed for local development:
 
-1. Project name
-   - Used as `APP_NAME`
-   - Use lowercase letters, numbers, and hyphens
-   - Example: `my-saas`
-
-2. System email
+1. System email
    - Used as `SYSTEM_EMAIL`
    - Example: `admin@example.com`
 
-3. Local auth mode
+2. Local auth mode
    - Recommended: email auth enabled with verification disabled
    - Alternative: keep current defaults and let the user configure real email later
 
@@ -133,8 +139,8 @@ Keep unrelated settings unchanged unless the user explicitly asks.
 Notes:
 
 - `TURNSTILE_ENABLED=true` is safe locally because `scripts/prepare-cloudflare.mjs` uses Cloudflare test keys in local mode
-- R2, Queues, Cron, and AI queue names may already be enabled in `.env.dev`; do not force users to configure them during bootstrap
-- Production-only values belong in `.env.prod` and `.env.secret.prod`, not in local bootstrap
+- R2, Queues, Cron, and AI queue names may already be enabled in `.env.dev`; do not force users to configure them during local setup
+- Production-only values belong in `.env.prod` and `.env.secret.prod`, not in local setup
 
 ---
 
@@ -198,13 +204,29 @@ Then tell the user to open:
 http://localhost:5173
 ```
 
-Do not finish bootstrap while a required dev server command is still running unless the user asks to stop.
+Do not finish local setup while a required dev server command is still running unless the user asks to stop.
 
 ---
 
-## Phase 6: Route The Next Step
+## Phase 6: Offer A GitHub Repository
 
-After local bootstrap succeeds, do not continue into every possible configuration task. Ask what the user wants next.
+After local startup succeeds, ask whether the user wants to create a private GitHub repository.
+
+If the user agrees, run:
+
+```bash
+gh repo create <app-name> --private --source=. --remote=origin --push
+```
+
+If `gh` is not installed or authenticated, guide the user through that setup before retrying. GitHub repository creation is optional and must not block local setup.
+
+Whether or not `origin` exists, keep `upstream` pointed at `https://github.com/glidea/opcstack`.
+
+---
+
+## Phase 7: Route The Next Step
+
+After local setup succeeds, do not continue into every possible configuration task. Ask what the user wants next.
 
 Use these options:
 
@@ -292,10 +314,10 @@ Explain:
 
 ## Completion Message
 
-When local bootstrap is complete, summarize only what matters:
+When local setup is complete, summarize only what matters:
 
 ```text
-Local bootstrap is complete.
+Local setup is complete.
 
 App: http://localhost:5173
 Health: http://localhost:5173/api/health
