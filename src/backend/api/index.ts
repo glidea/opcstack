@@ -47,6 +47,14 @@ import { authCore } from './auth'
 import { logError } from '../lib/log'
 import type { ApiErrorResponse } from '../../api-contract/common'
 import type { MetaDb, TenantShardDb } from '../db'
+import {
+	authorizationCallbackHandler,
+	createAgentAuthorizationHandler,
+	listAgentGrantsHandler,
+	pollAgentAuthorizationHandler,
+	resolveAgentAuthorizationHandler,
+	revokeAgentGrantHandler
+} from './handler/agent-auth'
 
 export type ApiEnv = {
 	Bindings: Env
@@ -65,6 +73,11 @@ publicApi.get('/health', (ctx): Response => {
 	return ctx.json({})
 })
 
+publicApi.post('/agent/create_authorization', createAgentAuthorizationHandler)
+publicApi.post('/agent/poll_authorization', pollAgentAuthorizationHandler)
+publicApi.post('/agent/resolve_authorization', resolveAgentAuthorizationHandler)
+publicApi.get('/agent/authorization_callback', authorizationCallbackHandler)
+
 publicApi.all('/auth/*', async (ctx): Promise<Response> => {
 	const h = authCore(ctx.env, ctx.get('metaDb')).handler
 	return h(ctx.req.raw)
@@ -79,6 +92,8 @@ publicApi.get('/internal/r2_image_origin/*', readR2ImageOriginHandler)
 
 const authOnlyApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 authOnlyApi.post('/bind_beta_code', authMiddleware, bindBetaCodeHandler)
+authOnlyApi.post('/agent/list_grants', authMiddleware, listAgentGrantsHandler)
+authOnlyApi.post('/agent/revoke_grant', authMiddleware, revokeAgentGrantHandler)
 
 const adminApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 adminApi.use('/admin/*', adminUserMiddleware)

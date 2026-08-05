@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
 	buildDnsCnameRecordPayload,
+	buildAgentOAuthClientUpsertSql,
 	buildRequiredSecretKeys,
 	buildRuntimeSecretLines,
 	buildTypesWranglerConfig,
@@ -11,6 +12,17 @@ import {
 import { resolveAppCnCnameTarget } from './prepare-public.mjs'
 
 describe('prepare cloudflare dns config', () => {
+	it('seeds the fixed agent oauth client with the deployment callback', () => {
+		const sql = buildAgentOAuthClientUpsertSql({
+			baseUrl: 'https://app.example.com',
+			nowMs: 123
+		})
+
+		expect(sql).toContain("'opcstack-agent', 'opcstack-agent'")
+		expect(sql).toContain('https://app.example.com/api/agent/authorization_callback')
+		expect(sql).toContain('authorization_code')
+	})
+
 	it('normalizes app cn cname target', () => {
 		const env = {
 			APP_CN_CNAME_TARGET: 'https://preferred.example.com/'
