@@ -1,13 +1,20 @@
-import { beforeEach, describe, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import { adminUserMiddleware, authMiddleware } from './auth'
 import { authCore } from '../auth'
+import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 
 vi.mock('../auth', () => {
 	return {
 		authCore: vi.fn()
+	}
+})
+
+vi.mock('@better-auth/oauth-provider/resource-client', () => {
+	return {
+		oauthProviderResourceClient: vi.fn()
 	}
 })
 
@@ -396,6 +403,93 @@ describe('adminUserMiddleware', () => {
 			tokenUserId: String(tokenState.values['userId'] ?? ''),
 			sessionUserId: String(sessionState.values['userId'] ?? '')
 		}
+	})
+})
+
+describe('Agent JWT authorization', () => {
+	it('accepts a verified Agent JWT and exposes its grant scopes', async () => {
+		const verifyAccessToken = vi.fn(async () => ({
+			sub: 'user-1',
+			azp: 'opcstack-agent',
+			grant_id: 'grant-1',
+			agent_scopes: ['reports:read'],
+			agent_grant_status: 'active'
+		}))
+		vi.mocked(oauthProviderResourceClient).mockReturnValue({
+			getActions: () => ({ verifyAccessToken })
+		} as never)
+		vi.mocked(authCore).mockReturnValue({
+			api: { getSession: vi.fn(async () => null) }
+		} as never)
+
+		const state = createContextState('/api/agent/reports', 'Bearer agent-token')
+		state.values['metaDb'] = {
+			query: {
+				agentGrant: {
+					findFirst: vi.fn(async () => ({
+						id: 'grant-1',
+						userId: 'user-1',
+						clientId: 'opcstack-agent',
+						scopes: 'reports:read',
+						status: 'active',
+						createdAt: 1,
+						approvedAt: 1,
+						revokedAt: null
+					}))
+				}
+			}
+		}
+
+		const ctx = createContext(state)
+		const result = await authMiddleware(ctx, state.next)
+
+		expect(result).toBeUndefined()
+		expect(state.nextCalled).toBe(true)
+		expect(state.values['userId']).toBe('user-1')
+		expect(state.values['agentAuthorization']).toEqual({
+			userId: 'user-1',
+			clientId: 'opcstack-agent',
+			grantId: 'grant-1',
+			scopes: ['reports:read']
+		})
+	})
+
+	it('rejects an Agent JWT after its grant is revoked', async () => {
+		vi.mocked(oauthProviderResourceClient).mockReturnValue({
+			getActions: () => ({
+				verifyAccessToken: vi.fn(async () => ({
+					sub: 'user-1',
+					azp: 'opcstack-agent',
+					grant_id: 'grant-1',
+					agent_scopes: ['reports:read'],
+					agent_grant_status: 'active'
+				}))
+			})
+		} as never)
+		vi.mocked(authCore).mockReturnValue({
+			api: { getSession: vi.fn(async () => null) }
+		} as never)
+		const state = createContextState('/api/agent/reports', 'Bearer agent-token')
+		state.values['metaDb'] = {
+			query: {
+				agentGrant: {
+					findFirst: vi.fn(async () => ({
+						id: 'grant-1',
+						userId: 'user-1',
+						clientId: 'opcstack-agent',
+						scopes: 'reports:read',
+						status: 'revoked',
+						createdAt: 1,
+						approvedAt: 1,
+						revokedAt: 2
+					}))
+				}
+			}
+		}
+
+		const response = await authMiddleware(createContext(state), state.next)
+		expect(response?.status).toBe(401)
+		expect(state.nextCalled).toBe(false)
 	})
 })
 

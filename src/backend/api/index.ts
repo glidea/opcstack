@@ -1,5 +1,9 @@
 import { Hono, type Context } from 'hono'
-import { adminUserMiddleware, authMiddleware } from './middleware/auth'
+import {
+	adminUserMiddleware,
+	authMiddleware,
+	browserSessionOnlyMiddleware
+} from './middleware/auth'
 import { emailAuthMiddleware } from './middleware/email-auth'
 import { betaGateMiddleware } from './middleware/beta-gate'
 import { metaDbSessionMiddleware } from './middleware/meta-db-session'
@@ -60,6 +64,12 @@ export type ApiEnv = {
 	Bindings: Env
 	Variables: {
 		userId: string
+		agentAuthorization: {
+			userId: string
+			clientId: string
+			grantId: string
+			scopes: string[]
+		} | undefined
 		metaDb: MetaDb
 		tenantDb: TenantShardDb
 		tenantShardId: string
@@ -91,9 +101,9 @@ publicApi.get('/r2/tmp/public/*', readR2ObjectHandler)
 publicApi.get('/internal/r2_image_origin/*', readR2ImageOriginHandler)
 
 const authOnlyApi: Hono<ApiEnv> = new Hono<ApiEnv>()
-authOnlyApi.post('/bind_beta_code', authMiddleware, bindBetaCodeHandler)
-authOnlyApi.post('/agent/list_grants', authMiddleware, listAgentGrantsHandler)
-authOnlyApi.post('/agent/revoke_grant', authMiddleware, revokeAgentGrantHandler)
+authOnlyApi.post('/bind_beta_code', authMiddleware, browserSessionOnlyMiddleware, bindBetaCodeHandler)
+authOnlyApi.post('/agent/list_grants', authMiddleware, browserSessionOnlyMiddleware, listAgentGrantsHandler)
+authOnlyApi.post('/agent/revoke_grant', authMiddleware, browserSessionOnlyMiddleware, revokeAgentGrantHandler)
 
 const adminApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 adminApi.use('/admin/*', adminUserMiddleware)
@@ -109,7 +119,7 @@ adminApi.put('/admin/r2/public/*', uploadR2PublicObjectHandler)
 adminApi.get('/admin/ai_realtime_connect', aiRealtimeConnectHandler)
 
 const userApi: Hono<ApiEnv> = new Hono<ApiEnv>()
-userApi.use('*', authMiddleware, betaGateMiddleware, tenantDbMiddleware)
+userApi.use('*', authMiddleware, browserSessionOnlyMiddleware, betaGateMiddleware, tenantDbMiddleware)
 userApi.get('/r2/private/*', readR2ObjectHandler)
 userApi.get('/r2/tmp/private/*', readR2ObjectHandler)
 userApi.put('/r2/private/*', uploadR2ObjectHandler)
