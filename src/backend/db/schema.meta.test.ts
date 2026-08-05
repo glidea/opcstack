@@ -5,6 +5,8 @@ import {
 	checkoutOrder,
 	creditRedemptionCode,
 	d1Shard,
+	agentAuthorizationRequest,
+	agentGrant,
 	paymentTransaction,
 	userSubscription
 } from './schema.meta'
@@ -58,6 +60,15 @@ describe('schema.meta', () => {
 			givenDetail: { schema: 'meta' },
 			whenDetail: { check: 'd1-shard-region' },
 			thenExpected: { result: true }
+		},
+		{
+			scenario: 'agent authorization ownership',
+			given: 'meta schema',
+			when: 'checking agent authorization tables',
+			then: 'relay and grant state stay in meta',
+			givenDetail: { schema: 'meta' },
+			whenDetail: { check: 'agent-authorization-tables' },
+			thenExpected: { result: true }
 		}
 	]
 
@@ -93,6 +104,11 @@ describe('schema.meta', () => {
 			case 'd1-shard-region':
 				return {
 					result: d1Shard.region !== undefined
+				}
+			case 'agent-authorization-tables':
+				return {
+					result:
+						agentAuthorizationRequest !== undefined && agentGrant !== undefined
 				}
 			default:
 				return { result: false }
