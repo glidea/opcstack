@@ -281,7 +281,8 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 
 - Better Auth lives in `src/backend/api/auth/index.ts`.
 - `authMiddleware` injects `userId` into `ctx.variables`.
-- Authenticated API routes accept Better Auth sessions from Cookie or `Authorization: Bearer <token>`.
+- Authenticated API routes accept Better Auth browser sessions from Cookie or `Authorization: Bearer <token>`. Agent JWTs are verified by the OAuth Provider resource client and expose `agentAuthorization`; existing browser-only routes reject them. Agent-enabled routes must explicitly use `requireAgentScope(scope)`.
+- The generic credential client is `opc auth connect` plus `opc api request`; it injects tokens and must not contain business API types or route-specific methods.
 - `adminUserMiddleware` validates super admin session or `ADMIN_API_TOKEN`.
 - `SYSTEM_EMAIL` is the single operator mailbox used for public support contact, super admin identity, and outbound email sender.
 - Credits use integer units where `1 credit = 1_000_000 units`; API credit amounts use decimal strings.

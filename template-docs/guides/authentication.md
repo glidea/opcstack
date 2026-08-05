@@ -85,6 +85,17 @@ POST /api/auth/email-otp/verify-email
 
 The password hasher in `buildPasswordHasher` uses `crypto.subtle.digest('SHA-1', ...)` with a random 8-byte salt. The hash format is `saltHex:keyHex`.
 
+## Agent Delegated Authorization
+
+The template supports a fixed public OAuth client for headless Agents. The CLI owns PKCE, relay polling, token exchange, refresh rotation, and the local credential file. Tokens are never passed to the language model or printed by the CLI.
+
+```text
+opc auth connect --server https://app.example.com --scopes reports:read,reports:write
+opc api request --method POST --url /api/application-defined-route --query '{"page":1}' --body '{"input":"value"}'
+```
+
+The generic request command injects the Bearer token, rejects caller-supplied `Authorization`, and only sends it to the configured server origin. It has no business API types or scope registry. Application routes opt in with `requireAgentScope(scope)` and read `ctx.get('agentAuthorization')`.
+
 ### Email OTP
 
 Email OTP is a plugin-level feature, not a login method. `disableSignUp: true` in the plugin config means OTP cannot create a new user. The OTP sign-in route is hard-blocked by `emailAuthMiddleware`:

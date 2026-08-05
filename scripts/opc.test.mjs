@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildApiUrl, createPkcePair, parseScopes } from './opc.mjs'
+import { buildApiUrl, createPkcePair, injectAccessToken, parseScopes, resolveSameOriginUrl } from './opc.mjs'
 
 describe('opc cli protocol helpers', () => {
 	it('creates a PKCE verifier and matching challenge shape', () => {
@@ -16,6 +16,18 @@ describe('opc cli protocol helpers', () => {
 	it('resolves API paths against the configured server', () => {
 		expect(buildApiUrl('https://app.example.com/', '/api/reports')).toBe(
 			'https://app.example.com/api/reports'
+		)
+	})
+
+	it('rejects cross-origin token requests', () => {
+		expect(() => resolveSameOriginUrl('https://app.example.com', 'https://evil.example.com/data')).toThrow(
+			'Only same-origin URLs can receive an Agent token'
+		)
+	})
+
+	it('does not allow callers to provide Authorization', () => {
+		expect(() => injectAccessToken({ Authorization: 'Bearer user-token' }, 'agent-token')).toThrow(
+			'Authorization header is managed by opc'
 		)
 	})
 })

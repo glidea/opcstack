@@ -9,6 +9,7 @@ const CLIENT_ID = 'opcstack-agent'
 const REDIRECT_URI_PATH = '/api/agent/authorization_callback'
 const CONFIG_DIR = join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'opcstack')
 const CREDENTIALS_PATH = join(CONFIG_DIR, 'credentials.json')
+let refreshPromise
 
 export function createPkcePair() {
 	const verifier = randomBytes(32).toString('base64url')
@@ -22,6 +23,23 @@ export function parseScopes(value) {
 
 export function buildApiUrl(server, path) {
 	return new URL(path, `${server.replace(/\/$/, '')}/`).toString()
+}
+
+export function resolveSameOriginUrl(server, path) {
+	const url = new URL(path, `${server.replace(/\/$/, '')}/`)
+	if (url.origin !== new URL(server).origin) {
+		throw new Error('Only same-origin URLs can receive an Agent token')
+	}
+	return url
+}
+
+export function injectAccessToken(headers, accessToken) {
+	for (const name of Object.keys(headers)) {
+		if (name.toLowerCase() === 'authorization') {
+			throw new Error('Authorization header is managed by opc')
+		}
+	}
+	return { ...headers, Authorization: `Bearer ${accessToken}` }
 }
 
 async function readCredentials() {
@@ -109,7 +127,21 @@ async function login(server, scopes) {
 }
 
 async function refreshCredentials(credentials) {
-	const token = await requestJson(buildApiUrl(credentials.server, '/api/auth/oauth2/token'), {
+	if (refreshPromise) {
+		return refreshPromise
+	}
+	refreshPromise = refreshCredentialsOnce(credentials)
+	try {
+		return await refreshPromise
+	} finally {
+		refreshPromise = undefined
+	}
+}
+
+async function refreshCredentialsOnce(credentials) {
+	let token
+	try {
+		token = await requestJson(buildApiUrl(credentials.server, '/api/auth/oauth2/token'), {
 		method: 'POST',
 		headers: { 'content-type': 'application/x-www-form-urlencoded' },
 		body: new URLSearchParams({
@@ -117,7 +149,11 @@ async function refreshCredentials(credentials) {
 			client_id: CLIENT_ID,
 			refresh_token: credentials.refresh_token
 		}).toString()
-	})
+		})
+	} catch {
+		await rm(CREDENTIALS_PATH, { force: true })
+		throw new Error('AUTHORIZATION_REQUIRED')
+	}
 	const refreshed = {
 		...credentials,
 		access_token: token.access_token,
@@ -128,24 +164,33 @@ async function refreshCredentials(credentials) {
 	return refreshed
 }
 
-async function apiRequest(method, path, body) {
+async function apiRequest(method, path, body, query, headers) {
 	let credentials = await readCredentials()
 	if (Number(credentials.expires_at) <= Date.now() + 10_000) {
 		credentials = await refreshCredentials(credentials)
 	}
+	const url = resolveSameOriginUrl(credentials.server, path)
+	if (query) {
+		for (const [key, value] of Object.entries(query)) {
+			url.searchParams.set(key, String(value))
+		}
+	}
+	const requestHeaders = { ...headers }
+	const hasContentType = Object.keys(requestHeaders).some((name) => name.toLowerCase() === 'content-type')
+	const requestHeadersWithDefaults = {
+		...requestHeaders,
+		...(body === undefined || hasContentType ? {} : { 'content-type': 'application/json' })
+	}
 	const init = {
 		method,
-		headers: {
-			Authorization: `Bearer ${credentials.access_token}`,
-			...(body === undefined ? {} : { 'content-type': 'application/json' })
-		},
+		headers: injectAccessToken(requestHeadersWithDefaults, credentials.access_token),
 		...(body === undefined ? {} : { body: JSON.stringify(body) })
 	}
-	let response = await fetch(buildApiUrl(credentials.server, path), init)
+	let response = await fetch(url, init)
 	if (response.status === 401) {
 		credentials = await refreshCredentials(credentials)
-		init.headers.Authorization = `Bearer ${credentials.access_token}`
-		response = await fetch(buildApiUrl(credentials.server, path), init)
+		init.headers = injectAccessToken(requestHeadersWithDefaults, credentials.access_token)
+		response = await fetch(url, init)
 	}
 	const responseBody = await response.text()
 	if (!response.ok) {
@@ -165,6 +210,9 @@ async function main(argv) {
 		await login(server, scopes)
 		return
 	}
+	if (group === 'auth' && action === 'connect') {
+		return main(['auth', 'login', ...args])
+	}
 	if (group === 'auth' && action === 'logout') {
 		await rm(CREDENTIALS_PATH, { force: true })
 		console.log('Logged out')
@@ -176,12 +224,25 @@ async function main(argv) {
 		return
 	}
 	if (group === 'api' && action === 'request') {
-		const method = args[0]
-		const path = args[1]
+		const methodIndex = args.indexOf('--method')
+		const urlIndex = args.indexOf('--url')
+		const method = methodIndex >= 0 ? args[methodIndex + 1] : args[0]
+		const path = urlIndex >= 0 ? args[urlIndex + 1] : args[1]
 		if (!method || !path) throw new Error('Usage: opc api request METHOD /path [--body JSON]')
 		const bodyIndex = args.indexOf('--body')
 		const body = bodyIndex >= 0 ? JSON.parse(args[bodyIndex + 1]) : undefined
-		await apiRequest(method, path, body)
+		const queryIndex = args.indexOf('--query')
+		const query = queryIndex >= 0 ? JSON.parse(args[queryIndex + 1]) : undefined
+		const headers = {}
+		for (let index = 0; index < args.length; index += 1) {
+			if (args[index] !== '--header') continue
+			const separator = String(args[index + 1]).indexOf(':')
+			if (separator < 1) throw new Error('Invalid header')
+			const name = String(args[index + 1]).slice(0, separator)
+			const value = String(args[index + 1]).slice(separator + 1).trim()
+			headers[name] = value
+		}
+		await apiRequest(method, path, body, query, headers)
 		return
 	}
 	throw new Error('Usage: opc auth login|logout|status or opc api request')

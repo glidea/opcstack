@@ -86,6 +86,17 @@ POST /api/auth/email-otp/verify-email
 
 `buildPasswordHasher` 中的密码哈希器使用 `crypto.subtle.digest('SHA-1', ...)` 配合随机 8 字节盐。哈希格式为 `saltHex:keyHex`。
 
+## Agent 委托授权
+
+模板为无头 Agent 提供固定 public OAuth client。CLI 负责 PKCE、relay 轮询、授权码交换、refresh rotation 和本地凭据文件。Token 不会传入模型上下文，也不会由 CLI 打印。
+
+```text
+opc auth connect --server https://app.example.com --scopes reports:read,reports:write
+opc api request --method POST --url /api/application-defined-route --body '{"input":"value"}'
+```
+
+通用请求命令自动注入 Bearer Token，拒绝调用方传入 `Authorization`，并且只向配置的同源地址发送 Token。它不包含业务 API 类型，也不维护 scope 注册表。业务路由显式使用 `requireAgentScope(scope)`，并从 `ctx.get('agentAuthorization')` 读取授权上下文。
+
 ### 邮件 OTP
 
 邮件 OTP 是插件级功能，不是登录方式。插件配置中的 `disableSignUp: true` 意味着 OTP 不能创建新用户。OTP 登录路由被 `emailAuthMiddleware` 硬拦截：
