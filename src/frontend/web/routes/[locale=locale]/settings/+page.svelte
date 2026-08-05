@@ -85,6 +85,10 @@
 			</p>
 		</div>
 
+		<Button variant="outline" href={`/${data.locale}/settings/agents`}>
+			{$_('settings.agents.title')}
+		</Button>
+
 		<section class="border-t border-border py-8">
 			<div class="grid gap-8 md:grid-cols-[220px_1fr]">
 				<div>
