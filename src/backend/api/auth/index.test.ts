@@ -276,6 +276,58 @@ describe('authCore agent OAuth provider', () => {
 			storeTokens: 'hashed'
 		})
 	})
+
+	it('binds OAuth tokens to the active Agent grant and its application scopes', async () => {
+		const env = createEnv({
+			emailSignupEnabled: 'false',
+			emailRequireVerification: 'false',
+			cooldownSeconds: '50',
+			emailResendApiKey: '',
+			emailFrom: ''
+		})
+		const grant = {
+			id: 'grant-1',
+			userId: 'user-1',
+			clientId: 'opcstack-agent',
+			scopes: 'reports:read',
+			status: 'active',
+			createdAt: 1,
+			approvedAt: 2,
+			revokedAt: null
+		}
+		const db = {
+			run: vi.fn().mockResolvedValue(undefined),
+			query: {
+				agentGrant: {
+					findFirst: vi.fn().mockResolvedValue(grant)
+				}
+			}
+		} as never
+
+		authCore(env, db)
+		const options = vi.mocked(oauthProvider).mock.calls[0]?.[0] as {
+			postLogin?: {
+				consentReferenceId: (input: { user: { id: string } }) => Promise<string>
+			}
+			customAccessTokenClaims?: (input: {
+				user: { id: string }
+				referenceId: string
+			}) => Promise<Record<string, unknown>>
+		}
+
+		const referenceId = await options.postLogin?.consentReferenceId({ user: { id: 'user-1' } })
+		const claims = await options.customAccessTokenClaims?.({
+			user: { id: 'user-1' },
+			referenceId: 'grant-1'
+		})
+
+		expect(referenceId).toBe('grant-1')
+		expect(claims).toEqual({
+			grant_id: 'grant-1',
+			agent_scopes: ['reports:read'],
+			agent_grant_status: 'active'
+		})
+	})
 })
 
 describe('authCore turnstile config mapping', () => {

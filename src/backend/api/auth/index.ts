@@ -14,6 +14,13 @@ import { createEmailClients, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
 import { parseDecimal } from '../../lib/decimal'
+import {
+	AGENT_CLIENT_ID,
+	AgentAuthError,
+	getAgentGrant,
+	getOrCreateActiveGrant,
+	parseCanonicalScopes
+} from '../../agent-auth'
 
 const REGISTRATION_UTM_SOURCE_COOKIE = 'registration_utm_source'
 
@@ -22,7 +29,7 @@ export function authCore(env: Env, db: MetaDb) {
   const emailOtpPlugin = buildEmailOtp(env)
   const captchaPlugin = buildTurnstileCaptcha(env)
   const linuxDoOAuthPlugin: ReturnType<typeof genericOAuth> | undefined = buildLinuxDoOAuth(env)
-  const plugins: AuthPlugin[] = [bearer(), emailOtpPlugin, buildAgentOAuthProvider(env)]
+  const plugins: AuthPlugin[] = [bearer(), emailOtpPlugin, buildAgentOAuthProvider(env, db)]
   if (captchaPlugin) {
     plugins.push(captchaPlugin)
   }
@@ -112,7 +119,7 @@ export function authCore(env: Env, db: MetaDb) {
   })
 }
 
-function buildAgentOAuthProvider(env: Env): ReturnType<typeof oauthProvider> {
+function buildAgentOAuthProvider(env: Env, db: MetaDb): ReturnType<typeof oauthProvider> {
   return oauthProvider({
     scopes: ['agent', 'offline_access'],
     validAudiences: [env.APP_BASE_URL],
@@ -121,7 +128,33 @@ function buildAgentOAuthProvider(env: Env): ReturnType<typeof oauthProvider> {
     refreshTokenExpiresIn: 30 * 24 * 60 * 60,
     loginPage: '/agent/authorize',
     consentPage: '/agent/consent',
-    storeTokens: 'hashed'
+    storeTokens: 'hashed',
+    postLogin: {
+			page: '/agent/authorize',
+			shouldRedirect: async (): Promise<boolean> => false,
+			consentReferenceId: async ({ user }): Promise<string> => {
+				const grant = await getOrCreateActiveGrant(db, {
+					userId: user.id,
+					clientId: AGENT_CLIENT_ID,
+					scopes: []
+				})
+				return grant.id
+			}
+		},
+		customAccessTokenClaims: async ({ user, referenceId }): Promise<Record<string, unknown>> => {
+			if (!user || !referenceId) {
+				return {}
+			}
+			const grant = await getAgentGrant(db, referenceId)
+			if (grant.status !== 'active') {
+				throw new AgentAuthError('GRANT_REVOKED', 'Agent grant is revoked')
+			}
+			return {
+				grant_id: grant.id,
+				agent_scopes: parseCanonicalScopes(grant.scopes),
+				agent_grant_status: grant.status
+			}
+		}
   })
 }
 
