@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer, captcha, emailOTP, genericOAuth } from 'better-auth/plugins'
+import { oauthProvider } from '@better-auth/oauth-provider'
 import type { MetaDb } from '../../db'
 import * as authSchema from '../../db/schema.auth'
 import {
@@ -21,7 +22,7 @@ export function authCore(env: Env, db: MetaDb) {
   const emailOtpPlugin = buildEmailOtp(env)
   const captchaPlugin = buildTurnstileCaptcha(env)
   const linuxDoOAuthPlugin: ReturnType<typeof genericOAuth> | undefined = buildLinuxDoOAuth(env)
-  const plugins: AuthPlugin[] = [bearer(), emailOtpPlugin]
+  const plugins: AuthPlugin[] = [bearer(), emailOtpPlugin, buildAgentOAuthProvider(env)]
   if (captchaPlugin) {
     plugins.push(captchaPlugin)
   }
@@ -108,6 +109,19 @@ export function authCore(env: Env, db: MetaDb) {
       expiresIn: 30 * 24 * 60 * 60,
       updateAge: 27 * 24 * 60 * 60
     }
+  })
+}
+
+function buildAgentOAuthProvider(env: Env): ReturnType<typeof oauthProvider> {
+  return oauthProvider({
+    scopes: ['agent', 'offline_access'],
+    validAudiences: [env.APP_BASE_URL],
+    grantTypes: ['authorization_code', 'refresh_token'],
+    accessTokenExpiresIn: 15 * 60,
+    refreshTokenExpiresIn: 30 * 24 * 60 * 60,
+    loginPage: '/agent/authorize',
+    consentPage: '/agent/consent',
+    storeTokens: 'hashed'
   })
 }
 
@@ -381,6 +395,7 @@ type AuthPlugin =
   | ReturnType<typeof emailOTP>
   | ReturnType<typeof captcha>
   | ReturnType<typeof genericOAuth>
+  | ReturnType<typeof oauthProvider>
 
 type LinuxDoMappedUser = {
   id: string

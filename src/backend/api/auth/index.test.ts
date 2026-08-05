@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import { authCore } from './index'
 import { betterAuth } from 'better-auth'
 import { bearer, captcha, emailOTP, genericOAuth } from 'better-auth/plugins'
+import { oauthProvider } from '@better-auth/oauth-provider'
 import { createEmailClients, type EmailSimpleSendInput } from '../../email'
 import type { Resend } from 'resend'
 
@@ -47,6 +48,14 @@ vi.mock('better-auth/plugins', () => {
 		}),
 		genericOAuth: vi.fn((options) => {
 			return { id: 'generic-oauth', options }
+		})
+	}
+})
+
+vi.mock('@better-auth/oauth-provider', () => {
+	return {
+		oauthProvider: vi.fn((options) => {
+			return { id: 'oauth-provider', options }
 		})
 	}
 })
@@ -214,6 +223,58 @@ describe('authCore email config mapping', () => {
 				options?.plugins?.some((plugin: { id?: string }) => plugin.id === 'email-otp') ?? false,
 			hasSendResetPassword: typeof options?.emailAndPassword?.sendResetPassword === 'function'
 		}
+	})
+})
+
+describe('authCore agent OAuth provider', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		vi.mocked(betterAuth).mockReturnValue({} as never)
+		vi.mocked(createEmailClients).mockReturnValue({
+			simple: {
+				send: createSendMock()
+			},
+			resend: {} as Resend
+		})
+	})
+
+	it('configures the official Agent OAuth boundary', () => {
+		const env = createEnv({
+			emailSignupEnabled: 'false',
+			emailRequireVerification: 'false',
+			cooldownSeconds: '50',
+			emailResendApiKey: '',
+			emailFrom: ''
+		})
+
+		authCore(env, {} as never)
+
+		const options = vi.mocked(oauthProvider).mock.calls[0]?.[0]
+		const authOptions = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
+			plugins?: Array<{ id?: string }>
+		}
+
+		expect({
+			hasPlugin: authOptions.plugins?.some((plugin) => plugin.id === 'oauth-provider'),
+			scopes: options?.scopes,
+			validAudiences: options?.validAudiences,
+			grantTypes: options?.grantTypes,
+			accessTokenExpiresIn: options?.accessTokenExpiresIn,
+			refreshTokenExpiresIn: options?.refreshTokenExpiresIn,
+			loginPage: options?.loginPage,
+			consentPage: options?.consentPage,
+			storeTokens: options?.storeTokens
+		}).toEqual({
+			hasPlugin: true,
+			scopes: ['agent', 'offline_access'],
+			validAudiences: ['http://localhost:5173'],
+			grantTypes: ['authorization_code', 'refresh_token'],
+			accessTokenExpiresIn: 15 * 60,
+			refreshTokenExpiresIn: 30 * 24 * 60 * 60,
+			loginPage: '/agent/authorize',
+			consentPage: '/agent/consent',
+			storeTokens: 'hashed'
+		})
 	})
 })
 
