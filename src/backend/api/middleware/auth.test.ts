@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
-import { adminUserMiddleware, authMiddleware } from './auth'
+import {
+	adminUserMiddleware,
+	authMiddleware,
+	browserSessionOnlyMiddleware,
+	requireAgentScope
+} from './auth'
 import { authCore } from '../auth'
 import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
 import type { Context } from 'hono'
@@ -407,6 +412,39 @@ describe('adminUserMiddleware', () => {
 })
 
 describe('Agent JWT authorization', () => {
+	it('rejects an Agent request without the required scope', async () => {
+		const state = createContextState('/api/agent/reports')
+		state.values['agentAuthorization'] = {
+			userId: 'user-1',
+			clientId: 'opcstack-agent',
+			grantId: 'grant-1',
+			scopes: ['reports:read']
+		}
+		const response = await requireAgentScope('reports:write')(createContext(state), state.next)
+		expect(response?.status).toBe(403)
+		expect(state.nextCalled).toBe(false)
+	})
+
+	it('allows a browser session through the Agent scope middleware', async () => {
+		const state = createContextState('/api/agent/reports')
+		const response = await requireAgentScope('reports:write')(createContext(state), state.next)
+		expect(response).toBeUndefined()
+		expect(state.nextCalled).toBe(true)
+	})
+
+	it('rejects Agent JWTs from browser-only routes', async () => {
+		const state = createContextState('/api/settings')
+		state.values['agentAuthorization'] = {
+			userId: 'user-1',
+			clientId: 'opcstack-agent',
+			grantId: 'grant-1',
+			scopes: ['reports:read']
+		}
+		const response = await browserSessionOnlyMiddleware(createContext(state), state.next)
+		expect(response?.status).toBe(403)
+		expect(state.nextCalled).toBe(false)
+	})
+
 	it('accepts a verified Agent JWT and exposes its grant scopes', async () => {
 		const verifyAccessToken = vi.fn(async () => ({
 			sub: 'user-1',
