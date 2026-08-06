@@ -77,6 +77,12 @@ export type RelayAuthorizationParams = {
 	scopes: string
 }
 
+export type RelayAuthorizationDetails = {
+	clientId: string
+	scopes: string
+	expiresAt: number
+}
+
 export function canonicalizeScopes(scopes: string[]): string {
 	if (scopes.length > MAX_SCOPE_COUNT) {
 		throw new AgentAuthError('INVALID_SCOPE', 'Invalid scope')
@@ -211,6 +217,36 @@ export async function resolveRelayByState(
 		state,
 		codeChallenge: relay.codeChallenge,
 		scopes: relay.scopes
+	}
+}
+
+export async function getRelayDetailsByState(
+	db: MetaDb,
+	state: string,
+	nowMs: number = Date.now()
+): Promise<RelayAuthorizationDetails> {
+	const stateHash = await hashProtocolSecret(state)
+	const relay = await db.query.agentAuthorizationRequest.findFirst({
+		where: eq(agentAuthorizationRequest.stateHash, stateHash)
+	})
+	if (!relay) {
+		throw new AgentAuthError('INVALID_STATE', 'Invalid state')
+	}
+	if (relay.status === 'pending' && nowMs > relay.expiresAt) {
+		await db
+			.update(agentAuthorizationRequest)
+			.set({ status: 'expired' })
+			.where(and(eq(agentAuthorizationRequest.id, relay.id), eq(agentAuthorizationRequest.status, 'pending')))
+			.run()
+		throw new AgentAuthError('RELAY_EXPIRED', 'Authorization request expired')
+	}
+	if (relay.status !== 'pending') {
+		throw new AgentAuthError('RELAY_NOT_PENDING', 'Authorization request is not pending')
+	}
+	return {
+		clientId: AGENT_CLIENT_ID,
+		scopes: relay.scopes,
+		expiresAt: relay.expiresAt
 	}
 }
 

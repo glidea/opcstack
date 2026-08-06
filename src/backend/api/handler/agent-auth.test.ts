@@ -3,6 +3,7 @@ import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
 	createAgentAuthorizationHandler,
+	getAgentAuthorizationDetailsHandler,
 	pollAgentAuthorizationHandler,
 	resolveAgentAuthorizationHandler
 } from './agent-auth'
@@ -47,14 +48,14 @@ describe('agent authorization handlers', () => {
 		})
 	})
 
-	it('builds the hosted OAuth URL from a valid user code', async () => {
+	it('builds the hosted OAuth URL and keeps application scopes in relay details', async () => {
 		const db = createMemoryDb()
 		const created = await createAgentAuthorizationHandler(createContext({
 			db,
 			body: {
 				code_challenge: 'A'.repeat(43),
 				code_challenge_method: 'S256',
-				scopes: []
+				scopes: ['reports:read']
 			}
 		}))
 		const createdBody = (await created.json()) as { user_code: string }
@@ -68,7 +69,19 @@ describe('agent authorization handlers', () => {
 		expect(response.status).toBe(200)
 		expect(url.pathname).toBe('/api/auth/oauth2/authorize')
 		expect(url.searchParams.get('client_id')).toBe('opcstack-agent')
+		expect(url.searchParams.get('scope')).toBe('agent offline_access')
 		expect(url.searchParams.get('code_challenge')).toBe('A'.repeat(43))
+
+		const detailsResponse = await getAgentAuthorizationDetailsHandler(createContext({
+			db,
+			body: { state: url.searchParams.get('state') }
+		}))
+		expect(detailsResponse.status).toBe(200)
+		expect(await detailsResponse.json()).toEqual({
+			client_id: 'opcstack-agent',
+			scopes: ['reports:read'],
+			expires_in: expect.any(Number)
+		})
 	})
 })
 

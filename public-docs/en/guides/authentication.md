@@ -88,14 +88,68 @@ The password hasher in `buildPasswordHasher` uses `crypto.subtle.digest('SHA-1',
 
 ## Agent Delegated Authorization
 
-The template supports a fixed public OAuth client for headless Agents. The CLI owns PKCE, relay polling, token exchange, refresh rotation, and the local credential file. Tokens are never passed to the language model or printed by the CLI.
+The template includes a fixed public OAuth client for headless Agents. The CLI owns PKCE, relay polling, token exchange, refresh rotation, and the local credential file. Tokens are never passed to the language model or printed by the CLI.
+
+### Expose an API to Agents
+
+Business scopes are application-owned strings. The template does not ship a scope registry or typed business API client. Add `requireAgentScope(scope)` only to routes that may be called by an Agent:
+
+Register the route in `src/backend/api/index.ts`:
+
+```ts
+import { Hono } from 'hono'
+import { authMiddleware, requireAgentScope } from './middleware/auth'
+import { betaGateMiddleware } from './middleware/beta-gate'
+import { tenantDbMiddleware } from './middleware/tenant-db'
+
+const agentApi: Hono<ApiEnv> = new Hono<ApiEnv>()
+
+agentApi.post(
+	'/reports/query',
+	authMiddleware,
+	requireAgentScope('reports:read'),
+	betaGateMiddleware,
+	tenantDbMiddleware,
+	reportsQueryHandler
+)
+
+api.route('/api', agentApi)
+```
+
+The handler keeps using the same user identity:
+
+```ts
+const userId: string = ctx.get('userId')
+const agentAuthorization = ctx.get('agentAuthorization')
+```
+
+Do not add `browserSessionOnlyMiddleware` to an Agent-enabled route. Keep `browserSessionOnlyMiddleware` on every route that is not explicitly opened to Agents.
+
+### Connect From an Agent Host
 
 ```text
 opc auth connect --server https://app.example.com --scopes reports:read,reports:write
-opc api request --method POST --url /api/application-defined-route --body '{"input":"value"}'
+opc api request --method POST --url /api/reports/query --body '{"range":"7d"}'
 ```
 
-The generic request command injects the Bearer token, rejects caller-supplied `Authorization`, and only sends it to the configured server origin. It has no business API types or scope registry. Application routes opt in with `requireAgentScope(scope)` and read `ctx.get('agentAuthorization')`.
+The generic request command injects the Bearer token, rejects caller-supplied `Authorization`, refreshes once on expiry, and sends the token only to the configured server origin. Query parameters, JSON body, and ordinary headers are supplied by the caller:
+
+```text
+opc api request \\
+  --method POST \\
+  --url /api/reports/query \\
+  --query '{"page":1}' \\
+  --body '{"range":"7d"}' \\
+  --header 'x-request-id:demo'
+```
+
+### User-Facing Pages
+
+`/agent/authorize` is the browser entry opened by the CLI. It resolves the `user_code`, asks the user to sign in if needed, and continues the OAuth authorization flow.
+
+`/agent/consent` shows the application scopes stored on the Agent authorization request, such as `reports:read`. The fixed OAuth transport scopes `agent offline_access` are internal and are not shown as business permissions.
+
+`/{locale}/settings/agents` lists connected Agent grants and lets the user revoke one grant without logging out their browser session. Revocation stops refresh immediately, and API middleware rejects already issued Agent access tokens because it checks the grant on every request.
 
 ### Email OTP
 

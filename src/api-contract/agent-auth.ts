@@ -71,6 +71,22 @@ export type ResolveAgentAuthorizationResponse = z.infer<
 	typeof ResolveAgentAuthorizationResponseSchema
 >
 
+export const GetAgentAuthorizationDetailsRequestSchema = z.object({
+	state: z.string().min(1).max(128)
+})
+export type GetAgentAuthorizationDetailsRequest = z.infer<
+	typeof GetAgentAuthorizationDetailsRequestSchema
+>
+
+export const GetAgentAuthorizationDetailsResponseSchema = z.object({
+	client_id: z.string(),
+	scopes: z.array(z.string()),
+	expires_in: z.number().int()
+})
+export type GetAgentAuthorizationDetailsResponse = z.infer<
+	typeof GetAgentAuthorizationDetailsResponseSchema
+>
+
 export const ListAgentGrantsRequestSchema = z.object({})
 export type ListAgentGrantsRequest = z.infer<typeof ListAgentGrantsRequestSchema>
 
@@ -125,6 +141,16 @@ export const PollAgentAuthorizationApi = {
 export const ResolveAgentAuthorizationApi = {
 	request: ResolveAgentAuthorizationRequestSchema,
 	response: ResolveAgentAuthorizationResponseSchema,
+	errors: {
+		INVALID_REQUEST(message: string): InvalidRequestError {
+			return { status: 400, body: { code: 'INVALID_REQUEST', message } }
+		},
+	}
+}
+
+export const GetAgentAuthorizationDetailsApi = {
+	request: GetAgentAuthorizationDetailsRequestSchema,
+	response: GetAgentAuthorizationDetailsResponseSchema,
 	errors: {
 		INVALID_REQUEST(message: string): InvalidRequestError {
 			return { status: 400, body: { code: 'INVALID_REQUEST', message } }

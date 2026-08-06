@@ -88,14 +88,68 @@ POST /api/auth/email-otp/verify-email
 
 ## Agent 委托授权
 
-模板为无头 Agent 提供固定 public OAuth client。CLI 负责 PKCE、relay 轮询、授权码交换、refresh rotation 和本地凭据文件。Token 不会传入模型上下文，也不会由 CLI 打印。
+模板内置一个给无头 Agent 使用的固定 public OAuth client。CLI 负责 PKCE、relay 轮询、授权码交换、refresh rotation 和本地凭据文件。Token 不会传入模型上下文，也不会由 CLI 打印。
+
+### 开放一个 Agent API
+
+业务 scope 是应用自己定义的字符串。模板不提供 scope 注册表，也不生成具体业务 API client。只有允许 Agent 调用的路由才加 `requireAgentScope(scope)`：
+
+在 `src/backend/api/index.ts` 注册路由：
+
+```ts
+import { Hono } from 'hono'
+import { authMiddleware, requireAgentScope } from './middleware/auth'
+import { betaGateMiddleware } from './middleware/beta-gate'
+import { tenantDbMiddleware } from './middleware/tenant-db'
+
+const agentApi: Hono<ApiEnv> = new Hono<ApiEnv>()
+
+agentApi.post(
+	'/reports/query',
+	authMiddleware,
+	requireAgentScope('reports:read'),
+	betaGateMiddleware,
+	tenantDbMiddleware,
+	reportsQueryHandler
+)
+
+api.route('/api', agentApi)
+```
+
+Handler 继续读取同一个用户身份：
+
+```ts
+const userId: string = ctx.get('userId')
+const agentAuthorization = ctx.get('agentAuthorization')
+```
+
+Agent 可调用的路由不要加 `browserSessionOnlyMiddleware`。没有显式开放给 Agent 的路由，都应该保留 `browserSessionOnlyMiddleware`。
+
+### 在 Agent 主机连接
 
 ```text
 opc auth connect --server https://app.example.com --scopes reports:read,reports:write
-opc api request --method POST --url /api/application-defined-route --body '{"input":"value"}'
+opc api request --method POST --url /api/reports/query --body '{"range":"7d"}'
 ```
 
-通用请求命令自动注入 Bearer Token，拒绝调用方传入 `Authorization`，并且只向配置的同源地址发送 Token。它不包含业务 API 类型，也不维护 scope 注册表。业务路由显式使用 `requireAgentScope(scope)`，并从 `ctx.get('agentAuthorization')` 读取授权上下文。
+通用请求命令自动注入 Bearer Token，拒绝调用方传入 `Authorization`，Token 过期时 refresh 一次，并且只向配置的同源地址发送 Token。query、JSON body 和普通 header 都由调用方传入：
+
+```text
+opc api request \\
+  --method POST \\
+  --url /api/reports/query \\
+  --query '{"page":1}' \\
+  --body '{"range":"7d"}' \\
+  --header 'x-request-id:demo'
+```
+
+### 用户看到的页面
+
+`/agent/authorize` 是 CLI 打开的浏览器入口。它解析 `user_code`，在需要时让用户登录，然后继续 OAuth 授权流程。
+
+`/agent/consent` 展示 Agent 授权请求里保存的应用 scope，例如 `reports:read`。固定 OAuth 传输 scope `agent offline_access` 是内部细节，不作为业务权限展示给用户。
+
+`/{locale}/settings/agents` 展示已连接的 Agent grant，用户可以撤销某一个 grant，不会退出浏览器登录。撤销后 refresh 立即失败；API 中间件每次请求都会检查 grant，因此已签发的 Agent access token 也会立即被拒绝。
 
 ### 邮件 OTP
 

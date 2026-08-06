@@ -54,6 +54,7 @@ import type { MetaDb, TenantShardDb } from '../db'
 import {
 	authorizationCallbackHandler,
 	createAgentAuthorizationHandler,
+	getAgentAuthorizationDetailsHandler,
 	listAgentGrantsHandler,
 	pollAgentAuthorizationHandler,
 	resolveAgentAuthorizationHandler,
@@ -86,6 +87,7 @@ publicApi.get('/health', (ctx): Response => {
 publicApi.post('/agent/create_authorization', createAgentAuthorizationHandler)
 publicApi.post('/agent/poll_authorization', pollAgentAuthorizationHandler)
 publicApi.post('/agent/resolve_authorization', resolveAgentAuthorizationHandler)
+publicApi.post('/agent/get_authorization_details', getAgentAuthorizationDetailsHandler)
 publicApi.get('/agent/authorization_callback', authorizationCallbackHandler)
 
 publicApi.all('/auth/*', async (ctx): Promise<Response> => {

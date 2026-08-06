@@ -2,6 +2,7 @@ import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
 	CreateAgentAuthorizationApi,
+	GetAgentAuthorizationDetailsApi,
 	ListAgentGrantsApi,
 	PollAgentAuthorizationApi,
 	ResolveAgentAuthorizationApi,
@@ -14,6 +15,7 @@ import {
 	createRelayRequest,
 	completeRelay,
 	denyRelay,
+	getRelayDetailsByState,
 	parseCanonicalScopes,
 	pollRelay,
 	resolveRelayByState,
@@ -94,6 +96,29 @@ export async function resolveAgentAuthorizationHandler(ctx: Context<ApiEnv>): Pr
 	} catch (error) {
 		if (error instanceof AgentAuthError) {
 			const response = ResolveAgentAuthorizationApi.errors.INVALID_REQUEST(error.message)
+			return ctx.json(response.body, response.status)
+		}
+		throw error
+	}
+}
+
+export async function getAgentAuthorizationDetailsHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const parsed = await parseRequest(ctx, GetAgentAuthorizationDetailsApi.request)
+	if (!parsed.success) {
+		const error = GetAgentAuthorizationDetailsApi.errors.INVALID_REQUEST(parsed.message)
+		return ctx.json(error.body, error.status)
+	}
+
+	try {
+		const details = await getRelayDetailsByState(ctx.get('metaDb'), parsed.data.state)
+		return ctx.json({
+			client_id: details.clientId,
+			scopes: parseCanonicalScopes(details.scopes),
+			expires_in: Math.max(0, Math.floor((details.expiresAt - Date.now()) / 1000))
+		})
+	} catch (error) {
+		if (error instanceof AgentAuthError) {
+			const response = GetAgentAuthorizationDetailsApi.errors.INVALID_REQUEST(error.message)
 			return ctx.json(response.body, response.status)
 		}
 		throw error
