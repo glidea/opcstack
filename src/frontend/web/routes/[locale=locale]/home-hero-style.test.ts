@@ -58,6 +58,24 @@ describe('landing page design register', () => {
 		})
 	})
 
+	test('keeps the hero compact through tablet landscape widths', () => {
+		expect({
+			usesFlexibleDesktopColumns: pageSource.includes(
+				'grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr)'
+			),
+			stacksAtNarrowBreakpoint: pageSource.includes(
+				'@media (max-width: 820px)'
+			),
+			stacksAtWideBreakpoint: pageSource.includes(
+				'@media (max-width: 1180px) {\n\t\t.landing-hero'
+			)
+		}).toEqual({
+			usesFlexibleDesktopColumns: true,
+			stacksAtNarrowBreakpoint: true,
+			stacksAtWideBreakpoint: false
+		})
+	})
+
 	test('removes the rejected specification page patterns', () => {
 		const source: string = `${pageSource}\n${headerSource}`
 

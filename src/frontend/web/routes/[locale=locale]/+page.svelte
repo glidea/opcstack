@@ -418,8 +418,8 @@
 
 	.hero-content {
 		display: grid;
-		grid-template-columns: minmax(0, 620px) minmax(500px, 1fr);
-		gap: clamp(32px, 4vw, 56px);
+		grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+		gap: clamp(24px, 3.2vw, 48px);
 		align-items: center;
 	}
 
@@ -509,8 +509,9 @@
 	.deployment-scene {
 		position: relative;
 		z-index: 1;
-		width: 100%;
-		transform: rotate(-5deg);
+		width: min(100%, 540px);
+		justify-self: end;
+		transform: rotate(-4deg);
 	}
 
 	.scene-caption,
@@ -1205,40 +1206,6 @@
 	}
 
 	@media (max-width: 1180px) {
-		.landing-hero,
-		.hero-inner {
-			min-height: 0;
-		}
-
-		.hero-plane {
-			top: 45%;
-			width: 78%;
-			clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%);
-		}
-
-		.hero-inner {
-			padding-block: 64px 32px;
-		}
-
-		.hero-content {
-			grid-template-columns: 1fr;
-			gap: 56px;
-		}
-
-		.hero-copy {
-			max-width: 720px;
-		}
-
-		.deployment-scene {
-			width: min(720px, 100%);
-			justify-self: end;
-			transform: rotate(-3deg);
-		}
-
-		.hero-foot {
-			margin-top: 64px;
-		}
-
 		.runtime-diagram {
 			grid-template-columns: 1fr 56px 1fr 56px 1.2fr;
 		}
@@ -1249,6 +1216,11 @@
 			width: min(100% - 36px, 1240px);
 		}
 
+		.landing-hero,
+		.hero-inner {
+			min-height: 0;
+		}
+
 		.hero-plane {
 			top: 48%;
 			width: 90%;
@@ -1257,7 +1229,21 @@
 		}
 
 		.hero-content {
+			grid-template-columns: 1fr;
 			gap: 48px;
+		}
+
+		.hero-copy {
+			max-width: 720px;
+		}
+
+		.deployment-scene {
+			width: min(720px, 100%);
+			transform: rotate(-3deg);
+		}
+
+		.hero-foot {
+			margin-top: 64px;
 		}
 
 		.hero-copy h1 {
