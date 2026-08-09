@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-更快、更低成本地构建可投入生产的 OPC 产品。
+让 OPC 的产品开发更快，部署运维成本更低。
 
 OPCStack 是面向一人公司的 Cloudflare 原生 AI SaaS 模板。内置认证、支付、积分、D1 分片、R2、KV、Queues、Cron、AI 任务、自动部署和完整测试体系。
 

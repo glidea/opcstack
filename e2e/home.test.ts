@@ -75,8 +75,8 @@ describe('landing page e2e', () => {
 		const html: string = await response.text()
 		const positioning: string =
 			given.locale === 'zh'
-				? '一个人也能维护的生产级 SaaS 底座'
-				: 'Production SaaS infrastructure one person can own'
+				? '让 OPC 的产品开发更快，部署运维成本更低'
+				: 'Build OPC products faster, at lower cost, and ready for production'
 
 		return {
 			status: response.status,

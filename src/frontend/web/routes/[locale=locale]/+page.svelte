@@ -118,76 +118,78 @@
 			<span></span>
 		</div>
 
-		<div class="deployment-scene" aria-label={$_("home.architecture.label")}>
-			<div class="scene-caption">
-				<span>{$_("home.architecture.title")}</span>
-				<strong>Cloudflare Edge</strong>
-			</div>
-			<div class="deployment-stack">
-				<div class="deployment-layer layer-runtime" data-layer="worker-runtime">
-					<div class="layer-topline">
-						<span>01 / Worker runtime</span>
-						<span class="layer-state">Live</span>
-					</div>
-					<strong class="layer-title">SvelteKit SSR + Hono API</strong>
-					<div class="layer-detail">
-						<span>Queue consumers</span>
-						<span>Edge routes</span>
-					</div>
-				</div>
-				<div class="deployment-layer layer-control" data-layer="control-plane">
-					<div class="layer-topline">
-						<span>02 / Control plane</span>
-						<span class="layer-state">Primary</span>
-					</div>
-					<strong class="layer-title">META_DB</strong>
-					<div class="layer-detail">
-						<span>Shard registry</span>
-						<span>User routing</span>
-					</div>
-				</div>
-				<div class="deployment-layer layer-tenant" data-layer="tenant-data">
-					<div class="layer-topline">
-						<span>03 / Tenant data</span>
-						<span class="layer-state">Regional</span>
-					</div>
-					<strong class="layer-title">D1 Shards</strong>
-					<div class="shard-grid" aria-hidden="true">
-						<span>WNAM</span>
-						<span>ENAM</span>
-						<span>WEUR</span>
-						<span>EEUR</span>
-						<span>APAC</span>
-						<span>OC</span>
-					</div>
-				</div>
-				<div class="deployment-layer layer-platform">
-					<div class="layer-topline">
-						<span>04 / Platform</span>
-						<span class="layer-state">Attached</span>
-					</div>
-					<strong class="layer-title">R2 · KV · Queues</strong>
-				</div>
-			</div>
-			<div class="scene-footnote">One Worker · one control plane · regional tenant data</div>
-		</div>
-
 		<div class="landing-shell hero-inner">
-			<div class="hero-copy">
-				<div class="hero-brandline">
-					<img src="/logo.svg" alt="" />
-					<span>OPCStack / Cloudflare native</span>
+			<div class="hero-content">
+				<div class="hero-copy">
+					<div class="hero-brandline">
+						<img src="/logo.svg" alt="" />
+						<span>OPCStack / Cloudflare native</span>
+					</div>
+					<h1>{$_("home.hero.positioning")}</h1>
+					<p class="hero-summary">{$_("home.hero.subtitle")}</p>
+					<div class="landing-actions">
+						<Button size="lg" href={quickStartHref} class="landing-primary-button">
+							{$_("home.hero.cta.init")}
+							<ArrowRightIcon class="size-4" />
+						</Button>
+						<Button size="lg" variant="outline" href={docsBase} class="landing-secondary-button">
+							{$_("home.nav.docs")}
+						</Button>
+					</div>
 				</div>
-				<h1>{$_("home.hero.positioning")}</h1>
-				<p class="hero-summary">{$_("home.hero.subtitle")}</p>
-				<div class="landing-actions">
-					<Button size="lg" href={quickStartHref} class="landing-primary-button">
-						{$_("home.hero.cta.init")}
-						<ArrowRightIcon class="size-4" />
-					</Button>
-					<Button size="lg" variant="outline" href={docsBase} class="landing-secondary-button">
-						{$_("home.nav.docs")}
-					</Button>
+
+				<div class="deployment-scene" aria-label={$_("home.architecture.label")}>
+					<div class="scene-caption">
+						<span>{$_("home.architecture.title")}</span>
+						<strong>Cloudflare Edge</strong>
+					</div>
+					<div class="deployment-stack">
+						<div class="deployment-layer layer-runtime" data-layer="worker-runtime">
+							<div class="layer-topline">
+								<span>01 / Worker runtime</span>
+								<span class="layer-state">Live</span>
+							</div>
+							<strong class="layer-title">SvelteKit SSR + Hono API</strong>
+							<div class="layer-detail">
+								<span>Queue consumers</span>
+								<span>Edge routes</span>
+							</div>
+						</div>
+						<div class="deployment-layer layer-control" data-layer="control-plane">
+							<div class="layer-topline">
+								<span>02 / Control plane</span>
+								<span class="layer-state">Primary</span>
+							</div>
+							<strong class="layer-title">META_DB</strong>
+							<div class="layer-detail">
+								<span>Shard registry</span>
+								<span>User routing</span>
+							</div>
+						</div>
+						<div class="deployment-layer layer-tenant" data-layer="tenant-data">
+							<div class="layer-topline">
+								<span>03 / Tenant data</span>
+								<span class="layer-state">Regional</span>
+							</div>
+							<strong class="layer-title">D1 Shards</strong>
+							<div class="shard-grid" aria-hidden="true">
+								<span>WNAM</span>
+								<span>ENAM</span>
+								<span>WEUR</span>
+								<span>EEUR</span>
+								<span>APAC</span>
+								<span>OC</span>
+							</div>
+						</div>
+						<div class="deployment-layer layer-platform">
+							<div class="layer-topline">
+								<span>04 / Platform</span>
+								<span class="layer-state">Attached</span>
+							</div>
+							<strong class="layer-title">R2 · KV · Queues</strong>
+						</div>
+					</div>
+					<div class="scene-footnote">One Worker · one control plane · regional tenant data</div>
 				</div>
 			</div>
 			<div class="hero-foot">
@@ -414,7 +416,16 @@
 		padding-block: clamp(72px, 12vh, 132px) 34px;
 	}
 
+	.hero-content {
+		display: grid;
+		grid-template-columns: minmax(0, 620px) minmax(500px, 1fr);
+		gap: clamp(32px, 4vw, 56px);
+		align-items: center;
+	}
+
 	.hero-copy {
+		position: relative;
+		z-index: 2;
 		max-width: 660px;
 	}
 
@@ -440,6 +451,7 @@
 		font-size: clamp(48px, 6.2vw, 82px);
 		font-weight: 650;
 		line-height: 1.02;
+		text-wrap: balance;
 	}
 
 	.hero-summary {
@@ -495,11 +507,9 @@
 	}
 
 	.deployment-scene {
-		position: absolute;
-		top: 16%;
-		right: clamp(24px, 5vw, 96px);
+		position: relative;
 		z-index: 1;
-		width: min(560px, 48vw);
+		width: 100%;
 		transform: rotate(-5deg);
 	}
 
@@ -1194,14 +1204,39 @@
 		background: #ffbe73;
 	}
 
-	@media (max-width: 1080px) {
-		.deployment-scene {
-			right: -40px;
-			width: 52vw;
+	@media (max-width: 1180px) {
+		.landing-hero,
+		.hero-inner {
+			min-height: 0;
+		}
+
+		.hero-plane {
+			top: 45%;
+			width: 78%;
+			clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%);
+		}
+
+		.hero-inner {
+			padding-block: 64px 32px;
+		}
+
+		.hero-content {
+			grid-template-columns: 1fr;
+			gap: 56px;
 		}
 
 		.hero-copy {
-			max-width: 58vw;
+			max-width: 720px;
+		}
+
+		.deployment-scene {
+			width: min(720px, 100%);
+			justify-self: end;
+			transform: rotate(-3deg);
+		}
+
+		.hero-foot {
+			margin-top: 64px;
 		}
 
 		.runtime-diagram {
@@ -1214,34 +1249,15 @@
 			width: min(100% - 36px, 1240px);
 		}
 
-		.landing-hero {
-			min-height: 780px;
-		}
-
-		.hero-inner {
-			min-height: 780px;
-			padding-top: 64px;
-		}
-
 		.hero-plane {
-			top: 0;
-			width: 100%;
-			height: 300px;
-			clip-path: polygon(26% 0, 100% 0, 100% 100%, 0 100%);
+			top: 48%;
+			width: 90%;
+			height: auto;
+			clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%);
 		}
 
-		.deployment-scene {
-			top: 38px;
-			right: 16px;
-			width: min(580px, 95vw);
-			transform: rotate(-4deg) scale(0.78);
-			transform-origin: top right;
-			opacity: 0.96;
-		}
-
-		.hero-copy {
-			max-width: 600px;
-			margin-top: 246px;
+		.hero-content {
+			gap: 48px;
 		}
 
 		.hero-copy h1 {
@@ -1335,23 +1351,12 @@
 			width: min(100% - 28px, 1240px);
 		}
 
-		.landing-hero {
-			min-height: 760px;
-		}
-
 		.hero-inner {
-			min-height: 760px;
 			padding-block: 42px 24px;
 		}
 
 		.deployment-scene {
-			right: -38px;
-			width: 560px;
-			transform: rotate(-4deg) scale(0.44);
-		}
-
-		.hero-copy {
-			margin-top: 275px;
+			transform: rotate(-2deg);
 		}
 
 		.hero-brandline {
