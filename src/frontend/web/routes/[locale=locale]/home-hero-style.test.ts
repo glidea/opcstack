@@ -10,32 +10,34 @@ const pageSource: string = readFileSync(pagePath, 'utf8')
 const headerSource: string = readFileSync(headerPath, 'utf8')
 
 describe('landing page design register', () => {
-	test('uses real architecture proof as the hero visual', () => {
+	test('uses a branded deployment object as the hero visual', () => {
 		expect({
-			hasArchitecture: pageSource.includes('landing-architecture'),
-			hasControlDatabase: pageSource.includes('META_DB'),
-			hasTenantShards: pageSource.includes('D1 Shards')
+			hasDeploymentScene: pageSource.includes('deployment-scene'),
+			hasRuntimeLayer: pageSource.includes('data-layer="worker-runtime"'),
+			hasControlLayer: pageSource.includes('data-layer="control-plane"'),
+			hasTenantLayer: pageSource.includes('data-layer="tenant-data"')
 		}).toEqual({
-			hasArchitecture: true,
-			hasControlDatabase: true,
-			hasTenantShards: true
+			hasDeploymentScene: true,
+			hasRuntimeLayer: true,
+			hasControlLayer: true,
+			hasTenantLayer: true
 		})
 	})
 
-	test('removes generic landing page decoration', () => {
+	test('removes the rejected specification page patterns', () => {
 		const source: string = `${pageSource}\n${headerSource}`
 
 		expect({
-			hasNumberedSectionMarkers: source.includes('cf-section-no'),
-			hasRepeatedEyebrows: source.includes('cf-section-kicker'),
-			hasHeroMetrics: source.includes('cf-section-metric'),
-			hasDecorativeGlobe: source.includes('cf-global-globe'),
+			hasArchitectureTable: source.includes('landing-architecture'),
+			hasComparisonTable: source.includes('comparison-table'),
+			hasPricingTable: source.includes('pricing-table'),
+			hasTerminalCard: source.includes('quick-start-terminal'),
 			hasGlassNavigation: source.includes('backdrop-filter')
 		}).toEqual({
-			hasNumberedSectionMarkers: false,
-			hasRepeatedEyebrows: false,
-			hasHeroMetrics: false,
-			hasDecorativeGlobe: false,
+			hasArchitectureTable: false,
+			hasComparisonTable: false,
+			hasPricingTable: false,
+			hasTerminalCard: false,
 			hasGlassNavigation: false
 		})
 	})

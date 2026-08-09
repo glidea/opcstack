@@ -45,7 +45,7 @@
 			{#if $session.data}
 				<UserMenu onSignOut={() => {}} settingsHref={`/${pageLocale}/settings`} />
 			{/if}
-			<a class="landing-header-cta" href={`/${pageLocale}/docs/getting-started`}>
+			<a class="landing-header-cta" href={`/${pageLocale}/docs/getting-started`} aria-label={$_("home.hero.cta.init")}>
 				<span>{$_("home.hero.cta.init")}</span>
 				<ArrowRightIcon class="size-4" />
 			</a>
@@ -59,14 +59,14 @@
 		top: 0;
 		z-index: 50;
 		height: 64px;
-		border-bottom: 1px solid #d9d9dc;
-		background: #ffffff;
-		color: #111113;
+		border-bottom: 1px solid rgba(36, 33, 30, 0.15);
+		background: #f5efe6;
+		color: #24211e;
 	}
 
 	.landing-header-inner {
 		display: flex;
-		width: min(100% - 40px, 1240px);
+		width: min(100% - 48px, 1240px);
 		height: 100%;
 		align-items: center;
 		justify-content: space-between;
@@ -79,15 +79,15 @@
 		flex: none;
 		align-items: center;
 		gap: 10px;
-		font-size: 15px;
+		font-size: 16px;
 		font-weight: 720;
 		letter-spacing: 0;
 	}
 
 	.landing-brand img {
 		display: block;
-		width: 24px;
-		height: 24px;
+		width: 31px;
+		height: 31px;
 	}
 
 	nav {
@@ -99,22 +99,22 @@
 	}
 
 	nav a {
-		color: #5f5f64;
+		color: #716a64;
 		font-size: 13px;
-		font-weight: 550;
+		font-weight: 560;
 		letter-spacing: 0;
 		white-space: nowrap;
 	}
 
 	nav a:hover {
-		color: #111113;
+		color: #24211e;
 	}
 
 	.landing-header-actions {
 		display: flex;
 		flex: none;
 		align-items: center;
-		gap: 4px;
+		gap: 6px;
 	}
 
 	.landing-header-cta {
@@ -122,18 +122,18 @@
 		height: 36px;
 		align-items: center;
 		gap: 8px;
-		margin-left: 6px;
+		margin-left: 8px;
 		padding-inline: 14px;
-		border-radius: 6px;
-		background: #111113;
-		color: #ffffff;
+		border-radius: 3px;
+		background: #24211e;
+		color: #fff;
 		font-size: 13px;
-		font-weight: 620;
+		font-weight: 650;
 		letter-spacing: 0;
 	}
 
 	.landing-header-cta:hover {
-		background: #2b2b2f;
+		background: #3a3531;
 	}
 
 	@media (max-width: 900px) {
@@ -144,7 +144,7 @@
 
 	@media (max-width: 560px) {
 		.landing-header-inner {
-			width: min(100% - 24px, 1240px);
+			width: min(100% - 28px, 1240px);
 		}
 
 		.landing-header-cta span {

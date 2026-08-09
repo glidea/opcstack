@@ -16,6 +16,8 @@ type Then = {
 	hasProductName: boolean
 	hasPositioning: boolean
 	hasArchitectureProof: boolean
+	hasDeploymentObject: boolean
+	hasRejectedTables: boolean
 	hasPricingSource: boolean
 	hasQuickStart: boolean
 }
@@ -40,6 +42,8 @@ describe('landing page e2e', () => {
 				hasProductName: true,
 				hasPositioning: true,
 				hasArchitectureProof: true,
+				hasDeploymentObject: true,
+				hasRejectedTables: false,
 				hasPricingSource: true,
 				hasQuickStart: true
 			}
@@ -58,6 +62,8 @@ describe('landing page e2e', () => {
 				hasProductName: true,
 				hasPositioning: true,
 				hasArchitectureProof: true,
+				hasDeploymentObject: true,
+				hasRejectedTables: false,
 				hasPricingSource: true,
 				hasQuickStart: true
 			}
@@ -78,6 +84,9 @@ describe('landing page e2e', () => {
 			hasPositioning: html.includes(positioning),
 			hasArchitectureProof:
 				html.includes('META_DB') && html.includes('D1 Shards'),
+			hasDeploymentObject: html.includes('deployment-scene'),
+			hasRejectedTables:
+				html.includes('pricing-table') || html.includes('comparison-table'),
 			hasPricingSource: html.includes(
 				'https://developers.cloudflare.com/workers/platform/pricing/'
 			),

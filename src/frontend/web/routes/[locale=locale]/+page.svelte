@@ -4,10 +4,10 @@
 	import { _ } from "$frontend/i18n";
 	import { Button } from "$frontend/ui/button";
 	import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
+	import ArrowUpRightIcon from "@lucide/svelte/icons/arrow-up-right";
 	import CheckIcon from "@lucide/svelte/icons/check";
 	import CopyIcon from "@lucide/svelte/icons/copy";
 	import ExternalLinkIcon from "@lucide/svelte/icons/external-link";
-	import TerminalIcon from "@lucide/svelte/icons/terminal";
 
 	import LandingHeader from "./LandingHeader.svelte";
 
@@ -32,8 +32,7 @@
 		| "storage"
 		| "workflows"
 		| "operations";
-	type DiffRow = "r1" | "r2" | "r3" | "r5" | "r6";
-	type StepKey = "s1" | "s2" | "s3";
+	type FlowKey = "create" | "deploy" | "operate";
 	type FaqKey = "q1" | "q2" | "q3" | "q4" | "q5" | "q6" | "q7";
 
 	let {
@@ -56,17 +55,7 @@
 		"workflows",
 		"operations"
 	];
-	const priceRows: string[] = [
-		"workers",
-		"d1",
-		"r2",
-		"kv",
-		"queues",
-		"cron",
-		"cdn"
-	];
-	const diffRows: DiffRow[] = ["r1", "r2", "r3", "r5", "r6"];
-	const stepsList: StepKey[] = ["s1", "s2", "s3"];
+	const flowSteps: FlowKey[] = ["create", "deploy", "operate"];
 	const faqList: FaqKey[] = ["q1", "q2", "q3", "q4", "q5", "q6", "q7"];
 
 	onMount((): (() => void) => {
@@ -122,84 +111,152 @@
 
 <main class="landing-page">
 	<section class="landing-hero">
-		<div class="landing-shell landing-hero-inner">
-			<div class="landing-hero-copy">
-				<p class="landing-product">OPCStack</p>
+		<div class="hero-plane" aria-hidden="true"></div>
+		<div class="hero-rules" aria-hidden="true">
+			<span></span>
+			<span></span>
+			<span></span>
+		</div>
+
+		<div class="deployment-scene" aria-label={$_("home.architecture.label")}>
+			<div class="scene-caption">
+				<span>{$_("home.architecture.title")}</span>
+				<strong>Cloudflare Edge</strong>
+			</div>
+			<div class="deployment-stack">
+				<div class="deployment-layer layer-runtime" data-layer="worker-runtime">
+					<div class="layer-topline">
+						<span>01 / Worker runtime</span>
+						<span class="layer-state">Live</span>
+					</div>
+					<strong class="layer-title">SvelteKit SSR + Hono API</strong>
+					<div class="layer-detail">
+						<span>Queue consumers</span>
+						<span>Edge routes</span>
+					</div>
+				</div>
+				<div class="deployment-layer layer-control" data-layer="control-plane">
+					<div class="layer-topline">
+						<span>02 / Control plane</span>
+						<span class="layer-state">Primary</span>
+					</div>
+					<strong class="layer-title">META_DB</strong>
+					<div class="layer-detail">
+						<span>Shard registry</span>
+						<span>User routing</span>
+					</div>
+				</div>
+				<div class="deployment-layer layer-tenant" data-layer="tenant-data">
+					<div class="layer-topline">
+						<span>03 / Tenant data</span>
+						<span class="layer-state">Regional</span>
+					</div>
+					<strong class="layer-title">D1 Shards</strong>
+					<div class="shard-grid" aria-hidden="true">
+						<span>WNAM</span>
+						<span>ENAM</span>
+						<span>WEUR</span>
+						<span>EEUR</span>
+						<span>APAC</span>
+						<span>OC</span>
+					</div>
+				</div>
+				<div class="deployment-layer layer-platform">
+					<div class="layer-topline">
+						<span>04 / Platform</span>
+						<span class="layer-state">Attached</span>
+					</div>
+					<strong class="layer-title">R2 · KV · Queues</strong>
+				</div>
+			</div>
+			<div class="scene-footnote">One Worker · one control plane · regional tenant data</div>
+		</div>
+
+		<div class="landing-shell hero-inner">
+			<div class="hero-copy">
+				<div class="hero-brandline">
+					<img src="/logo.svg" alt="" />
+					<span>OPCStack / Cloudflare native</span>
+				</div>
 				<h1>{$_("home.hero.positioning")}</h1>
-				<p class="landing-summary">{$_("home.hero.subtitle")}</p>
+				<p class="hero-summary">{$_("home.hero.subtitle")}</p>
 				<div class="landing-actions">
 					<Button size="lg" href={quickStartHref} class="landing-primary-button">
 						{$_("home.hero.cta.init")}
 						<ArrowRightIcon class="size-4" />
 					</Button>
-					<Button
-						size="lg"
-						variant="outline"
-						href={docsBase}
-						class="landing-secondary-button"
-					>
+					<Button size="lg" variant="outline" href={docsBase} class="landing-secondary-button">
 						{$_("home.nav.docs")}
 					</Button>
 				</div>
 			</div>
-
-			<div class="landing-architecture" aria-label={$_("home.architecture.label")}>
-				<div class="architecture-caption">
-					<span>{$_("home.architecture.title")}</span>
-					<strong>Cloudflare Edge</strong>
-				</div>
-				<div class="architecture-flow">
-					<div class="architecture-layer architecture-clients">
-						<span class="architecture-label">Clients</span>
-						<div>
-							<strong>Web App</strong>
-							<strong>Chrome Extension</strong>
-						</div>
-					</div>
-					<span class="architecture-connector" aria-hidden="true">↓</span>
-					<div class="architecture-layer architecture-runtime">
-						<span class="architecture-label">Worker Runtime</span>
-						<div>
-							<strong>SvelteKit SSR</strong>
-							<strong>Hono API</strong>
-							<strong>Queue Consumers</strong>
-						</div>
-					</div>
-					<span class="architecture-connector" aria-hidden="true">↓</span>
-					<div class="architecture-data">
-						<div class="architecture-layer">
-							<span class="architecture-label">Control Plane</span>
-							<strong>META_DB</strong>
-						</div>
-						<div class="architecture-layer architecture-accent">
-							<span class="architecture-label">Tenant Data</span>
-							<strong>D1 Shards</strong>
-						</div>
-						<div class="architecture-layer">
-							<span class="architecture-label">Platform</span>
-							<strong>R2 · Queues · KV</strong>
-						</div>
-					</div>
-				</div>
+			<div class="hero-foot">
+				<span>Built for one person companies</span>
+				<span>Open source template</span>
+				<span>Cloudflare Worker runtime</span>
 			</div>
 		</div>
 	</section>
 
-	<section id="loop" class="landing-section">
+	<section id="loop" class="landing-section landing-flow">
 		<div class="landing-shell">
-			<div class="landing-section-heading">
-				<p>{$_("home.loop.eyebrow")}</p>
-				<h2>{$_("home.loop.title")}</h2>
-				<span>{$_("home.loop.subtitle")}</span>
+			<div class="section-intro">
+				<p class="section-kicker">{$_("home.flow.eyebrow")}</p>
+				<h2>{$_("home.flow.title")}</h2>
+				<span>{$_("home.flow.subtitle")}</span>
+			</div>
+			<div class="flow-list">
+				{#each flowSteps as flow, index (flow)}
+					<article class="flow-step">
+						<div class="flow-index">0{index + 1}</div>
+						<div>
+							<h3>{$_(`home.flow.${flow}.title`)}</h3>
+							<p>{$_(`home.flow.${flow}.desc`)}</p>
+						</div>
+						<ArrowUpRightIcon class="flow-arrow size-7" aria-hidden="true" />
+					</article>
+				{/each}
+			</div>
+		</div>
+	</section>
+
+	<section id="diff" class="landing-section landing-runtime">
+		<div class="landing-shell">
+			<div class="runtime-heading">
+				<div class="section-intro section-intro-dark">
+					<p class="section-kicker">{$_("home.diff.eyebrow")}</p>
+					<h2>{$_("home.diff.title")}</h2>
+				</div>
+				<div class="runtime-metric">
+					<strong>{$_("home.diff.metric.value")}</strong>
+					<span>{$_("home.diff.metric.label")}</span>
+				</div>
 			</div>
 
-			<div class="capability-list" role="list">
+			<div class="runtime-diagram">
+				<div class="runtime-node runtime-node-edge">
+					<span>Edge</span>
+					<strong>Nearest Worker</strong>
+				</div>
+				<div class="runtime-line" aria-hidden="true"></div>
+				<div class="runtime-node runtime-node-control">
+					<span>Control plane</span>
+					<strong>META_DB</strong>
+				</div>
+				<div class="runtime-line runtime-line-split" aria-hidden="true"></div>
+				<div class="runtime-node runtime-node-tenant">
+					<span>Tenant data</span>
+					<strong>D1 Shards</strong>
+					<div class="runtime-regions">
+						<span>WNAM</span><span>WEUR</span><span>APAC</span><span>OC</span>
+					</div>
+				</div>
+			</div>
+
+			<div class="runtime-facts">
 				{#each capabilities as capability (capability)}
-					<div class="capability-row" role="listitem">
-						<div class="capability-status">
-							<CheckIcon class="size-4" />
-							<span>{$_("home.loop.ready")}</span>
-						</div>
+					<div class="runtime-fact">
+						<div class="fact-status"><CheckIcon class="size-4" /> {$_("home.loop.ready")}</div>
 						<h3>{$_(`home.capability.${capability}.title`)}</h3>
 						<p>{$_(`home.capability.${capability}.desc`)}</p>
 					</div>
@@ -208,111 +265,40 @@
 		</div>
 	</section>
 
-	<section id="diff" class="landing-section landing-section-dark">
+	<section id="cost" class="landing-section landing-cost">
 		<div class="landing-shell">
-			<div class="landing-section-heading landing-section-heading-dark">
-				<p>{$_("home.diff.eyebrow")}</p>
-				<h2>{$_("home.diff.title")}</h2>
-			</div>
-
-			<div class="comparison-table">
-				<div class="comparison-header" aria-hidden="true">
-					<span>{$_("home.diff.col.normal")}</span>
-					<span>{$_("home.diff.col.opcstack")}</span>
-				</div>
-				{#each diffRows as row (row)}
-					<div class="comparison-row">
-						<div class="comparison-baseline" data-label={$_("home.diff.col.normal")}>
-							{$_(`home.diff.${row}.normal`)}
-						</div>
-						<div class="comparison-opcstack" data-label={$_("home.diff.col.opcstack")}>
-							<CheckIcon class="comparison-check size-4" />
-							<span>{$_(`home.diff.${row}.opcstack`)}</span>
-						</div>
-					</div>
-				{/each}
-			</div>
-		</div>
-	</section>
-
-	<section id="cost" class="landing-section">
-		<div class="landing-shell">
-			<div class="landing-section-heading landing-heading-row">
-				<div>
-					<p>{$_("home.cost.eyebrow")}</p>
-					<h2>{$_("home.cost.title")}</h2>
-				</div>
+			<div class="section-intro section-intro-wide">
+				<p class="section-kicker">{$_("home.cost.eyebrow")}</p>
+				<h2>{$_("home.cost.title")}</h2>
 				<span>{$_("home.cost.subtitle")}</span>
 			</div>
-
-			<div class="pricing-table">
-				<div class="pricing-header">
-					<span>{$_("home.cost.price.product")}</span>
-					<span>{$_("home.cost.price.free")}</span>
-					<span>{$_("home.cost.price.paid")}</span>
-				</div>
-				{#each priceRows as row (row)}
-					<div class="pricing-row">
-						<strong>{$_(`home.cost.price.${row}.name`)}</strong>
-						<span data-label={$_("home.cost.price.free")}>
-							{$_(`home.cost.price.${row}.free`)}
-						</span>
-						<span data-label={$_("home.cost.price.paid")}>
-							{$_(`home.cost.price.${row}.paid`)}
-						</span>
-					</div>
-				{/each}
+			<div class="cost-facts">
+				<div><strong>{$_("home.cost.fact1.value")}</strong><span>{$_("home.cost.fact1.label")}</span></div>
+				<div><strong>{$_("home.cost.fact2.value")}</strong><span>{$_("home.cost.fact2.label")}</span></div>
+				<div><strong>{$_("home.cost.fact3.value")}</strong><span>{$_("home.cost.fact3.label")}</span></div>
 			</div>
-			<p class="pricing-note">{$_("home.cost.price.note")}</p>
 			<div class="pricing-sources">
 				<span>{$_("home.cost.sources")}</span>
-				<a
-					href="https://developers.cloudflare.com/workers/platform/pricing/"
-					target="_blank"
-					rel="noreferrer"
-				>
-					Workers + KV
-					<ExternalLinkIcon class="size-3.5" />
-				</a>
-				<a
-					href="https://developers.cloudflare.com/d1/platform/pricing/"
-					target="_blank"
-					rel="noreferrer"
-				>
-					D1
-					<ExternalLinkIcon class="size-3.5" />
-				</a>
-				<a
-					href="https://developers.cloudflare.com/r2/pricing/"
-					target="_blank"
-					rel="noreferrer"
-				>
-					R2
-					<ExternalLinkIcon class="size-3.5" />
-				</a>
-				<a
-					href="https://developers.cloudflare.com/queues/platform/pricing/"
-					target="_blank"
-					rel="noreferrer"
-				>
-					Queues
-					<ExternalLinkIcon class="size-3.5" />
-				</a>
+				<a href="https://developers.cloudflare.com/workers/platform/pricing/" target="_blank" rel="noreferrer">Workers + KV <ExternalLinkIcon class="size-3.5" /></a>
+				<a href="https://developers.cloudflare.com/d1/platform/pricing/" target="_blank" rel="noreferrer">D1 <ExternalLinkIcon class="size-3.5" /></a>
+				<a href="https://developers.cloudflare.com/r2/pricing/" target="_blank" rel="noreferrer">R2 <ExternalLinkIcon class="size-3.5" /></a>
+				<a href="https://developers.cloudflare.com/queues/platform/pricing/" target="_blank" rel="noreferrer">Queues <ExternalLinkIcon class="size-3.5" /></a>
 			</div>
+			<p class="cost-note">{$_("home.cost.price.note")}</p>
 		</div>
 	</section>
 
-	<section id="steps" class="landing-section landing-quick-start">
-		<div class="landing-shell quick-start-layout">
+	<section id="steps" class="landing-section landing-start">
+		<div class="landing-shell start-layout">
 			<div>
-				<div class="landing-section-heading">
-					<p>{$_("home.steps.eyebrow")}</p>
+				<div class="section-intro section-intro-light">
+					<p class="section-kicker">{$_("home.steps.eyebrow")}</p>
 					<h2>{$_("home.steps.title")}</h2>
 				</div>
 				<ol class="step-list">
-					{#each stepsList as step, index (step)}
+					{#each ["s1", "s2", "s3"] as step, index (step)}
 						<li>
-							<span>{index + 1}</span>
+							<span>0{index + 1}</span>
 							<div>
 								<h3>{$_(`home.steps.${step}.title`)}</h3>
 								<p>{$_(`home.steps.${step}.desc`)}</p>
@@ -322,49 +308,29 @@
 				</ol>
 			</div>
 
-			<div class="quick-start-terminal">
-				<div class="terminal-header">
-					<div>
-						<TerminalIcon class="size-4" />
-						<span>Agent prompt</span>
-					</div>
-					<Button
-						variant="ghost"
-						size="icon"
-						class="copy-button"
-						onclick={copyQuickStartPrompt}
-						aria-label={copied ? $_("home.steps.copied") : $_("home.steps.copy")}
-						title={copied ? $_("home.steps.copied") : $_("home.steps.copy")}
-					>
-						{#if copied}
-							<CheckIcon class="size-4" />
-						{:else}
-							<CopyIcon class="size-4" />
-						{/if}
+			<div class="prompt-sheet">
+				<div class="prompt-sheet-head">
+					<span>Agent prompt</span>
+					<Button variant="ghost" size="icon" class="copy-button" onclick={copyQuickStartPrompt} aria-label={copied ? $_("home.steps.copied") : $_("home.steps.copy")} title={copied ? $_("home.steps.copied") : $_("home.steps.copy")}>
+						{#if copied}<CheckIcon class="size-4" />{:else}<CopyIcon class="size-4" />{/if}
 					</Button>
 				</div>
 				<pre><code>{quickStartPrompt}</code></pre>
-				<a href={quickStartHref}>
-					{$_("home.hero.cta.init")}
-					<ArrowRightIcon class="size-4" />
-				</a>
+				<a href={quickStartHref}>{$_("home.hero.cta.init")} <ArrowRightIcon class="size-4" /></a>
 			</div>
 		</div>
 	</section>
 
-	<section id="faq" class="landing-section">
+	<section id="faq" class="landing-section landing-faq">
 		<div class="landing-shell faq-layout">
-			<div class="landing-section-heading faq-heading">
-				<p>{$_("home.faq.eyebrow")}</p>
+			<div class="section-intro">
+				<p class="section-kicker">{$_("home.faq.eyebrow")}</p>
 				<h2>{$_("home.faq.title")}</h2>
 			</div>
 			<div class="faq-list">
 				{#each faqList as item (item)}
 					<details>
-						<summary>
-							<span>{$_(`home.faq.${item}`)}</span>
-							<ArrowRightIcon class="faq-arrow size-4" />
-						</summary>
+						<summary><span>{$_(`home.faq.${item}`)}</span><ArrowRightIcon class="faq-arrow size-4" /></summary>
 						<p>{$_(`home.faq.a${item.slice(1)}`)}</p>
 					</details>
 				{/each}
@@ -372,18 +338,13 @@
 		</div>
 	</section>
 
-	<section class="landing-final">
-		<div class="landing-shell landing-final-inner">
-			<div>
-				<p>OPCStack</p>
-				<h2>{$_("home.final.title")}</h2>
-			</div>
-			<Button size="lg" href={quickStartHref} class="landing-final-button">
-				{$_("home.hero.cta.init")}
-				<ArrowRightIcon class="size-4" />
-			</Button>
+	<footer class="landing-footer">
+		<div class="landing-shell landing-footer-inner">
+			<div class="footer-brand"><img src="/logo.svg" alt="" /><span>OPCStack</span></div>
+			<p>{$_("home.final.subtitle")}</p>
+			<Button size="lg" href={quickStartHref} class="landing-footer-button">{$_("home.hero.cta.init")} <ArrowRightIcon class="size-4" /></Button>
 		</div>
-	</section>
+	</footer>
 </main>
 
 <style>
@@ -392,12 +353,15 @@
 	}
 
 	.landing-page {
-		--landing-ink: #111113;
-		--landing-muted: #606064;
-		--landing-line: #d9d9dc;
-		--landing-soft: #f4f4f5;
-		--landing-accent: #ff500a;
-		background: #ffffff;
+		--landing-ink: #24211e;
+		--landing-muted: #716a64;
+		--landing-line: rgba(36, 33, 30, 0.16);
+		--landing-paper: #f5efe6;
+		--landing-soft: #fbf8f3;
+		--landing-orange: #e85b2a;
+		--landing-orange-deep: #bc421f;
+		--landing-teal: #627873;
+		background: var(--landing-soft);
 		color: var(--landing-ink);
 		letter-spacing: 0;
 	}
@@ -407,55 +371,83 @@
 	}
 
 	.landing-shell {
-		width: min(100% - 40px, 1240px);
+		width: min(100% - 48px, 1240px);
 		margin-inline: auto;
 	}
 
 	.landing-hero {
-		min-height: calc(100svh - 104px);
-		background: var(--landing-ink);
-		color: #ffffff;
+		position: relative;
+		min-height: min(790px, calc(100svh - 64px));
+		overflow: hidden;
+		border-bottom: 1px solid var(--landing-line);
+		background: var(--landing-paper);
 	}
 
-	.landing-hero-inner {
-		display: grid;
-		align-content: center;
-		gap: clamp(42px, 6vw, 72px);
-		min-height: calc(100svh - 104px);
-		padding-block: clamp(56px, 8vh, 96px) 44px;
+	.hero-plane {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 48%;
+		background: var(--landing-orange);
+		clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%);
 	}
 
-	.landing-hero-copy {
-		max-width: 980px;
+	.hero-rules span {
+		position: absolute;
+		left: 3%;
+		width: 42%;
+		border-top: 1px solid rgba(36, 33, 30, 0.18);
 	}
 
-	.landing-product,
-	.landing-section-heading > p,
-	.landing-section-heading > div > p,
-	.landing-final p {
-		margin: 0 0 18px;
-		color: var(--landing-accent);
+	.hero-rules span:nth-child(1) { top: 18%; }
+	.hero-rules span:nth-child(2) { top: 52%; width: 22%; }
+	.hero-rules span:nth-child(3) { bottom: 16%; width: 35%; }
+
+	.hero-inner {
+		position: relative;
+		z-index: 2;
+		display: flex;
+		min-height: min(790px, calc(100svh - 64px));
+		flex-direction: column;
+		justify-content: space-between;
+		padding-block: clamp(72px, 12vh, 132px) 34px;
+	}
+
+	.hero-copy {
+		max-width: 660px;
+	}
+
+	.hero-brandline {
+		display: inline-flex;
+		align-items: center;
+		gap: 12px;
+		margin-bottom: 26px;
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-		font-size: 12px;
+		font-size: 11px;
 		font-weight: 700;
-		line-height: 1.4;
 		text-transform: uppercase;
 	}
 
-	.landing-hero h1 {
-		max-width: 920px;
-		margin: 0;
-		font-size: clamp(46px, 7vw, 88px);
-		font-weight: 650;
-		line-height: 0.98;
+	.hero-brandline img {
+		width: 38px;
+		height: 38px;
 	}
 
-	.landing-summary {
-		max-width: 720px;
-		margin: 26px 0 0;
-		color: #b8b8bd;
-		font-size: clamp(17px, 1.8vw, 21px);
-		line-height: 1.6;
+	.hero-copy h1 {
+		max-width: 620px;
+		margin: 0;
+		font-size: clamp(48px, 6.2vw, 82px);
+		font-weight: 650;
+		line-height: 1.02;
+	}
+
+	.hero-summary {
+		max-width: 560px;
+		margin: 28px 0 0;
+		color: #5b554f;
+		font-size: clamp(16px, 1.7vw, 19px);
+		line-height: 1.65;
 	}
 
 	.landing-actions {
@@ -466,303 +458,493 @@
 	}
 
 	:global(.landing-primary-button) {
-		border-color: var(--landing-accent);
-		border-radius: 6px;
-		background: var(--landing-accent);
-		color: #ffffff;
+		border-color: var(--landing-ink);
+		border-radius: 3px;
+		background: var(--landing-ink);
+		color: #fff;
 		box-shadow: none;
 	}
 
 	:global(.landing-primary-button:hover) {
-		background: #ff6a2b;
+		background: #3a3531;
 	}
 
 	:global(.landing-secondary-button) {
-		border-color: #424247;
-		border-radius: 6px;
+		border-color: rgba(36, 33, 30, 0.35);
+		border-radius: 3px;
 		background: transparent;
-		color: #ffffff;
+		color: var(--landing-ink);
 		box-shadow: none;
 	}
 
 	:global(.landing-secondary-button:hover) {
-		border-color: #6d6d72;
-		background: #232326;
+		border-color: var(--landing-ink);
+		background: rgba(255, 255, 255, 0.45);
 	}
 
-	.landing-architecture {
-		border-top: 1px solid #3a3a3e;
+	.hero-foot {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px 28px;
+		padding-top: 20px;
+		border-top: 1px solid rgba(36, 33, 30, 0.28);
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: uppercase;
 	}
 
-	.architecture-caption {
+	.deployment-scene {
+		position: absolute;
+		top: 16%;
+		right: clamp(24px, 5vw, 96px);
+		z-index: 1;
+		width: min(560px, 48vw);
+		transform: rotate(-5deg);
+	}
+
+	.scene-caption,
+	.scene-footnote {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 20px;
-		padding-block: 12px;
-		color: #8e8e93;
-		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-		font-size: 11px;
-		text-transform: uppercase;
-	}
-
-	.architecture-caption strong {
-		color: #ffffff;
-		font-weight: 600;
-	}
-
-	.architecture-flow {
-		display: grid;
-		grid-template-columns: minmax(0, 0.9fr) 24px minmax(0, 1.2fr) 24px minmax(0, 2fr);
-		align-items: stretch;
-		border-block: 1px solid #3a3a3e;
-	}
-
-	.architecture-layer {
-		display: flex;
-		min-width: 0;
-		flex-direction: column;
-		justify-content: space-between;
-		gap: 18px;
-		padding: 18px;
-		background: #18181b;
-	}
-
-	.architecture-layer > div {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px 18px;
-	}
-
-	.architecture-layer strong {
-		color: #ffffff;
-		font-size: 14px;
-		font-weight: 600;
-		line-height: 1.35;
-	}
-
-	.architecture-label {
-		color: #85858b;
+		gap: 16px;
+		color: rgba(255, 255, 255, 0.76);
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 10px;
-		font-weight: 600;
+		font-weight: 700;
 		text-transform: uppercase;
 	}
 
-	.architecture-connector {
+	.scene-caption {
+		padding: 0 16px 12px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.36);
+	}
+
+	.scene-caption strong {
+		color: #fff;
+	}
+
+	.deployment-stack {
+		padding: 18px 0 12px 32px;
+	}
+
+	.deployment-layer {
+		position: relative;
+		min-height: 104px;
+		padding: 20px 24px;
+		border: 1px solid rgba(36, 33, 30, 0.34);
+		box-shadow: 12px 16px 0 rgba(36, 33, 30, 0.18);
+	}
+
+	.deployment-layer::before {
+		position: absolute;
+		top: 10px;
+		left: -10px;
+		width: 9px;
+		height: calc(100% - 10px);
+		background: rgba(36, 33, 30, 0.28);
+		content: "";
+	}
+
+	.layer-runtime {
+		z-index: 4;
+		background: #252726;
+		color: #f9f5ed;
+	}
+
+	.layer-control {
+		z-index: 3;
+		margin: -18px 34px 0 -22px;
+		background: #ca4d26;
+		color: #fff;
+	}
+
+	.layer-tenant {
+		z-index: 2;
+		margin: -18px 66px 0 -44px;
+		background: #f8f0e5;
+		color: var(--landing-ink);
+	}
+
+	.layer-platform {
+		z-index: 1;
+		min-height: 78px;
+		margin: -18px 96px 0 -66px;
+		background: #667a75;
+		color: #fff;
+	}
+
+	.layer-topline,
+	.layer-detail {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.layer-topline {
+		padding-bottom: 16px;
+		border-bottom: 1px solid currentColor;
+		opacity: 0.72;
+	}
+
+	.layer-title {
+		display: block;
+		margin-top: 16px;
+		font-size: clamp(18px, 2vw, 25px);
+		font-weight: 650;
+		line-height: 1.15;
+	}
+
+	.layer-detail {
+		margin-top: 18px;
+		opacity: 0.7;
+	}
+
+	.shard-grid {
 		display: grid;
-		place-items: center;
-		color: #6d6d72;
-		font-size: 15px;
-		transform: rotate(-90deg);
+		grid-template-columns: repeat(6, 1fr);
+		gap: 4px;
+		margin-top: 18px;
 	}
 
-	.architecture-data {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+	.shard-grid span {
+		padding: 8px 4px;
+		border: 1px solid rgba(36, 33, 30, 0.24);
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 8px;
+		font-weight: 700;
+		text-align: center;
 	}
 
-	.architecture-data .architecture-layer {
-		border-left: 1px solid #3a3a3e;
+	.scene-footnote {
+		padding: 12px 16px 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.36);
+		font-size: 9px;
 	}
 
-	.architecture-data .architecture-layer:first-child {
-		border-left: 0;
-	}
-
-	.architecture-layer.architecture-accent {
-		background: var(--landing-accent);
-	}
-
-	.architecture-accent .architecture-label {
-		color: #ffffffb8;
+	.layer-state {
+		color: #f4c36e;
 	}
 
 	.landing-section {
-		padding-block: clamp(82px, 10vw, 140px);
+		padding-block: clamp(88px, 11vw, 148px);
 		border-bottom: 1px solid var(--landing-line);
 	}
 
-	.landing-section-heading {
+	.section-intro {
 		max-width: 760px;
-		margin-bottom: clamp(42px, 6vw, 72px);
+		margin-bottom: clamp(44px, 6vw, 76px);
 	}
 
-	.landing-section-heading h2,
-	.landing-final h2 {
+	.section-intro-wide {
+		max-width: 920px;
+	}
+
+	.section-intro h2 {
 		margin: 0;
-		font-size: clamp(34px, 5vw, 60px);
-		font-weight: 620;
-		line-height: 1.05;
+		font-size: clamp(36px, 5vw, 62px);
+		font-weight: 640;
+		line-height: 1.06;
 	}
 
-	.landing-section-heading > span,
-	.landing-heading-row > span {
+	.section-kicker {
+		margin: 0 0 18px;
+		color: var(--landing-orange-deep);
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 11px;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.section-intro > span {
 		display: block;
-		max-width: 660px;
+		max-width: 670px;
 		margin-top: 20px;
 		color: var(--landing-muted);
 		font-size: 17px;
 		line-height: 1.65;
 	}
 
-	.capability-list {
+	.flow-list {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		border-top: 1px solid var(--landing-ink);
 	}
 
-	.capability-row {
-		display: grid;
-		grid-template-columns: 150px minmax(180px, 0.8fr) minmax(280px, 1.4fr);
-		gap: 28px;
-		align-items: start;
-		padding-block: 26px;
-		border-bottom: 1px solid var(--landing-line);
-	}
-
-	.capability-status {
+	.flow-step {
+		position: relative;
 		display: flex;
-		align-items: center;
-		gap: 8px;
-		color: var(--landing-accent);
+		min-height: 250px;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: 30px;
+		padding: 24px 28px 28px 0;
+		border-right: 1px solid var(--landing-line);
+	}
+
+	.flow-step + .flow-step {
+		padding-left: 28px;
+	}
+
+	.flow-step:last-child {
+		border-right: 0;
+	}
+
+	.flow-index {
+		color: var(--landing-orange-deep);
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-		font-size: 11px;
+		font-size: 12px;
 		font-weight: 700;
-		text-transform: uppercase;
 	}
 
-	.capability-row h3 {
+	.flow-step h3 {
 		margin: 0;
-		font-size: 20px;
-		font-weight: 620;
-		line-height: 1.35;
+		font-size: 24px;
+		font-weight: 640;
 	}
 
-	.capability-row p {
-		margin: 0;
+	.flow-step p {
+		max-width: 290px;
+		margin: 10px 0 0;
 		color: var(--landing-muted);
 		font-size: 15px;
 		line-height: 1.65;
 	}
 
-	.landing-section-dark {
-		border-color: #333337;
-		background: var(--landing-ink);
-		color: #ffffff;
+	:global(.flow-arrow) {
+		color: var(--landing-orange-deep);
 	}
 
-	.landing-section-heading-dark h2 {
-		max-width: 900px;
+	.landing-runtime {
+		border-color: #3c3d3c;
+		background: #252726;
+		color: #f8f3ea;
 	}
 
-	.comparison-table {
-		border-top: 1px solid #4a4a4f;
-	}
-
-	.comparison-header,
-	.comparison-row {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
-
-	.comparison-header {
-		color: #8e8e93;
-		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-		font-size: 11px;
-		font-weight: 700;
-		text-transform: uppercase;
-	}
-
-	.comparison-header span,
-	.comparison-row > div {
-		padding: 16px 24px;
-	}
-
-	.comparison-header span:last-child,
-	.comparison-opcstack {
-		border-left: 1px solid #4a4a4f;
-	}
-
-	.comparison-row {
-		border-top: 1px solid #333337;
-	}
-
-	.comparison-row > div {
-		font-size: 15px;
-		line-height: 1.6;
-	}
-
-	.comparison-baseline {
-		color: #85858b;
-	}
-
-	.comparison-opcstack {
+	.runtime-heading {
 		display: flex;
-		gap: 12px;
-		color: #ffffff;
-	}
-
-	:global(.comparison-check) {
-		margin-top: 4px;
-		color: var(--landing-accent);
-	}
-
-	.landing-heading-row {
-		display: grid;
-		max-width: none;
-		grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.7fr);
-		gap: 60px;
 		align-items: end;
+		justify-content: space-between;
+		gap: 32px;
 	}
 
-	.landing-heading-row > span {
-		margin: 0;
+	.section-intro-dark {
+		margin-bottom: 0;
 	}
 
-	.pricing-table {
-		border-top: 1px solid var(--landing-ink);
+	.section-intro-dark h2 {
+		max-width: 840px;
 	}
 
-	.pricing-header,
-	.pricing-row {
-		display: grid;
-		grid-template-columns: 180px repeat(2, minmax(0, 1fr));
+	.section-intro-dark .section-kicker {
+		color: #f2a25d;
 	}
 
-	.pricing-header {
-		color: var(--landing-muted);
+	.runtime-metric {
+		flex: none;
+		padding-left: 26px;
+		border-left: 1px solid #777c77;
+	}
+
+	.runtime-metric strong {
+		display: block;
+		color: #f2a25d;
+		font-size: 48px;
+		font-weight: 600;
+		line-height: 1;
+	}
+
+	.runtime-metric span {
+		display: block;
+		margin-top: 8px;
+		color: #aeb5ae;
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 10px;
 		font-weight: 700;
 		text-transform: uppercase;
 	}
 
-	.pricing-header span,
-	.pricing-row > * {
-		padding: 14px 18px;
+	.runtime-diagram {
+		display: grid;
+		grid-template-columns: 1fr 110px 1fr 110px 1.2fr;
+		align-items: center;
+		margin-top: 86px;
+		padding-block: 28px;
+		border-block: 1px solid #4b4f4c;
 	}
 
-	.pricing-row {
-		border-top: 1px solid var(--landing-line);
+	.runtime-node {
+		min-height: 112px;
+		padding: 22px;
+		border: 1px solid #69706a;
+		background: #2d302e;
 	}
 
-	.pricing-row strong {
+	.runtime-node span {
+		display: block;
+		color: #aeb5ae;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.runtime-node strong {
+		display: block;
+		margin-top: 17px;
+		font-size: 22px;
+		font-weight: 640;
+	}
+
+	.runtime-node-control {
+		border-color: #e85b2a;
+		background: #e85b2a;
+		color: var(--landing-ink);
+	}
+
+	.runtime-node-control span {
+		color: rgba(36, 33, 30, 0.68);
+	}
+
+	.runtime-node-tenant {
+		border-color: #c4d0c7;
+		background: #dfe8df;
+		color: var(--landing-ink);
+	}
+
+	.runtime-node-tenant span {
+		color: #586c62;
+	}
+
+	.runtime-line {
+		position: relative;
+		height: 1px;
+		background: #7d857e;
+	}
+
+	.runtime-line::after {
+		position: absolute;
+		top: -4px;
+		right: 0;
+		width: 9px;
+		height: 9px;
+		border-top: 1px solid #7d857e;
+		border-right: 1px solid #7d857e;
+		content: "";
+		transform: rotate(45deg);
+	}
+
+	.runtime-line-split {
+		background: #e85b2a;
+	}
+
+	.runtime-line-split::after {
+		border-color: #e85b2a;
+	}
+
+	.runtime-regions {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 4px;
+		margin-top: 16px;
+	}
+
+	.runtime-regions span {
+		padding: 7px 3px;
+		border: 1px solid #aab9ac;
+		color: #586c62;
+		font-size: 8px;
+		text-align: center;
+	}
+
+	.runtime-facts {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		margin-top: 70px;
+		border-top: 1px solid #4b4f4c;
+	}
+
+	.runtime-fact {
+		padding: 24px 28px 0 0;
+		border-right: 1px solid #4b4f4c;
+	}
+
+	.runtime-fact + .runtime-fact {
+		padding-left: 28px;
+	}
+
+	.runtime-fact:nth-child(3n) {
+		border-right: 0;
+	}
+
+	.fact-status {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: #f2a25d;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.runtime-fact h3 {
+		margin: 18px 0 0;
+		font-size: 20px;
+		font-weight: 640;
+	}
+
+	.runtime-fact p {
+		margin: 10px 0 0;
+		color: #b9c0b9;
 		font-size: 14px;
-		font-weight: 650;
+		line-height: 1.65;
 	}
 
-	.pricing-row span {
-		border-left: 1px solid var(--landing-line);
-		color: var(--landing-muted);
-		font-size: 13px;
-		line-height: 1.55;
+	.landing-cost {
+		background: #efe5d8;
 	}
 
-	.pricing-note {
-		max-width: 780px;
-		margin: 20px 0 0;
+	.cost-facts {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		border-block: 1px solid var(--landing-ink);
+	}
+
+	.cost-facts > div {
+		min-height: 190px;
+		padding: 25px 28px 25px 0;
+		border-right: 1px solid var(--landing-line);
+	}
+
+	.cost-facts > div + div {
+		padding-left: 28px;
+	}
+
+	.cost-facts > div:last-child {
+		border-right: 0;
+	}
+
+	.cost-facts strong {
+		display: block;
+		font-size: clamp(40px, 5vw, 68px);
+		font-weight: 630;
+		line-height: 1;
+	}
+
+	.cost-facts span {
+		display: block;
+		max-width: 200px;
+		margin-top: 18px;
 		color: var(--landing-muted);
-		font-size: 13px;
-		line-height: 1.6;
+		font-size: 14px;
+		line-height: 1.45;
 	}
 
 	.pricing-sources {
@@ -770,15 +952,15 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 10px 20px;
-		margin-top: 18px;
+		margin-top: 24px;
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 11px;
+		font-weight: 700;
+		text-transform: uppercase;
 	}
 
 	.pricing-sources > span {
 		color: var(--landing-muted);
-		font-weight: 700;
-		text-transform: uppercase;
 	}
 
 	.pricing-sources a {
@@ -787,46 +969,57 @@
 		gap: 5px;
 		border-bottom: 1px solid var(--landing-line);
 		color: var(--landing-ink);
-		font-weight: 650;
 	}
 
 	.pricing-sources a:hover {
-		border-color: var(--landing-accent);
-		color: var(--landing-accent);
+		border-color: var(--landing-orange-deep);
+		color: var(--landing-orange-deep);
 	}
 
-	.landing-quick-start {
-		background: var(--landing-soft);
+	.cost-note {
+		max-width: 780px;
+		margin: 20px 0 0;
+		color: var(--landing-muted);
+		font-size: 13px;
+		line-height: 1.6;
 	}
 
-	.quick-start-layout {
+	.landing-start {
+		background: var(--landing-orange);
+		color: #fff;
+	}
+
+	.start-layout {
 		display: grid;
-		grid-template-columns: minmax(0, 0.8fr) minmax(400px, 1.2fr);
-		gap: clamp(48px, 8vw, 120px);
+		grid-template-columns: minmax(0, 0.75fr) minmax(420px, 1.25fr);
+		gap: clamp(52px, 9vw, 138px);
 		align-items: center;
 	}
 
-	.quick-start-layout .landing-section-heading {
-		margin-bottom: 36px;
+	.section-intro-light .section-kicker {
+		color: #ffd6b1;
+	}
+
+	.section-intro-light h2 {
+		color: #fff;
 	}
 
 	.step-list {
 		margin: 0;
 		padding: 0;
-		border-top: 1px solid var(--landing-ink);
+		border-top: 1px solid rgba(255, 255, 255, 0.46);
 		list-style: none;
 	}
 
 	.step-list li {
 		display: grid;
-		grid-template-columns: 34px minmax(0, 1fr);
+		grid-template-columns: 36px minmax(0, 1fr);
 		gap: 18px;
 		padding-block: 20px;
-		border-bottom: 1px solid var(--landing-line);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.34);
 	}
 
 	.step-list li > span {
-		color: var(--landing-accent);
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 12px;
 		font-weight: 700;
@@ -834,40 +1027,31 @@
 
 	.step-list h3 {
 		margin: 0;
-		font-size: 16px;
-		font-weight: 650;
+		font-size: 17px;
+		font-weight: 640;
 	}
 
 	.step-list p {
 		margin: 6px 0 0;
-		color: var(--landing-muted);
+		color: rgba(255, 255, 255, 0.78);
 		font-size: 14px;
 		line-height: 1.6;
 	}
 
-	.quick-start-terminal {
+	.prompt-sheet {
 		min-width: 0;
-		border: 1px solid #2d2d31;
-		border-radius: 6px;
-		background: var(--landing-ink);
-		color: #ffffff;
+		border: 1px solid rgba(36, 33, 30, 0.42);
+		background: #25211f;
+		color: #fff;
+		box-shadow: 12px 14px 0 rgba(36, 33, 30, 0.18);
 	}
 
-	.terminal-header {
+	.prompt-sheet-head {
 		display: flex;
-		min-height: 52px;
 		align-items: center;
 		justify-content: space-between;
-		gap: 16px;
-		padding: 8px 10px 8px 18px;
-		border-bottom: 1px solid #333337;
-	}
-
-	.terminal-header > div {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		color: #a7a7ad;
+		padding: 8px 10px 8px 20px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.18);
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 11px;
 		font-weight: 700;
@@ -875,53 +1059,53 @@
 	}
 
 	:global(.copy-button) {
-		color: #ffffff;
+		color: #fff;
 	}
 
 	:global(.copy-button:hover) {
-		background: #29292d;
+		background: rgba(255, 255, 255, 0.12);
 	}
 
-	.quick-start-terminal pre {
-		min-height: 230px;
+	.prompt-sheet pre {
+		min-height: 210px;
 		margin: 0;
-		padding: 28px;
+		padding: 26px 24px;
 		overflow-x: auto;
 		white-space: pre-wrap;
 	}
 
-	.quick-start-terminal code {
-		color: #e4e4e7;
+	.prompt-sheet code {
+		color: #f3eee5;
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 		font-size: 14px;
 		line-height: 1.8;
 		word-break: break-word;
 	}
 
-	.quick-start-terminal > a {
+	.prompt-sheet > a {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 16px;
-		padding: 18px 28px;
-		border-top: 1px solid #333337;
-		color: var(--landing-accent);
+		padding: 16px 24px;
+		border-top: 1px solid rgba(255, 255, 255, 0.18);
+		color: #f6b35e;
 		font-size: 14px;
 		font-weight: 650;
 	}
 
-	.quick-start-terminal > a:hover {
-		background: #1c1c1f;
+	.prompt-sheet > a:hover {
+		background: #302a27;
+	}
+
+	.landing-faq {
+		background: var(--landing-soft);
 	}
 
 	.faq-layout {
 		display: grid;
-		grid-template-columns: minmax(240px, 0.55fr) minmax(0, 1fr);
+		grid-template-columns: minmax(260px, 0.55fr) minmax(0, 1fr);
 		gap: clamp(56px, 9vw, 140px);
-	}
-
-	.faq-heading {
-		margin: 0;
 	}
 
 	.faq-list {
@@ -966,234 +1150,277 @@
 		line-height: 1.75;
 	}
 
-	.landing-final {
-		padding-block: clamp(62px, 8vw, 96px);
-		background: var(--landing-accent);
-		color: #ffffff;
-	}
-
-	.landing-final-inner {
-		display: flex;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: 40px;
-	}
-
-	.landing-final p {
-		color: #ffffff;
-	}
-
-	.landing-final h2 {
-		max-width: 820px;
-	}
-
-	:global(.landing-final-button) {
-		flex: none;
-		border-color: var(--landing-ink);
-		border-radius: 6px;
+	.landing-footer {
+		padding-block: 30px;
 		background: var(--landing-ink);
-		color: #ffffff;
+		color: #fff;
+	}
+
+	.landing-footer-inner {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 30px;
+	}
+
+	.footer-brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		font-size: 15px;
+		font-weight: 720;
+	}
+
+	.footer-brand img {
+		width: 28px;
+		height: 28px;
+	}
+
+	.landing-footer p {
+		margin: 0;
+		color: #c6beb4;
+		font-size: 13px;
+	}
+
+	:global(.landing-footer-button) {
+		border-color: #f2a25d;
+		border-radius: 3px;
+		background: #f2a25d;
+		color: var(--landing-ink);
 		box-shadow: none;
 	}
 
-	:global(.landing-final-button:hover) {
-		background: #26262a;
+	:global(.landing-footer-button:hover) {
+		background: #ffbe73;
 	}
 
-	@media (max-width: 900px) {
-		.architecture-flow {
+	@media (max-width: 1080px) {
+		.deployment-scene {
+			right: -40px;
+			width: 52vw;
+		}
+
+		.hero-copy {
+			max-width: 58vw;
+		}
+
+		.runtime-diagram {
+			grid-template-columns: 1fr 56px 1fr 56px 1.2fr;
+		}
+	}
+
+	@media (max-width: 820px) {
+		.landing-shell {
+			width: min(100% - 36px, 1240px);
+		}
+
+		.landing-hero {
+			min-height: 780px;
+		}
+
+		.hero-inner {
+			min-height: 780px;
+			padding-top: 64px;
+		}
+
+		.hero-plane {
+			top: 0;
+			width: 100%;
+			height: 300px;
+			clip-path: polygon(26% 0, 100% 0, 100% 100%, 0 100%);
+		}
+
+		.deployment-scene {
+			top: 38px;
+			right: 16px;
+			width: min(580px, 95vw);
+			transform: rotate(-4deg) scale(0.78);
+			transform-origin: top right;
+			opacity: 0.96;
+		}
+
+		.hero-copy {
+			max-width: 600px;
+			margin-top: 246px;
+		}
+
+		.hero-copy h1 {
+			font-size: clamp(45px, 9vw, 68px);
+		}
+
+		.flow-list,
+		.runtime-facts,
+		.cost-facts {
 			grid-template-columns: 1fr;
 		}
 
-		.architecture-connector {
-			height: 24px;
-			transform: none;
+		.flow-step,
+		.flow-step + .flow-step,
+		.runtime-fact,
+		.runtime-fact + .runtime-fact,
+		.cost-facts > div,
+		.cost-facts > div + div {
+			min-height: 0;
+			padding: 22px 0;
+			border-right: 0;
+			border-bottom: 1px solid var(--landing-line);
 		}
 
-		.capability-row {
-			grid-template-columns: 120px minmax(180px, 0.75fr) minmax(240px, 1.25fr);
+		.flow-step:last-child,
+		.runtime-fact:nth-child(3n),
+		.cost-facts > div:last-child {
+			border-bottom: 0;
 		}
 
-		.quick-start-layout,
+		.flow-step {
+			min-height: 190px;
+		}
+
+		.runtime-heading,
+		.start-layout,
 		.faq-layout {
 			grid-template-columns: 1fr;
 		}
 
-		.quick-start-terminal {
-			max-width: 760px;
+		.runtime-heading {
+			display: grid;
+			align-items: start;
+		}
+
+		.runtime-metric {
+			width: fit-content;
+		}
+
+		.runtime-diagram {
+			grid-template-columns: 1fr;
+			gap: 12px;
+			margin-top: 58px;
+			padding-block: 22px;
+		}
+
+		.runtime-line {
+			width: 1px;
+			height: 30px;
+			margin-left: 30px;
+		}
+
+		.runtime-line::after {
+			top: auto;
+			bottom: 0;
+			right: -4px;
+			transform: rotate(135deg);
+		}
+
+		.runtime-regions {
+			max-width: 380px;
+		}
+
+		.start-layout {
+			display: grid;
+			gap: 52px;
+		}
+
+		.landing-footer-inner {
+			grid-template-columns: 1fr auto;
+		}
+
+		.landing-footer p {
+			grid-column: 1 / -1;
+			grid-row: 2;
 		}
 	}
 
-	@media (max-width: 700px) {
+	@media (max-width: 560px) {
 		.landing-shell {
-			width: min(100% - 32px, 1240px);
+			width: min(100% - 28px, 1240px);
 		}
 
-		.landing-hero-inner {
-			gap: 28px;
-			padding-block: 36px 24px;
+		.landing-hero {
+			min-height: 760px;
 		}
 
-		.landing-hero h1 {
-			font-size: 43px;
-			line-height: 1.02;
+		.hero-inner {
+			min-height: 760px;
+			padding-block: 42px 24px;
 		}
 
-		.landing-product {
-			margin-bottom: 12px;
+		.deployment-scene {
+			right: -38px;
+			width: 560px;
+			transform: rotate(-4deg) scale(0.44);
 		}
 
-		.landing-summary {
+		.hero-copy {
+			margin-top: 275px;
+		}
+
+		.hero-brandline {
+			margin-bottom: 18px;
+			font-size: 9px;
+		}
+
+		.hero-brandline img {
+			width: 31px;
+			height: 31px;
+		}
+
+		.hero-copy h1 {
+			font-size: 45px;
+		}
+
+		.hero-summary {
 			margin-top: 18px;
 			font-size: 15px;
-			line-height: 1.55;
+			line-height: 1.58;
 		}
 
-		.landing-actions {
-			margin-top: 20px;
-		}
-
-		.architecture-caption {
-			padding-block: 8px;
-		}
-
-		.architecture-flow {
-			border-bottom: 0;
-		}
-
-		.architecture-connector {
-			display: none;
-		}
-
-		.architecture-layer {
-			min-height: 54px;
-			align-items: center;
-			flex-direction: row;
-			gap: 12px;
-			padding: 10px 12px;
-			border-bottom: 1px solid #3a3a3e;
-		}
-
-		.architecture-layer > div {
-			justify-content: flex-end;
-		}
-
-		.architecture-label {
-			flex: none;
-		}
-
-		.architecture-layer strong {
-			font-size: 12px;
-		}
-
-		.architecture-data {
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-		}
-
-		.architecture-data .architecture-layer {
-			min-height: 72px;
-			align-items: flex-start;
-			flex-direction: column;
-			justify-content: space-between;
-			gap: 8px;
-			border-top: 0;
-			border-left: 1px solid #3a3a3e;
-		}
-
-		.architecture-data .architecture-layer:first-child {
-			border-left: 0;
-			border-top: 0;
+		.hero-foot {
+			gap: 8px 14px;
+			font-size: 8px;
 		}
 
 		.landing-section {
-			padding-block: 80px;
+			padding-block: 78px;
 		}
 
-		.capability-row {
-			grid-template-columns: 1fr;
-			gap: 10px;
+		.section-intro h2 {
+			font-size: 38px;
 		}
 
-		.capability-status {
-			margin-bottom: 6px;
+		.runtime-node {
+			min-height: 100px;
+			padding: 18px;
 		}
 
-		.comparison-header {
-			display: none;
+		.runtime-node strong {
+			font-size: 20px;
 		}
 
-		.comparison-row {
-			grid-template-columns: 1fr;
-			padding-block: 12px;
+		.cost-facts strong {
+			font-size: 52px;
 		}
 
-		.comparison-row > div {
-			padding: 12px 0 12px 92px;
+		.prompt-sheet pre {
+			min-height: 200px;
+			padding: 22px 18px;
 		}
 
-		.comparison-row > div::before {
-			position: absolute;
-			left: 0;
-			width: 76px;
-			color: #77777d;
-			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-			font-size: 9px;
-			font-weight: 700;
-			text-transform: uppercase;
-			content: attr(data-label);
+		.prompt-sheet code {
+			font-size: 12px;
 		}
 
-		.comparison-baseline,
-		.comparison-opcstack {
-			position: relative;
-			border-left: 0;
-		}
-
-		.landing-heading-row {
+		.landing-footer-inner {
 			grid-template-columns: 1fr;
 			gap: 18px;
 		}
 
-		.pricing-header {
-			display: none;
+		.landing-footer p {
+			grid-column: auto;
+			grid-row: auto;
 		}
 
-		.pricing-row {
-			grid-template-columns: 1fr;
-			padding-block: 18px;
-		}
-
-		.pricing-row > * {
-			padding: 7px 0;
-		}
-
-		.pricing-row span {
-			border-left: 0;
-		}
-
-		.pricing-row span::before {
-			display: block;
-			margin-bottom: 4px;
-			color: #8b8b90;
-			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-			font-size: 9px;
-			font-weight: 700;
-			text-transform: uppercase;
-			content: attr(data-label);
-		}
-
-		.quick-start-layout {
-			gap: 48px;
-		}
-
-		.quick-start-terminal pre {
-			min-height: 210px;
-			padding: 22px 18px;
-		}
-
-		.landing-final-inner {
-			align-items: flex-start;
-			flex-direction: column;
+		:global(.landing-footer-button) {
+			width: fit-content;
 		}
 	}
 
