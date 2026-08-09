@@ -297,7 +297,11 @@ describe('adminUserMiddleware', () => {
 			}
 		} as never)
 
-		const state = createContextState('/api/admin/generate_beta_codes', given.authorization)
+		const state = createContextState(
+			'/api/admin/generate_beta_codes',
+			given.authorization,
+			given.sessionUserId ? 'better-auth.session_token=test' : undefined
+		)
 		if (given.adminApiToken === null) {
 			delete state.env['ADMIN_API_TOKEN']
 		} else if (given.adminApiToken !== undefined) {
@@ -401,7 +405,11 @@ describe('adminUserMiddleware', () => {
 		}
 		await adminUserMiddleware(createContext(tokenState), tokenState.next)
 
-		const sessionState = createContextState('/api/admin/list_payment_transactions')
+		const sessionState = createContextState(
+			'/api/admin/list_payment_transactions',
+			undefined,
+			'better-auth.session_token=test'
+		)
 		await adminUserMiddleware(createContext(sessionState), sessionState.next)
 
 		return {

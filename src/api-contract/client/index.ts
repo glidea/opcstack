@@ -2,6 +2,10 @@ import { createAuthClient } from 'better-auth/svelte'
 import { emailOTPClient, genericOAuthClient } from 'better-auth/client/plugins'
 import type { GetAffSummaryResponse, BindAffRequest } from '../aff'
 import type {
+	ListAdminUsersRequest,
+	ListAdminUsersResponse
+} from '../admin-users'
+import type {
 	BindBetaCodeRequest,
 	GenerateBetaCodesRequest,
 	GenerateBetaCodesResponse,
@@ -127,6 +131,7 @@ type ApiMethods = {
 	listAdminPaymentTransactions(
 		input: ListAdminPaymentTransactionsRequest
 	): Promise<ListAdminPaymentTransactionsResponse>
+	listAdminUsers(input: ListAdminUsersRequest): Promise<ListAdminUsersResponse>
 	listBetaCodes(input: ListBetaCodesRequest): Promise<ListBetaCodesResponse>
 	listCreditCodes(input: ListCreditCodesRequest): Promise<ListCreditCodesResponse>
 	listCreditTransactions(
@@ -352,6 +357,9 @@ function createApiMethods(
 			input: ListAdminPaymentTransactionsRequest
 		): Promise<ListAdminPaymentTransactionsResponse> {
 			return call({ path: '/api/admin/list_payment_transactions', body: input })
+		},
+		listAdminUsers(input: ListAdminUsersRequest): Promise<ListAdminUsersResponse> {
+			return call({ path: '/api/admin/list_users', body: input })
 		},
 		listBetaCodes(input: ListBetaCodesRequest): Promise<ListBetaCodesResponse> {
 			return call({ path: '/api/admin/list_beta_codes', body: input })

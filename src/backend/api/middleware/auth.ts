@@ -116,6 +116,10 @@ export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
 		return next()
 	}
 
+	if (!ctx.req.header('cookie')) {
+		return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
+	}
+
 	const session = await authCore(ctx.env, ctx.get('metaDb')).api.getSession({
 		headers: ctx.req.raw.headers
 	})
