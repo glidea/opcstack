@@ -23,6 +23,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import PaymentDetailSheet from './PaymentDetailSheet.svelte'
 	import {
 		createPaymentSearchParams,
@@ -46,6 +47,7 @@
 	} = $props()
 
 	const initialQuery: ListAdminPaymentTransactionsRequest = parsePaymentListQuery(page.url)
+	const initialDetailKey: string = readAdminDetailKey(page.url)
 	let query: ListAdminPaymentTransactionsRequest = $state(initialQuery)
 	let userInput: string = $state(initialQuery.user_id ?? '')
 	let typeInput: string = $state(initialQuery.type ?? '')
@@ -55,6 +57,7 @@
 	let selectedTransaction: AdminPaymentTransactionItem | null = $state(null)
 	let detailOpen: boolean = $state(false)
 	let initialized: boolean = $state(false)
+	let detailStateReady: boolean = $state(false)
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -66,6 +69,17 @@
 		void loadTransactions()
 	})
 
+	$effect((): void => {
+		if (!detailStateReady) {
+			return
+		}
+		const detailKey: string = detailOpen ? selectedTransaction?.id ?? '' : ''
+		if (detailKey === readAdminDetailKey(page.url)) {
+			return
+		}
+		updateUrl(query, detailKey)
+	})
+
 	onMount((): void => {
 		initialized = true
 		void loadTransactions()
@@ -74,9 +88,21 @@
 	async function loadTransactions(): Promise<void> {
 		listState = { status: 'loading' }
 		try {
+			const response: ListAdminPaymentTransactionsResponse =
+				await client.api.listAdminPaymentTransactions(query)
 			listState = {
 				status: 'loaded',
-				data: await client.api.listAdminPaymentTransactions(query)
+				data: response
+			}
+			if (!detailStateReady) {
+				const selected: AdminPaymentTransactionItem | undefined = response.items.find(
+					(transaction: AdminPaymentTransactionItem): boolean => transaction.id === initialDetailKey
+				)
+				if (selected !== undefined) {
+					selectedTransaction = selected
+					detailOpen = true
+				}
+				detailStateReady = true
 			}
 		} catch {
 			listState = { status: 'error' }
@@ -110,8 +136,8 @@
 		void loadTransactions()
 	}
 
-	function updateUrl(input: ListAdminPaymentTransactionsRequest): void {
-		const search: string = createPaymentSearchParams(input).toString()
+	function updateUrl(input: ListAdminPaymentTransactionsRequest, detailKey: string = ''): void {
+		const search: string = createAdminPageSearch(createPaymentSearchParams(input), detailKey)
 		void goto(`${page.url.pathname}${search === '' ? '' : `?${search}`}`, {
 			keepFocus: true,
 			noScroll: true

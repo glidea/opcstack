@@ -25,6 +25,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import AiTaskDetailSheet from './AiTaskDetailSheet.svelte'
 	import {
 		createAiTaskSearchParams,
@@ -49,6 +50,7 @@
 	} = $props()
 
 	const initialQuery: ListAdminAiTasksRequest = parseAiTaskListQuery(page.url)
+	const initialDetailKey: string = readAdminDetailKey(page.url)
 	let query: ListAdminAiTasksRequest = $state(initialQuery)
 	let taskTypeInput: string = $state(initialQuery.task_type ?? 'all')
 	let idInput: string = $state(initialQuery.id ?? '')
@@ -63,6 +65,7 @@
 	let selectedTask: AdminAiTaskSummary | null = $state(null)
 	let detailOpen: boolean = $state(false)
 	let initialized: boolean = $state(false)
+	let detailStateReady: boolean = $state(false)
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -74,6 +77,17 @@
 		void loadTasks()
 	})
 
+	$effect((): void => {
+		if (!detailStateReady) {
+			return
+		}
+		const detailKey: string = detailOpen && selectedTask ? createTaskDetailKey(selectedTask) : ''
+		if (detailKey === readAdminDetailKey(page.url)) {
+			return
+		}
+		updateUrl(query, detailKey)
+	})
+
 	onMount((): void => {
 		initialized = true
 		void loadTasks()
@@ -82,9 +96,20 @@
 	async function loadTasks(): Promise<void> {
 		listState = { status: 'loading' }
 		try {
+			const response: ListAdminAiTasksResponse = await client.api.listAdminAiTasks(query)
 			listState = {
 				status: 'loaded',
-				data: await client.api.listAdminAiTasks(query)
+				data: response
+			}
+			if (!detailStateReady) {
+				const selected: AdminAiTaskSummary | undefined = response.items.find(
+					(task: AdminAiTaskSummary): boolean => createTaskDetailKey(task) === initialDetailKey
+				)
+				if (selected !== undefined) {
+					selectedTask = selected
+					detailOpen = true
+				}
+				detailStateReady = true
 			}
 		} catch {
 			listState = { status: 'error' }
@@ -131,8 +156,8 @@
 		void loadTasks()
 	}
 
-	function updateUrl(input: ListAdminAiTasksRequest): void {
-		const search: string = createAiTaskSearchParams(input).toString()
+	function updateUrl(input: ListAdminAiTasksRequest, detailKey: string = ''): void {
+		const search: string = createAdminPageSearch(createAiTaskSearchParams(input), detailKey)
 		void goto(`${page.url.pathname}${search === '' ? '' : `?${search}`}`, {
 			keepFocus: true,
 			noScroll: true
@@ -146,6 +171,10 @@
 	function openTask(task: AdminAiTaskSummary): void {
 		selectedTask = task
 		detailOpen = true
+	}
+
+	function createTaskDetailKey(task: AdminAiTaskSummary): string {
+		return JSON.stringify([task.task_type, task.shard_id, task.id])
 	}
 
 	function formatDate(value: number): string {

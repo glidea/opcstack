@@ -9,6 +9,7 @@ type E2EEnv = {
 	E2E_REMOTE?: string
 	E2E_ADMIN_API_TOKEN?: string
 	E2E_D1_SHARD_COUNT?: string
+	E2E_CREDITS_DAILY_CHECKIN_ENABLED?: string
 	E2E_EMAIL_SIGNUP_ENABLED?: string
 	E2E_EMAIL_REQUIRE_VERIFICATION?: string
 	E2E_EMAIL_RESEND_API_KEY?: string
@@ -78,6 +79,8 @@ const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? ''
 const d1ShardCount: number = Number(e2eEnv.E2E_D1_SHARD_COUNT ?? '1')
+const creditsDailyCheckinEnabled: boolean =
+	e2eEnv.E2E_CREDITS_DAILY_CHECKIN_ENABLED === 'true'
 const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
 const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
 const emailResendApiKey: string = e2eEnv.E2E_EMAIL_RESEND_API_KEY ?? ''
@@ -129,12 +132,12 @@ describe('tenant sharding e2e', () => {
 				shardCountVisible: true,
 				summaryStatus: 200,
 				firstShardHeader: true,
-				firstBookmarkHeader: true,
+				firstBookmarkHeader: creditsDailyCheckinEnabled,
 				secondShardMatches: true,
 				secondBookmarkHeader: true,
 				dailyStatus: 200,
 				dailyShardMatches: true,
-				dailyCheckedIn: true,
+				dailyCheckedIn: creditsDailyCheckinEnabled,
 				redeemStatus: 200,
 				redeemShardMatches: true,
 				redeemAmount: '3.000000',
@@ -280,7 +283,7 @@ describe('tenant sharding e2e', () => {
 				secondBookmarkHeader: secondBookmark !== '',
 				dailyStatus: dailyRes.status,
 				dailyShardMatches: secondShard === firstShard,
-				dailyCheckedIn: dailyPayload.checked_in && secondSummary.daily_checked_in,
+				dailyCheckedIn: Boolean(dailyPayload.checked_in && secondSummary.daily_checked_in),
 				redeemStatus: redeemRes.status,
 				redeemShardMatches: redeemShard === firstShard,
 				redeemAmount: redeemPayload.amount,

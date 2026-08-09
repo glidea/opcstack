@@ -25,8 +25,9 @@
 	import * as Pagination from '$frontend/ui/pagination'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import * as Table from '$frontend/ui/table'
+	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import UserDetailSheet from './UserDetailSheet.svelte'
-	import { parseUserListQuery } from './users-page'
+	import { createUserCloudflareDatabaseUrl, parseUserListQuery } from './users-page'
 
 	type UserListState =
 		| { status: 'loading' }
@@ -38,10 +39,12 @@
 	}: {
 		data: {
 			locale: string
+			cloudflareAccountId: string
 		}
 	} = $props()
 
 	const initialQuery: ListAdminUsersRequest = parseUserListQuery(page.url)
+	const initialDetailKey: string = readAdminDetailKey(page.url)
 	let query: ListAdminUsersRequest = $state(initialQuery)
 	let searchInput: string = $state(initialQuery.search ?? '')
 	let currentPage: number = $state(initialQuery.page ?? 1)
@@ -49,6 +52,7 @@
 	let selectedUser: ListAdminUsersResponseItem | null = $state(null)
 	let detailOpen: boolean = $state(false)
 	let initialized: boolean = $state(false)
+	let detailStateReady: boolean = $state(false)
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -60,6 +64,17 @@
 		void loadUsers()
 	})
 
+	$effect((): void => {
+		if (!detailStateReady) {
+			return
+		}
+		const detailKey: string = detailOpen ? selectedUser?.id ?? '' : ''
+		if (detailKey === readAdminDetailKey(page.url)) {
+			return
+		}
+		updateUrl(query, detailKey)
+	})
+
 	onMount((): void => {
 		initialized = true
 		void loadUsers()
@@ -68,7 +83,18 @@
 	async function loadUsers(): Promise<void> {
 		listState = { status: 'loading' }
 		try {
-			listState = { status: 'loaded', data: await client.api.listAdminUsers(query) }
+			const response: ListAdminUsersResponse = await client.api.listAdminUsers(query)
+			listState = { status: 'loaded', data: response }
+			if (!detailStateReady) {
+				const selected: ListAdminUsersResponseItem | undefined = response.items.find(
+					(user: ListAdminUsersResponseItem): boolean => user.id === initialDetailKey
+				)
+				if (selected !== undefined) {
+					selectedUser = selected
+					detailOpen = true
+				}
+				detailStateReady = true
+			}
 		} catch {
 			listState = { status: 'error' }
 		}
@@ -95,7 +121,7 @@
 		void loadUsers()
 	}
 
-	function updateUrl(input: ListAdminUsersRequest): void {
+	function updateUrl(input: ListAdminUsersRequest, detailKey: string = ''): void {
 		const params: URLSearchParams = new URLSearchParams()
 		if (input.search) {
 			params.set('search', input.search)
@@ -103,7 +129,7 @@
 		if ((input.page ?? 1) > 1) {
 			params.set('page', String(input.page))
 		}
-		const search: string = params.toString()
+		const search: string = createAdminPageSearch(params, detailKey)
 		void goto(`${page.url.pathname}${search === '' ? '' : `?${search}`}`, {
 			keepFocus: true,
 			noScroll: true
@@ -260,5 +286,12 @@
 </main>
 
 {#key selectedUser?.id}
-	<UserDetailSheet bind:open={detailOpen} user={selectedUser} locale={data.locale} />
+	<UserDetailSheet
+		bind:open={detailOpen}
+		user={selectedUser}
+		locale={data.locale}
+		cloudflareDatabaseUrl={selectedUser?.shard
+			? createUserCloudflareDatabaseUrl(data.cloudflareAccountId, selectedUser.shard.database_id)
+			: null}
+	/>
 {/key}

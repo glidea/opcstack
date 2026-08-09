@@ -26,6 +26,7 @@ const paymentProducts = readConfig('PAYMENT_PRODUCTS') ?? ''
 const paymentCreemWebhookSecret = readConfig('PAYMENT_CREEM_WEBHOOK_SECRET') ?? ''
 const affEnabled = readConfig('AFF_ENABLED') ?? 'false'
 const d1ShardCount = readConfig('D1_SHARD_COUNT') ?? '1'
+const creditsDailyCheckinEnabled = readConfig('CREDITS_DAILY_CHECKIN_ENABLED') ?? 'false'
 
 export default defineConfig({
 	test: {
@@ -53,7 +54,8 @@ export default defineConfig({
 			E2E_PAYMENT_PRODUCTS: paymentProducts,
 			E2E_PAYMENT_CREEM_WEBHOOK_SECRET: paymentCreemWebhookSecret,
 			E2E_AFF_ENABLED: affEnabled,
-			E2E_D1_SHARD_COUNT: d1ShardCount
+			E2E_D1_SHARD_COUNT: d1ShardCount,
+			E2E_CREDITS_DAILY_CHECKIN_ENABLED: creditsDailyCheckinEnabled
 		}
 	}
 })

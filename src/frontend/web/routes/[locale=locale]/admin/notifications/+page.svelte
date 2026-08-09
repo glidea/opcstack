@@ -25,6 +25,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import NotificationDetailSheet from './NotificationDetailSheet.svelte'
 	import PublishNotificationDialog from './PublishNotificationDialog.svelte'
 	import {
@@ -48,6 +49,7 @@
 	} = $props()
 
 	const initialQuery: ListAdminNotificationsRequest = parseNotificationListQuery(page.url)
+	const initialDetailKey: string = readAdminDetailKey(page.url)
 	const initialComposer: NotificationComposerState = parseNotificationComposer(page.url)
 	let query: ListAdminNotificationsRequest = $state(initialQuery)
 	let idInput: string = $state(initialQuery.id ?? '')
@@ -63,6 +65,7 @@
 	let publishOpen: boolean = $state(initialComposer.open)
 	let publishTargetUserId: string = $state(initialComposer.targetUserId)
 	let initialized: boolean = $state(false)
+	let detailStateReady: boolean = $state(false)
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -72,6 +75,17 @@
 		query = { ...query, page: nextPage }
 		updateUrl(query)
 		void loadNotifications()
+	})
+
+	$effect((): void => {
+		if (!detailStateReady) {
+			return
+		}
+		const detailKey: string = detailOpen ? selectedNotification?.id ?? '' : ''
+		if (detailKey === readAdminDetailKey(page.url)) {
+			return
+		}
+		updateUrl(query, detailKey)
 	})
 
 	onMount((): void => {
@@ -85,6 +99,17 @@
 			listState = {
 				status: 'loaded',
 				data: await client.api.listAdminNotifications(query)
+			}
+			if (!detailStateReady && listState.status === 'loaded') {
+				const selected: ListAdminNotificationsResponseItem | undefined = listState.data.items.find(
+					(notification: ListAdminNotificationsResponseItem): boolean =>
+						notification.id === initialDetailKey
+				)
+				if (selected !== undefined) {
+					selectedNotification = selected
+					detailOpen = true
+				}
+				detailStateReady = true
 			}
 		} catch {
 			listState = { status: 'error' }
@@ -126,8 +151,8 @@
 		void loadNotifications()
 	}
 
-	function updateUrl(input: ListAdminNotificationsRequest): void {
-		const search: string = createNotificationSearchParams(input).toString()
+	function updateUrl(input: ListAdminNotificationsRequest, detailKey: string = ''): void {
+		const search: string = createAdminPageSearch(createNotificationSearchParams(input), detailKey)
 		void goto(`${page.url.pathname}${search === '' ? '' : `?${search}`}`, {
 			keepFocus: true,
 			noScroll: true

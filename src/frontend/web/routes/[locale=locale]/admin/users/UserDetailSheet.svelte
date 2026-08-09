@@ -21,11 +21,13 @@
 	let {
 		open = $bindable(false),
 		user,
-		locale
+		locale,
+		cloudflareDatabaseUrl
 	}: {
 		open?: boolean
 		user: ListAdminUsersResponseItem | null
 		locale: string
+		cloudflareDatabaseUrl: string | null
 	} = $props()
 
 	let grantOpen: boolean = $state(false)
@@ -150,8 +152,8 @@
 				<section aria-labelledby="user-shard-title">
 					<div class="mb-3 flex items-center justify-between gap-3">
 						<h3 id="user-shard-title" class="text-sm font-semibold">{$_('admin.users.detail.shard')}</h3>
-						{#if user.shard}
-							<Button variant="ghost" size="sm" href="https://dash.cloudflare.com/?to=/:account/workers-and-pages/d1" target="_blank" rel="noopener">
+						{#if cloudflareDatabaseUrl}
+							<Button variant="ghost" size="sm" href={cloudflareDatabaseUrl} target="_blank" rel="noopener">
 								<ExternalLinkIcon />
 								D1
 							</Button>

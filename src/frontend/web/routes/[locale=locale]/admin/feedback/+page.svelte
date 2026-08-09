@@ -23,6 +23,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import FeedbackDetailSheet from './FeedbackDetailSheet.svelte'
 	import {
 		createFeedbackSearchParams,
@@ -45,6 +46,7 @@
 	} = $props()
 
 	const initialQuery: ListFeedbacksRequest = parseFeedbackListQuery(page.url)
+	const initialDetailKey: string = readAdminDetailKey(page.url)
 	let query: ListFeedbacksRequest = $state(initialQuery)
 	let userInput: string = $state(initialQuery.user_id ?? '')
 	let typeInput: string = $state(initialQuery.type ?? '')
@@ -55,6 +57,7 @@
 	let selectedFeedback: ListFeedbacksResponseItem | null = $state(null)
 	let detailOpen: boolean = $state(false)
 	let initialized: boolean = $state(false)
+	let detailStateReady: boolean = $state(false)
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -66,6 +69,17 @@
 		void loadFeedbacks()
 	})
 
+	$effect((): void => {
+		if (!detailStateReady) {
+			return
+		}
+		const detailKey: string = detailOpen ? selectedFeedback?.id ?? '' : ''
+		if (detailKey === readAdminDetailKey(page.url)) {
+			return
+		}
+		updateUrl(query, detailKey)
+	})
+
 	onMount((): void => {
 		initialized = true
 		void loadFeedbacks()
@@ -74,7 +88,18 @@
 	async function loadFeedbacks(): Promise<void> {
 		listState = { status: 'loading' }
 		try {
-			listState = { status: 'loaded', data: await client.api.listFeedbacks(query) }
+			const response: ListFeedbacksResponse = await client.api.listFeedbacks(query)
+			listState = { status: 'loaded', data: response }
+			if (!detailStateReady) {
+				const selected: ListFeedbacksResponseItem | undefined = response.items.find(
+					(feedback: ListFeedbacksResponseItem): boolean => feedback.id === initialDetailKey
+				)
+				if (selected !== undefined) {
+					selectedFeedback = selected
+					detailOpen = true
+				}
+				detailStateReady = true
+			}
 		} catch {
 			listState = { status: 'error' }
 		}
@@ -108,8 +133,8 @@
 		void loadFeedbacks()
 	}
 
-	function updateUrl(input: ListFeedbacksRequest): void {
-		const search: string = createFeedbackSearchParams(input).toString()
+	function updateUrl(input: ListFeedbacksRequest, detailKey: string = ''): void {
+		const search: string = createAdminPageSearch(createFeedbackSearchParams(input), detailKey)
 		void goto(`${page.url.pathname}${search === '' ? '' : `?${search}`}`, {
 			keepFocus: true,
 			noScroll: true
