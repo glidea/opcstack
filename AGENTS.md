@@ -337,6 +337,7 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - Active style is controlled by public env config `DESIGN_SYSTEM`. Valid values: `apple-saas` and `brutalism`.
 - Concrete colors, radii, typography sizes, and animations live in `src/frontend/lib/styles/app.css`.
 - Use semantic tokens such as `bg-primary`, `text-muted-foreground`, and `border-input`.
+- The product landing page uses solid white and near-black surfaces with orange reserved for actions and architecture signals. Prefer code-backed architecture and official sources over decorative metrics, gradients, or glass effects.
 - Icons come from `lucide-svelte`. Do not introduce other icon libraries.
 - Titles, headings, descriptions, button labels, and placeholders must not end with punctuation.
 - Every form field needs a visible label, correct `autocomplete`, `aria-invalid` on error, and a visible actionable error message.

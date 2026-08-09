@@ -3,69 +3,50 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 
 const pagePath: string = fileURLToPath(new URL('./+page.svelte', import.meta.url))
-const source: string = readFileSync(pagePath, 'utf8')
+const headerPath: string = fileURLToPath(
+	new URL('./LandingHeader.svelte', import.meta.url)
+)
+const pageSource: string = readFileSync(pagePath, 'utf8')
+const headerSource: string = readFileSync(headerPath, 'utf8')
 
-function extractRule(selector: string): string {
-	const pattern: RegExp = new RegExp(`${escapeRegExp(selector)}\\s*\\{([\\s\\S]*?)\\}`, 'm')
-	const match: RegExpMatchArray | null = source.match(pattern)
-	if (match === null) {
-		throw new Error(`Missing CSS rule: ${selector}`)
-	}
-
-	const body: string | undefined = match[1]
-	if (body === undefined) {
-		throw new Error(`Missing CSS body: ${selector}`)
-	}
-
-	return body
-}
-
-function extractMediaRule(mediaQuery: string, selector: string): string {
-	const mediaIndex: number = source.indexOf(`@media ${mediaQuery}`)
-	if (mediaIndex === -1) {
-		throw new Error(`Missing media query: ${mediaQuery}`)
-	}
-
-	const mediaSource: string = source.slice(mediaIndex)
-	const pattern: RegExp = new RegExp(`${escapeRegExp(selector)}\\s*\\{([\\s\\S]*?)\\}`, 'm')
-	const match: RegExpMatchArray | null = mediaSource.match(pattern)
-	if (match === null) {
-		throw new Error(`Missing media CSS rule: ${selector}`)
-	}
-
-	const body: string | undefined = match[1]
-	if (body === undefined) {
-		throw new Error(`Missing media CSS body: ${selector}`)
-	}
-
-	return body
-}
-
-function escapeRegExp(value: string): string {
-	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-describe('home hero mobile layout', () => {
-	test('keeps deploy graph out of mobile layout', () => {
-		const mobileRule: string = extractRule('.cf-hero-visual')
-		const desktopRule: string = extractMediaRule('(min-width: 1024px)', '.cf-hero-visual')
-
+describe('landing page design register', () => {
+	test('uses real architecture proof as the hero visual', () => {
 		expect({
-			mobileHidden: mobileRule.includes('display: none'),
-			desktopVisible: desktopRule.includes('display: flex')
+			hasArchitecture: pageSource.includes('landing-architecture'),
+			hasControlDatabase: pageSource.includes('META_DB'),
+			hasTenantShards: pageSource.includes('D1 Shards')
 		}).toEqual({
-			mobileHidden: true,
-			desktopVisible: true
+			hasArchitecture: true,
+			hasControlDatabase: true,
+			hasTenantShards: true
 		})
 	})
 
-	test('keeps decorative globe from blocking hero actions', () => {
-		const globeRule: string = extractRule('.cf-global-globe')
+	test('removes generic landing page decoration', () => {
+		const source: string = `${pageSource}\n${headerSource}`
 
 		expect({
-			ignoresPointerEvents: globeRule.includes('pointer-events: none')
+			hasNumberedSectionMarkers: source.includes('cf-section-no'),
+			hasRepeatedEyebrows: source.includes('cf-section-kicker'),
+			hasHeroMetrics: source.includes('cf-section-metric'),
+			hasDecorativeGlobe: source.includes('cf-global-globe'),
+			hasGlassNavigation: source.includes('backdrop-filter')
 		}).toEqual({
-			ignoresPointerEvents: true
+			hasNumberedSectionMarkers: false,
+			hasRepeatedEyebrows: false,
+			hasHeroMetrics: false,
+			hasDecorativeGlobe: false,
+			hasGlassNavigation: false
+		})
+	})
+
+	test('keeps the landing page free of decorative gradients', () => {
+		expect({
+			hasLinearGradient: pageSource.includes('linear-gradient'),
+			hasRadialGradient: pageSource.includes('radial-gradient')
+		}).toEqual({
+			hasLinearGradient: false,
+			hasRadialGradient: false
 		})
 	})
 })
