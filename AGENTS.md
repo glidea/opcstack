@@ -340,6 +340,8 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - The product landing page uses warm paper, graphite, solid orange, and muted green surfaces. Treat the real runtime architecture as a branded visual object, keep pricing to verified cost facts and official sources, and avoid pricing matrices, decorative gradients, or glass effects.
 - Icons come from `lucide-svelte`. Do not introduce other icon libraries.
 - Titles, headings, descriptions, button labels, and placeholders must not end with punctuation.
+- Admin page headers contain only the title and relevant actions. Do not add explanatory subtitles that restate the page purpose or data source.
+- Admin user filters and actions must select users by name or email. Never require operators to type a user ID; pass it internally after selection.
 - Every form field needs a visible label, correct `autocomplete`, `aria-invalid` on error, and a visible actionable error message.
 - Every list, table, or feed that can be empty must use the `Empty` family.
 - Browser extension entrypoints live in `src/frontend/extension/entrypoints/`.

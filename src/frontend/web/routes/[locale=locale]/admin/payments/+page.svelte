@@ -23,6 +23,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminUserPicker from '../AdminUserPicker.svelte'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import PaymentDetailSheet from './PaymentDetailSheet.svelte'
 	import {
@@ -163,10 +164,7 @@
 
 <main class="mx-auto w-full max-w-[1650px] space-y-6 p-4 sm:p-6 lg:p-8">
 	<header class="flex flex-wrap items-start justify-between gap-4">
-		<div>
-			<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.payments.title')}</h1>
-			<p class="mt-1 text-sm text-muted-foreground">{$_('admin.payments.description')}</p>
-		</div>
+		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.payments.title')}</h1>
 		<Button variant="outline" size="sm" onclick={loadTransactions}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 			{$_('admin.payments.refresh')}
@@ -174,10 +172,7 @@
 	</header>
 
 	<form class="grid gap-3 sm:grid-cols-3 sm:items-end" onsubmit={applyFilters}>
-		<Field.Field>
-			<Field.Label for="payment-user-filter">{$_('admin.payments.user')}</Field.Label>
-			<Input id="payment-user-filter" bind:value={userInput} autocomplete="off" placeholder={$_('admin.payments.userPlaceholder')} />
-		</Field.Field>
+		<AdminUserPicker id="payment-user-filter" label={$_('admin.payments.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="payment-type-filter">{$_('admin.payments.type')}</Field.Label>
 			<Input id="payment-type-filter" bind:value={typeInput} autocomplete="off" placeholder={$_('admin.payments.typePlaceholder')} />

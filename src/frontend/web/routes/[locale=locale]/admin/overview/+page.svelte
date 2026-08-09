@@ -82,10 +82,7 @@
 
 <main class="mx-auto w-full max-w-[1600px] space-y-8 p-4 sm:p-6 lg:p-8">
 	<header class="flex flex-wrap items-start justify-between gap-4">
-		<div class="min-w-0">
-			<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.overview.title')}</h1>
-			<p class="mt-1 text-sm text-muted-foreground">{$_('admin.overview.description')}</p>
-		</div>
+		<h1 class="min-w-0 text-xl font-semibold sm:text-2xl">{$_('admin.overview.title')}</h1>
 		<Button variant="outline" size="sm" onclick={refresh} disabled={refreshing}>
 			<RefreshCwIcon class={refreshing ? 'animate-spin' : ''} />
 			{$_('admin.overview.refresh')}
@@ -120,10 +117,9 @@
 		{@const processingTasks: number = getProcessingTaskCount(overview)}
 		{@const pendingCount: number = overview.redemption_codes.claimed_count + overview.ai_tasks.failed_count_24h + overview.payments.disputed_count}
 
-		<div class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-			<span>{$_('admin.overview.scope')}</span>
-			<span>{$_('admin.overview.updated', { values: { time: formatDateTime(overview.generated_at) } })}</span>
-		</div>
+		<p class="text-right text-xs text-muted-foreground">
+			{$_('admin.overview.updated', { values: { time: formatDateTime(overview.generated_at) } })}
+		</p>
 
 		<section aria-labelledby="overview-metrics-title">
 			<h2 id="overview-metrics-title" class="sr-only">{$_('admin.overview.metrics')}</h2>

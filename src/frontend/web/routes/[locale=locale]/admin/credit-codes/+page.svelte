@@ -27,6 +27,7 @@
 	import TicketIcon from '@lucide/svelte/icons/ticket'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminUserPicker from '../AdminUserPicker.svelte'
 	import GenerateCreditCodesDialog from './GenerateCreditCodesDialog.svelte'
 	import {
 		createCreditCodeSearchParams,
@@ -201,10 +202,7 @@
 
 <main class="mx-auto w-full max-w-[1700px] space-y-6 p-4 sm:p-6 lg:p-8">
 	<header class="flex flex-wrap items-start justify-between gap-4">
-		<div>
-			<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.creditCodes.title')}</h1>
-			<p class="mt-1 text-sm text-muted-foreground">{$_('admin.creditCodes.description')}</p>
-		</div>
+		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.creditCodes.title')}</h1>
 		<div class="flex gap-2">
 			<Button variant="outline" size="sm" onclick={loadCodes}>
 				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
@@ -222,10 +220,7 @@
 			<Field.Label for="credit-code-filter">{$_('admin.creditCodes.code')}</Field.Label>
 			<Input id="credit-code-filter" bind:value={codeInput} autocomplete="off" placeholder={$_('admin.creditCodes.codePlaceholder')} />
 		</Field.Field>
-		<Field.Field>
-			<Field.Label for="credit-user-filter">{$_('admin.creditCodes.claimedBy')}</Field.Label>
-			<Input id="credit-user-filter" bind:value={claimedByInput} autocomplete="off" placeholder={$_('admin.creditCodes.userPlaceholder')} />
-		</Field.Field>
+		<AdminUserPicker id="credit-user-filter" label={$_('admin.creditCodes.claimedBy')} bind:value={claimedByInput} />
 		<Field.Field>
 			<Field.Label for="credit-status-filter">{$_('admin.creditCodes.status')}</Field.Label>
 			<Select.Root type="single" bind:value={statusInput}>

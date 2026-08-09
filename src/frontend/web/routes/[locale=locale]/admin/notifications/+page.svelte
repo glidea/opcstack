@@ -25,6 +25,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminUserPicker from '../AdminUserPicker.svelte'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import NotificationDetailSheet from './NotificationDetailSheet.svelte'
 	import PublishNotificationDialog from './PublishNotificationDialog.svelte'
@@ -209,10 +210,7 @@
 
 <main class="mx-auto w-full max-w-[1650px] space-y-6 p-4 sm:p-6 lg:p-8">
 	<header class="flex flex-wrap items-start justify-between gap-4">
-		<div>
-			<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.notifications.title')}</h1>
-			<p class="mt-1 text-sm text-muted-foreground">{$_('admin.notifications.description')}</p>
-		</div>
+		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.notifications.title')}</h1>
 		<div class="flex gap-2">
 			<Button variant="outline" size="sm" onclick={loadNotifications}>
 				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
@@ -227,10 +225,7 @@
 			<Field.Label for="notification-id-filter">{$_('admin.notifications.id')}</Field.Label>
 			<Input id="notification-id-filter" bind:value={idInput} autocomplete="off" placeholder={$_('admin.notifications.idPlaceholder')} />
 		</Field.Field>
-		<Field.Field>
-			<Field.Label for="notification-user-filter">{$_('admin.notifications.targetUser')}</Field.Label>
-			<Input id="notification-user-filter" bind:value={targetInput} autocomplete="off" placeholder={$_('admin.notifications.userPlaceholder')} />
-		</Field.Field>
+		<AdminUserPicker id="notification-user-filter" label={$_('admin.notifications.targetUser')} bind:value={targetInput} />
 		<Field.Field>
 			<Field.Label for="notification-type-filter">{$_('admin.notifications.type')}</Field.Label>
 			<Input id="notification-type-filter" bind:value={typeInput} autocomplete="off" placeholder={$_('admin.notifications.typePlaceholder')} />

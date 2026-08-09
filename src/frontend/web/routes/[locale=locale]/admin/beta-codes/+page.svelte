@@ -27,6 +27,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminUserPicker from '../AdminUserPicker.svelte'
 	import GenerateBetaCodesDialog from './GenerateBetaCodesDialog.svelte'
 	import { createBetaCodeSearchParams, parseBetaCodeListQuery } from './beta-codes-page'
 
@@ -170,10 +171,7 @@
 
 <main class="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6 lg:p-8">
 	<header class="flex flex-wrap items-start justify-between gap-4">
-		<div>
-			<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.betaCodes.title')}</h1>
-			<p class="mt-1 text-sm text-muted-foreground">{$_('admin.betaCodes.description')}</p>
-		</div>
+		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.betaCodes.title')}</h1>
 		<div class="flex gap-2">
 			<Button variant="outline" size="sm" onclick={loadCodes}>
 				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
@@ -196,15 +194,7 @@
 				placeholder={$_('admin.betaCodes.codePlaceholder')}
 			/>
 		</Field.Field>
-		<Field.Field>
-			<Field.Label for="beta-user-filter">{$_('admin.betaCodes.usedBy')}</Field.Label>
-			<Input
-				id="beta-user-filter"
-				bind:value={usedByInput}
-				autocomplete="off"
-				placeholder={$_('admin.betaCodes.userPlaceholder')}
-			/>
-		</Field.Field>
+		<AdminUserPicker id="beta-user-filter" label={$_('admin.betaCodes.usedBy')} bind:value={usedByInput} />
 		<Field.Field>
 			<Field.Label for="beta-status-filter">{$_('admin.betaCodes.status')}</Field.Label>
 			<Select.Root type="single" bind:value={usedFilter}>

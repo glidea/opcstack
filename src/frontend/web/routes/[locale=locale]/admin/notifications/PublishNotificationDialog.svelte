@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { client } from '$apiContract/client'
+	import type { ListAdminUsersResponseItem } from '$apiContract/admin-users'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
@@ -11,6 +12,8 @@
 	import GlobeIcon from '@lucide/svelte/icons/globe'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import UserIcon from '@lucide/svelte/icons/user'
+	import AdminUserPicker from '../AdminUserPicker.svelte'
+	import { formatAdminUserIdentity } from '../admin-user-picker'
 	import {
 		buildNotificationRequest,
 		validateNotificationDraft,
@@ -29,6 +32,7 @@
 
 	let scope: NotificationScope = $state('global')
 	let targetUserId: string = $state('')
+	let targetUser: ListAdminUsersResponseItem | null = $state(null)
 	let typeInput: string = $state('system')
 	let titleInput: string = $state('')
 	let contentInput: string = $state('')
@@ -42,6 +46,7 @@
 		if (open && !wasOpen) {
 			scope = prefillTargetUserId === '' ? 'global' : 'user'
 			targetUserId = prefillTargetUserId
+			targetUser = null
 			typeInput = 'system'
 			titleInput = ''
 			contentInput = ''
@@ -92,7 +97,7 @@
 	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>{$_('admin.notifications.publish.title')}</Dialog.Title>
-			<Dialog.Description>{$_('admin.notifications.publish.description')}</Dialog.Description>
+			<Dialog.Description class="sr-only">{$_('admin.notifications.publish.description')}</Dialog.Description>
 		</Dialog.Header>
 
 		{#if confirming}
@@ -107,7 +112,11 @@
 					<Alert.Root>
 						<UserIcon />
 						<Alert.Title>{$_('admin.notifications.publish.targetedConfirmation')}</Alert.Title>
-						<Alert.Description>{targetUserId}</Alert.Description>
+						<Alert.Description>
+							{targetUser === null
+								? $_('admin.userPicker.unknown')
+								: formatAdminUserIdentity(targetUser)}
+						</Alert.Description>
 					</Alert.Root>
 				{/if}
 				<dl class="grid gap-3 rounded-lg border p-3 text-sm">
@@ -139,10 +148,12 @@
 					</ToggleGroup.Root>
 				</Field.Field>
 				{#if scope === 'user'}
-					<Field.Field>
-						<Field.Label for="notification-target-user">{$_('admin.notifications.targetUser')}</Field.Label>
-						<Input id="notification-target-user" bind:value={targetUserId} autocomplete="off" />
-					</Field.Field>
+					<AdminUserPicker
+						id="notification-target-user"
+						label={$_('admin.notifications.targetUser')}
+						bind:value={targetUserId}
+						bind:selectedUser={targetUser}
+					/>
 				{/if}
 				<Field.Field>
 					<Field.Label for="notification-type">{$_('admin.notifications.type')}</Field.Label>

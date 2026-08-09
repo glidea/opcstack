@@ -23,6 +23,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminUserPicker from '../AdminUserPicker.svelte'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import FeedbackDetailSheet from './FeedbackDetailSheet.svelte'
 	import {
@@ -179,10 +180,7 @@
 
 <main class="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6 lg:p-8">
 	<header class="flex flex-wrap items-start justify-between gap-4">
-		<div>
-			<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.feedback.title')}</h1>
-			<p class="mt-1 text-sm text-muted-foreground">{$_('admin.feedback.description')}</p>
-		</div>
+		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.feedback.title')}</h1>
 		<Button variant="outline" size="sm" onclick={loadFeedbacks}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 			{$_('admin.feedback.refresh')}
@@ -190,10 +188,7 @@
 	</header>
 
 	<form class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end" onsubmit={applyFilters}>
-		<Field.Field>
-			<Field.Label for="feedback-user-filter">{$_('admin.feedback.user')}</Field.Label>
-			<Input id="feedback-user-filter" bind:value={userInput} autocomplete="off" placeholder={$_('admin.feedback.userPlaceholder')} />
-		</Field.Field>
+		<AdminUserPicker id="feedback-user-filter" label={$_('admin.feedback.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="feedback-type-filter">{$_('admin.feedback.type')}</Field.Label>
 			<Input id="feedback-type-filter" bind:value={typeInput} autocomplete="off" placeholder={$_('admin.feedback.typePlaceholder')} />

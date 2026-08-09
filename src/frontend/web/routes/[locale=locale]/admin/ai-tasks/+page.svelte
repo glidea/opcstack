@@ -25,6 +25,7 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminUserPicker from '../AdminUserPicker.svelte'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import AiTaskDetailSheet from './AiTaskDetailSheet.svelte'
 	import {
@@ -207,10 +208,7 @@
 
 <main class="mx-auto w-full max-w-[1650px] space-y-6 p-4 sm:p-6 lg:p-8">
 	<header class="flex flex-wrap items-start justify-between gap-4">
-		<div>
-			<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.aiTasks.title')}</h1>
-			<p class="mt-1 text-sm text-muted-foreground">{$_('admin.aiTasks.description')}</p>
-		</div>
+		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.aiTasks.title')}</h1>
 		<Button variant="outline" size="sm" onclick={loadTasks}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 			{$_('admin.aiTasks.refresh')}
@@ -234,10 +232,7 @@
 			<Field.Label for="ai-task-id-filter">{$_('admin.aiTasks.id')}</Field.Label>
 			<Input id="ai-task-id-filter" bind:value={idInput} autocomplete="off" placeholder={$_('admin.aiTasks.idPlaceholder')} />
 		</Field.Field>
-		<Field.Field>
-			<Field.Label for="ai-task-user-filter">{$_('admin.aiTasks.user')}</Field.Label>
-			<Input id="ai-task-user-filter" bind:value={userInput} autocomplete="off" placeholder={$_('admin.aiTasks.userPlaceholder')} />
-		</Field.Field>
+		<AdminUserPicker id="ai-task-user-filter" label={$_('admin.aiTasks.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="ai-task-status-filter">{$_('admin.aiTasks.status')}</Field.Label>
 			<Select.Root type="single" bind:value={statusInput}>

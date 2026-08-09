@@ -152,10 +152,7 @@
 
 <main class="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6 lg:p-8">
 	<header class="flex flex-wrap items-start justify-between gap-4">
-		<div>
-			<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.users.title')}</h1>
-			<p class="mt-1 text-sm text-muted-foreground">{$_('admin.users.description')}</p>
-		</div>
+		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.users.title')}</h1>
 		<Button variant="outline" size="sm" onclick={loadUsers}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 			{$_('admin.users.refresh')}
