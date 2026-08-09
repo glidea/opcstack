@@ -2,6 +2,12 @@ import { createAuthClient } from 'better-auth/svelte'
 import { emailOTPClient, genericOAuthClient } from 'better-auth/client/plugins'
 import type { GetAffSummaryResponse, BindAffRequest } from '../aff'
 import type {
+	GetAdminAiTaskRequest,
+	GetAdminAiTaskResponse,
+	ListAdminAiTasksRequest,
+	ListAdminAiTasksResponse
+} from '../admin-ai-tasks'
+import type {
 	ListAdminUsersRequest,
 	ListAdminUsersResponse
 } from '../admin-users'
@@ -127,12 +133,14 @@ type ApiMethods = {
 	generateBetaCodes(input: GenerateBetaCodesRequest): Promise<GenerateBetaCodesResponse>
 	generateCreditCodes(input: GenerateCreditCodesRequest): Promise<GenerateCreditCodesResponse>
 	getAffSummary(): Promise<GetAffSummaryResponse>
+	getAdminAiTask(input: GetAdminAiTaskRequest): Promise<GetAdminAiTaskResponse>
 	getCreditSummary(): Promise<GetCreditSummaryResponse>
 	getSubscription(): Promise<GetSubscriptionResponse>
 	grantCredits(input: AdminGrantCreditsRequest): Promise<AdminGrantCreditsResponse>
 	listAdminPaymentTransactions(
 		input: ListAdminPaymentTransactionsRequest
 	): Promise<ListAdminPaymentTransactionsResponse>
+	listAdminAiTasks(input: ListAdminAiTasksRequest): Promise<ListAdminAiTasksResponse>
 	listAdminNotifications(
 		input: ListAdminNotificationsRequest
 	): Promise<ListAdminNotificationsResponse>
@@ -349,6 +357,9 @@ function createApiMethods(
 		getAffSummary(): Promise<GetAffSummaryResponse> {
 			return call({ path: '/api/get_aff_summary', body: {} })
 		},
+		getAdminAiTask(input: GetAdminAiTaskRequest): Promise<GetAdminAiTaskResponse> {
+			return call({ path: '/api/admin/get_ai_task', body: input })
+		},
 		getCreditSummary(): Promise<GetCreditSummaryResponse> {
 			return call({ path: '/api/get_credit_summary', body: {} })
 		},
@@ -362,6 +373,9 @@ function createApiMethods(
 			input: ListAdminPaymentTransactionsRequest
 		): Promise<ListAdminPaymentTransactionsResponse> {
 			return call({ path: '/api/admin/list_payment_transactions', body: input })
+		},
+		listAdminAiTasks(input: ListAdminAiTasksRequest): Promise<ListAdminAiTasksResponse> {
+			return call({ path: '/api/admin/list_ai_tasks', body: input })
 		},
 		listAdminNotifications(
 			input: ListAdminNotificationsRequest

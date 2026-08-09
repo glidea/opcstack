@@ -48,6 +48,10 @@ import {
 	uploadR2ObjectHandler,
 	uploadR2PublicObjectHandler
 } from './handler/r2'
+import {
+	getAdminAiTaskHandler,
+	listAdminAiTasksHandler
+} from './handler/admin-ai-tasks'
 import { listAdminUsersHandler } from './handler/admin-users'
 import { authCore } from './auth'
 import { logError } from '../lib/log'
@@ -121,6 +125,8 @@ adminApi.post('/admin/list_feedbacks', listFeedbacksHandler)
 adminApi.post('/admin/create_notification', createNotificationHandler)
 adminApi.post('/admin/list_notifications', listAdminNotificationsHandler)
 adminApi.post('/admin/list_payment_transactions', listAdminPaymentTransactionsHandler)
+adminApi.post('/admin/list_ai_tasks', listAdminAiTasksHandler)
+adminApi.post('/admin/get_ai_task', getAdminAiTaskHandler)
 adminApi.put('/admin/r2/public/*', uploadR2PublicObjectHandler)
 adminApi.get('/admin/ai_realtime_connect', aiRealtimeConnectHandler)
 
