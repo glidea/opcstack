@@ -1,9 +1,10 @@
-import { beforeEach, describe, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
 	createNotificationHandler,
+	listAdminNotificationsHandler,
 	listNotificationsHandler,
 	readNotificationHandler
 } from './notification'
@@ -228,6 +229,73 @@ describe('listNotificationsHandler', () => {
 			metaLimit: findManyInput?.limit ?? 0,
 			metaOffset: findManyInput?.offset ?? 0
 		}
+	})
+})
+
+describe('listAdminNotificationsHandler', () => {
+	test('rejects invalid notification history pagination', async () => {
+		const response: Response = await listAdminNotificationsHandler(createJsonContext({
+			userId: 'admin',
+			metaDb: createMockMetaDb(),
+			tenantDb: createMockTenantDb(),
+			body: { page_size: 0 }
+		}))
+		const payload: { code?: string } = await response.json()
+
+		expect({ status: response.status, code: payload.code }).toEqual({
+			status: 400,
+			code: 'INVALID_REQUEST'
+		})
+	})
+
+	test('returns global and targeted notification history', async () => {
+		const metaDb: MockDb = createMockMetaDb()
+		metaDb.query.notification?.findMany.mockResolvedValue([
+			{
+				id: 'n1',
+				type: 'system',
+				title: 'Upgrade',
+				content: 'New version',
+				targetUserId: null,
+				createdAt: 123
+			},
+			{
+				id: 'n2',
+				type: 'account',
+				title: 'Credits',
+				content: 'Granted',
+				targetUserId: 'u1',
+				createdAt: 122
+			}
+		])
+		const response: Response = await listAdminNotificationsHandler(createJsonContext({
+			userId: 'admin',
+			metaDb,
+			tenantDb: createMockTenantDb(),
+			body: {}
+		}))
+
+		expect(await response.json()).toEqual({
+			items: [
+				{
+					id: 'n1',
+					type: 'system',
+					title: 'Upgrade',
+					content: 'New version',
+					target_user_id: null,
+					created_at: 123
+				},
+				{
+					id: 'n2',
+					type: 'account',
+					title: 'Credits',
+					content: 'Granted',
+					target_user_id: 'u1',
+					created_at: 122
+				}
+			],
+			total: 1
+		})
 	})
 })
 

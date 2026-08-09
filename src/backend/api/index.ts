@@ -26,6 +26,7 @@ import { bindAffHandler, getAffSummaryHandler } from './handler/aff'
 import { listFeedbacksHandler, submitFeedbackHandler } from './handler/feedback'
 import {
 	createNotificationHandler,
+	listAdminNotificationsHandler,
 	listNotificationsHandler,
 	readNotificationHandler
 } from './handler/notification'
@@ -118,6 +119,7 @@ adminApi.post('/admin/list_credit_codes', listCreditCodesHandler)
 adminApi.post('/admin/grant_credits', grantCreditsHandler)
 adminApi.post('/admin/list_feedbacks', listFeedbacksHandler)
 adminApi.post('/admin/create_notification', createNotificationHandler)
+adminApi.post('/admin/list_notifications', listAdminNotificationsHandler)
 adminApi.post('/admin/list_payment_transactions', listAdminPaymentTransactionsHandler)
 adminApi.put('/admin/r2/public/*', uploadR2PublicObjectHandler)
 adminApi.get('/admin/ai_realtime_connect', aiRealtimeConnectHandler)

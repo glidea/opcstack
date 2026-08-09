@@ -1,8 +1,11 @@
-import { and, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
 	CreateNotificationApi,
+	ListAdminNotificationsApi,
+	type ListAdminNotificationsResponse,
+	type ListAdminNotificationsResponseItem,
 	ListNotificationsApi,
 	type ListNotificationsResponse,
 	type ListNotificationsResponseItem,
@@ -33,6 +36,64 @@ export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<R
 
 	await ctx.get('metaDb').insert(notification).values(row)
 	return ctx.json({ id: row.id })
+}
+
+export async function listAdminNotificationsHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, ListAdminNotificationsApi.request)
+	if (!request.success) {
+		const error = ListAdminNotificationsApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	const req = request.data
+	const conditions: SQL[] = []
+	if (req.id) {
+		conditions.push(eq(notification.id, req.id))
+	}
+	if (req.target_user_id) {
+		conditions.push(eq(notification.targetUserId, req.target_user_id))
+	}
+	if (req.type) {
+		conditions.push(eq(notification.type, req.type))
+	}
+	if (req.scope === 'global') {
+		conditions.push(isNull(notification.targetUserId))
+	}
+	if (req.scope === 'user') {
+		conditions.push(isNotNull(notification.targetUserId))
+	}
+	if (req.created_at_start !== undefined) {
+		conditions.push(gte(notification.createdAt, req.created_at_start))
+	}
+	if (req.created_at_end !== undefined) {
+		conditions.push(lte(notification.createdAt, req.created_at_end))
+	}
+
+	const where: SQL | undefined = conditions.length > 0 ? and(...conditions) : undefined
+	const db = ctx.get('metaDb')
+	const totalRows: Array<{ total: number }> = await db
+		.select({ total: sql<number>`count(*)` })
+		.from(notification)
+		.where(where)
+	const rows = await db.query.notification.findMany({
+		where,
+		orderBy: [desc(notification.createdAt)],
+		limit: req.page_size,
+		offset: (req.page - 1) * req.page_size
+	})
+	const items: ListAdminNotificationsResponseItem[] = rows.map((row) => {
+		return {
+			id: row.id,
+			type: row.type,
+			title: row.title,
+			content: row.content,
+			target_user_id: row.targetUserId,
+			created_at: row.createdAt
+		}
+	})
+	return ctx.json({
+		items,
+		total: Number(totalRows[0]?.total ?? 0)
+	} as ListAdminNotificationsResponse)
 }
 
 export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Response> {

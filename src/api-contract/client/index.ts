@@ -35,6 +35,8 @@ import type {
 import type {
 	CreateNotificationRequest,
 	CreateNotificationResponse,
+	ListAdminNotificationsRequest,
+	ListAdminNotificationsResponse,
 	ListNotificationsRequest,
 	ListNotificationsResponse,
 	ReadNotificationRequest
@@ -131,6 +133,9 @@ type ApiMethods = {
 	listAdminPaymentTransactions(
 		input: ListAdminPaymentTransactionsRequest
 	): Promise<ListAdminPaymentTransactionsResponse>
+	listAdminNotifications(
+		input: ListAdminNotificationsRequest
+	): Promise<ListAdminNotificationsResponse>
 	listAdminUsers(input: ListAdminUsersRequest): Promise<ListAdminUsersResponse>
 	listBetaCodes(input: ListBetaCodesRequest): Promise<ListBetaCodesResponse>
 	listCreditCodes(input: ListCreditCodesRequest): Promise<ListCreditCodesResponse>
@@ -357,6 +362,11 @@ function createApiMethods(
 			input: ListAdminPaymentTransactionsRequest
 		): Promise<ListAdminPaymentTransactionsResponse> {
 			return call({ path: '/api/admin/list_payment_transactions', body: input })
+		},
+		listAdminNotifications(
+			input: ListAdminNotificationsRequest
+		): Promise<ListAdminNotificationsResponse> {
+			return call({ path: '/api/admin/list_notifications', body: input })
 		},
 		listAdminUsers(input: ListAdminUsersRequest): Promise<ListAdminUsersResponse> {
 			return call({ path: '/api/admin/list_users', body: input })
