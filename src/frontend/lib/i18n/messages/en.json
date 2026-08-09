@@ -319,5 +319,17 @@
 	"designSystem.s7.b.rangeCalendar.desc": "Date range selection",
 	"designSystem.s8.eyebrow": "08 — App Components",
 	"designSystem.s8.title": "Business-layer building blocks",
-	"designSystem.s8.desc": "Auth cards, header, menus, date filter — the components that ship with OPC Stack out of the box"
+	"designSystem.s8.desc": "Auth cards, header, menus, date filter — the components that ship with OPC Stack out of the box",
+	"admin.title": "Admin Console",
+	"admin.nav.overview": "Overview",
+	"admin.nav.users": "Users",
+	"admin.nav.beta-codes": "Beta codes",
+	"admin.nav.credit-codes": "Credit codes",
+	"admin.nav.feedback": "Feedback",
+	"admin.nav.notifications": "Notifications",
+	"admin.nav.payments": "Payments",
+	"admin.nav.ai-tasks": "AI tasks",
+	"admin.cloudflare": "Open Cloudflare dashboard",
+	"admin.loading": "Loading",
+	"admin.seo.description": "Operate users, access, credits, payments and AI tasks"
 }

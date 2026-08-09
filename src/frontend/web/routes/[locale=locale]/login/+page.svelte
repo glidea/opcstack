@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
+	import { page } from '$app/state'
 	import { clientConfig } from '$frontend/config/client'
 	import AppHeader from '$frontend/app-ui/shell/AppHeader.svelte'
 	import LoginCard from '$frontend/app-ui/auth/LoginCard.svelte'
@@ -13,7 +14,14 @@
 	} = $props()
 
 	function handleSuccess(): void {
-		goto(`/${data.locale}`)
+		const redirectPath: string = page.url.searchParams.get('redirect') ?? ''
+		const adminPrefix: string = `/${data.locale}/admin`
+		const isAdminRedirect: boolean =
+			redirectPath === adminPrefix || redirectPath.startsWith(`${adminPrefix}/`)
+		const destination: string = isAdminRedirect
+			? redirectPath
+			: `/${data.locale}`
+		void goto(destination)
 	}
 </script>
 

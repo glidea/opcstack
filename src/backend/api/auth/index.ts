@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { bearer, captcha, emailOTP, genericOAuth } from 'better-auth/plugins'
+import { bearer, captcha, emailOTP, genericOAuth, jwt } from 'better-auth/plugins'
 import { oauthProvider } from '@better-auth/oauth-provider'
 import type { MetaDb } from '../../db'
 import * as authSchema from '../../db/schema.auth'
@@ -29,7 +29,7 @@ export function authCore(env: Env, db: MetaDb) {
   const emailOtpPlugin = buildEmailOtp(env)
   const captchaPlugin = buildTurnstileCaptcha(env)
   const linuxDoOAuthPlugin: ReturnType<typeof genericOAuth> | undefined = buildLinuxDoOAuth(env)
-  const plugins: AuthPlugin[] = [bearer(), emailOtpPlugin, buildAgentOAuthProvider(env, db)]
+  const plugins: AuthPlugin[] = [bearer(), jwt(), emailOtpPlugin, buildAgentOAuthProvider(env, db)]
   if (captchaPlugin) {
     plugins.push(captchaPlugin)
   }
@@ -424,8 +424,9 @@ type AuthSocialProvidersConfig =
 	| undefined
 
 type AuthPlugin =
-  | ReturnType<typeof bearer>
-  | ReturnType<typeof emailOTP>
+	| ReturnType<typeof bearer>
+	| ReturnType<typeof jwt>
+	| ReturnType<typeof emailOTP>
   | ReturnType<typeof captcha>
   | ReturnType<typeof genericOAuth>
   | ReturnType<typeof oauthProvider>

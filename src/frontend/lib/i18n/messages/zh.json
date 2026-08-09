@@ -319,5 +319,17 @@
 	"designSystem.s7.b.rangeCalendar.desc": "日期范围选择",
 	"designSystem.s8.eyebrow": "08 — 应用组件",
 	"designSystem.s8.title": "业务层构建块",
-	"designSystem.s8.desc": "认证卡片、导航栏、菜单、日期筛选器 — OPC Stack 开箱即用的组件"
+	"designSystem.s8.desc": "认证卡片、导航栏、菜单、日期筛选器 — OPC Stack 开箱即用的组件",
+	"admin.title": "管理控制台",
+	"admin.nav.overview": "概览",
+	"admin.nav.users": "用户",
+	"admin.nav.beta-codes": "内测码",
+	"admin.nav.credit-codes": "兑换码",
+	"admin.nav.feedback": "反馈",
+	"admin.nav.notifications": "公告",
+	"admin.nav.payments": "支付",
+	"admin.nav.ai-tasks": "AI 任务",
+	"admin.cloudflare": "打开 Cloudflare 控制台",
+	"admin.loading": "加载中",
+	"admin.seo.description": "统一运营用户、准入、积分、支付和 AI 任务"
 }

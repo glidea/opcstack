@@ -1,0 +1,81 @@
+import { describe, expect, test } from 'vitest'
+import { load as loadAdminLayout } from './+layout.server'
+import { load as loadAdminIndex } from './+page.server'
+import { createAdminNavigation } from './admin-navigation'
+
+type SessionPayload = {
+	user: {
+		id: string
+		email: string
+		name: string
+	}
+}
+
+describe('admin route protection', () => {
+	test('redirects a signed-out visitor to login', async (): Promise<void> => {
+		await expect(loadAdminLayout(createLayoutEvent(null))).rejects.toMatchObject({
+			status: 302,
+			location: '/en/login?redirect=%2Fen%2Fadmin%2Fusers%3Fpage%3D2'
+		})
+	})
+
+	test('rejects a signed-in non-admin user', async (): Promise<void> => {
+		await expect(loadAdminLayout(createLayoutEvent({
+			user: { id: 'user-1', email: 'user@example.com', name: 'User' }
+		}))).rejects.toMatchObject({
+			status: 403
+		})
+	})
+
+	test('allows the system email user', async (): Promise<void> => {
+		const result: Record<string, unknown> = await loadAdminLayout(createLayoutEvent({
+			user: { id: 'admin-1', email: 'admin@example.com', name: 'Admin' }
+		}))
+
+		expect(result).toMatchObject({
+			locale: 'en',
+			siteName: 'OPCStack',
+			supportEmail: 'admin@example.com'
+		})
+	})
+})
+
+describe('admin navigation', () => {
+	test('redirects the admin root to overview', async (): Promise<void> => {
+		await expect(loadAdminIndex({ params: { locale: 'zh' } } as never)).rejects.toMatchObject({
+			status: 302,
+			location: '/zh/admin/overview'
+		})
+	})
+
+	test('defines eight localized module paths', (): void => {
+		const items = createAdminNavigation('zh')
+
+		expect(items.map((item) => ({ id: item.id, href: item.href }))).toEqual([
+			{ id: 'overview', href: '/zh/admin/overview' },
+			{ id: 'users', href: '/zh/admin/users' },
+			{ id: 'beta-codes', href: '/zh/admin/beta-codes' },
+			{ id: 'credit-codes', href: '/zh/admin/credit-codes' },
+			{ id: 'feedback', href: '/zh/admin/feedback' },
+			{ id: 'notifications', href: '/zh/admin/notifications' },
+			{ id: 'payments', href: '/zh/admin/payments' },
+			{ id: 'ai-tasks', href: '/zh/admin/ai-tasks' }
+		])
+	})
+})
+
+function createLayoutEvent(session: SessionPayload | null): never {
+	return {
+		fetch: async (): Promise<Response> => Response.json(session),
+		params: { locale: 'en' },
+		parent: async (): Promise<Record<string, unknown>> => {
+			return {
+				locale: 'en',
+				siteName: 'OPCStack',
+				supportEmail: 'admin@example.com',
+				canonicalUrl: 'https://example.com/en/admin/users'
+			}
+		},
+		url: new URL('https://example.com/en/admin/users?page=2')
+	} as never
+}

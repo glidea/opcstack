@@ -1,6 +1,6 @@
 import { describe } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { user } from './schema.auth'
+import { jwks, user } from './schema.auth'
 import {
 	checkoutOrder,
 	creditRedemptionCode,
@@ -69,6 +69,15 @@ describe('schema.meta', () => {
 			givenDetail: { schema: 'meta' },
 			whenDetail: { check: 'agent-authorization-tables' },
 			thenExpected: { result: true }
+		},
+		{
+			scenario: 'agent jwt key ownership',
+			given: 'auth schema',
+			when: 'checking jwt key table',
+			then: 'jwt signing keys stay in meta',
+			givenDetail: { schema: 'auth' },
+			whenDetail: { check: 'jwt-keys' },
+			thenExpected: { result: true }
 		}
 	]
 
@@ -109,6 +118,13 @@ describe('schema.meta', () => {
 				return {
 					result:
 						agentAuthorizationRequest !== undefined && agentGrant !== undefined
+				}
+			case 'jwt-keys':
+				return {
+					result:
+						jwks.publicKey !== undefined &&
+						jwks.privateKey !== undefined &&
+						jwks.createdAt !== undefined
 				}
 			default:
 				return { result: false }

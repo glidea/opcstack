@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import { authCore } from './index'
 import { betterAuth } from 'better-auth'
-import { bearer, captcha, emailOTP, genericOAuth } from 'better-auth/plugins'
+import { bearer, captcha, emailOTP, genericOAuth, jwt } from 'better-auth/plugins'
 import { oauthProvider } from '@better-auth/oauth-provider'
 import { createEmailClients, type EmailSimpleSendInput } from '../../email'
 import type { Resend } from 'resend'
@@ -39,6 +39,9 @@ vi.mock('better-auth/plugins', () => {
 	return {
 		bearer: vi.fn(() => {
 			return { id: 'bearer' }
+		}),
+		jwt: vi.fn(() => {
+			return { id: 'jwt' }
 		}),
 		emailOTP: vi.fn((options) => {
 			return { id: 'email-otp', options }
@@ -256,6 +259,7 @@ describe('authCore agent OAuth provider', () => {
 
 		expect({
 			hasPlugin: authOptions.plugins?.some((plugin) => plugin.id === 'oauth-provider'),
+			hasJwtPlugin: authOptions.plugins?.some((plugin) => plugin.id === 'jwt'),
 			scopes: options?.scopes,
 			validAudiences: options?.validAudiences,
 			grantTypes: options?.grantTypes,
@@ -266,6 +270,7 @@ describe('authCore agent OAuth provider', () => {
 			storeTokens: options?.storeTokens
 		}).toEqual({
 			hasPlugin: true,
+			hasJwtPlugin: true,
 			scopes: ['agent', 'offline_access'],
 			validAudiences: ['http://localhost:5173'],
 			grantTypes: ['authorization_code', 'refresh_token'],
