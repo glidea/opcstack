@@ -100,4 +100,39 @@ describe('admin console api e2e', () => {
 		expect(payload.items).toBeInstanceOf(Array)
 		expect(payload.total).toBeTypeOf('number')
 	})
+
+	test('overview requires admin authorization', async () => {
+		const response: Response = await fetch(`${appBaseUrl}/api/admin/get_overview`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({})
+		})
+		const payload: { code?: string } = await response.json()
+
+		expect({ status: response.status, code: payload.code }).toEqual({
+			status: 401,
+			code: 'UNAUTHORIZED'
+		})
+	})
+
+	test('overview returns explicit metric values', async () => {
+		const response: Response = await fetch(`${appBaseUrl}/api/admin/get_overview`, {
+			method: 'POST',
+			headers: {
+				'authorization': `Bearer ${adminApiToken}`,
+				'content-type': 'application/json'
+			},
+			body: JSON.stringify({})
+		})
+		const payload: {
+			generated_at?: number
+			users?: { total?: number }
+			ai_tasks?: { terminal_completion_rate?: number }
+		} = await response.json()
+
+		expect(response.status).toBe(200)
+		expect(payload.generated_at).toBeTypeOf('number')
+		expect(payload.users?.total).toBeTypeOf('number')
+		expect(payload.ai_tasks?.terminal_completion_rate).toBeTypeOf('number')
+	})
 })

@@ -7,6 +7,7 @@ import type {
 	ListAdminAiTasksRequest,
 	ListAdminAiTasksResponse
 } from '../admin-ai-tasks'
+import type { GetAdminOverviewResponse } from '../admin-overview'
 import type {
 	ListAdminUsersRequest,
 	ListAdminUsersResponse
@@ -134,6 +135,7 @@ type ApiMethods = {
 	generateCreditCodes(input: GenerateCreditCodesRequest): Promise<GenerateCreditCodesResponse>
 	getAffSummary(): Promise<GetAffSummaryResponse>
 	getAdminAiTask(input: GetAdminAiTaskRequest): Promise<GetAdminAiTaskResponse>
+	getAdminOverview(): Promise<GetAdminOverviewResponse>
 	getCreditSummary(): Promise<GetCreditSummaryResponse>
 	getSubscription(): Promise<GetSubscriptionResponse>
 	grantCredits(input: AdminGrantCreditsRequest): Promise<AdminGrantCreditsResponse>
@@ -359,6 +361,9 @@ function createApiMethods(
 		},
 		getAdminAiTask(input: GetAdminAiTaskRequest): Promise<GetAdminAiTaskResponse> {
 			return call({ path: '/api/admin/get_ai_task', body: input })
+		},
+		getAdminOverview(): Promise<GetAdminOverviewResponse> {
+			return call({ path: '/api/admin/get_overview', body: {} })
 		},
 		getCreditSummary(): Promise<GetCreditSummaryResponse> {
 			return call({ path: '/api/get_credit_summary', body: {} })
