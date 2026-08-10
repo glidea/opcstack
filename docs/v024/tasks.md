@@ -161,10 +161,10 @@
 - 新增 Cron、Queue 或独立清理服务
 
 ## TODO 清单
-- [ ] 1. 先扩展 `src/backend/jobs/index.test.ts`，覆盖指标截止时间、三张任务表、终态过滤、processing 保留和多 Shard 遍历
-- [ ] 2. 在 `src/backend/jobs/index.ts` 读取严格校验后的 `AI_TASK_RETENTION_DAYS`，执行索引条件 DELETE
-- [ ] 3. 保持指标保留期固定 24 小时，不增加额外 ENV 或运行时默认值
-- [ ] 4. 更新 `template-docs/guides/queues-cron.md` 与 `template-docs/guides/ai.md` 的保留和清理规则
+- [x] 1. 先扩展 `src/backend/jobs/index.test.ts`，覆盖指标截止时间、三张任务表、终态过滤、processing 保留和多 Shard 遍历
+- [x] 2. 在 `src/backend/jobs/index.ts` 读取严格校验后的 `AI_TASK_RETENTION_DAYS`，执行索引条件 DELETE
+- [x] 3. 保持指标保留期固定 24 小时，不增加额外 ENV 或运行时默认值
+- [x] 4. 更新 `template-docs/guides/queues-cron.md` 与 `template-docs/guides/ai.md` 的保留和清理规则
 
 ## 验收测试步骤
 1. 运行 `pnpm exec vitest run src/backend/jobs/index.test.ts`

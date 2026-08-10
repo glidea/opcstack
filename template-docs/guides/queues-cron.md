@@ -231,17 +231,21 @@ Current registered job:
 
 | Cron | Job |
 | --- | --- |
-| `*/10 * * * *` | Expire credits and clean old credit transactions on every active tenant shard |
+| `*/10 * * * *` | Run credit maintenance and clean AI history on every active or draining tenant shard |
 
 The job:
 
 1. Opens Meta DB
-2. Lists active tenant shard DBs
+2. Lists active and draining tenant shard DBs
 3. Runs `CreditsService.expire({ limit: 20 })` on each shard
 4. Runs `CreditsService.cleanupTransactions({ limit: 100 })` on each shard
-5. Logs structured job results
+5. Deletes AI channel metric buckets older than 24 hours
+6. Deletes `completed` and `failed` Image, TTS, and Video task rows older than `AI_TASK_RETENTION_DAYS`
+7. Logs structured job results
 
 `CREDITS_HISTORY_RETENTION_DAYS` controls transaction cleanup retention. Current parsing falls back to `90` when the value is missing or invalid. That is existing behavior; do not copy this pattern into new config without a product reason.
+
+`AI_TASK_RETENTION_DAYS` is strictly validated by the Cloudflare preparation step and has no runtime fallback. AI cleanup uses indexed timestamp predicates, never deletes `processing` tasks, and never reads task result JSON or accesses R2.
 
 ## Add A Queue
 

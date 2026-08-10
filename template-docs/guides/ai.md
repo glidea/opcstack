@@ -383,6 +383,8 @@ Task statuses:
 
 Consumers skip missing tasks and non-processing tasks, then `ack()` the queue message. This makes retries idempotent at the task row boundary.
 
+The existing `*/10 * * * *` scheduled job deletes `completed` and `failed` task rows whose `updated_at` is older than `AI_TASK_RETENTION_DAYS`. It never deletes `processing` rows. This database cleanup does not read task results or delete generated R2 objects; object retention stays with R2 lifecycle rules.
+
 ## Queue Consumers
 
 Required queue names:
@@ -479,7 +481,7 @@ score = (1 - penalty) * 100
 
 The 5-minute and 1-hour values are combined as `70% + 30%` when both exist. Missing error or latency values use the candidate-pool median. When the entire pool has no value for one metric, its normalized penalty is `0.5`. Equal scores use the complete channel prefix in ascending order.
 
-Each upstream attempt increments one `(channel, model, bucket_start)` row. Successful attempts add latency; failed upstream attempts only add the error count. The router does not write per-call detail rows, use process memory, or add a global metrics service.
+Each upstream attempt increments one `(channel, model, bucket_start)` row. Successful attempts add latency; failed upstream attempts only add the error count. The router does not write per-call detail rows, use process memory, or add a global metrics service. The existing 10-minute scheduled job deletes metric buckets older than 24 hours from every active or draining Tenant Shard.
 
 Video selects a channel only when creating a new remote provider task. After the provider returns a task id, the consumer persists `channel`, `channel_started_at`, and `provider_task_id` together. Later polling resolves the endpoint from that stored channel and never calls Channel Router again. A confirmed remote `failed` result records the channel error, appends the channel to `failed_channels_json`, and clears all three execution fields before the next queue attempt selects another channel. Polling network errors keep the existing binding.
 
