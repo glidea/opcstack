@@ -465,6 +465,22 @@ Do not store AI task rows in Meta DB. Meta DB only owns the shard registry neede
 
 Synchronous Chat and Realtime calls use their provider's single configured endpoint. Image and TTS synchronous calls use the same provider endpoint unless the caller passes an explicit endpoint. Async consumers always pass the endpoint selected by Channel Router. Providers never choose a second endpoint or retry through another endpoint.
 
+## Channel Router
+
+Channel Router is used only by Image, TTS, and Video async consumers. Task creation still accepts only a provider and model. The consumer discovers complete channel prefixes from `Env`, filters channels that declare the task model, and selects the highest score before calling the provider.
+
+The score is calculated inside the current Tenant Shard from 1-minute buckets over the last 5 minutes and 1 hour:
+
+```text
+normalize(value, pool_max) = pool_max == 0 ? 0 : value / pool_max
+penalty = (error * error_weight + latency * latency_weight + price * price_weight) / total_weight
+score = (1 - penalty) * 100
+```
+
+The 5-minute and 1-hour values are combined as `70% + 30%` when both exist. Missing error or latency values use the candidate-pool median. When the entire pool has no value for one metric, its normalized penalty is `0.5`. Equal scores use the complete channel prefix in ascending order.
+
+Each upstream attempt increments one `(channel, model, bucket_start)` row. Successful attempts add latency; failed upstream attempts only add the error count. The router does not write per-call detail rows, use process memory, or add a global metrics service.
+
 ## Config
 
 Public AI config lives in `.env.dev` and `.env.prod`.
