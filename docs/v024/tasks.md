@@ -139,11 +139,11 @@
 - 修改视频 R2 下载与流式上传方式
 
 ## TODO 清单
-- [ ] 1. 先扩展 `src/backend/consumers/ai-video.test.ts`，覆盖首次动态路由、已有 `provider_task_id` 不调用 Router、运行中重试和完成指标
-- [ ] 2. 增加明确终态失败测试，证明同一 batch 写错误桶、追加 failed channel 并清空 `channel + channel_started_at + provider_task_id`
-- [ ] 3. 在 `src/backend/consumers/ai-video.ts` 接入 `rankAIChannels` 与 `resolveAIChannel`，创建远程任务成功后持久化实际执行字段
-- [ ] 4. 下一次消费排除 `failed_channels_json` 中的渠道，没有剩余渠道或达到最大尝试次数时结束本地任务
-- [ ] 5. 更新 `template-docs/guides/ai.md`，明确 channel 只是已创建远程任务的查询地址，不是任务创建输入
+- [x] 1. 先扩展 `src/backend/consumers/ai-video.test.ts`，覆盖首次动态路由、已有 `provider_task_id` 不调用 Router、运行中重试和完成指标
+- [x] 2. 增加明确终态失败测试，证明同一 batch 写错误桶、追加 failed channel 并清空 `channel + channel_started_at + provider_task_id`
+- [x] 3. 在 `src/backend/consumers/ai-video.ts` 接入 `rankAIChannels` 与 `resolveAIChannel`，创建远程任务成功后持久化实际执行字段
+- [x] 4. 下一次消费排除 `failed_channels_json` 中的渠道，没有剩余渠道或达到最大尝试次数时结束本地任务
+- [x] 5. 更新 `template-docs/guides/ai.md`，明确 channel 只是已创建远程任务的查询地址，不是任务创建输入
 
 ## 验收测试步骤
 1. 运行 `pnpm exec vitest run src/backend/consumers/ai-video.test.ts src/backend/ai/video/seedance/index.test.ts`

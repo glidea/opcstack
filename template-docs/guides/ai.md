@@ -481,6 +481,8 @@ The 5-minute and 1-hour values are combined as `70% + 30%` when both exist. Miss
 
 Each upstream attempt increments one `(channel, model, bucket_start)` row. Successful attempts add latency; failed upstream attempts only add the error count. The router does not write per-call detail rows, use process memory, or add a global metrics service.
 
+Video selects a channel only when creating a new remote provider task. After the provider returns a task id, the consumer persists `channel`, `channel_started_at`, and `provider_task_id` together. Later polling resolves the endpoint from that stored channel and never calls Channel Router again. A confirmed remote `failed` result records the channel error, appends the channel to `failed_channels_json`, and clears all three execution fields before the next queue attempt selects another channel. Polling network errors keep the existing binding.
+
 ## Config
 
 Public AI config lives in `.env.dev` and `.env.prod`.
