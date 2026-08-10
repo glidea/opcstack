@@ -1,4 +1,4 @@
-import { describe, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import type { TenantShardDb } from '../../../db'
 import type { AITTSSourceInput, AITTSSpeechInput } from '..'
@@ -247,6 +247,31 @@ describe('createSeedSimpleTTSClient.generateSpeech', () => {
 		} catch (error) {
 			return createErrorExpected(error instanceof Error ? error.message : String(error))
 		}
+	})
+
+	it('uses the explicit channel endpoint', async () => {
+		vi.clearAllMocks()
+		mocks.fetch.mockResolvedValue(
+			new Response(toStream('{"code":0,"message":"","data":"YQ=="}\n{"code":20000000,"message":"ok","data":null}\n'), {
+				status: 200
+			})
+		)
+
+		const client = createSeedSimpleTTSClient(
+			createEnv('seed-tts-2.0-standard'),
+			'u1',
+			{} as TenantShardDb,
+			{
+				endpoint: { baseURL: 'https://channel.example/api/v3', apiKey: 'channel-key' }
+			}
+		)
+		await client.generateSpeech({
+			speakers: [{ name: 'Host', voiceName: 'voice' }],
+			lines: [{ speakerName: 'Host', text: 'Hello' }]
+		})
+
+		expect(mocks.fetch.mock.calls[0]?.[0]).toBe('https://channel.example/api/v3/tts/unidirectional')
+		expect((mocks.fetch.mock.calls[0]?.[1]?.headers as Record<string, string>)['X-Api-Key']).toBe('channel-key')
 	})
 })
 

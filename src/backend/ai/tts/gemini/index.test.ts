@@ -1,4 +1,4 @@
-import { describe, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import { createGeminiSimpleTTSClient } from './index'
 import type { TenantShardDb } from '../../../db'
@@ -22,8 +22,9 @@ type R2PutResult = {
 	url: string
 }
 
-const { generateContentMock, r2PutMock, createR2ClientMock } = vi.hoisted(() => {
+const { googleConstructorMock, generateContentMock, r2PutMock, createR2ClientMock } = vi.hoisted(() => {
 	return {
+		googleConstructorMock: vi.fn(),
 		generateContentMock: vi.fn(),
 		r2PutMock: vi.fn(),
 		createR2ClientMock: vi.fn()
@@ -36,7 +37,8 @@ vi.mock('@google/genai', () => {
 			generateContent: typeof generateContentMock
 		}
 
-		constructor(_config: { apiKey: string; httpOptions: { baseUrl: string } }) {
+		constructor(config: { apiKey: string; httpOptions: { baseUrl: string } }) {
+			googleConstructorMock(config)
 			this.models = {
 				generateContent: generateContentMock
 			}
@@ -294,6 +296,31 @@ describe('createGeminiSimpleTTSClient.generateSpeech', () => {
 			r2Key: output.r2?.key ?? '',
 			r2ClientUserId: (createR2ClientMock.mock.calls[0]?.[1] as string | undefined) ?? ''
 		}
+	})
+
+	it('uses the explicit channel endpoint', async () => {
+		vi.clearAllMocks()
+		generateContentMock.mockResolvedValue({
+			candidates: [{ content: { parts: [{ inlineData: { data: 'a', mimeType: 'audio/wav' } }] } }]
+		})
+
+		const client = createGeminiSimpleTTSClient(
+			createEnv('env-model'),
+			'u',
+			{} as TenantShardDb,
+			{
+				endpoint: { baseURL: 'https://channel.example', apiKey: 'channel-key' }
+			}
+		)
+		await client.generateSpeech({
+			speakers: [{ name: 'Host', voiceName: 'Charon' }],
+			lines: [{ speakerName: 'Host', text: 'Hello' }]
+		})
+
+		expect(googleConstructorMock).toHaveBeenCalledWith({
+			apiKey: 'channel-key',
+			httpOptions: { baseUrl: 'https://channel.example' }
+		})
 	})
 })
 

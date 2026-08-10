@@ -1,4 +1,4 @@
-import { describe, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import { createGeminiSimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput } from '..'
@@ -23,8 +23,16 @@ type R2PutResult = {
 	url: string
 }
 
-const { generateContentMock, r2PutMock, r2GetMock, r2GetImageVariantMock, createR2ClientMock } = vi.hoisted(() => {
+const {
+	googleConstructorMock,
+	generateContentMock,
+	r2PutMock,
+	r2GetMock,
+	r2GetImageVariantMock,
+	createR2ClientMock
+} = vi.hoisted(() => {
 	return {
+		googleConstructorMock: vi.fn(),
 		generateContentMock: vi.fn(),
 		r2PutMock: vi.fn(),
 		r2GetMock: vi.fn(),
@@ -39,7 +47,8 @@ vi.mock('@google/genai', () => {
 			generateContent: typeof generateContentMock
 		}
 
-		constructor(_config: { apiKey: string; httpOptions: { baseUrl: string } }) {
+		constructor(config: { apiKey: string; httpOptions: { baseUrl: string } }) {
+			googleConstructorMock(config)
 			this.models = {
 				generateContent: generateContentMock
 			}
@@ -425,6 +434,28 @@ describe('createGeminiSimpleImageClient.generate', () => {
 			firstReferenceData: requestParts.find((part) => part.inlineData !== undefined)?.inlineData?.data ?? '',
 			firstR2Key: outputs[0]?.r2?.key ?? ''
 		}
+	})
+
+	it('uses the explicit channel endpoint', async () => {
+		vi.clearAllMocks()
+		generateContentMock.mockResolvedValue({
+			candidates: [{ content: { parts: [{ inlineData: { data: 'a', mimeType: 'image/png' } }] } }]
+		})
+
+		const client = createGeminiSimpleImageClient(
+			createEnv('env-model'),
+			'u',
+			{} as TenantShardDb,
+			{
+				endpoint: { baseURL: 'https://channel.example', apiKey: 'channel-key' }
+			}
+		)
+		await client.generate({ prompt: 'draw' })
+
+		expect(googleConstructorMock).toHaveBeenCalledWith({
+			apiKey: 'channel-key',
+			httpOptions: { baseUrl: 'https://channel.example' }
+		})
 	})
 })
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import { createAliyunNativeImageClient, createAliyunSimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput, AIImageResult } from '..'
@@ -463,6 +463,29 @@ describe('createAliyunSimpleImageClient.generate', () => {
 			errorMessage
 		}
 	}
+
+	it('uses the explicit channel endpoint', async () => {
+		vi.clearAllMocks()
+		fetchCalls.length = 0
+		vi.stubGlobal('fetch', async (input: RequestInfo | URL): Promise<Response> => {
+			fetchCalls.push({ url: String(input) })
+			return Response.json({ output: { results: [] } })
+		})
+
+		const client = createAliyunSimpleImageClient(
+			createEnv('qwen-image-2.0-pro'),
+			'u',
+			{} as TenantShardDb,
+			{
+				endpoint: { baseURL: 'https://channel.example/api/v1', apiKey: 'channel-key' }
+			}
+		)
+		await client.generate({ prompt: 'draw' })
+
+		expect(fetchCalls[0]?.url).toBe(
+			'https://channel.example/api/v1/services/aigc/multimodal-generation/generation'
+		)
+	})
 })
 
 describe('createAliyunNativeImageClient', () => {

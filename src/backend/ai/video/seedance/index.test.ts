@@ -50,6 +50,8 @@ describe('seedance video client', () => {
 	type CreateWhen = Record<string, never>
 	type CreateThen = {
 		providerTaskId: string
+		requestUrl: string
+		authorization: string
 		model: string
 		ratio: string
 		generateAudio: boolean
@@ -66,6 +68,8 @@ describe('seedance video client', () => {
 			whenDetail: {},
 			thenExpected: {
 				providerTaskId: 'remote-1',
+				requestUrl: 'https://channel.example/api/v3/contents/generations/tasks',
+				authorization: 'Bearer channel-key',
 				model: 'doubao-seedance-2-0-fast-260128',
 				ratio: 'adaptive',
 				generateAudio: true,
@@ -83,8 +87,9 @@ describe('seedance video client', () => {
 				prompt: 'make a video',
 				duration: 5
 			},
-			{ baseURL: 'https://ark.cn-beijing.volces.com/api/v3', apiKey: 'key' }
+			{ baseURL: 'https://channel.example/api/v3', apiKey: 'channel-key' }
 		)
+		const requestHeaders = new Headers(fetchCalls[0]?.init?.headers)
 		const requestBody: {
 			model: string
 			ratio: string
@@ -94,6 +99,8 @@ describe('seedance video client', () => {
 		} = JSON.parse(String(fetchCalls[0]?.init?.body))
 		return {
 			providerTaskId,
+			requestUrl: fetchCalls[0]?.url ?? '',
+			authorization: requestHeaders.get('authorization') ?? '',
 			model: requestBody.model,
 			ratio: requestBody.ratio,
 			generateAudio: requestBody.generate_audio,
@@ -107,6 +114,8 @@ describe('seedance video client', () => {
 	type GetThen = {
 		status: string
 		videoUrl: string
+		requestUrl: string
+		authorization: string
 	}
 	const getCases: TestCase<GetGiven, GetWhen, GetThen>[] = [
 		{
@@ -118,18 +127,23 @@ describe('seedance video client', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 'completed',
-				videoUrl: 'https://provider/video.mp4'
+				videoUrl: 'https://provider/video.mp4',
+				requestUrl: 'https://channel.example/api/v3/contents/generations/tasks/remote-1',
+				authorization: 'Bearer channel-key'
 			}
 		}
 	]
 	runCases(getCases, async (): Promise<GetThen> => {
 		const result = await getSeedDanceProviderTask('remote-1', {
-			baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
-			apiKey: 'key'
+			baseURL: 'https://channel.example/api/v3',
+			apiKey: 'channel-key'
 		})
+		const requestHeaders = new Headers(fetchCalls[0]?.init?.headers)
 		return {
 			status: result.status,
-			videoUrl: result.status === 'completed' ? result.videoUrl : ''
+			videoUrl: result.status === 'completed' ? result.videoUrl : '',
+			requestUrl: fetchCalls[0]?.url ?? '',
+			authorization: requestHeaders.get('authorization') ?? ''
 		}
 	})
 

@@ -1,4 +1,4 @@
-import { describe, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import { createOpenAINativeImageClient, createOpenAISimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput } from '..'
@@ -397,6 +397,28 @@ describe('createOpenAISimpleImageClient.generate', () => {
 			r2GetImageVariantCalls: r2GetImageVariantMock.mock.calls.length,
 			firstR2Key: outputs[0]?.r2?.key ?? ''
 		}
+	})
+
+	it('uses the explicit channel endpoint', async () => {
+		vi.clearAllMocks()
+		generateMock.mockResolvedValue(
+			createEventStream([{ type: 'image_generation.completed', b64_json: 'a', output_format: 'png' }])
+		)
+
+		const client = createOpenAISimpleImageClient(
+			createEnv('env-model'),
+			'u',
+			{} as TenantShardDb,
+			{
+				endpoint: { baseURL: 'https://channel.example/v1', apiKey: 'channel-key' }
+			}
+		)
+		await client.generate({ prompt: 'draw' })
+
+		expect(openAIConstructorMock).toHaveBeenCalledWith({
+			baseURL: 'https://channel.example/v1',
+			apiKey: 'channel-key'
+		})
 	})
 })
 

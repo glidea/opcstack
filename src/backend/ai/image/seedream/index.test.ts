@@ -1,4 +1,4 @@
-import { describe, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../testing/bdd'
 import { createSeedDreamNativeImageClient, createSeedDreamSimpleImageClient } from './index'
 import type { AISimpleImageClientGenerateInput } from '..'
@@ -398,6 +398,28 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 		} catch (error) {
 			return toThenExpected([], undefined, undefined, error instanceof Error ? error.message : String(error))
 		}
+	})
+
+	it('uses the explicit channel endpoint', async () => {
+		vi.clearAllMocks()
+		generateMock.mockResolvedValue(
+			createEventStream([{ type: 'image_generation.partial_succeeded', b64_json: 'a' }])
+		)
+
+		const client = createSeedDreamSimpleImageClient(
+			createEnv('env-model'),
+			'u',
+			{} as TenantShardDb,
+			{
+				endpoint: { baseURL: 'https://channel.example/v1', apiKey: 'channel-key' }
+			}
+		)
+		await client.generate({ prompt: 'draw' })
+
+		expect(openAIConstructorMock).toHaveBeenCalledWith({
+			baseURL: 'https://channel.example/v1',
+			apiKey: 'channel-key'
+		})
 	})
 })
 
