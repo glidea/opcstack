@@ -93,7 +93,7 @@
 	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>{$_('admin.betaCodes.generate.title')}</Dialog.Title>
-			<Dialog.Description>{$_('admin.betaCodes.generate.description')}</Dialog.Description>
+			<Dialog.Description class="sr-only">{$_('admin.betaCodes.generate.description')}</Dialog.Description>
 		</Dialog.Header>
 
 		{#if codes.length > 0}

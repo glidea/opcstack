@@ -188,10 +188,7 @@
 		<div class="grid gap-8 border-t pt-8 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]">
 			<section aria-labelledby="overview-attention-title">
 				<div class="mb-4 flex items-center justify-between gap-4">
-					<div>
-						<h2 id="overview-attention-title" class="text-base font-semibold">{$_('admin.overview.attention.title')}</h2>
-						<p class="mt-1 text-sm text-muted-foreground">{$_('admin.overview.attention.description')}</p>
-					</div>
+					<h2 id="overview-attention-title" class="text-base font-semibold">{$_('admin.overview.attention.title')}</h2>
 					{#if pendingCount > 0}
 						<span class="text-sm font-medium tabular-nums">{formatNumber(pendingCount)}</span>
 					{/if}

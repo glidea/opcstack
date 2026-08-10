@@ -33,7 +33,6 @@
 	let scope: NotificationScope = $state('global')
 	let targetUserId: string = $state('')
 	let targetUser: ListAdminUsersResponseItem | null = $state(null)
-	let typeInput: string = $state('system')
 	let titleInput: string = $state('')
 	let contentInput: string = $state('')
 	let formError: string = $state('')
@@ -47,7 +46,6 @@
 			scope = prefillTargetUserId === '' ? 'global' : 'user'
 			targetUserId = prefillTargetUserId
 			targetUser = null
-			typeInput = 'system'
 			titleInput = ''
 			contentInput = ''
 			formError = ''
@@ -60,7 +58,7 @@
 
 	function reviewNotification(event: SubmitEvent): void {
 		event.preventDefault()
-		if (!validateNotificationDraft(scope, targetUserId, typeInput, titleInput, contentInput)) {
+		if (!validateNotificationDraft(scope, targetUserId, titleInput, contentInput)) {
 			formError =
 				scope === 'user' && targetUserId.trim() === ''
 					? $_('admin.notifications.publish.targetError')
@@ -78,7 +76,6 @@
 		try {
 			const response = await client.api.createNotification(
 				buildNotificationRequest(scope, targetUserId, {
-					type: typeInput.trim(),
 					title: titleInput.trim(),
 					content: contentInput.trim()
 				})
@@ -120,7 +117,6 @@
 					</Alert.Root>
 				{/if}
 				<dl class="grid gap-3 rounded-lg border p-3 text-sm">
-					<div><dt class="text-xs text-muted-foreground">{$_('admin.notifications.type')}</dt><dd>{typeInput}</dd></div>
 					<div><dt class="text-xs text-muted-foreground">{$_('admin.notifications.titleField')}</dt><dd>{titleInput}</dd></div>
 					<div><dt class="text-xs text-muted-foreground">{$_('admin.notifications.content')}</dt><dd class="whitespace-pre-wrap break-words">{contentInput}</dd></div>
 				</dl>
@@ -155,10 +151,6 @@
 						bind:selectedUser={targetUser}
 					/>
 				{/if}
-				<Field.Field>
-					<Field.Label for="notification-type">{$_('admin.notifications.type')}</Field.Label>
-					<Input id="notification-type" bind:value={typeInput} autocomplete="off" />
-				</Field.Field>
 				<Field.Field>
 					<Field.Label for="notification-title">{$_('admin.notifications.titleField')}</Field.Label>
 					<Input id="notification-title" bind:value={titleInput} autocomplete="off" />

@@ -25,7 +25,10 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminAdvancedFilters from '../AdminAdvancedFilters.svelte'
+	import AdminUserReference from '../AdminUserReference.svelte'
 	import AdminUserPicker from '../AdminUserPicker.svelte'
+	import { createFilterOptions } from '../admin-presentation'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import NotificationDetailSheet from './NotificationDetailSheet.svelte'
 	import PublishNotificationDialog from './PublishNotificationDialog.svelte'
@@ -55,7 +58,7 @@
 	let query: ListAdminNotificationsRequest = $state(initialQuery)
 	let idInput: string = $state(initialQuery.id ?? '')
 	let targetInput: string = $state(initialQuery.target_user_id ?? '')
-	let typeInput: string = $state(initialQuery.type ?? '')
+	let typeInput: string = $state(initialQuery.type ?? 'all')
 	let scopeInput: string = $state(initialQuery.scope ?? 'all')
 	let createdStartInput: string = $state(formatDateInput(initialQuery.created_at_start))
 	let createdEndInput: string = $state(formatDateInput(initialQuery.created_at_end))
@@ -67,6 +70,16 @@
 	let publishTargetUserId: string = $state(initialComposer.targetUserId)
 	let initialized: boolean = $state(false)
 	let detailStateReady: boolean = $state(false)
+	let advancedOpen: boolean = $state(
+		initialQuery.id !== undefined ||
+			initialQuery.created_at_start !== undefined ||
+			initialQuery.created_at_end !== undefined
+	)
+	const advancedFilterCount: number = $derived(
+		Number(idInput.trim() !== '') +
+			Number(createdStartInput !== '') +
+			Number(createdEndInput !== '')
+	)
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -121,7 +134,7 @@
 		event.preventDefault()
 		const id: string = idInput.trim()
 		const targetUserId: string = targetInput.trim()
-		const type: string = typeInput.trim()
+		const type: string = typeInput === 'all' ? '' : typeInput
 		const scope: ListAdminNotificationsRequest['scope'] =
 			scopeInput === 'global' || scopeInput === 'user' ? scopeInput : undefined
 		query = {
@@ -142,7 +155,7 @@
 	function resetFilters(): void {
 		idInput = ''
 		targetInput = ''
-		typeInput = ''
+		typeInput = 'all'
 		scopeInput = 'all'
 		createdStartInput = ''
 		createdEndInput = ''
@@ -206,6 +219,18 @@
 		const time: string = endOfDay ? '23:59:59.999' : '00:00:00.000'
 		return { [name]: new Date(`${value}T${time}`).getTime() }
 	}
+
+	function notificationTypeOptions(): string[] {
+		const observed: string[] =
+			listState.status === 'loaded'
+				? listState.data.items.map((item: ListAdminNotificationsResponseItem): string => item.type)
+				: []
+		return createFilterOptions(typeInput, observed, ['system'])
+	}
+
+	function notificationTypeLabel(type: string): string {
+		return type === 'system' ? $_('admin.notifications.type.system') : type
+	}
 </script>
 
 <main class="mx-auto w-full max-w-[1650px] space-y-6 p-4 sm:p-6 lg:p-8">
@@ -220,38 +245,52 @@
 		</div>
 	</header>
 
-	<form class="grid gap-3 md:grid-cols-2 xl:grid-cols-3" onsubmit={applyFilters}>
-		<Field.Field>
-			<Field.Label for="notification-id-filter">{$_('admin.notifications.id')}</Field.Label>
-			<Input id="notification-id-filter" bind:value={idInput} autocomplete="off" placeholder={$_('admin.notifications.idPlaceholder')} />
-		</Field.Field>
-		<AdminUserPicker id="notification-user-filter" label={$_('admin.notifications.targetUser')} bind:value={targetInput} />
-		<Field.Field>
-			<Field.Label for="notification-type-filter">{$_('admin.notifications.type')}</Field.Label>
-			<Input id="notification-type-filter" bind:value={typeInput} autocomplete="off" placeholder={$_('admin.notifications.typePlaceholder')} />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="notification-scope-filter">{$_('admin.notifications.scope')}</Field.Label>
-			<Select.Root type="single" bind:value={scopeInput}>
-				<Select.Trigger id="notification-scope-filter" class="w-full">
-					{scopeInput === 'global' ? $_('admin.notifications.global') : scopeInput === 'user' ? $_('admin.notifications.targeted') : $_('admin.notifications.allScopes')}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{$_('admin.notifications.allScopes')}</Select.Item>
-					<Select.Item value="global">{$_('admin.notifications.global')}</Select.Item>
-					<Select.Item value="user">{$_('admin.notifications.targeted')}</Select.Item>
-				</Select.Content>
-			</Select.Root>
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="notification-created-start">{$_('admin.notifications.createdStart')}</Field.Label>
-			<Input id="notification-created-start" bind:value={createdStartInput} type="date" />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="notification-created-end">{$_('admin.notifications.createdEnd')}</Field.Label>
-			<Input id="notification-created-end" bind:value={createdEndInput} type="date" />
-		</Field.Field>
-		<div class="flex gap-2 md:col-span-2 xl:col-span-3">
+	<form class="space-y-3" onsubmit={applyFilters}>
+		<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+			<AdminUserPicker id="notification-user-filter" label={$_('admin.notifications.targetUser')} bind:value={targetInput} />
+			<Field.Field>
+				<Field.Label for="notification-scope-filter">{$_('admin.notifications.scope')}</Field.Label>
+				<Select.Root type="single" bind:value={scopeInput}>
+					<Select.Trigger id="notification-scope-filter" class="w-full">
+						{scopeInput === 'global' ? $_('admin.notifications.global') : scopeInput === 'user' ? $_('admin.notifications.targeted') : $_('admin.notifications.allScopes')}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">{$_('admin.notifications.allScopes')}</Select.Item>
+						<Select.Item value="global">{$_('admin.notifications.global')}</Select.Item>
+						<Select.Item value="user">{$_('admin.notifications.targeted')}</Select.Item>
+					</Select.Content>
+				</Select.Root>
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="notification-type-filter">{$_('admin.notifications.type')}</Field.Label>
+				<Select.Root type="single" bind:value={typeInput}>
+					<Select.Trigger id="notification-type-filter" class="w-full">
+						{typeInput === 'all' ? $_('admin.notifications.allTypes') : notificationTypeLabel(typeInput)}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">{$_('admin.notifications.allTypes')}</Select.Item>
+						{#each notificationTypeOptions() as type}
+							<Select.Item value={type}>{notificationTypeLabel(type)}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</Field.Field>
+		</div>
+		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-3">
+			<Field.Field>
+				<Field.Label for="notification-id-filter">{$_('admin.notifications.id')}</Field.Label>
+				<Input id="notification-id-filter" bind:value={idInput} autocomplete="off" placeholder={$_('admin.notifications.idPlaceholder')} />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="notification-created-start">{$_('admin.notifications.createdStart')}</Field.Label>
+				<Input id="notification-created-start" bind:value={createdStartInput} type="date" />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="notification-created-end">{$_('admin.notifications.createdEnd')}</Field.Label>
+				<Input id="notification-created-end" bind:value={createdEndInput} type="date" />
+			</Field.Field>
+		</AdminAdvancedFilters>
+		<div class="flex gap-2">
 			<Button type="submit">{$_('admin.notifications.apply')}</Button>
 			{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.notifications.reset')}</Button>{/if}
 		</div>
@@ -274,7 +313,7 @@
 			{#if hasFilters()}<Empty.Content><Button variant="outline" onclick={resetFilters}>{$_('admin.notifications.reset')}</Button></Empty.Content>{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-lg border">
+		<div class="overflow-hidden rounded-md border bg-background">
 			<div class="overflow-x-auto">
 				<Table.Root class="min-w-[1000px]">
 					<Table.Header>
@@ -284,7 +323,7 @@
 							<Table.Head>{$_('admin.notifications.type')}</Table.Head>
 							<Table.Head>{$_('admin.notifications.targetUser')}</Table.Head>
 							<Table.Head>{$_('admin.notifications.created')}</Table.Head>
-							<Table.Head class="text-right">{$_('admin.notifications.actions')}</Table.Head>
+							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.notifications.actions')}</span></Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -294,15 +333,15 @@
 							{/each}
 						{:else}
 							{#each listState.data.items as item (item.id)}
-								<Table.Row>
+								<Table.Row class="group">
 									<Table.Cell><Badge variant={item.target_user_id === null ? 'secondary' : 'outline'}>{item.target_user_id === null ? $_('admin.notifications.global') : $_('admin.notifications.targeted')}</Badge></Table.Cell>
 									<Table.Cell><p class="max-w-lg truncate font-medium">{item.title}</p></Table.Cell>
-									<Table.Cell>{item.type}</Table.Cell>
+									<Table.Cell>{notificationTypeLabel(item.type)}</Table.Cell>
 									<Table.Cell>
-										{#if item.target_user_id}<a class="font-mono text-xs underline-offset-4 hover:underline" href={`/${data.locale}/admin/users?search=${encodeURIComponent(item.target_user_id)}`}>{item.target_user_id}</a>{:else}{$_('admin.common.none')}{/if}
+										{#if item.target_user_id}<AdminUserReference userId={item.target_user_id} href={`/${data.locale}/admin/users?search=${encodeURIComponent(item.target_user_id)}`} />{:else}{$_('admin.common.none')}{/if}
 									</Table.Cell>
 									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell class="text-right"><Button variant="outline" size="sm" onclick={() => openNotification(item)}>{$_('admin.notifications.view')}</Button></Table.Cell>
+									<Table.Cell class="sticky right-0 z-10 bg-background text-right group-hover:bg-accent"><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openNotification(item)} aria-label={$_('admin.notifications.view')} title={$_('admin.notifications.view')}><ChevronRightIcon /></Button></Table.Cell>
 								</Table.Row>
 							{/each}
 						{/if}

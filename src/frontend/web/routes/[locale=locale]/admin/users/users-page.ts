@@ -1,20 +1,6 @@
 import type { ListAdminUsersRequest } from '$apiContract/admin-users'
 import type { AdminGrantCreditsRequest } from '$apiContract/credits'
 
-export function createUserCloudflareDatabaseUrl(
-	accountId: string,
-	databaseId: string
-): string | null {
-	const validAccountId: boolean = /^[0-9a-f]{32}$/i.test(accountId) && !/^0+$/.test(accountId)
-	const validDatabaseId: boolean =
-		/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(databaseId) &&
-		databaseId !== '00000000-0000-0000-0000-000000000000'
-	if (!validAccountId || !validDatabaseId) {
-		return null
-	}
-	return `https://dash.cloudflare.com/${accountId}/workers/d1/${databaseId}`
-}
-
 export type UserContextLinks = {
 	feedbacks: string
 	payments: string

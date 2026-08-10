@@ -10,6 +10,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check'
 	import CopyIcon from '@lucide/svelte/icons/copy'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
+	import { formatCreditAmount } from '../admin-presentation'
 	import {
 		joinCreditCodes,
 		validateCreditCodeAmount,
@@ -123,7 +124,7 @@
 	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>{$_('admin.creditCodes.generate.title')}</Dialog.Title>
-			<Dialog.Description>{$_('admin.creditCodes.generate.description')}</Dialog.Description>
+			<Dialog.Description class="sr-only">{$_('admin.creditCodes.generate.description')}</Dialog.Description>
 		</Dialog.Header>
 
 		{#if codes.length > 0}
@@ -138,7 +139,7 @@
 				<dl class="grid grid-cols-2 gap-3 text-sm">
 					<div>
 						<dt class="text-xs text-muted-foreground">{$_('admin.creditCodes.amount')}</dt>
-						<dd>{codes[0]?.amount}</dd>
+						<dd>{formatCreditAmount(codes[0]?.amount ?? '0', locale)}</dd>
 					</div>
 					<div>
 						<dt class="text-xs text-muted-foreground">{$_('admin.creditCodes.expires')}</dt>
@@ -180,7 +181,7 @@
 					</div>
 					<div>
 						<dt class="text-xs text-muted-foreground">{$_('admin.creditCodes.amount')}</dt>
-						<dd>{amountInput}</dd>
+						<dd>{formatCreditAmount(amountInput, locale)}</dd>
 					</div>
 					<div>
 						<dt class="text-xs text-muted-foreground">{$_('admin.creditCodes.expires')}</dt>

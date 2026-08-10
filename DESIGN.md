@@ -44,6 +44,8 @@ The admin console is an operational tool. Optimize for scanning, comparison, and
 - Show name and email as the primary user identity; internal IDs are secondary metadata in technical detail views
 - Known enumerated filters use selects, segmented controls, toggles, or checkboxes instead of free-text inputs
 - Raw provider values and task payloads belong in detail views, not primary list columns
+- Put Cloudflare shortcuts beside the resource they operate on: Worker logs in the shell, D1 on tenant shards, Queues on AI tasks, and R2 in task details
+- External infrastructure links must target the exact resource when its persisted identifier is available; hide links for local placeholder identifiers
 - Broad-impact actions require a review step that names the audience and consequence
 - Filters keep their values in the URL so views can be shared and restored
 

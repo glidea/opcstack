@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte'
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left'
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right'
-	import CopyIcon from '@lucide/svelte/icons/copy'
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link'
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import SearchIcon from '@lucide/svelte/icons/search'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
@@ -25,9 +25,10 @@
 	import * as Pagination from '$frontend/ui/pagination'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import * as Table from '$frontend/ui/table'
+	import { createCloudflareDatabaseUrl } from '../admin-cloudflare'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import UserDetailSheet from './UserDetailSheet.svelte'
-	import { createUserCloudflareDatabaseUrl, parseUserListQuery } from './users-page'
+	import { parseUserListQuery } from './users-page'
 
 	type UserListState =
 		| { status: 'loading' }
@@ -145,9 +146,6 @@
 		return new Intl.DateTimeFormat(data.locale, { dateStyle: 'medium' }).format(value)
 	}
 
-	async function copyUserId(userId: string): Promise<void> {
-		await navigator.clipboard.writeText(userId)
-	}
 </script>
 
 <main class="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6 lg:p-8">
@@ -200,18 +198,17 @@
 			{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-lg border">
+		<div class="overflow-hidden rounded-md border bg-background">
 			<div class="overflow-x-auto">
-				<Table.Root class="min-w-[980px]">
+				<Table.Root class="min-w-[920px]">
 					<Table.Header>
 						<Table.Row>
 							<Table.Head>{$_('admin.users.user')}</Table.Head>
-							<Table.Head>{$_('admin.users.verified')}</Table.Head>
-							<Table.Head>{$_('admin.users.betaAccess')}</Table.Head>
+							<Table.Head>{$_('admin.users.access')}</Table.Head>
 							<Table.Head>{$_('admin.users.source')}</Table.Head>
-							<Table.Head>{$_('admin.users.region')}</Table.Head>
+							<Table.Head>{$_('admin.users.shard')}</Table.Head>
 							<Table.Head>{$_('admin.users.created')}</Table.Head>
-							<Table.Head class="text-right">{$_('admin.users.actions')}</Table.Head>
+							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.users.actions')}</span></Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -219,34 +216,51 @@
 							{#each Array(6) as _item}
 								<Table.Row>
 									<Table.Cell><Skeleton class="h-5 w-48" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-16" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-16" /></Table.Cell>
+									<Table.Cell><Skeleton class="h-5 w-32" /></Table.Cell>
 									<Table.Cell><Skeleton class="h-5 w-20" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-16" /></Table.Cell>
+									<Table.Cell><Skeleton class="h-8 w-32" /></Table.Cell>
 									<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>
-									<Table.Cell><Skeleton class="ml-auto h-7 w-20" /></Table.Cell>
+									<Table.Cell class="sticky right-0 z-10 bg-background"><Skeleton class="ml-auto size-8" /></Table.Cell>
 								</Table.Row>
 							{/each}
 						{:else}
 							{#each listState.data.items as user (user.id)}
-								<Table.Row>
+								<Table.Row class="group">
 									<Table.Cell>
 										<div class="max-w-72">
 											<p class="truncate text-sm font-medium">{user.name}</p>
 											<p class="truncate text-xs text-muted-foreground">{user.email}</p>
 										</div>
 									</Table.Cell>
-									<Table.Cell><Badge variant={user.email_verified ? 'secondary' : 'outline'}>{user.email_verified ? $_('admin.common.yes') : $_('admin.common.no')}</Badge></Table.Cell>
-									<Table.Cell><Badge variant={user.beta_access ? 'secondary' : 'outline'}>{user.beta_access ? $_('admin.common.yes') : $_('admin.common.no')}</Badge></Table.Cell>
-									<Table.Cell>{user.registration_utm_source ?? $_('admin.users.sourceDirect')}</Table.Cell>
-									<Table.Cell>{user.shard?.region ?? $_('admin.common.none')}</Table.Cell>
-									<Table.Cell>{formatDate(user.created_at)}</Table.Cell>
-									<Table.Cell>
-										<div class="flex justify-end gap-1">
-											<Button variant="ghost" size="icon-sm" onclick={() => copyUserId(user.id)} aria-label={$_('admin.users.copyId')} title={$_('admin.users.copyId')}><CopyIcon /></Button>
-											<Button variant="outline" size="sm" onclick={() => openUser(user)}>{$_('admin.users.view')}</Button>
+								<Table.Cell>
+									<div class="flex flex-wrap gap-1.5">
+										<Badge variant={user.email_verified ? 'secondary' : 'outline'}>{user.email_verified ? $_('admin.users.emailVerified') : $_('admin.users.emailUnverified')}</Badge>
+										<Badge variant={user.beta_access ? 'secondary' : 'outline'}>{user.beta_access ? $_('admin.users.betaGranted') : $_('admin.users.betaMissing')}</Badge>
+									</div>
+								</Table.Cell>
+								<Table.Cell>{user.registration_utm_source ?? $_('admin.users.sourceDirect')}</Table.Cell>
+								<Table.Cell>
+									{#if user.shard}
+										{@const databaseUrl: string | null = createCloudflareDatabaseUrl(data.cloudflareAccountId, user.shard.database_id)}
+										<div class="grid gap-0.5">
+											{#if databaseUrl}
+												<a href={databaseUrl} target="_blank" rel="noopener" class="inline-flex w-fit items-center gap-1 font-mono text-xs font-medium text-primary hover:underline">
+													{user.shard.database_name}
+													<ExternalLinkIcon class="size-3" />
+												</a>
+											{:else}
+												<span class="font-mono text-xs font-medium">{user.shard.database_name}</span>
+											{/if}
+											<span class="text-xs text-muted-foreground">{user.shard.region}</span>
 										</div>
-									</Table.Cell>
+									{:else}
+										{$_('admin.common.none')}
+									{/if}
+								</Table.Cell>
+								<Table.Cell>{formatDate(user.created_at)}</Table.Cell>
+								<Table.Cell class="sticky right-0 z-10 bg-background group-hover:bg-accent">
+									<Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openUser(user)} aria-label={$_('admin.users.view')} title={$_('admin.users.view')}><ChevronRightIcon /></Button>
+								</Table.Cell>
 								</Table.Row>
 							{/each}
 						{/if}
@@ -288,7 +302,7 @@
 		user={selectedUser}
 		locale={data.locale}
 		cloudflareDatabaseUrl={selectedUser?.shard
-			? createUserCloudflareDatabaseUrl(data.cloudflareAccountId, selectedUser.shard.database_id)
+			? createCloudflareDatabaseUrl(data.cloudflareAccountId, selectedUser.shard.database_id)
 			: null}
 	/>
 {/key}

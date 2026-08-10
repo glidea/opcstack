@@ -22,10 +22,14 @@
 	import BotIcon from '@lucide/svelte/icons/bot'
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left'
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right'
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link'
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminAdvancedFilters from '../AdminAdvancedFilters.svelte'
+	import AdminUserReference from '../AdminUserReference.svelte'
 	import AdminUserPicker from '../AdminUserPicker.svelte'
+	import { createCloudflareQueuesUrl } from '../admin-cloudflare'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import AiTaskDetailSheet from './AiTaskDetailSheet.svelte'
 	import {
@@ -67,6 +71,21 @@
 	let detailOpen: boolean = $state(false)
 	let initialized: boolean = $state(false)
 	let detailStateReady: boolean = $state(false)
+	const queuesUrl: string | null = $derived(createCloudflareQueuesUrl(data.cloudflare.accountId))
+	let advancedOpen: boolean = $state(
+		initialQuery.id !== undefined ||
+			initialQuery.provider !== undefined ||
+			initialQuery.model !== undefined ||
+			initialQuery.created_at_start !== undefined ||
+			initialQuery.created_at_end !== undefined
+	)
+	const advancedFilterCount: number = $derived(
+		Number(idInput.trim() !== '') +
+			Number(providerInput.trim() !== '') +
+			Number(modelInput.trim() !== '') +
+			Number(createdStartInput !== '') +
+			Number(createdEndInput !== '')
+	)
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -204,64 +223,102 @@
 				return undefined
 		}
 	}
+
+	function taskTypeLabel(type: string): string {
+		switch (type) {
+			case 'image':
+				return $_('admin.aiTasks.image')
+			case 'tts':
+				return 'TTS'
+			case 'video':
+				return $_('admin.aiTasks.video')
+			default:
+				throw new Error(`Unsupported AI task type: ${type}`)
+		}
+	}
+
+	function taskStatusLabel(status: string): string {
+		switch (status) {
+			case 'processing':
+				return $_('admin.aiTasks.status.processing')
+			case 'completed':
+				return $_('admin.aiTasks.status.completed')
+			case 'failed':
+				return $_('admin.aiTasks.status.failed')
+			default:
+				throw new Error(`Unsupported AI task status: ${status}`)
+		}
+	}
 </script>
 
 <main class="mx-auto w-full max-w-[1650px] space-y-6 p-4 sm:p-6 lg:p-8">
 	<header class="flex flex-wrap items-start justify-between gap-4">
 		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.aiTasks.title')}</h1>
-		<Button variant="outline" size="sm" onclick={loadTasks}>
-			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
-			{$_('admin.aiTasks.refresh')}
-		</Button>
+		<div class="flex items-center gap-2">
+			{#if queuesUrl}
+				<Button variant="ghost" size="sm" href={queuesUrl} target="_blank" rel="noopener">
+					{$_('admin.aiTasks.openQueues')}
+					<ExternalLinkIcon class="size-3.5" />
+				</Button>
+			{/if}
+			<Button variant="outline" size="sm" onclick={loadTasks}>
+				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
+				{$_('admin.aiTasks.refresh')}
+			</Button>
+		</div>
 	</header>
 
-	<form class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:items-end" onsubmit={applyFilters}>
-		<Field.Field>
-			<Field.Label for="ai-task-type-filter">{$_('admin.aiTasks.type')}</Field.Label>
-			<Select.Root type="single" bind:value={taskTypeInput}>
-				<Select.Trigger id="ai-task-type-filter" class="w-full"><span>{taskTypeInput === 'all' ? $_('admin.aiTasks.allTypes') : taskTypeInput}</span></Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{$_('admin.aiTasks.allTypes')}</Select.Item>
-					<Select.Item value="image">{$_('admin.aiTasks.image')}</Select.Item>
-					<Select.Item value="tts">TTS</Select.Item>
-					<Select.Item value="video">{$_('admin.aiTasks.video')}</Select.Item>
-				</Select.Content>
-			</Select.Root>
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="ai-task-id-filter">{$_('admin.aiTasks.id')}</Field.Label>
-			<Input id="ai-task-id-filter" bind:value={idInput} autocomplete="off" placeholder={$_('admin.aiTasks.idPlaceholder')} />
-		</Field.Field>
-		<AdminUserPicker id="ai-task-user-filter" label={$_('admin.aiTasks.user')} bind:value={userInput} />
-		<Field.Field>
-			<Field.Label for="ai-task-status-filter">{$_('admin.aiTasks.status')}</Field.Label>
-			<Select.Root type="single" bind:value={statusInput}>
-				<Select.Trigger id="ai-task-status-filter" class="w-full"><span>{statusInput === 'all' ? $_('admin.aiTasks.allStatuses') : statusInput}</span></Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{$_('admin.aiTasks.allStatuses')}</Select.Item>
-					<Select.Item value="processing">processing</Select.Item>
-					<Select.Item value="completed">completed</Select.Item>
-					<Select.Item value="failed">failed</Select.Item>
-				</Select.Content>
-			</Select.Root>
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="ai-task-provider-filter">{$_('admin.aiTasks.provider')}</Field.Label>
-			<Input id="ai-task-provider-filter" bind:value={providerInput} autocomplete="off" placeholder={$_('admin.aiTasks.providerPlaceholder')} />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="ai-task-model-filter">{$_('admin.aiTasks.model')}</Field.Label>
-			<Input id="ai-task-model-filter" bind:value={modelInput} autocomplete="off" placeholder={$_('admin.aiTasks.modelPlaceholder')} />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="ai-task-created-start">{$_('admin.aiTasks.createdStart')}</Field.Label>
-			<Input id="ai-task-created-start" type="datetime-local" bind:value={createdStartInput} />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="ai-task-created-end">{$_('admin.aiTasks.createdEnd')}</Field.Label>
-			<Input id="ai-task-created-end" type="datetime-local" bind:value={createdEndInput} />
-		</Field.Field>
-		<div class="flex gap-2 sm:col-span-2 xl:col-span-4">
+	<form class="space-y-3" onsubmit={applyFilters}>
+		<div class="grid gap-3 md:grid-cols-3">
+			<Field.Field>
+				<Field.Label for="ai-task-type-filter">{$_('admin.aiTasks.type')}</Field.Label>
+				<Select.Root type="single" bind:value={taskTypeInput}>
+					<Select.Trigger id="ai-task-type-filter" class="w-full"><span>{taskTypeInput === 'all' ? $_('admin.aiTasks.allTypes') : taskTypeLabel(taskTypeInput)}</span></Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">{$_('admin.aiTasks.allTypes')}</Select.Item>
+						<Select.Item value="image">{taskTypeLabel('image')}</Select.Item>
+						<Select.Item value="tts">{taskTypeLabel('tts')}</Select.Item>
+						<Select.Item value="video">{taskTypeLabel('video')}</Select.Item>
+					</Select.Content>
+				</Select.Root>
+			</Field.Field>
+			<AdminUserPicker id="ai-task-user-filter" label={$_('admin.aiTasks.user')} bind:value={userInput} />
+			<Field.Field>
+				<Field.Label for="ai-task-status-filter">{$_('admin.aiTasks.status')}</Field.Label>
+				<Select.Root type="single" bind:value={statusInput}>
+					<Select.Trigger id="ai-task-status-filter" class="w-full"><span>{statusInput === 'all' ? $_('admin.aiTasks.allStatuses') : taskStatusLabel(statusInput)}</span></Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">{$_('admin.aiTasks.allStatuses')}</Select.Item>
+						<Select.Item value="processing">{taskStatusLabel('processing')}</Select.Item>
+						<Select.Item value="completed">{taskStatusLabel('completed')}</Select.Item>
+						<Select.Item value="failed">{taskStatusLabel('failed')}</Select.Item>
+					</Select.Content>
+				</Select.Root>
+			</Field.Field>
+		</div>
+		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-5">
+			<Field.Field>
+				<Field.Label for="ai-task-id-filter">{$_('admin.aiTasks.id')}</Field.Label>
+				<Input id="ai-task-id-filter" bind:value={idInput} autocomplete="off" placeholder={$_('admin.aiTasks.idPlaceholder')} />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="ai-task-provider-filter">{$_('admin.aiTasks.provider')}</Field.Label>
+				<Input id="ai-task-provider-filter" bind:value={providerInput} autocomplete="off" placeholder={$_('admin.aiTasks.providerPlaceholder')} />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="ai-task-model-filter">{$_('admin.aiTasks.model')}</Field.Label>
+				<Input id="ai-task-model-filter" bind:value={modelInput} autocomplete="off" placeholder={$_('admin.aiTasks.modelPlaceholder')} />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="ai-task-created-start">{$_('admin.aiTasks.createdStart')}</Field.Label>
+				<Input id="ai-task-created-start" type="datetime-local" bind:value={createdStartInput} />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="ai-task-created-end">{$_('admin.aiTasks.createdEnd')}</Field.Label>
+				<Input id="ai-task-created-end" type="datetime-local" bind:value={createdEndInput} />
+			</Field.Field>
+		</AdminAdvancedFilters>
+		<div class="flex gap-2">
 			<Button type="submit">{$_('admin.aiTasks.apply')}</Button>
 			{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.aiTasks.reset')}</Button>{/if}
 		</div>
@@ -284,7 +341,7 @@
 			{#if hasFilters()}<Empty.Content><Button variant="outline" onclick={resetFilters}>{$_('admin.aiTasks.reset')}</Button></Empty.Content>{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-lg border">
+		<div class="overflow-hidden rounded-md border bg-background">
 			<div class="overflow-x-auto">
 				<Table.Root class="min-w-[1260px]">
 					<Table.Header>
@@ -298,7 +355,7 @@
 							<Table.Head>{$_('admin.aiTasks.status')}</Table.Head>
 							<Table.Head>{$_('admin.aiTasks.attempts')}</Table.Head>
 							<Table.Head>{$_('admin.aiTasks.updated')}</Table.Head>
-							<Table.Head class="text-right">{$_('admin.aiTasks.actions')}</Table.Head>
+							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.aiTasks.actions')}</span></Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -306,17 +363,17 @@
 							{#each Array(6) as _item}<Table.Row>{#each Array(10) as _cell}<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>{/each}</Table.Row>{/each}
 						{:else}
 							{#each listState.data.items as item (`${item.task_type}:${item.shard_id}:${item.id}`)}
-								<Table.Row class={item.status === 'failed' ? 'bg-destructive/5' : ''}>
+								<Table.Row class={`group ${item.status === 'failed' ? 'bg-destructive/5' : ''}`}>
 									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell><Badge variant="outline">{item.task_type}</Badge></Table.Cell>
+									<Table.Cell><Badge variant="outline">{taskTypeLabel(item.task_type)}</Badge></Table.Cell>
 									<Table.Cell class="max-w-44 truncate font-mono text-xs" title={item.id}>{item.id}</Table.Cell>
-									<Table.Cell><a class="font-mono text-xs underline-offset-4 hover:underline" href={createAiTaskUserHref(data.locale, item.user_id)}>{item.user_id}</a></Table.Cell>
+									<Table.Cell><AdminUserReference userId={item.user_id} href={createAiTaskUserHref(data.locale, item.user_id)} /></Table.Cell>
 									<Table.Cell>{item.provider}</Table.Cell>
 									<Table.Cell>{item.model ?? $_('admin.common.none')}</Table.Cell>
-									<Table.Cell><Badge variant={getAiTaskStatusVariant(item.status)}>{item.status}</Badge></Table.Cell>
+									<Table.Cell><Badge variant={getAiTaskStatusVariant(item.status)}>{taskStatusLabel(item.status)}</Badge></Table.Cell>
 									<Table.Cell>{item.attempt_count}</Table.Cell>
 									<Table.Cell>{formatDate(item.updated_at)}</Table.Cell>
-									<Table.Cell class="text-right"><Button variant="outline" size="sm" onclick={() => openTask(item)}>{$_('admin.aiTasks.view')}</Button></Table.Cell>
+									<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'failed' ? 'bg-destructive/5' : 'bg-background'}`}><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openTask(item)} aria-label={$_('admin.aiTasks.view')} title={$_('admin.aiTasks.view')}><ChevronRightIcon /></Button></Table.Cell>
 								</Table.Row>
 							{/each}
 						{/if}

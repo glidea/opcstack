@@ -2,6 +2,12 @@ import type {
 	AdminAiTaskType,
 	ListAdminAiTasksRequest
 } from '$apiContract/admin-ai-tasks'
+import {
+	createCloudflareBucketUrl,
+	createCloudflareDatabaseUrl,
+	createCloudflareQueuesUrl,
+	createCloudflareWorkerUrl
+} from '../admin-cloudflare'
 
 export type AiTaskStatusVariant = 'outline' | 'secondary' | 'destructive'
 
@@ -92,31 +98,12 @@ export function createCloudflareTaskLinks(
 	taskType: AdminAiTaskType
 ): CloudflareTaskLinks {
 	const queueName: string = context.queues[taskType]
-	if (!isCloudflareAccountId(context.accountId)) {
-		return {
-			queueName,
-			database: null,
-			queue: null,
-			bucket: null,
-			worker: null
-		}
-	}
-
-	const baseUrl: string = `https://dash.cloudflare.com/${context.accountId}`
 	return {
 		queueName,
-		database: isCloudflareDatabaseId(databaseId)
-			? `${baseUrl}/workers/d1/${databaseId}`
-			: null,
-		queue: `${baseUrl}/workers/queues`,
-		bucket:
-			context.bucketName === ''
-				? null
-				: `${baseUrl}/r2/default/buckets/${encodeURIComponent(context.bucketName)}`,
-		worker:
-			context.workerName === ''
-				? null
-				: `${baseUrl}/workers/services/view/${encodeURIComponent(context.workerName)}/production/observability`
+		database: createCloudflareDatabaseUrl(context.accountId, databaseId),
+		queue: createCloudflareQueuesUrl(context.accountId),
+		bucket: createCloudflareBucketUrl(context.accountId, context.bucketName),
+		worker: createCloudflareWorkerUrl(context.accountId, context.workerName)
 	}
 }
 
@@ -176,18 +163,6 @@ function isAiTaskType(value: string): value is AdminAiTaskType {
 		default:
 			return false
 	}
-}
-
-function isCloudflareAccountId(value: string): boolean {
-	return /^[0-9a-f]{32}$/i.test(value) && !/^0+$/.test(value)
-}
-
-function isCloudflareDatabaseId(value: string | null): value is string {
-	if (value === null) {
-		return false
-	}
-	return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) &&
-		value !== '00000000-0000-0000-0000-000000000000'
 }
 
 function readTimestamp(params: URLSearchParams, name: string): Record<string, number> {

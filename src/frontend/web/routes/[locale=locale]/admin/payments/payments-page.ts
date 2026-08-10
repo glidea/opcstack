@@ -2,6 +2,15 @@ import type { ListAdminPaymentTransactionsRequest } from '$apiContract/payment'
 
 export type PaymentStatusVariant = 'outline' | 'secondary' | 'destructive'
 
+export const PAYMENT_TRANSACTION_TYPES: readonly string[] = [
+	'credits_purchase',
+	'subscription_initial',
+	'subscription_upgrade',
+	'subscription_renewal'
+]
+
+export const PAYMENT_TRANSACTION_STATUSES: readonly string[] = ['paid', 'refunded', 'disputed']
+
 export function parsePaymentListQuery(url: URL): ListAdminPaymentTransactionsRequest {
 	const userId: string = url.searchParams.get('user_id')?.trim() ?? ''
 	const type: string = url.searchParams.get('type')?.trim() ?? ''

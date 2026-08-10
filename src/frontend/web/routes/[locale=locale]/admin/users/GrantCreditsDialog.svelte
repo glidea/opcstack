@@ -130,7 +130,7 @@
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>{$_('admin.users.grant.title')}</Dialog.Title>
-			<Dialog.Description>{$_('admin.users.grant.description')}</Dialog.Description>
+			<Dialog.Description class="sr-only">{$_('admin.users.grant.description')}</Dialog.Description>
 		</Dialog.Header>
 
 		{#if confirming && confirmation}
@@ -138,7 +138,7 @@
 				<dl class="grid gap-3 rounded-lg border p-3 text-sm">
 					<div class="grid gap-1">
 						<dt class="text-xs text-muted-foreground">{$_('admin.users.grant.user')}</dt>
-						<dd class="break-all font-mono text-xs">{confirmation.userId}</dd>
+						<dd>{user.name} · {user.email}</dd>
 					</div>
 					<div class="grid gap-1">
 						<dt class="text-xs text-muted-foreground">{$_('admin.users.grant.amount')}</dt>
@@ -175,7 +175,7 @@
 			<form class="space-y-4" onsubmit={reviewGrant}>
 				<Field.Field>
 					<Field.Label for="grant-user">{$_('admin.users.grant.user')}</Field.Label>
-					<Input id="grant-user" value={`${user.name} · ${user.id}`} disabled />
+					<Input id="grant-user" value={`${user.name} · ${user.email}`} disabled />
 				</Field.Field>
 				<Field.Field data-invalid={amountError !== ''}>
 					<Field.Label for="grant-amount">{$_('admin.users.grant.amount')}</Field.Label>

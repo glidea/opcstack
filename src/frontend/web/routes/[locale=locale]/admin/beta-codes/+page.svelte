@@ -27,6 +27,8 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminAdvancedFilters from '../AdminAdvancedFilters.svelte'
+	import AdminUserReference from '../AdminUserReference.svelte'
 	import AdminUserPicker from '../AdminUserPicker.svelte'
 	import GenerateBetaCodesDialog from './GenerateBetaCodesDialog.svelte'
 	import { createBetaCodeSearchParams, parseBetaCodeListQuery } from './beta-codes-page'
@@ -58,6 +60,13 @@
 	let generateOpen: boolean = $state(false)
 	let copiedCode: string = $state('')
 	let initialized: boolean = $state(false)
+	let advancedOpen: boolean = $state(
+		initialQuery.created_at_start !== undefined || initialQuery.created_at_end !== undefined
+	)
+
+	const advancedFilterCount: number = $derived(
+		Number(createdStartInput !== '') + Number(createdEndInput !== '')
+	)
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -184,43 +193,47 @@
 		</div>
 	</header>
 
-	<form class="grid gap-3 lg:grid-cols-5 lg:items-end" onsubmit={applyFilters}>
-		<Field.Field>
-			<Field.Label for="beta-code-filter">{$_('admin.betaCodes.code')}</Field.Label>
-			<Input
-				id="beta-code-filter"
-				bind:value={codeInput}
-				autocomplete="off"
-				placeholder={$_('admin.betaCodes.codePlaceholder')}
-			/>
-		</Field.Field>
-		<AdminUserPicker id="beta-user-filter" label={$_('admin.betaCodes.usedBy')} bind:value={usedByInput} />
-		<Field.Field>
-			<Field.Label for="beta-status-filter">{$_('admin.betaCodes.status')}</Field.Label>
-			<Select.Root type="single" bind:value={usedFilter}>
-				<Select.Trigger id="beta-status-filter" class="w-full">
-					{usedFilter === 'used'
-						? $_('admin.betaCodes.used')
-						: usedFilter === 'unused'
-							? $_('admin.betaCodes.unused')
-							: $_('admin.betaCodes.allStatuses')}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{$_('admin.betaCodes.allStatuses')}</Select.Item>
-					<Select.Item value="unused">{$_('admin.betaCodes.unused')}</Select.Item>
-					<Select.Item value="used">{$_('admin.betaCodes.used')}</Select.Item>
-				</Select.Content>
-			</Select.Root>
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="beta-created-start">{$_('admin.betaCodes.createdStart')}</Field.Label>
-			<Input id="beta-created-start" bind:value={createdStartInput} type="date" />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="beta-created-end">{$_('admin.betaCodes.createdEnd')}</Field.Label>
-			<Input id="beta-created-end" bind:value={createdEndInput} type="date" />
-		</Field.Field>
-		<div class="flex gap-2 lg:col-span-5">
+	<form class="space-y-3" onsubmit={applyFilters}>
+		<div class="grid gap-3 md:grid-cols-3 md:items-end">
+			<Field.Field>
+				<Field.Label for="beta-code-filter">{$_('admin.betaCodes.code')}</Field.Label>
+				<Input
+					id="beta-code-filter"
+					bind:value={codeInput}
+					autocomplete="off"
+					placeholder={$_('admin.betaCodes.codePlaceholder')}
+				/>
+			</Field.Field>
+			<AdminUserPicker id="beta-user-filter" label={$_('admin.betaCodes.usedBy')} bind:value={usedByInput} />
+			<Field.Field>
+				<Field.Label for="beta-status-filter">{$_('admin.betaCodes.status')}</Field.Label>
+				<Select.Root type="single" bind:value={usedFilter}>
+					<Select.Trigger id="beta-status-filter" class="w-full">
+						{usedFilter === 'used'
+							? $_('admin.betaCodes.used')
+							: usedFilter === 'unused'
+								? $_('admin.betaCodes.unused')
+								: $_('admin.betaCodes.allStatuses')}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">{$_('admin.betaCodes.allStatuses')}</Select.Item>
+						<Select.Item value="unused">{$_('admin.betaCodes.unused')}</Select.Item>
+						<Select.Item value="used">{$_('admin.betaCodes.used')}</Select.Item>
+					</Select.Content>
+				</Select.Root>
+			</Field.Field>
+		</div>
+		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2">
+			<Field.Field>
+				<Field.Label for="beta-created-start">{$_('admin.betaCodes.createdStart')}</Field.Label>
+				<Input id="beta-created-start" bind:value={createdStartInput} type="date" />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="beta-created-end">{$_('admin.betaCodes.createdEnd')}</Field.Label>
+				<Input id="beta-created-end" bind:value={createdEndInput} type="date" />
+			</Field.Field>
+		</AdminAdvancedFilters>
+		<div class="flex gap-2">
 			<Button type="submit">{$_('admin.betaCodes.apply')}</Button>
 			{#if hasFilters()}
 				<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.betaCodes.reset')}</Button>
@@ -251,7 +264,7 @@
 			{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-lg border">
+		<div class="overflow-hidden rounded-md border bg-background">
 			<div class="overflow-x-auto">
 				<Table.Root class="min-w-[800px]">
 					<Table.Header>
@@ -261,7 +274,7 @@
 							<Table.Head>{$_('admin.betaCodes.usedBy')}</Table.Head>
 							<Table.Head>{$_('admin.betaCodes.usedAt')}</Table.Head>
 							<Table.Head>{$_('admin.betaCodes.created')}</Table.Head>
-							<Table.Head class="text-right">{$_('admin.betaCodes.actions')}</Table.Head>
+							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.betaCodes.actions')}</span></Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -273,12 +286,12 @@
 									<Table.Cell><Skeleton class="h-5 w-40" /></Table.Cell>
 									<Table.Cell><Skeleton class="h-5 w-28" /></Table.Cell>
 									<Table.Cell><Skeleton class="h-5 w-28" /></Table.Cell>
-									<Table.Cell><Skeleton class="ml-auto h-7 w-8" /></Table.Cell>
+									<Table.Cell class="sticky right-0 z-10 bg-background"><Skeleton class="ml-auto h-7 w-8" /></Table.Cell>
 								</Table.Row>
 							{/each}
 						{:else}
 							{#each listState.data.items as item (item.id)}
-								<Table.Row>
+								<Table.Row class="group">
 									<Table.Cell><code class="font-mono text-sm font-medium">{item.code}</code></Table.Cell>
 									<Table.Cell>
 										<Badge variant={item.used_by ? 'secondary' : 'outline'}>
@@ -287,14 +300,14 @@
 									</Table.Cell>
 									<Table.Cell>
 										{#if item.used_by}
-											<a class="font-mono text-xs underline-offset-4 hover:underline" href={userHref(item)}>{item.used_by}</a>
+											<AdminUserReference userId={item.used_by} href={userHref(item)} />
 										{:else}
 											{$_('admin.common.none')}
 										{/if}
 									</Table.Cell>
 									<Table.Cell>{formatDate(item.used_at)}</Table.Cell>
 									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell class="text-right">
+									<Table.Cell class="sticky right-0 z-10 bg-background text-right group-hover:bg-accent">
 										<Button
 											variant="ghost"
 											size="icon-sm"

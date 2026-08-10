@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
 	buildGrantCreditsRequest,
-	createUserCloudflareDatabaseUrl,
 	createGrantAttempt,
 	createGrantConfirmation,
 	createUserContextLinks,
@@ -27,25 +26,6 @@ describe('admin user list state', () => {
 		aiTasks: '/zh/admin/ai-tasks?user_id=user+1',
 		notification: '/zh/admin/notifications?target_user_id=user+1&compose=1'
 	})
-	})
-})
-
-describe('admin user Cloudflare links', (): void => {
-	test('links a valid tenant database directly', (): void => {
-		expect(
-			createUserCloudflareDatabaseUrl(
-				'1234567890abcdef1234567890abcdef',
-				'11111111-2222-3333-4444-555555555555'
-			)
-		).toBe(
-			'https://dash.cloudflare.com/1234567890abcdef1234567890abcdef/workers/d1/11111111-2222-3333-4444-555555555555'
-		)
-	})
-
-	test('hides local database identifiers', (): void => {
-		expect(
-			createUserCloudflareDatabaseUrl('local', '00000000-0000-0000-0000-000000000001')
-		).toBeNull()
 	})
 })
 

@@ -12,7 +12,6 @@ export type NotificationComposerState = {
 }
 
 export type NotificationContent = {
-	type: string
 	title: string
 	content: string
 }
@@ -75,6 +74,7 @@ export function buildNotificationRequest(
 	content: NotificationContent
 ): CreateNotificationRequest {
 	return {
+		type: 'system',
 		...content,
 		target_user_id: scope === 'global' ? null : targetUserId.trim()
 	}
@@ -83,11 +83,10 @@ export function buildNotificationRequest(
 export function validateNotificationDraft(
 	scope: NotificationScope,
 	targetUserId: string,
-	type: string,
 	title: string,
 	content: string
 ): boolean {
-	if (type.trim() === '' || title.trim() === '' || content.trim() === '') {
+	if (title.trim() === '' || content.trim() === '') {
 		return false
 	}
 	return scope === 'global' || targetUserId.trim() !== ''

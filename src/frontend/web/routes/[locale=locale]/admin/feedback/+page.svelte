@@ -15,6 +15,7 @@
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import * as Pagination from '$frontend/ui/pagination'
+	import * as Select from '$frontend/ui/select'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import * as Table from '$frontend/ui/table'
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left'
@@ -23,8 +24,10 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminUserReference from '../AdminUserReference.svelte'
 	import AdminUserPicker from '../AdminUserPicker.svelte'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
+	import { createFilterOptions } from '../admin-presentation'
 	import FeedbackDetailSheet from './FeedbackDetailSheet.svelte'
 	import {
 		createFeedbackSearchParams,
@@ -50,7 +53,7 @@
 	const initialDetailKey: string = readAdminDetailKey(page.url)
 	let query: ListFeedbacksRequest = $state(initialQuery)
 	let userInput: string = $state(initialQuery.user_id ?? '')
-	let typeInput: string = $state(initialQuery.type ?? '')
+	let typeInput: string = $state(initialQuery.type ?? 'all')
 	let createdStartInput: string = $state(formatDateInput(initialQuery.created_at_start))
 	let createdEndInput: string = $state(formatDateInput(initialQuery.created_at_end))
 	let currentPage: number = $state(initialQuery.page ?? 1)
@@ -109,7 +112,7 @@
 	function applyFilters(event: SubmitEvent): void {
 		event.preventDefault()
 		const userId: string = userInput.trim()
-		const type: string = typeInput.trim()
+		const type: string = typeInput === 'all' ? '' : typeInput
 		query = {
 			...(userId === '' ? {} : { user_id: userId }),
 			...(type === '' ? {} : { type }),
@@ -125,7 +128,7 @@
 
 	function resetFilters(): void {
 		userInput = ''
-		typeInput = ''
+		typeInput = 'all'
 		createdStartInput = ''
 		createdEndInput = ''
 		query = { page: 1, page_size: 20 }
@@ -149,6 +152,14 @@
 	function openFeedback(feedback: ListFeedbacksResponseItem): void {
 		selectedFeedback = feedback
 		detailOpen = true
+	}
+
+	function feedbackTypeOptions(): string[] {
+		const observed: string[] =
+			listState.status === 'loaded'
+				? listState.data.items.map((item: ListFeedbacksResponseItem): string => item.type)
+				: []
+		return createFilterOptions(typeInput, observed)
 	}
 
 	function formatDate(value: number): string {
@@ -191,7 +202,17 @@
 		<AdminUserPicker id="feedback-user-filter" label={$_('admin.feedback.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="feedback-type-filter">{$_('admin.feedback.type')}</Field.Label>
-			<Input id="feedback-type-filter" bind:value={typeInput} autocomplete="off" placeholder={$_('admin.feedback.typePlaceholder')} />
+			<Select.Root type="single" bind:value={typeInput}>
+				<Select.Trigger id="feedback-type-filter" class="w-full">
+					<span>{typeInput === 'all' ? $_('admin.feedback.allTypes') : typeInput}</span>
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="all">{$_('admin.feedback.allTypes')}</Select.Item>
+					{#each feedbackTypeOptions() as type}
+						<Select.Item value={type}>{type}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
 		</Field.Field>
 		<Field.Field>
 			<Field.Label for="feedback-created-start">{$_('admin.feedback.createdStart')}</Field.Label>
@@ -224,7 +245,7 @@
 			{#if hasFilters()}<Empty.Content><Button variant="outline" onclick={resetFilters}>{$_('admin.feedback.reset')}</Button></Empty.Content>{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-lg border">
+		<div class="overflow-hidden rounded-md border bg-background">
 			<div class="overflow-x-auto">
 				<Table.Root class="min-w-[900px]">
 					<Table.Header>
@@ -233,7 +254,7 @@
 							<Table.Head>{$_('admin.feedback.type')}</Table.Head>
 							<Table.Head>{$_('admin.feedback.content')}</Table.Head>
 							<Table.Head>{$_('admin.feedback.created')}</Table.Head>
-							<Table.Head class="text-right">{$_('admin.feedback.actions')}</Table.Head>
+							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.feedback.actions')}</span></Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -244,17 +265,17 @@
 									<Table.Cell><Skeleton class="h-5 w-20" /></Table.Cell>
 									<Table.Cell><Skeleton class="h-5 w-80" /></Table.Cell>
 									<Table.Cell><Skeleton class="h-5 w-32" /></Table.Cell>
-									<Table.Cell><Skeleton class="ml-auto h-7 w-16" /></Table.Cell>
+									<Table.Cell class="sticky right-0 z-10 bg-background"><Skeleton class="ml-auto size-8" /></Table.Cell>
 								</Table.Row>
 							{/each}
 						{:else}
 							{#each listState.data.items as item (item.id)}
-								<Table.Row>
-									<Table.Cell><a class="font-mono text-xs underline-offset-4 hover:underline" href={createFeedbackUserHref(data.locale, item.user_id)}>{item.user_id}</a></Table.Cell>
+								<Table.Row class="group">
+									<Table.Cell><AdminUserReference userId={item.user_id} href={createFeedbackUserHref(data.locale, item.user_id)} /></Table.Cell>
 									<Table.Cell><Badge variant="outline">{item.type}</Badge></Table.Cell>
 									<Table.Cell><p class="max-w-2xl text-sm text-muted-foreground">{summarizeFeedback(item.content)}</p></Table.Cell>
 									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell class="text-right"><Button variant="outline" size="sm" onclick={() => openFeedback(item)}>{$_('admin.feedback.view')}</Button></Table.Cell>
+									<Table.Cell class="sticky right-0 z-10 bg-background text-right group-hover:bg-accent"><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openFeedback(item)} aria-label={$_('admin.feedback.view')} title={$_('admin.feedback.view')}><ChevronRightIcon /></Button></Table.Cell>
 								</Table.Row>
 							{/each}
 						{/if}

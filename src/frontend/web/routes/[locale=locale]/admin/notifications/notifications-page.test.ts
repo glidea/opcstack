@@ -48,20 +48,20 @@ describe('admin notifications page', (): void => {
 	})
 
 	test('builds explicit global and targeted requests', (): void => {
-		const content = { type: 'system', title: 'Notice', content: 'Body' }
+		const content = { title: 'Notice', content: 'Body' }
 		expect({ request: buildNotificationRequest('global', '', content) }).toEqual({
-			request: { ...content, target_user_id: null }
+			request: { type: 'system', ...content, target_user_id: null }
 		})
 		expect({ request: buildNotificationRequest('user', 'user-1', content) }).toEqual({
-			request: { ...content, target_user_id: 'user-1' }
+			request: { type: 'system', ...content, target_user_id: 'user-1' }
 		})
 	})
 
 	test('requires content and a target for user notifications', (): void => {
-		expect({ global: validateNotificationDraft('global', '', 'system', 'Title', 'Body') }).toEqual({
+		expect({ global: validateNotificationDraft('global', '', 'Title', 'Body') }).toEqual({
 			global: true
 		})
-		expect({ missingTarget: validateNotificationDraft('user', '', 'system', 'Title', 'Body') }).toEqual({
+		expect({ missingTarget: validateNotificationDraft('user', '', 'Title', 'Body') }).toEqual({
 			missingTarget: false
 		})
 	})

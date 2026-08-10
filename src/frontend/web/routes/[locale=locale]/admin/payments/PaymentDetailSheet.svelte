@@ -5,6 +5,7 @@
 	import { Button } from '$frontend/ui/button'
 	import * as Sheet from '$frontend/ui/sheet'
 	import UserIcon from '@lucide/svelte/icons/user'
+	import { formatCreditAmount } from '../admin-presentation'
 	import {
 		createPaymentUserHref,
 		formatPaymentAmount,
@@ -64,7 +65,7 @@
 						<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.payments.currency')}</dt><dd>{transaction.currency}</dd></div>
 					</div>
 					<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.payments.rawAmount')}</dt><dd class="font-mono">{transaction.amount}</dd></div>
-					<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.payments.credits')}</dt><dd>{transaction.credits_granted}</dd></div>
+					<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.payments.credits')}</dt><dd>{formatCreditAmount(transaction.credits_granted, locale)}</dd></div>
 					<div class="grid grid-cols-2 gap-3">
 						<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.payments.paidAt')}</dt><dd>{formatDate(transaction.paid_at)}</dd></div>
 						<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.payments.refundedAt')}</dt><dd>{formatDate(transaction.refunded_at)}</dd></div>

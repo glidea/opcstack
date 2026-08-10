@@ -342,6 +342,10 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - Titles, headings, descriptions, button labels, and placeholders must not end with punctuation.
 - Admin page headers contain only the title and relevant actions. Do not add explanatory subtitles that restate the page purpose or data source.
 - Admin user filters and actions must select users by name or email. Never require operators to type a user ID; pass it internally after selection.
+- Known admin enum filters must use select, segmented control, toggle, or checkbox controls instead of free-text inputs.
+- Keep common admin filters visible and place low-frequency technical or date filters behind progressive disclosure.
+- Keep row actions reachable while horizontally scrolling wide admin tables. Show internal IDs as secondary, compact technical references.
+- Put Cloudflare links beside the related admin resource and deep-link to the exact Worker, D1 database, Queue dashboard, or R2 bucket when identifiers are available.
 - Every form field needs a visible label, correct `autocomplete`, `aria-invalid` on error, and a visible actionable error message.
 - Every list, table, or feed that can be empty must use the `Empty` family.
 - Browser extension entrypoints live in `src/frontend/extension/entrypoints/`.

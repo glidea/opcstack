@@ -27,7 +27,10 @@
 	import TicketIcon from '@lucide/svelte/icons/ticket'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminAdvancedFilters from '../AdminAdvancedFilters.svelte'
+	import AdminUserReference from '../AdminUserReference.svelte'
 	import AdminUserPicker from '../AdminUserPicker.svelte'
+	import { formatCreditAmount } from '../admin-presentation'
 	import GenerateCreditCodesDialog from './GenerateCreditCodesDialog.svelte'
 	import {
 		createCreditCodeSearchParams,
@@ -63,6 +66,20 @@
 	let generateOpen: boolean = $state(false)
 	let copiedCode: string = $state('')
 	let initialized: boolean = $state(false)
+	let advancedOpen: boolean = $state(
+		initialQuery.amount !== undefined ||
+			initialQuery.created_at_start !== undefined ||
+			initialQuery.created_at_end !== undefined ||
+			initialQuery.expires_at_start !== undefined ||
+			initialQuery.expires_at_end !== undefined
+	)
+	const advancedFilterCount: number = $derived(
+		Number(amountInput.trim() !== '') +
+			Number(createdStartInput !== '') +
+			Number(createdEndInput !== '') +
+			Number(expiresStartInput !== '') +
+			Number(expiresEndInput !== '')
+	)
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -215,53 +232,57 @@
 		</div>
 	</header>
 
-	<form class="grid gap-3 md:grid-cols-2 xl:grid-cols-4" onsubmit={applyFilters}>
-		<Field.Field>
-			<Field.Label for="credit-code-filter">{$_('admin.creditCodes.code')}</Field.Label>
-			<Input id="credit-code-filter" bind:value={codeInput} autocomplete="off" placeholder={$_('admin.creditCodes.codePlaceholder')} />
-		</Field.Field>
-		<AdminUserPicker id="credit-user-filter" label={$_('admin.creditCodes.claimedBy')} bind:value={claimedByInput} />
-		<Field.Field>
-			<Field.Label for="credit-status-filter">{$_('admin.creditCodes.status')}</Field.Label>
-			<Select.Root type="single" bind:value={statusInput}>
-				<Select.Trigger id="credit-status-filter" class="w-full">
-					{statusInput === 'unused'
-						? $_('admin.creditCodes.unused')
-						: statusInput === 'claimed'
-							? $_('admin.creditCodes.claimed')
-							: statusInput === 'granted'
-								? $_('admin.creditCodes.granted')
-								: $_('admin.creditCodes.allStatuses')}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{$_('admin.creditCodes.allStatuses')}</Select.Item>
-					<Select.Item value="unused">{$_('admin.creditCodes.unused')}</Select.Item>
-					<Select.Item value="claimed">{$_('admin.creditCodes.claimed')}</Select.Item>
-					<Select.Item value="granted">{$_('admin.creditCodes.granted')}</Select.Item>
-				</Select.Content>
-			</Select.Root>
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="credit-amount-filter">{$_('admin.creditCodes.amount')}</Field.Label>
-			<Input id="credit-amount-filter" bind:value={amountInput} inputmode="decimal" autocomplete="off" placeholder="10" />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="credit-created-start">{$_('admin.creditCodes.createdStart')}</Field.Label>
-			<Input id="credit-created-start" bind:value={createdStartInput} type="date" />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="credit-created-end">{$_('admin.creditCodes.createdEnd')}</Field.Label>
-			<Input id="credit-created-end" bind:value={createdEndInput} type="date" />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="credit-expires-start">{$_('admin.creditCodes.expiresStart')}</Field.Label>
-			<Input id="credit-expires-start" bind:value={expiresStartInput} type="date" />
-		</Field.Field>
-		<Field.Field>
-			<Field.Label for="credit-expires-end">{$_('admin.creditCodes.expiresEnd')}</Field.Label>
-			<Input id="credit-expires-end" bind:value={expiresEndInput} type="date" />
-		</Field.Field>
-		<div class="flex gap-2 md:col-span-2 xl:col-span-4">
+	<form class="space-y-3" onsubmit={applyFilters}>
+		<div class="grid gap-3 md:grid-cols-3">
+			<Field.Field>
+				<Field.Label for="credit-code-filter">{$_('admin.creditCodes.code')}</Field.Label>
+				<Input id="credit-code-filter" bind:value={codeInput} autocomplete="off" placeholder={$_('admin.creditCodes.codePlaceholder')} />
+			</Field.Field>
+			<AdminUserPicker id="credit-user-filter" label={$_('admin.creditCodes.claimedBy')} bind:value={claimedByInput} />
+			<Field.Field>
+				<Field.Label for="credit-status-filter">{$_('admin.creditCodes.status')}</Field.Label>
+				<Select.Root type="single" bind:value={statusInput}>
+					<Select.Trigger id="credit-status-filter" class="w-full">
+						{statusInput === 'unused'
+							? $_('admin.creditCodes.unused')
+							: statusInput === 'claimed'
+								? $_('admin.creditCodes.claimed')
+								: statusInput === 'granted'
+									? $_('admin.creditCodes.granted')
+									: $_('admin.creditCodes.allStatuses')}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">{$_('admin.creditCodes.allStatuses')}</Select.Item>
+						<Select.Item value="unused">{$_('admin.creditCodes.unused')}</Select.Item>
+						<Select.Item value="claimed">{$_('admin.creditCodes.claimed')}</Select.Item>
+						<Select.Item value="granted">{$_('admin.creditCodes.granted')}</Select.Item>
+					</Select.Content>
+				</Select.Root>
+			</Field.Field>
+		</div>
+		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-5">
+			<Field.Field>
+				<Field.Label for="credit-amount-filter">{$_('admin.creditCodes.amount')}</Field.Label>
+				<Input id="credit-amount-filter" bind:value={amountInput} inputmode="decimal" autocomplete="off" placeholder="10" />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="credit-created-start">{$_('admin.creditCodes.createdStart')}</Field.Label>
+				<Input id="credit-created-start" bind:value={createdStartInput} type="date" />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="credit-created-end">{$_('admin.creditCodes.createdEnd')}</Field.Label>
+				<Input id="credit-created-end" bind:value={createdEndInput} type="date" />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="credit-expires-start">{$_('admin.creditCodes.expiresStart')}</Field.Label>
+				<Input id="credit-expires-start" bind:value={expiresStartInput} type="date" />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="credit-expires-end">{$_('admin.creditCodes.expiresEnd')}</Field.Label>
+				<Input id="credit-expires-end" bind:value={expiresEndInput} type="date" />
+			</Field.Field>
+		</AdminAdvancedFilters>
+		<div class="flex gap-2">
 			<Button type="submit">{$_('admin.creditCodes.apply')}</Button>
 			{#if hasFilters()}
 				<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.creditCodes.reset')}</Button>
@@ -288,7 +309,7 @@
 			{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-lg border">
+		<div class="overflow-hidden rounded-md border bg-background">
 			<div class="overflow-x-auto">
 				<Table.Root class="min-w-[1280px]">
 					<Table.Header>
@@ -301,7 +322,7 @@
 							<Table.Head>{$_('admin.creditCodes.grantedAt')}</Table.Head>
 							<Table.Head>{$_('admin.creditCodes.expires')}</Table.Head>
 							<Table.Head>{$_('admin.creditCodes.created')}</Table.Head>
-							<Table.Head class="text-right">{$_('admin.creditCodes.actions')}</Table.Head>
+							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.creditCodes.actions')}</span></Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -313,18 +334,18 @@
 							{/each}
 						{:else}
 							{#each listState.data.items as item (item.id)}
-								<Table.Row class={item.status === 'claimed' ? 'bg-destructive/5' : ''}>
+								<Table.Row class={`group ${item.status === 'claimed' ? 'bg-destructive/5' : ''}`}>
 									<Table.Cell><code class="font-mono text-sm font-medium">{item.code}</code></Table.Cell>
-									<Table.Cell>{item.amount}</Table.Cell>
+									<Table.Cell>{formatCreditAmount(item.amount, data.locale)}</Table.Cell>
 									<Table.Cell><Badge variant={getCreditCodeStatusVariant(item.status)}>{statusLabel(item.status)}</Badge></Table.Cell>
 									<Table.Cell>
-										{#if item.claimed_by}<a class="font-mono text-xs underline-offset-4 hover:underline" href={userHref(item)}>{item.claimed_by}</a>{:else}{$_('admin.common.none')}{/if}
+										{#if item.claimed_by}<AdminUserReference userId={item.claimed_by} href={userHref(item)} />{:else}{$_('admin.common.none')}{/if}
 									</Table.Cell>
 									<Table.Cell>{formatDate(item.claimed_at)}</Table.Cell>
 									<Table.Cell>{formatDate(item.granted_at)}</Table.Cell>
 									<Table.Cell>{item.expires_at === null ? $_('admin.creditCodes.never') : formatDate(item.expires_at)}</Table.Cell>
 									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell class="text-right">
+									<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'claimed' ? 'bg-destructive/5' : 'bg-background'}`}>
 										<Button variant="ghost" size="icon-sm" onclick={() => copyCode(item.code)} aria-label={$_('admin.creditCodes.copyCode')} title={$_('admin.creditCodes.copyCode')}>
 											{#if copiedCode === item.code}<CheckIcon />{:else}<CopyIcon />{/if}
 										</Button>

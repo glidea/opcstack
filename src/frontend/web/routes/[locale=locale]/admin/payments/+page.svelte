@@ -13,8 +13,8 @@
 	import { Button } from '$frontend/ui/button'
 	import * as Empty from '$frontend/ui/empty'
 	import * as Field from '$frontend/ui/field'
-	import { Input } from '$frontend/ui/input'
 	import * as Pagination from '$frontend/ui/pagination'
+	import * as Select from '$frontend/ui/select'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import * as Table from '$frontend/ui/table'
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left'
@@ -23,7 +23,9 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
+	import AdminUserReference from '../AdminUserReference.svelte'
 	import AdminUserPicker from '../AdminUserPicker.svelte'
+	import { formatCreditAmount } from '../admin-presentation'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import PaymentDetailSheet from './PaymentDetailSheet.svelte'
 	import {
@@ -31,6 +33,8 @@
 		createPaymentUserHref,
 		formatPaymentAmount,
 		getPaymentStatusVariant,
+		PAYMENT_TRANSACTION_STATUSES,
+		PAYMENT_TRANSACTION_TYPES,
 		parsePaymentListQuery
 	} from './payments-page'
 
@@ -51,8 +55,8 @@
 	const initialDetailKey: string = readAdminDetailKey(page.url)
 	let query: ListAdminPaymentTransactionsRequest = $state(initialQuery)
 	let userInput: string = $state(initialQuery.user_id ?? '')
-	let typeInput: string = $state(initialQuery.type ?? '')
-	let statusInput: string = $state(initialQuery.status ?? '')
+	let typeInput: string = $state(initialQuery.type ?? 'all')
+	let statusInput: string = $state(initialQuery.status ?? 'all')
 	let currentPage: number = $state(initialQuery.page ?? 1)
 	let listState: PaymentListState = $state({ status: 'loading' })
 	let selectedTransaction: AdminPaymentTransactionItem | null = $state(null)
@@ -113,8 +117,8 @@
 	function applyFilters(event: SubmitEvent): void {
 		event.preventDefault()
 		const userId: string = userInput.trim()
-		const type: string = typeInput.trim()
-		const status: string = statusInput.trim()
+		const type: string = typeInput === 'all' ? '' : typeInput
+		const status: string = statusInput === 'all' ? '' : statusInput
 		query = {
 			...(userId === '' ? {} : { user_id: userId }),
 			...(type === '' ? {} : { type }),
@@ -129,8 +133,8 @@
 
 	function resetFilters(): void {
 		userInput = ''
-		typeInput = ''
-		statusInput = ''
+		typeInput = 'all'
+		statusInput = 'all'
 		query = { page: 1, page_size: 20 }
 		currentPage = 1
 		updateUrl(query)
@@ -160,6 +164,34 @@
 			timeStyle: 'short'
 		}).format(value)
 	}
+
+	function paymentTypeLabel(type: string): string {
+		switch (type) {
+			case 'credits_purchase':
+				return $_('admin.payments.type.creditsPurchase')
+			case 'subscription_initial':
+				return $_('admin.payments.type.subscriptionInitial')
+			case 'subscription_upgrade':
+				return $_('admin.payments.type.subscriptionUpgrade')
+			case 'subscription_renewal':
+				return $_('admin.payments.type.subscriptionRenewal')
+			default:
+				throw new Error(`Unsupported payment transaction type: ${type}`)
+		}
+	}
+
+	function paymentStatusLabel(status: string): string {
+		switch (status) {
+			case 'paid':
+				return $_('admin.payments.status.paid')
+			case 'refunded':
+				return $_('admin.payments.status.refunded')
+			case 'disputed':
+				return $_('admin.payments.status.disputed')
+			default:
+				throw new Error(`Unsupported payment transaction status: ${status}`)
+		}
+	}
 </script>
 
 <main class="mx-auto w-full max-w-[1650px] space-y-6 p-4 sm:p-6 lg:p-8">
@@ -175,11 +207,31 @@
 		<AdminUserPicker id="payment-user-filter" label={$_('admin.payments.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="payment-type-filter">{$_('admin.payments.type')}</Field.Label>
-			<Input id="payment-type-filter" bind:value={typeInput} autocomplete="off" placeholder={$_('admin.payments.typePlaceholder')} />
+			<Select.Root type="single" bind:value={typeInput}>
+				<Select.Trigger id="payment-type-filter" class="w-full">
+					{typeInput === 'all' ? $_('admin.payments.allTypes') : paymentTypeLabel(typeInput)}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="all">{$_('admin.payments.allTypes')}</Select.Item>
+					{#each PAYMENT_TRANSACTION_TYPES as type}
+						<Select.Item value={type}>{paymentTypeLabel(type)}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
 		</Field.Field>
 		<Field.Field>
 			<Field.Label for="payment-status-filter">{$_('admin.payments.status')}</Field.Label>
-			<Input id="payment-status-filter" bind:value={statusInput} autocomplete="off" placeholder={$_('admin.payments.statusPlaceholder')} />
+			<Select.Root type="single" bind:value={statusInput}>
+				<Select.Trigger id="payment-status-filter" class="w-full">
+					{statusInput === 'all' ? $_('admin.payments.allStatuses') : paymentStatusLabel(statusInput)}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="all">{$_('admin.payments.allStatuses')}</Select.Item>
+					{#each PAYMENT_TRANSACTION_STATUSES as status}
+						<Select.Item value={status}>{paymentStatusLabel(status)}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
 		</Field.Field>
 		<div class="flex gap-2 sm:col-span-3">
 			<Button type="submit">{$_('admin.payments.apply')}</Button>
@@ -204,7 +256,7 @@
 			{#if hasFilters()}<Empty.Content><Button variant="outline" onclick={resetFilters}>{$_('admin.payments.reset')}</Button></Empty.Content>{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-lg border">
+		<div class="overflow-hidden rounded-md border bg-background">
 			<div class="overflow-x-auto">
 				<Table.Root class="min-w-[1120px]">
 					<Table.Header>
@@ -216,7 +268,7 @@
 							<Table.Head>{$_('admin.payments.amount')}</Table.Head>
 							<Table.Head>{$_('admin.payments.status')}</Table.Head>
 							<Table.Head>{$_('admin.payments.credits')}</Table.Head>
-							<Table.Head class="text-right">{$_('admin.payments.actions')}</Table.Head>
+							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.payments.actions')}</span></Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -224,15 +276,15 @@
 							{#each Array(6) as _item}<Table.Row>{#each Array(8) as _cell}<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>{/each}</Table.Row>{/each}
 						{:else}
 							{#each listState.data.items as item (item.id)}
-								<Table.Row class={item.status === 'refunded' || item.status === 'disputed' ? 'bg-destructive/5' : ''}>
+								<Table.Row class={`group ${item.status === 'refunded' || item.status === 'disputed' ? 'bg-destructive/5' : ''}`}>
 									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell><a class="font-mono text-xs underline-offset-4 hover:underline" href={createPaymentUserHref(data.locale, item.user_id)}>{item.user_id}</a></Table.Cell>
+									<Table.Cell><AdminUserReference userId={item.user_id} href={createPaymentUserHref(data.locale, item.user_id)} /></Table.Cell>
 									<Table.Cell>{item.product_id}</Table.Cell>
-									<Table.Cell>{item.type}</Table.Cell>
+									<Table.Cell>{paymentTypeLabel(item.type)}</Table.Cell>
 									<Table.Cell>{formatPaymentAmount(item.amount, item.currency, data.locale)}</Table.Cell>
-									<Table.Cell><Badge variant={getPaymentStatusVariant(item.status)}>{item.status}</Badge></Table.Cell>
-									<Table.Cell>{item.credits_granted}</Table.Cell>
-									<Table.Cell class="text-right"><Button variant="outline" size="sm" onclick={() => openTransaction(item)}>{$_('admin.payments.view')}</Button></Table.Cell>
+									<Table.Cell><Badge variant={getPaymentStatusVariant(item.status)}>{paymentStatusLabel(item.status)}</Badge></Table.Cell>
+									<Table.Cell>{formatCreditAmount(item.credits_granted, data.locale)}</Table.Cell>
+									<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'refunded' || item.status === 'disputed' ? 'bg-destructive/5' : 'bg-background'}`}><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openTransaction(item)} aria-label={$_('admin.payments.view')} title={$_('admin.payments.view')}><ChevronRightIcon /></Button></Table.Cell>
 								</Table.Row>
 							{/each}
 						{/if}

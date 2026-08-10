@@ -4,6 +4,8 @@ import {
 	createPaymentUserHref,
 	formatPaymentAmount,
 	getPaymentStatusVariant,
+	PAYMENT_TRANSACTION_STATUSES,
+	PAYMENT_TRANSACTION_TYPES,
 	parsePaymentListQuery
 } from './payments-page'
 
@@ -40,6 +42,18 @@ describe('admin payments page', (): void => {
 			refunded: getPaymentStatusVariant('refunded'),
 			disputed: getPaymentStatusVariant('disputed')
 		}).toEqual({ paid: 'secondary', refunded: 'destructive', disputed: 'destructive' })
+	})
+
+	test('exposes bounded transaction types and statuses for select controls', (): void => {
+		expect({ types: PAYMENT_TRANSACTION_TYPES, statuses: PAYMENT_TRANSACTION_STATUSES }).toEqual({
+			types: [
+				'credits_purchase',
+				'subscription_initial',
+				'subscription_upgrade',
+				'subscription_renewal'
+			],
+			statuses: ['paid', 'refunded', 'disputed']
+		})
 	})
 
 	test('links a transaction user to the filtered user directory', (): void => {
