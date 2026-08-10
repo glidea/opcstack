@@ -78,6 +78,20 @@ describe('admin route protection', () => {
 		expect(fetchSession).not.toHaveBeenCalled()
 		expect(getRuntimeSession).toHaveBeenCalledWith({ headers: event.request.headers })
 	})
+
+	test('reads the session through the API in Vite when Worker bindings are absent', async (): Promise<void> => {
+		const session: SessionPayload = {
+			user: { id: 'admin-1', email: 'admin@example.com', name: 'Admin' }
+		}
+		const fetchSession = vi.fn(async (): Promise<Response> => Response.json(session))
+		const event: LayoutEventFixture = createLayoutEvent(null, fetchSession)
+		event.platform = { env: {} as Env }
+
+		const result: Record<string, unknown> = await loadAdminLayout(event)
+
+		expect(result).toMatchObject({ supportEmail: 'admin@example.com' })
+		expect(fetchSession).toHaveBeenCalledWith('/api/auth/get-session')
+	})
 })
 
 describe('admin navigation', () => {

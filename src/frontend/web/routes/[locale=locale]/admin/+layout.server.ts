@@ -55,7 +55,7 @@ export async function load(event: AdminLayoutEvent): Promise<AdminLayoutData> {
 
 async function readAdminSession(event: AdminLayoutEvent): Promise<AdminSession | null> {
 	const env: Env | undefined = event.platform?.env
-	if (env) {
+	if (env?.META_DB) {
 		const metaDb = getMetaDb(env.META_DB.withSession('first-primary'))
 		return authCore(env, metaDb).api.getSession({ headers: event.request.headers })
 	}
