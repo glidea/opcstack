@@ -118,10 +118,10 @@
 - 改变 Gemini 与 Seed 的输入能力约束
 
 ## TODO 清单
-- [ ] 1. 先扩展 `src/backend/consumers/ai-tts.test.ts`，覆盖高分优先、渠道故障转移、source 任务和全部失败重试
-- [ ] 2. 在 `src/backend/consumers/ai-tts.ts` 调用 Router，并向对应 Provider 传入唯一 endpoint
-- [ ] 3. 使用一个 D1 batch 写任务终态、实际 channel 和本次分钟桶增量
-- [ ] 4. 保持现有 TTS 任务 API、Queue payload、最大尝试次数和模型能力校验不变
+- [x] 1. 先扩展 `src/backend/consumers/ai-tts.test.ts`，覆盖高分优先、渠道故障转移、source 任务和全部失败重试
+- [x] 2. 在 `src/backend/consumers/ai-tts.ts` 调用 Router，并向对应 Provider 传入唯一 endpoint
+- [x] 3. 使用一个 D1 batch 写任务终态、实际 channel 和本次分钟桶增量
+- [x] 4. 保持现有 TTS 任务 API、Queue payload、最大尝试次数和模型能力校验不变
 
 ## 验收测试步骤
 1. 运行 `pnpm exec vitest run src/backend/consumers/ai-tts.test.ts src/backend/ai/tts`
