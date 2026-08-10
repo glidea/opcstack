@@ -1,12 +1,20 @@
-import { eq } from 'drizzle-orm'
-import { getMetaDb } from '../db'
+import { eq, sql } from 'drizzle-orm'
+import { getMetaDb, runRawD1Batch, type D1RawRunQuery } from '../db'
 import { aiImageTask } from '../db/schema.shard'
 import { createTenantShardAccess } from '../db/shard-router'
 import { createAIImageClients } from '../ai/image'
+import {
+	createAIChannelMetricQuery,
+	rankAIChannels,
+	type AIRankedChannel
+} from '../ai/channel-routing'
+import { AIError } from '../ai/error'
+import { R2Error } from '../r2'
 import { logError } from '../lib/log'
 import type {
 	AIImageAspectRatio,
 	AIImageReference,
+	AIImageResult,
 	AIImageSize,
 	AIImageTask
 } from '../ai/image'
@@ -38,60 +46,139 @@ async function handleAIImageMessage(
 		return
 	}
 
+	const metricQueries: D1RawRunQuery[] = []
+	const attemptCount: number = task.attemptCount + 1
 	try {
-		const references = JSON.parse(task.referencesJson) as AIImageReference[]
-		const client = createAIImageClients(env, task.userId, tenant.db, {
-			provider: task.provider as AIImageTask['provider'],
-			model: task.model ?? undefined
-		}).simple
-		const images = await client.generate({
-			prompt: task.prompt,
-			numberOfImages: task.numberOfImages ?? undefined,
-			references,
-			aspectRatio: task.aspectRatio as AIImageAspectRatio | undefined,
-			imageSize: task.imageSize as AIImageSize | undefined,
-			lowCensorship: task.lowCensorship === 1,
-			uploadToR2: task.uploadToR2 === 1,
-			r2UploadDir: task.r2UploadDir ?? undefined,
-			r2UploadIsPublic: task.r2UploadIsPublic === 1
-		})
-		const now = Date.now()
-		await tenant.db
-			.update(aiImageTask)
-			.set({
-				status: 'completed',
-				resultJson: JSON.stringify({ images }),
-				updatedAt: now,
-				completedAt: now
-			})
-			.where(eq(aiImageTask.id, task.id))
+		if (!task.model) {
+			throw new AIError('AI_CHANNEL_CONFIG_INVALID')
+		}
 
+		const rankedChannels: AIRankedChannel[] = await rankAIChannels(tenant.db, env, {
+			target: {
+				taskType: 'image',
+				provider: task.provider as AIImageTask['provider']
+			},
+			model: task.model,
+			excludedChannels: [],
+			nowMs: Date.now()
+		})
+		const references = JSON.parse(task.referencesJson) as AIImageReference[]
+		let lastError: unknown = new AIError('AI_CHANNEL_NOT_FOUND')
+		let completed: {
+			channel: AIRankedChannel
+			images: AIImageResult[]
+			startedAt: number
+			finishedAt: number
+		} | undefined
+
+		for (const rankedChannel of rankedChannels) {
+			const startedAt: number = Date.now()
+			try {
+				const client = createAIImageClients(env, task.userId, tenant.db, {
+					provider: task.provider as AIImageTask['provider'],
+					model: task.model,
+					endpoint: rankedChannel.channel.endpoint
+				}).simple
+				const images = await client.generate({
+					prompt: task.prompt,
+					numberOfImages: task.numberOfImages ?? undefined,
+					references,
+					aspectRatio: task.aspectRatio as AIImageAspectRatio | undefined,
+					imageSize: task.imageSize as AIImageSize | undefined,
+					lowCensorship: task.lowCensorship === 1,
+					uploadToR2: task.uploadToR2 === 1,
+					r2UploadDir: task.r2UploadDir ?? undefined,
+					r2UploadIsPublic: task.r2UploadIsPublic === 1
+				})
+				completed = {
+					channel: rankedChannel,
+					images,
+					startedAt,
+					finishedAt: Date.now()
+				}
+				break
+			} catch (error) {
+				lastError = error
+				if (!isAIChannelFailure(error)) {
+					throw error
+				}
+				logError(error, {
+					taskId: task.id,
+					userId: task.userId,
+					provider: task.provider,
+					model: task.model,
+					channel: rankedChannel.channel.channel,
+					attemptCount,
+					maxAttempts: AI_IMAGE_MAX_ATTEMPTS
+				})
+				metricQueries.push(
+					createAIChannelMetricQuery(tenant.db, {
+						channel: rankedChannel.channel.channel,
+						model: task.model,
+						startedAtMs: startedAt,
+						finishedAtMs: Date.now(),
+						result: 'error'
+					})
+				)
+			}
+		}
+
+		if (!completed) {
+			throw lastError
+		}
+
+		const now: number = completed.finishedAt
+		const taskUpdate = tenant.db.run(sql`
+			UPDATE ai_image_tasks
+			SET status = ${'completed'},
+				channel = ${completed.channel.channel.channel},
+				result_json = ${JSON.stringify({ images: completed.images })},
+				updated_at = ${now},
+				completed_at = ${now}
+			WHERE id = ${task.id}
+		`)
+		const successMetric = createAIChannelMetricQuery(tenant.db, {
+			channel: completed.channel.channel.channel,
+			model: task.model,
+			startedAtMs: completed.startedAt,
+			finishedAtMs: completed.finishedAt,
+			result: 'success'
+		})
+		const statements: [D1RawRunQuery, ...D1RawRunQuery[]] = [
+			taskUpdate,
+			...metricQueries,
+			successMetric
+		]
+		await runRawD1Batch(tenant.db, statements)
 		message.ack()
 		return
 
 	} catch (error) {
-		const attemptCount = task.attemptCount + 1
 		const now = Date.now()
 		const messageText = error instanceof Error ? error.message : String(error)
 		const nextStatus = attemptCount >= AI_IMAGE_MAX_ATTEMPTS ? 'failed' : 'processing'
-		logError(error, {
-			taskId: task.id,
-			userId: task.userId,
-			provider: task.provider,
-			model: task.model,
-			attemptCount,
-			maxAttempts: AI_IMAGE_MAX_ATTEMPTS,
-			status: nextStatus
-		})
-		await tenant.db
-			.update(aiImageTask)
-			.set({
-				status: nextStatus,
+		if (metricQueries.length === 0) {
+			logError(error, {
+				taskId: task.id,
+				userId: task.userId,
+				provider: task.provider,
+				model: task.model,
 				attemptCount,
-				lastErrorMessage: messageText,
-				updatedAt: now
+				maxAttempts: AI_IMAGE_MAX_ATTEMPTS,
+				status: nextStatus
 			})
-			.where(eq(aiImageTask.id, task.id))
+		}
+		const taskUpdate = tenant.db.run(sql`
+			UPDATE ai_image_tasks
+			SET status = ${nextStatus},
+				channel = NULL,
+				attempt_count = ${attemptCount},
+				last_error_message = ${messageText},
+				updated_at = ${now}
+			WHERE id = ${task.id}
+		`)
+		const statements: [D1RawRunQuery, ...D1RawRunQuery[]] = [taskUpdate, ...metricQueries]
+		await runRawD1Batch(tenant.db, statements)
 
 		if (attemptCount >= AI_IMAGE_MAX_ATTEMPTS) {
 			message.ack()
@@ -99,6 +186,32 @@ async function handleAIImageMessage(
 		}
 
 		message.retry({ delaySeconds: retryDelaySeconds(attemptCount) })
+	}
+}
+
+function isAIChannelFailure(error: unknown): boolean {
+	if (error instanceof R2Error) {
+		return false
+	}
+	if (!(error instanceof AIError)) {
+		return true
+	}
+
+	switch (error.code) {
+		case 'AI_IMAGE_REFERENCE_R2_READ_FAILED':
+		case 'AI_IMAGE_R2_UPLOAD_DIR_REQUIRED':
+		case 'AI_IMAGE_R2_UPLOAD_IS_PUBLIC_REQUIRED':
+		case 'ALIYUN_LOW_CENSORSHIP_UNSUPPORTED':
+		case 'ALIYUN_QWEN_NUMBER_OF_IMAGES_UNSUPPORTED':
+		case 'ALIYUN_UNSUPPORTED_IMAGE_MIME_TYPE':
+		case 'ALIYUN_Z_IMAGE_NUMBER_OF_IMAGES_UNSUPPORTED':
+		case 'ALIYUN_Z_IMAGE_REFERENCES_UNSUPPORTED':
+		case 'UNSUPPORTED_ALIYUN_IMAGE_MODEL':
+		case 'UNSUPPORTED_ALIYUN_IMAGE_SIZE':
+		case 'UNSUPPORTED_SEEDDREAM_IMAGE_SIZE':
+			return false
+		default:
+			return true
 	}
 }
 
