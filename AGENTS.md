@@ -341,6 +341,8 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - Icons come from `lucide-svelte`. Do not introduce other icon libraries.
 - Titles, headings, descriptions, button labels, and placeholders must not end with punctuation.
 - Admin page headers contain only the title and relevant actions. Do not add explanatory subtitles that restate the page purpose or data source.
+- Admin pages use the shared `admin-page`, `admin-page-header`, `admin-filter-bar`, `admin-table-panel`, and `admin-pagination` layout classes from `app.css`; do not create page-specific workspace widths or duplicate table scroll containers.
+- Admin overview metrics use one divided metric strip. Keep actionable work queues visually primary and avoid identical metric card grids.
 - Admin user filters and actions must select users by name or email. Never require operators to type a user ID; pass it internally after selection.
 - Known admin enum filters must use select, segmented control, toggle, or checkbox controls instead of free-text inputs.
 - Keep common admin filters visible and place low-frequency technical or date filters behind progressive disclosure.

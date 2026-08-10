@@ -36,6 +36,14 @@ All concrete values (colors, radii, typography sizes, animations) live in `src/f
 
 The admin console is an operational tool. Optimize for scanning, comparison, and repeated action.
 
+- All first-level admin pages use one workspace frame: `1600px` maximum width, `16px / 24px / 32px` responsive page padding, and `20px` between primary sections
+- Page titles and header actions share one baseline; refresh is an icon action while creation and broad-impact commands retain explicit labels
+- List filters live in one framed toolbar directly above the table; primary filters and apply/reset actions share the same row at wide viewports
+- Advanced filters expand inside the same toolbar and never create a detached action row
+- Tables use their primitive's own horizontal scroll container; do not wrap them in a second overflow container
+- Table headers use a distinct neutral surface and sticky action columns use a visible divider
+- Overview metrics use one divided metric strip, not an identical card grid; the actionable work queue is the primary content region
+- Sidebar navigation separates overview, management, and operations, with a high-contrast current-page state
 - Page headers contain the title and relevant actions only
 - Do not add explanatory subtitles that restate the page purpose, data source, or implementation
 - Show timestamps, status, scope, and warnings only when they affect an operator decision

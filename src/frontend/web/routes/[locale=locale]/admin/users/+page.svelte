@@ -10,11 +10,7 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import UsersIcon from '@lucide/svelte/icons/users'
 	import { client } from '$apiContract/client'
-	import type {
-		ListAdminUsersRequest,
-		ListAdminUsersResponse,
-		ListAdminUsersResponseItem
-	} from '$apiContract/admin-users'
+	import type { ListAdminUsersRequest, ListAdminUsersResponse, ListAdminUsersResponseItem } from '$apiContract/admin-users'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Badge } from '$frontend/ui/badge'
@@ -30,10 +26,7 @@
 	import UserDetailSheet from './UserDetailSheet.svelte'
 	import { parseUserListQuery } from './users-page'
 
-	type UserListState =
-		| { status: 'loading' }
-		| { status: 'loaded'; data: ListAdminUsersResponse }
-		| { status: 'error' }
+	type UserListState = { status: 'loading' } | { status: 'loaded'; data: ListAdminUsersResponse } | { status: 'error' }
 
 	let {
 		data
@@ -69,7 +62,7 @@
 		if (!detailStateReady) {
 			return
 		}
-		const detailKey: string = detailOpen ? selectedUser?.id ?? '' : ''
+		const detailKey: string = detailOpen ? (selectedUser?.id ?? '') : ''
 		if (detailKey === readAdminDetailKey(page.url)) {
 			return
 		}
@@ -87,9 +80,7 @@
 			const response: ListAdminUsersResponse = await client.api.listAdminUsers(query)
 			listState = { status: 'loaded', data: response }
 			if (!detailStateReady) {
-				const selected: ListAdminUsersResponseItem | undefined = response.items.find(
-					(user: ListAdminUsersResponseItem): boolean => user.id === initialDetailKey
-				)
+				const selected: ListAdminUsersResponseItem | undefined = response.items.find((user: ListAdminUsersResponseItem): boolean => user.id === initialDetailKey)
 				if (selected !== undefined) {
 					selectedUser = selected
 					detailOpen = true
@@ -145,33 +136,25 @@
 	function formatDate(value: number): string {
 		return new Intl.DateTimeFormat(data.locale, { dateStyle: 'medium' }).format(value)
 	}
-
 </script>
 
-<main class="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6 lg:p-8">
-	<header class="flex flex-wrap items-start justify-between gap-4">
-		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.users.title')}</h1>
-		<Button variant="outline" size="sm" onclick={loadUsers}>
+<main class="admin-page">
+	<header class="admin-page-header">
+		<h1>{$_('admin.users.title')}</h1>
+		<Button variant="outline" size="icon-sm" onclick={loadUsers} aria-label={$_('admin.users.refresh')} title={$_('admin.users.refresh')}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
-			{$_('admin.users.refresh')}
 		</Button>
 	</header>
 
-	<form class="flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-end" onsubmit={submitSearch}>
+	<form class="admin-filter-bar sm:grid-cols-[minmax(18rem,36rem)_auto] sm:items-end" onsubmit={submitSearch}>
 		<Field.Field class="flex-1">
 			<Field.Label for="user-search">{$_('admin.users.searchLabel')}</Field.Label>
 			<div class="relative">
 				<SearchIcon class="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-				<Input
-					id="user-search"
-					class="pl-9"
-					bind:value={searchInput}
-					autocomplete="off"
-					placeholder={$_('admin.users.searchPlaceholder')}
-				/>
+				<Input id="user-search" class="pl-9" bind:value={searchInput} autocomplete="off" placeholder={$_('admin.users.searchPlaceholder')} />
 			</div>
 		</Field.Field>
-		<div class="flex gap-2">
+		<div class="admin-filter-actions">
 			<Button type="submit">{$_('admin.users.search')}</Button>
 			{#if query.search}
 				<Button type="button" variant="ghost" onclick={resetSearch}>{$_('admin.users.reset')}</Button>
@@ -198,40 +181,39 @@
 			{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-md border bg-background">
-			<div class="overflow-x-auto">
-				<Table.Root class="min-w-[920px]">
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>{$_('admin.users.user')}</Table.Head>
-							<Table.Head>{$_('admin.users.access')}</Table.Head>
-							<Table.Head>{$_('admin.users.source')}</Table.Head>
-							<Table.Head>{$_('admin.users.shard')}</Table.Head>
-							<Table.Head>{$_('admin.users.created')}</Table.Head>
-							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.users.actions')}</span></Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#if listState.status === 'loading'}
-							{#each Array(6) as _item}
-								<Table.Row>
-									<Table.Cell><Skeleton class="h-5 w-48" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-32" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-20" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-8 w-32" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>
-									<Table.Cell class="sticky right-0 z-10 bg-background"><Skeleton class="ml-auto size-8" /></Table.Cell>
-								</Table.Row>
-							{/each}
-						{:else}
-							{#each listState.data.items as user (user.id)}
-								<Table.Row class="group">
-									<Table.Cell>
-										<div class="max-w-72">
-											<p class="truncate text-sm font-medium">{user.name}</p>
-											<p class="truncate text-xs text-muted-foreground">{user.email}</p>
-										</div>
-									</Table.Cell>
+		<div class="admin-table-panel">
+			<Table.Root class="min-w-[920px]">
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>{$_('admin.users.user')}</Table.Head>
+						<Table.Head>{$_('admin.users.access')}</Table.Head>
+						<Table.Head>{$_('admin.users.source')}</Table.Head>
+						<Table.Head>{$_('admin.users.shard')}</Table.Head>
+						<Table.Head>{$_('admin.users.created')}</Table.Head>
+						<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.users.actions')}</span></Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#if listState.status === 'loading'}
+						{#each Array(6) as _item}
+							<Table.Row>
+								<Table.Cell><Skeleton class="h-5 w-48" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-5 w-32" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-5 w-20" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-8 w-32" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>
+								<Table.Cell class="sticky right-0 z-10 bg-background"><Skeleton class="ml-auto size-8" /></Table.Cell>
+							</Table.Row>
+						{/each}
+					{:else}
+						{#each listState.data.items as user (user.id)}
+							<Table.Row class="group">
+								<Table.Cell>
+									<div class="max-w-72">
+										<p class="truncate text-sm font-medium">{user.name}</p>
+										<p class="truncate text-xs text-muted-foreground">{user.email}</p>
+									</div>
+								</Table.Cell>
 								<Table.Cell>
 									<div class="flex flex-wrap gap-1.5">
 										<Badge variant={user.email_verified ? 'secondary' : 'outline'}>{user.email_verified ? $_('admin.users.emailVerified') : $_('admin.users.emailUnverified')}</Badge>
@@ -261,16 +243,15 @@
 								<Table.Cell class="sticky right-0 z-10 bg-background group-hover:bg-accent">
 									<Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openUser(user)} aria-label={$_('admin.users.view')} title={$_('admin.users.view')}><ChevronRightIcon /></Button>
 								</Table.Cell>
-								</Table.Row>
-							{/each}
-						{/if}
-					</Table.Body>
-				</Table.Root>
-			</div>
+							</Table.Row>
+						{/each}
+					{/if}
+				</Table.Body>
+			</Table.Root>
 		</div>
 
 		{#if listState.status === 'loaded' && listState.data.total > 0}
-			<div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+			<div class="admin-pagination">
 				<p class="text-sm text-muted-foreground">{$_('admin.users.total', { values: { count: listState.data.total } })}</p>
 				<Pagination.Root count={listState.data.total} perPage={20} bind:page={currentPage} class="mx-0 w-auto">
 					{#snippet children({ pages, currentPage: activePage })}
@@ -297,12 +278,5 @@
 </main>
 
 {#key selectedUser?.id}
-	<UserDetailSheet
-		bind:open={detailOpen}
-		user={selectedUser}
-		locale={data.locale}
-		cloudflareDatabaseUrl={selectedUser?.shard
-			? createCloudflareDatabaseUrl(data.cloudflareAccountId, selectedUser.shard.database_id)
-			: null}
-	/>
+	<UserDetailSheet bind:open={detailOpen} user={selectedUser} locale={data.locale} cloudflareDatabaseUrl={selectedUser?.shard ? createCloudflareDatabaseUrl(data.cloudflareAccountId, selectedUser.shard.database_id) : null} />
 {/key}

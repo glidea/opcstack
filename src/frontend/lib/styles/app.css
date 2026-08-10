@@ -227,6 +227,117 @@
 }
 
 @layer components {
+	.admin-page {
+		@apply mx-auto flex w-full max-w-[1600px] flex-col gap-5 p-4 sm:p-6 lg:p-8;
+	}
+
+	.admin-page-header {
+		@apply flex min-h-9 flex-wrap items-center justify-between gap-3;
+	}
+
+	.admin-page-header h1 {
+		@apply text-xl font-semibold;
+	}
+
+	.admin-page-actions {
+		@apply flex flex-wrap items-center justify-end gap-2;
+	}
+
+	.admin-filter-bar {
+		@apply grid gap-3 rounded-md border bg-muted/30 p-3;
+	}
+
+	.admin-filter-primary {
+		@apply grid gap-3;
+	}
+
+	.admin-filter-actions {
+		@apply flex items-end justify-end gap-2;
+	}
+
+	.admin-table-panel {
+		@apply overflow-hidden rounded-md border bg-background;
+	}
+
+	.admin-table-panel [data-slot="table-header"] {
+		@apply bg-muted/55;
+	}
+
+	.admin-table-panel [data-slot="table-head"] {
+		@apply h-10 bg-muted/55 font-medium text-foreground/70;
+	}
+
+	.admin-table-panel [data-slot="table-head"].sticky,
+	.admin-table-panel [data-slot="table-cell"].sticky {
+		@apply border-l;
+	}
+
+	.admin-pagination {
+		@apply flex flex-col items-center justify-between gap-3 sm:flex-row;
+	}
+
+	.admin-metric-strip {
+		@apply grid overflow-hidden rounded-md border bg-background sm:grid-cols-2 xl:grid-cols-4;
+	}
+
+	.admin-metric {
+		@apply min-h-32 p-4 sm:p-5;
+	}
+
+	.admin-metric + .admin-metric {
+		border-top-width: 1px;
+	}
+
+	@media (min-width: 640px) {
+		.admin-metric + .admin-metric {
+			border-top-width: 0;
+		}
+
+		.admin-metric:nth-child(even) {
+			border-left-width: 1px;
+		}
+
+		.admin-metric:nth-child(n + 3) {
+			border-top-width: 1px;
+		}
+	}
+
+	@media (min-width: 1280px) {
+		.admin-metric:nth-child(n + 3) {
+			border-top-width: 0;
+		}
+
+		.admin-metric + .admin-metric {
+			border-left-width: 1px;
+		}
+	}
+
+	.admin-overview-grid {
+		@apply grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)];
+	}
+
+	.admin-overview-panel {
+		@apply overflow-hidden rounded-md border bg-background;
+	}
+
+	.admin-overview-panel-header {
+		@apply flex min-h-14 items-center justify-between gap-4 border-b px-4;
+	}
+
+	:root:not([data-design="brutalism"]) .admin-shell [data-slot="button"]:not(:focus-visible),
+	:root:not([data-design="brutalism"]) .admin-shell [data-slot="input"]:not(:focus-visible),
+	:root:not([data-design="brutalism"]) .admin-shell [data-slot="select-trigger"]:not(:focus-visible) {
+		box-shadow: none;
+	}
+
+	:root:not([data-design="brutalism"]) .admin-shell .control-solid {
+		background: var(--primary);
+	}
+
+	:root:not([data-design="brutalism"]) .admin-shell .control-solid-inverse {
+		background: var(--foreground);
+	}
+
 	.docs-shell {
 		--header-h: 3rem;
 	}

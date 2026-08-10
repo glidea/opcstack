@@ -1,11 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
-	import type {
-		CreditCodeListResponseItem,
-		ListCreditCodesRequest,
-		ListCreditCodesResponse
-	} from '$apiContract/credits'
+	import type { CreditCodeListResponseItem, ListCreditCodesRequest, ListCreditCodesResponse } from '$apiContract/credits'
 	import { client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
@@ -32,16 +28,9 @@
 	import AdminUserPicker from '../AdminUserPicker.svelte'
 	import { formatCreditAmount } from '../admin-presentation'
 	import GenerateCreditCodesDialog from './GenerateCreditCodesDialog.svelte'
-	import {
-		createCreditCodeSearchParams,
-		getCreditCodeStatusVariant,
-		parseCreditCodeListQuery
-	} from './credit-codes-page'
+	import { createCreditCodeSearchParams, getCreditCodeStatusVariant, parseCreditCodeListQuery } from './credit-codes-page'
 
-	type CreditCodeListState =
-		| { status: 'loading' }
-		| { status: 'loaded'; data: ListCreditCodesResponse }
-		| { status: 'error' }
+	type CreditCodeListState = { status: 'loading' } | { status: 'loaded'; data: ListCreditCodesResponse } | { status: 'error' }
 
 	let {
 		data
@@ -66,20 +55,8 @@
 	let generateOpen: boolean = $state(false)
 	let copiedCode: string = $state('')
 	let initialized: boolean = $state(false)
-	let advancedOpen: boolean = $state(
-		initialQuery.amount !== undefined ||
-			initialQuery.created_at_start !== undefined ||
-			initialQuery.created_at_end !== undefined ||
-			initialQuery.expires_at_start !== undefined ||
-			initialQuery.expires_at_end !== undefined
-	)
-	const advancedFilterCount: number = $derived(
-		Number(amountInput.trim() !== '') +
-			Number(createdStartInput !== '') +
-			Number(createdEndInput !== '') +
-			Number(expiresStartInput !== '') +
-			Number(expiresEndInput !== '')
-	)
+	let advancedOpen: boolean = $state(initialQuery.amount !== undefined || initialQuery.created_at_start !== undefined || initialQuery.created_at_end !== undefined || initialQuery.expires_at_start !== undefined || initialQuery.expires_at_end !== undefined)
+	const advancedFilterCount: number = $derived(Number(amountInput.trim() !== '') + Number(createdStartInput !== '') + Number(createdEndInput !== '') + Number(expiresStartInput !== '') + Number(expiresEndInput !== ''))
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -110,10 +87,7 @@
 		const code: string = codeInput.trim()
 		const claimedBy: string = claimedByInput.trim()
 		const amount: string = amountInput.trim()
-		const status: ListCreditCodesRequest['status'] =
-			statusInput === 'unused' || statusInput === 'claimed' || statusInput === 'granted'
-				? statusInput
-				: undefined
+		const status: ListCreditCodesRequest['status'] = statusInput === 'unused' || statusInput === 'claimed' || statusInput === 'granted' ? statusInput : undefined
 		query = {
 			...(code === '' ? {} : { code }),
 			...(claimedBy === '' ? {} : { claimed_by: claimedBy }),
@@ -179,11 +153,7 @@
 		return `${year}-${month}-${day}`
 	}
 
-	function createDateFilter(
-		name: string,
-		value: string,
-		endOfDay: boolean
-	): Record<string, number> {
+	function createDateFilter(name: string, value: string, endOfDay: boolean): Record<string, number> {
 		if (value === '') {
 			return {}
 		}
@@ -217,13 +187,12 @@
 	}
 </script>
 
-<main class="mx-auto w-full max-w-[1700px] space-y-6 p-4 sm:p-6 lg:p-8">
-	<header class="flex flex-wrap items-start justify-between gap-4">
-		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.creditCodes.title')}</h1>
-		<div class="flex gap-2">
-			<Button variant="outline" size="sm" onclick={loadCodes}>
+<main class="admin-page">
+	<header class="admin-page-header">
+		<h1>{$_('admin.creditCodes.title')}</h1>
+		<div class="admin-page-actions">
+			<Button variant="outline" size="icon-sm" onclick={loadCodes} aria-label={$_('admin.creditCodes.refresh')} title={$_('admin.creditCodes.refresh')}>
 				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
-				{$_('admin.creditCodes.refresh')}
 			</Button>
 			<Button size="sm" onclick={() => (generateOpen = true)}>
 				<PlusIcon />
@@ -232,8 +201,8 @@
 		</div>
 	</header>
 
-	<form class="space-y-3" onsubmit={applyFilters}>
-		<div class="grid gap-3 md:grid-cols-3">
+	<form class="admin-filter-bar" onsubmit={applyFilters}>
+		<div class="admin-filter-primary md:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_minmax(15rem,1.3fr)_minmax(10rem,0.8fr)_auto] xl:items-end">
 			<Field.Field>
 				<Field.Label for="credit-code-filter">{$_('admin.creditCodes.code')}</Field.Label>
 				<Input id="credit-code-filter" bind:value={codeInput} autocomplete="off" placeholder={$_('admin.creditCodes.codePlaceholder')} />
@@ -243,13 +212,7 @@
 				<Field.Label for="credit-status-filter">{$_('admin.creditCodes.status')}</Field.Label>
 				<Select.Root type="single" bind:value={statusInput}>
 					<Select.Trigger id="credit-status-filter" class="w-full">
-						{statusInput === 'unused'
-							? $_('admin.creditCodes.unused')
-							: statusInput === 'claimed'
-								? $_('admin.creditCodes.claimed')
-								: statusInput === 'granted'
-									? $_('admin.creditCodes.granted')
-									: $_('admin.creditCodes.allStatuses')}
+						{statusInput === 'unused' ? $_('admin.creditCodes.unused') : statusInput === 'claimed' ? $_('admin.creditCodes.claimed') : statusInput === 'granted' ? $_('admin.creditCodes.granted') : $_('admin.creditCodes.allStatuses')}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="all">{$_('admin.creditCodes.allStatuses')}</Select.Item>
@@ -259,6 +222,12 @@
 					</Select.Content>
 				</Select.Root>
 			</Field.Field>
+			<div class="admin-filter-actions md:col-span-2 xl:col-span-1">
+				<Button type="submit">{$_('admin.creditCodes.apply')}</Button>
+				{#if hasFilters()}
+					<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.creditCodes.reset')}</Button>
+				{/if}
+			</div>
 		</div>
 		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-5">
 			<Field.Field>
@@ -282,12 +251,6 @@
 				<Input id="credit-expires-end" bind:value={expiresEndInput} type="date" />
 			</Field.Field>
 		</AdminAdvancedFilters>
-		<div class="flex gap-2">
-			<Button type="submit">{$_('admin.creditCodes.apply')}</Button>
-			{#if hasFilters()}
-				<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.creditCodes.reset')}</Button>
-			{/if}
-		</div>
 	</form>
 
 	{#if listState.status === 'error'}
@@ -309,57 +272,55 @@
 			{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-md border bg-background">
-			<div class="overflow-x-auto">
-				<Table.Root class="min-w-[1280px]">
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>{$_('admin.creditCodes.code')}</Table.Head>
-							<Table.Head>{$_('admin.creditCodes.amount')}</Table.Head>
-							<Table.Head>{$_('admin.creditCodes.status')}</Table.Head>
-							<Table.Head>{$_('admin.creditCodes.claimedBy')}</Table.Head>
-							<Table.Head>{$_('admin.creditCodes.claimedAt')}</Table.Head>
-							<Table.Head>{$_('admin.creditCodes.grantedAt')}</Table.Head>
-							<Table.Head>{$_('admin.creditCodes.expires')}</Table.Head>
-							<Table.Head>{$_('admin.creditCodes.created')}</Table.Head>
-							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.creditCodes.actions')}</span></Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#if listState.status === 'loading'}
-							{#each Array(6) as _item}
-								<Table.Row>
-									{#each Array(9) as _cell}<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>{/each}
-								</Table.Row>
-							{/each}
-						{:else}
-							{#each listState.data.items as item (item.id)}
-								<Table.Row class={`group ${item.status === 'claimed' ? 'bg-destructive/5' : ''}`}>
-									<Table.Cell><code class="font-mono text-sm font-medium">{item.code}</code></Table.Cell>
-									<Table.Cell>{formatCreditAmount(item.amount, data.locale)}</Table.Cell>
-									<Table.Cell><Badge variant={getCreditCodeStatusVariant(item.status)}>{statusLabel(item.status)}</Badge></Table.Cell>
-									<Table.Cell>
-										{#if item.claimed_by}<AdminUserReference userId={item.claimed_by} href={userHref(item)} />{:else}{$_('admin.common.none')}{/if}
-									</Table.Cell>
-									<Table.Cell>{formatDate(item.claimed_at)}</Table.Cell>
-									<Table.Cell>{formatDate(item.granted_at)}</Table.Cell>
-									<Table.Cell>{item.expires_at === null ? $_('admin.creditCodes.never') : formatDate(item.expires_at)}</Table.Cell>
-									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'claimed' ? 'bg-destructive/5' : 'bg-background'}`}>
-										<Button variant="ghost" size="icon-sm" onclick={() => copyCode(item.code)} aria-label={$_('admin.creditCodes.copyCode')} title={$_('admin.creditCodes.copyCode')}>
-											{#if copiedCode === item.code}<CheckIcon />{:else}<CopyIcon />{/if}
-										</Button>
-									</Table.Cell>
-								</Table.Row>
-							{/each}
-						{/if}
-					</Table.Body>
-				</Table.Root>
-			</div>
+		<div class="admin-table-panel">
+			<Table.Root class="min-w-[1280px]">
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>{$_('admin.creditCodes.code')}</Table.Head>
+						<Table.Head>{$_('admin.creditCodes.amount')}</Table.Head>
+						<Table.Head>{$_('admin.creditCodes.status')}</Table.Head>
+						<Table.Head>{$_('admin.creditCodes.claimedBy')}</Table.Head>
+						<Table.Head>{$_('admin.creditCodes.claimedAt')}</Table.Head>
+						<Table.Head>{$_('admin.creditCodes.grantedAt')}</Table.Head>
+						<Table.Head>{$_('admin.creditCodes.expires')}</Table.Head>
+						<Table.Head>{$_('admin.creditCodes.created')}</Table.Head>
+						<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.creditCodes.actions')}</span></Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#if listState.status === 'loading'}
+						{#each Array(6) as _item}
+							<Table.Row>
+								{#each Array(9) as _cell}<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>{/each}
+							</Table.Row>
+						{/each}
+					{:else}
+						{#each listState.data.items as item (item.id)}
+							<Table.Row class={`group ${item.status === 'claimed' ? 'bg-destructive/5' : ''}`}>
+								<Table.Cell><code class="font-mono text-sm font-medium">{item.code}</code></Table.Cell>
+								<Table.Cell>{formatCreditAmount(item.amount, data.locale)}</Table.Cell>
+								<Table.Cell><Badge variant={getCreditCodeStatusVariant(item.status)}>{statusLabel(item.status)}</Badge></Table.Cell>
+								<Table.Cell>
+									{#if item.claimed_by}<AdminUserReference userId={item.claimed_by} href={userHref(item)} />{:else}{$_('admin.common.none')}{/if}
+								</Table.Cell>
+								<Table.Cell>{formatDate(item.claimed_at)}</Table.Cell>
+								<Table.Cell>{formatDate(item.granted_at)}</Table.Cell>
+								<Table.Cell>{item.expires_at === null ? $_('admin.creditCodes.never') : formatDate(item.expires_at)}</Table.Cell>
+								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
+								<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'claimed' ? 'bg-destructive/5' : 'bg-background'}`}>
+									<Button variant="ghost" size="icon-sm" onclick={() => copyCode(item.code)} aria-label={$_('admin.creditCodes.copyCode')} title={$_('admin.creditCodes.copyCode')}>
+										{#if copiedCode === item.code}<CheckIcon />{:else}<CopyIcon />{/if}
+									</Button>
+								</Table.Cell>
+							</Table.Row>
+						{/each}
+					{/if}
+				</Table.Body>
+			</Table.Root>
 		</div>
 
 		{#if listState.status === 'loaded' && listState.data.total > 0}
-			<div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+			<div class="admin-pagination">
 				<p class="text-sm text-muted-foreground">{$_('admin.creditCodes.total', { values: { count: listState.data.total } })}</p>
 				<Pagination.Root count={listState.data.total} perPage={20} bind:page={currentPage} class="mx-0 w-auto">
 					{#snippet children({ pages, currentPage: activePage })}

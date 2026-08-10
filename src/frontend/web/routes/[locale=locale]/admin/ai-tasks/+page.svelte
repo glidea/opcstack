@@ -1,12 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
-	import type {
-		AdminAiTaskSummary,
-		AdminAiTaskType,
-		ListAdminAiTasksRequest,
-		ListAdminAiTasksResponse
-	} from '$apiContract/admin-ai-tasks'
+	import type { AdminAiTaskSummary, AdminAiTaskType, ListAdminAiTasksRequest, ListAdminAiTasksResponse } from '$apiContract/admin-ai-tasks'
 	import { client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
@@ -32,18 +27,9 @@
 	import { createCloudflareQueuesUrl } from '../admin-cloudflare'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import AiTaskDetailSheet from './AiTaskDetailSheet.svelte'
-	import {
-		createAiTaskSearchParams,
-		createAiTaskUserHref,
-		getAiTaskStatusVariant,
-		parseAiTaskListQuery,
-		type CloudflareResourceContext
-	} from './ai-tasks-page'
+	import { createAiTaskSearchParams, createAiTaskUserHref, getAiTaskStatusVariant, parseAiTaskListQuery, type CloudflareResourceContext } from './ai-tasks-page'
 
-	type AiTaskListState =
-		| { status: 'loading' }
-		| { status: 'loaded'; data: ListAdminAiTasksResponse }
-		| { status: 'error' }
+	type AiTaskListState = { status: 'loading' } | { status: 'loaded'; data: ListAdminAiTasksResponse } | { status: 'error' }
 
 	let {
 		data
@@ -72,20 +58,8 @@
 	let initialized: boolean = $state(false)
 	let detailStateReady: boolean = $state(false)
 	const queuesUrl: string | null = $derived(createCloudflareQueuesUrl(data.cloudflare.accountId))
-	let advancedOpen: boolean = $state(
-		initialQuery.id !== undefined ||
-			initialQuery.provider !== undefined ||
-			initialQuery.model !== undefined ||
-			initialQuery.created_at_start !== undefined ||
-			initialQuery.created_at_end !== undefined
-	)
-	const advancedFilterCount: number = $derived(
-		Number(idInput.trim() !== '') +
-			Number(providerInput.trim() !== '') +
-			Number(modelInput.trim() !== '') +
-			Number(createdStartInput !== '') +
-			Number(createdEndInput !== '')
-	)
+	let advancedOpen: boolean = $state(initialQuery.id !== undefined || initialQuery.provider !== undefined || initialQuery.model !== undefined || initialQuery.created_at_start !== undefined || initialQuery.created_at_end !== undefined)
+	const advancedFilterCount: number = $derived(Number(idInput.trim() !== '') + Number(providerInput.trim() !== '') + Number(modelInput.trim() !== '') + Number(createdStartInput !== '') + Number(createdEndInput !== ''))
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -122,9 +96,7 @@
 				data: response
 			}
 			if (!detailStateReady) {
-				const selected: AdminAiTaskSummary | undefined = response.items.find(
-					(task: AdminAiTaskSummary): boolean => createTaskDetailKey(task) === initialDetailKey
-				)
+				const selected: AdminAiTaskSummary | undefined = response.items.find((task: AdminAiTaskSummary): boolean => createTaskDetailKey(task) === initialDetailKey)
 				if (selected !== undefined) {
 					selectedTask = selected
 					detailOpen = true
@@ -251,25 +223,24 @@
 	}
 </script>
 
-<main class="mx-auto w-full max-w-[1650px] space-y-6 p-4 sm:p-6 lg:p-8">
-	<header class="flex flex-wrap items-start justify-between gap-4">
-		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.aiTasks.title')}</h1>
-		<div class="flex items-center gap-2">
+<main class="admin-page">
+	<header class="admin-page-header">
+		<h1>{$_('admin.aiTasks.title')}</h1>
+		<div class="admin-page-actions">
 			{#if queuesUrl}
 				<Button variant="ghost" size="sm" href={queuesUrl} target="_blank" rel="noopener">
 					{$_('admin.aiTasks.openQueues')}
 					<ExternalLinkIcon class="size-3.5" />
 				</Button>
 			{/if}
-			<Button variant="outline" size="sm" onclick={loadTasks}>
+			<Button variant="outline" size="icon-sm" onclick={loadTasks} aria-label={$_('admin.aiTasks.refresh')} title={$_('admin.aiTasks.refresh')}>
 				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
-				{$_('admin.aiTasks.refresh')}
 			</Button>
 		</div>
 	</header>
 
-	<form class="space-y-3" onsubmit={applyFilters}>
-		<div class="grid gap-3 md:grid-cols-3">
+	<form class="admin-filter-bar" onsubmit={applyFilters}>
+		<div class="admin-filter-primary md:grid-cols-2 xl:grid-cols-[minmax(10rem,0.8fr)_minmax(15rem,1.3fr)_minmax(10rem,0.8fr)_auto] xl:items-end">
 			<Field.Field>
 				<Field.Label for="ai-task-type-filter">{$_('admin.aiTasks.type')}</Field.Label>
 				<Select.Root type="single" bind:value={taskTypeInput}>
@@ -295,6 +266,10 @@
 					</Select.Content>
 				</Select.Root>
 			</Field.Field>
+			<div class="admin-filter-actions md:col-span-2 xl:col-span-1">
+				<Button type="submit">{$_('admin.aiTasks.apply')}</Button>
+				{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.aiTasks.reset')}</Button>{/if}
+			</div>
 		</div>
 		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-5">
 			<Field.Field>
@@ -318,10 +293,6 @@
 				<Input id="ai-task-created-end" type="datetime-local" bind:value={createdEndInput} />
 			</Field.Field>
 		</AdminAdvancedFilters>
-		<div class="flex gap-2">
-			<Button type="submit">{$_('admin.aiTasks.apply')}</Button>
-			{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.aiTasks.reset')}</Button>{/if}
-		</div>
 	</form>
 
 	{#if listState.status === 'error'}
@@ -341,49 +312,53 @@
 			{#if hasFilters()}<Empty.Content><Button variant="outline" onclick={resetFilters}>{$_('admin.aiTasks.reset')}</Button></Empty.Content>{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-md border bg-background">
-			<div class="overflow-x-auto">
-				<Table.Root class="min-w-[1260px]">
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>{$_('admin.aiTasks.created')}</Table.Head>
-							<Table.Head>{$_('admin.aiTasks.type')}</Table.Head>
-							<Table.Head>{$_('admin.aiTasks.id')}</Table.Head>
-							<Table.Head>{$_('admin.aiTasks.user')}</Table.Head>
-							<Table.Head>{$_('admin.aiTasks.provider')}</Table.Head>
-							<Table.Head>{$_('admin.aiTasks.model')}</Table.Head>
-							<Table.Head>{$_('admin.aiTasks.status')}</Table.Head>
-							<Table.Head>{$_('admin.aiTasks.attempts')}</Table.Head>
-							<Table.Head>{$_('admin.aiTasks.updated')}</Table.Head>
-							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.aiTasks.actions')}</span></Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#if listState.status === 'loading'}
-							{#each Array(6) as _item}<Table.Row>{#each Array(10) as _cell}<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>{/each}</Table.Row>{/each}
-						{:else}
-							{#each listState.data.items as item (`${item.task_type}:${item.shard_id}:${item.id}`)}
-								<Table.Row class={`group ${item.status === 'failed' ? 'bg-destructive/5' : ''}`}>
-									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell><Badge variant="outline">{taskTypeLabel(item.task_type)}</Badge></Table.Cell>
-									<Table.Cell class="max-w-44 truncate font-mono text-xs" title={item.id}>{item.id}</Table.Cell>
-									<Table.Cell><AdminUserReference userId={item.user_id} href={createAiTaskUserHref(data.locale, item.user_id)} /></Table.Cell>
-									<Table.Cell>{item.provider}</Table.Cell>
-									<Table.Cell>{item.model ?? $_('admin.common.none')}</Table.Cell>
-									<Table.Cell><Badge variant={getAiTaskStatusVariant(item.status)}>{taskStatusLabel(item.status)}</Badge></Table.Cell>
-									<Table.Cell>{item.attempt_count}</Table.Cell>
-									<Table.Cell>{formatDate(item.updated_at)}</Table.Cell>
-									<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'failed' ? 'bg-destructive/5' : 'bg-background'}`}><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openTask(item)} aria-label={$_('admin.aiTasks.view')} title={$_('admin.aiTasks.view')}><ChevronRightIcon /></Button></Table.Cell>
-								</Table.Row>
-							{/each}
-						{/if}
-					</Table.Body>
-				</Table.Root>
-			</div>
+		<div class="admin-table-panel">
+			<Table.Root class="min-w-[1260px]">
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>{$_('admin.aiTasks.created')}</Table.Head>
+						<Table.Head>{$_('admin.aiTasks.type')}</Table.Head>
+						<Table.Head>{$_('admin.aiTasks.id')}</Table.Head>
+						<Table.Head>{$_('admin.aiTasks.user')}</Table.Head>
+						<Table.Head>{$_('admin.aiTasks.provider')}</Table.Head>
+						<Table.Head>{$_('admin.aiTasks.model')}</Table.Head>
+						<Table.Head>{$_('admin.aiTasks.status')}</Table.Head>
+						<Table.Head>{$_('admin.aiTasks.attempts')}</Table.Head>
+						<Table.Head>{$_('admin.aiTasks.updated')}</Table.Head>
+						<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.aiTasks.actions')}</span></Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#if listState.status === 'loading'}
+						{#each Array(6) as _item}
+							<Table.Row>
+								{#each Array(10) as _cell}
+									<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>
+								{/each}
+							</Table.Row>
+						{/each}
+					{:else}
+						{#each listState.data.items as item (`${item.task_type}:${item.shard_id}:${item.id}`)}
+							<Table.Row class={`group ${item.status === 'failed' ? 'bg-destructive/5' : ''}`}>
+								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
+								<Table.Cell><Badge variant="outline">{taskTypeLabel(item.task_type)}</Badge></Table.Cell>
+								<Table.Cell class="max-w-44 truncate font-mono text-xs" title={item.id}>{item.id}</Table.Cell>
+								<Table.Cell><AdminUserReference userId={item.user_id} href={createAiTaskUserHref(data.locale, item.user_id)} /></Table.Cell>
+								<Table.Cell>{item.provider}</Table.Cell>
+								<Table.Cell>{item.model ?? $_('admin.common.none')}</Table.Cell>
+								<Table.Cell><Badge variant={getAiTaskStatusVariant(item.status)}>{taskStatusLabel(item.status)}</Badge></Table.Cell>
+								<Table.Cell>{item.attempt_count}</Table.Cell>
+								<Table.Cell>{formatDate(item.updated_at)}</Table.Cell>
+								<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'failed' ? 'bg-destructive/5' : 'bg-background'}`}><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openTask(item)} aria-label={$_('admin.aiTasks.view')} title={$_('admin.aiTasks.view')}><ChevronRightIcon /></Button></Table.Cell>
+							</Table.Row>
+						{/each}
+					{/if}
+				</Table.Body>
+			</Table.Root>
 		</div>
 
 		{#if listState.status === 'loaded' && listState.data.total > 0}
-			<div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+			<div class="admin-pagination">
 				<p class="text-sm text-muted-foreground">{$_('admin.aiTasks.total', { values: { count: listState.data.total } })}</p>
 				<Pagination.Root count={listState.data.total} perPage={20} bind:page={currentPage} class="mx-0 w-auto">
 					{#snippet children({ pages, currentPage: activePage })}

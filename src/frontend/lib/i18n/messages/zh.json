@@ -329,6 +329,7 @@
 	"admin.nav.notifications": "公告",
 	"admin.nav.payments": "支付",
 	"admin.nav.ai-tasks": "AI 任务",
+	"admin.nav.management": "运营管理",
 	"admin.nav.operations": "运维",
 	"admin.cloudflare.worker": "Worker 日志",
 	"admin.loading": "加载中",

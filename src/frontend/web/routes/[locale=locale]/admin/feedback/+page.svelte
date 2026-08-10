@@ -2,11 +2,7 @@
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
 	import { client } from '$apiContract/client'
-	import type {
-		ListFeedbacksRequest,
-		ListFeedbacksResponse,
-		ListFeedbacksResponseItem
-	} from '$apiContract/feedback'
+	import type { ListFeedbacksRequest, ListFeedbacksResponse, ListFeedbacksResponseItem } from '$apiContract/feedback'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Badge } from '$frontend/ui/badge'
@@ -29,17 +25,9 @@
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import { createFilterOptions } from '../admin-presentation'
 	import FeedbackDetailSheet from './FeedbackDetailSheet.svelte'
-	import {
-		createFeedbackSearchParams,
-		createFeedbackUserHref,
-		parseFeedbackListQuery,
-		summarizeFeedback
-	} from './feedback-page'
+	import { createFeedbackSearchParams, createFeedbackUserHref, parseFeedbackListQuery, summarizeFeedback } from './feedback-page'
 
-	type FeedbackListState =
-		| { status: 'loading' }
-		| { status: 'loaded'; data: ListFeedbacksResponse }
-		| { status: 'error' }
+	type FeedbackListState = { status: 'loading' } | { status: 'loaded'; data: ListFeedbacksResponse } | { status: 'error' }
 
 	let {
 		data
@@ -77,7 +65,7 @@
 		if (!detailStateReady) {
 			return
 		}
-		const detailKey: string = detailOpen ? selectedFeedback?.id ?? '' : ''
+		const detailKey: string = detailOpen ? (selectedFeedback?.id ?? '') : ''
 		if (detailKey === readAdminDetailKey(page.url)) {
 			return
 		}
@@ -95,9 +83,7 @@
 			const response: ListFeedbacksResponse = await client.api.listFeedbacks(query)
 			listState = { status: 'loaded', data: response }
 			if (!detailStateReady) {
-				const selected: ListFeedbacksResponseItem | undefined = response.items.find(
-					(feedback: ListFeedbacksResponseItem): boolean => feedback.id === initialDetailKey
-				)
+				const selected: ListFeedbacksResponseItem | undefined = response.items.find((feedback: ListFeedbacksResponseItem): boolean => feedback.id === initialDetailKey)
 				if (selected !== undefined) {
 					selectedFeedback = selected
 					detailOpen = true
@@ -155,10 +141,7 @@
 	}
 
 	function feedbackTypeOptions(): string[] {
-		const observed: string[] =
-			listState.status === 'loaded'
-				? listState.data.items.map((item: ListFeedbacksResponseItem): string => item.type)
-				: []
+		const observed: string[] = listState.status === 'loaded' ? listState.data.items.map((item: ListFeedbacksResponseItem): string => item.type) : []
 		return createFilterOptions(typeInput, observed)
 	}
 
@@ -189,16 +172,15 @@
 	}
 </script>
 
-<main class="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6 lg:p-8">
-	<header class="flex flex-wrap items-start justify-between gap-4">
-		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.feedback.title')}</h1>
-		<Button variant="outline" size="sm" onclick={loadFeedbacks}>
+<main class="admin-page">
+	<header class="admin-page-header">
+		<h1>{$_('admin.feedback.title')}</h1>
+		<Button variant="outline" size="icon-sm" onclick={loadFeedbacks} aria-label={$_('admin.feedback.refresh')} title={$_('admin.feedback.refresh')}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
-			{$_('admin.feedback.refresh')}
 		</Button>
 	</header>
 
-	<form class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end" onsubmit={applyFilters}>
+	<form class="admin-filter-bar sm:grid-cols-2 xl:grid-cols-[minmax(15rem,1.3fr)_minmax(10rem,0.7fr)_minmax(10rem,0.8fr)_minmax(10rem,0.8fr)_auto] xl:items-end" onsubmit={applyFilters}>
 		<AdminUserPicker id="feedback-user-filter" label={$_('admin.feedback.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="feedback-type-filter">{$_('admin.feedback.type')}</Field.Label>
@@ -222,7 +204,7 @@
 			<Field.Label for="feedback-created-end">{$_('admin.feedback.createdEnd')}</Field.Label>
 			<Input id="feedback-created-end" bind:value={createdEndInput} type="date" />
 		</Field.Field>
-		<div class="flex gap-2 sm:col-span-2 lg:col-span-4">
+		<div class="admin-filter-actions sm:col-span-2 xl:col-span-1">
 			<Button type="submit">{$_('admin.feedback.apply')}</Button>
 			{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.feedback.reset')}</Button>{/if}
 		</div>
@@ -245,47 +227,45 @@
 			{#if hasFilters()}<Empty.Content><Button variant="outline" onclick={resetFilters}>{$_('admin.feedback.reset')}</Button></Empty.Content>{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-md border bg-background">
-			<div class="overflow-x-auto">
-				<Table.Root class="min-w-[900px]">
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>{$_('admin.feedback.user')}</Table.Head>
-							<Table.Head>{$_('admin.feedback.type')}</Table.Head>
-							<Table.Head>{$_('admin.feedback.content')}</Table.Head>
-							<Table.Head>{$_('admin.feedback.created')}</Table.Head>
-							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.feedback.actions')}</span></Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#if listState.status === 'loading'}
-							{#each Array(6) as _item}
-								<Table.Row>
-									<Table.Cell><Skeleton class="h-5 w-44" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-20" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-80" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-32" /></Table.Cell>
-									<Table.Cell class="sticky right-0 z-10 bg-background"><Skeleton class="ml-auto size-8" /></Table.Cell>
-								</Table.Row>
-							{/each}
-						{:else}
-							{#each listState.data.items as item (item.id)}
-								<Table.Row class="group">
-									<Table.Cell><AdminUserReference userId={item.user_id} href={createFeedbackUserHref(data.locale, item.user_id)} /></Table.Cell>
-									<Table.Cell><Badge variant="outline">{item.type}</Badge></Table.Cell>
-									<Table.Cell><p class="max-w-2xl text-sm text-muted-foreground">{summarizeFeedback(item.content)}</p></Table.Cell>
-									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell class="sticky right-0 z-10 bg-background text-right group-hover:bg-accent"><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openFeedback(item)} aria-label={$_('admin.feedback.view')} title={$_('admin.feedback.view')}><ChevronRightIcon /></Button></Table.Cell>
-								</Table.Row>
-							{/each}
-						{/if}
-					</Table.Body>
-				</Table.Root>
-			</div>
+		<div class="admin-table-panel">
+			<Table.Root class="min-w-[900px]">
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>{$_('admin.feedback.user')}</Table.Head>
+						<Table.Head>{$_('admin.feedback.type')}</Table.Head>
+						<Table.Head>{$_('admin.feedback.content')}</Table.Head>
+						<Table.Head>{$_('admin.feedback.created')}</Table.Head>
+						<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.feedback.actions')}</span></Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#if listState.status === 'loading'}
+						{#each Array(6) as _item}
+							<Table.Row>
+								<Table.Cell><Skeleton class="h-5 w-44" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-5 w-20" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-5 w-80" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-5 w-32" /></Table.Cell>
+								<Table.Cell class="sticky right-0 z-10 bg-background"><Skeleton class="ml-auto size-8" /></Table.Cell>
+							</Table.Row>
+						{/each}
+					{:else}
+						{#each listState.data.items as item (item.id)}
+							<Table.Row class="group">
+								<Table.Cell><AdminUserReference userId={item.user_id} href={createFeedbackUserHref(data.locale, item.user_id)} /></Table.Cell>
+								<Table.Cell><Badge variant="outline">{item.type}</Badge></Table.Cell>
+								<Table.Cell><p class="max-w-2xl text-sm text-muted-foreground">{summarizeFeedback(item.content)}</p></Table.Cell>
+								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
+								<Table.Cell class="sticky right-0 z-10 bg-background text-right group-hover:bg-accent"><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openFeedback(item)} aria-label={$_('admin.feedback.view')} title={$_('admin.feedback.view')}><ChevronRightIcon /></Button></Table.Cell>
+							</Table.Row>
+						{/each}
+					{/if}
+				</Table.Body>
+			</Table.Root>
 		</div>
 
 		{#if listState.status === 'loaded' && listState.data.total > 0}
-			<div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+			<div class="admin-pagination">
 				<p class="text-sm text-muted-foreground">{$_('admin.feedback.total', { values: { count: listState.data.total } })}</p>
 				<Pagination.Root count={listState.data.total} perPage={20} bind:page={currentPage} class="mx-0 w-auto">
 					{#snippet children({ pages, currentPage: activePage })}

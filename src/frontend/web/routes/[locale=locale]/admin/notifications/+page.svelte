@@ -2,11 +2,7 @@
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
 	import { client } from '$apiContract/client'
-	import type {
-		ListAdminNotificationsRequest,
-		ListAdminNotificationsResponse,
-		ListAdminNotificationsResponseItem
-	} from '$apiContract/notifications'
+	import type { ListAdminNotificationsRequest, ListAdminNotificationsResponse, ListAdminNotificationsResponseItem } from '$apiContract/notifications'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Badge } from '$frontend/ui/badge'
@@ -32,17 +28,9 @@
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import NotificationDetailSheet from './NotificationDetailSheet.svelte'
 	import PublishNotificationDialog from './PublishNotificationDialog.svelte'
-	import {
-		createNotificationSearchParams,
-		parseNotificationComposer,
-		parseNotificationListQuery,
-		type NotificationComposerState
-	} from './notifications-page'
+	import { createNotificationSearchParams, parseNotificationComposer, parseNotificationListQuery, type NotificationComposerState } from './notifications-page'
 
-	type NotificationListState =
-		| { status: 'loading' }
-		| { status: 'loaded'; data: ListAdminNotificationsResponse }
-		| { status: 'error' }
+	type NotificationListState = { status: 'loading' } | { status: 'loaded'; data: ListAdminNotificationsResponse } | { status: 'error' }
 
 	let {
 		data
@@ -70,16 +58,8 @@
 	let publishTargetUserId: string = $state(initialComposer.targetUserId)
 	let initialized: boolean = $state(false)
 	let detailStateReady: boolean = $state(false)
-	let advancedOpen: boolean = $state(
-		initialQuery.id !== undefined ||
-			initialQuery.created_at_start !== undefined ||
-			initialQuery.created_at_end !== undefined
-	)
-	const advancedFilterCount: number = $derived(
-		Number(idInput.trim() !== '') +
-			Number(createdStartInput !== '') +
-			Number(createdEndInput !== '')
-	)
+	let advancedOpen: boolean = $state(initialQuery.id !== undefined || initialQuery.created_at_start !== undefined || initialQuery.created_at_end !== undefined)
+	const advancedFilterCount: number = $derived(Number(idInput.trim() !== '') + Number(createdStartInput !== '') + Number(createdEndInput !== ''))
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -95,7 +75,7 @@
 		if (!detailStateReady) {
 			return
 		}
-		const detailKey: string = detailOpen ? selectedNotification?.id ?? '' : ''
+		const detailKey: string = detailOpen ? (selectedNotification?.id ?? '') : ''
 		if (detailKey === readAdminDetailKey(page.url)) {
 			return
 		}
@@ -115,10 +95,7 @@
 				data: await client.api.listAdminNotifications(query)
 			}
 			if (!detailStateReady && listState.status === 'loaded') {
-				const selected: ListAdminNotificationsResponseItem | undefined = listState.data.items.find(
-					(notification: ListAdminNotificationsResponseItem): boolean =>
-						notification.id === initialDetailKey
-				)
+				const selected: ListAdminNotificationsResponseItem | undefined = listState.data.items.find((notification: ListAdminNotificationsResponseItem): boolean => notification.id === initialDetailKey)
 				if (selected !== undefined) {
 					selectedNotification = selected
 					detailOpen = true
@@ -135,8 +112,7 @@
 		const id: string = idInput.trim()
 		const targetUserId: string = targetInput.trim()
 		const type: string = typeInput === 'all' ? '' : typeInput
-		const scope: ListAdminNotificationsRequest['scope'] =
-			scopeInput === 'global' || scopeInput === 'user' ? scopeInput : undefined
+		const scope: ListAdminNotificationsRequest['scope'] = scopeInput === 'global' || scopeInput === 'user' ? scopeInput : undefined
 		query = {
 			...(id === '' ? {} : { id }),
 			...(targetUserId === '' ? {} : { target_user_id: targetUserId }),
@@ -221,10 +197,7 @@
 	}
 
 	function notificationTypeOptions(): string[] {
-		const observed: string[] =
-			listState.status === 'loaded'
-				? listState.data.items.map((item: ListAdminNotificationsResponseItem): string => item.type)
-				: []
+		const observed: string[] = listState.status === 'loaded' ? listState.data.items.map((item: ListAdminNotificationsResponseItem): string => item.type) : []
 		return createFilterOptions(typeInput, observed, ['system'])
 	}
 
@@ -233,20 +206,19 @@
 	}
 </script>
 
-<main class="mx-auto w-full max-w-[1650px] space-y-6 p-4 sm:p-6 lg:p-8">
-	<header class="flex flex-wrap items-start justify-between gap-4">
-		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.notifications.title')}</h1>
-		<div class="flex gap-2">
-			<Button variant="outline" size="sm" onclick={loadNotifications}>
+<main class="admin-page">
+	<header class="admin-page-header">
+		<h1>{$_('admin.notifications.title')}</h1>
+		<div class="admin-page-actions">
+			<Button variant="outline" size="icon-sm" onclick={loadNotifications} aria-label={$_('admin.notifications.refresh')} title={$_('admin.notifications.refresh')}>
 				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
-				{$_('admin.notifications.refresh')}
 			</Button>
 			<Button size="sm" onclick={openPublisher}><PlusIcon />{$_('admin.notifications.publish.action')}</Button>
 		</div>
 	</header>
 
-	<form class="space-y-3" onsubmit={applyFilters}>
-		<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+	<form class="admin-filter-bar" onsubmit={applyFilters}>
+		<div class="admin-filter-primary md:grid-cols-2 xl:grid-cols-[minmax(15rem,1.3fr)_minmax(10rem,0.8fr)_minmax(10rem,0.8fr)_auto] xl:items-end">
 			<AdminUserPicker id="notification-user-filter" label={$_('admin.notifications.targetUser')} bind:value={targetInput} />
 			<Field.Field>
 				<Field.Label for="notification-scope-filter">{$_('admin.notifications.scope')}</Field.Label>
@@ -275,6 +247,10 @@
 					</Select.Content>
 				</Select.Root>
 			</Field.Field>
+			<div class="admin-filter-actions md:col-span-2 xl:col-span-1">
+				<Button type="submit">{$_('admin.notifications.apply')}</Button>
+				{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.notifications.reset')}</Button>{/if}
+			</div>
 		</div>
 		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-3">
 			<Field.Field>
@@ -290,10 +266,6 @@
 				<Input id="notification-created-end" bind:value={createdEndInput} type="date" />
 			</Field.Field>
 		</AdminAdvancedFilters>
-		<div class="flex gap-2">
-			<Button type="submit">{$_('admin.notifications.apply')}</Button>
-			{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.notifications.reset')}</Button>{/if}
-		</div>
 	</form>
 
 	{#if listState.status === 'error'}
@@ -313,45 +285,47 @@
 			{#if hasFilters()}<Empty.Content><Button variant="outline" onclick={resetFilters}>{$_('admin.notifications.reset')}</Button></Empty.Content>{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-md border bg-background">
-			<div class="overflow-x-auto">
-				<Table.Root class="min-w-[1000px]">
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>{$_('admin.notifications.scope')}</Table.Head>
-							<Table.Head>{$_('admin.notifications.titleField')}</Table.Head>
-							<Table.Head>{$_('admin.notifications.type')}</Table.Head>
-							<Table.Head>{$_('admin.notifications.targetUser')}</Table.Head>
-							<Table.Head>{$_('admin.notifications.created')}</Table.Head>
-							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.notifications.actions')}</span></Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#if listState.status === 'loading'}
-							{#each Array(6) as _item}
-								<Table.Row>{#each Array(6) as _cell}<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>{/each}</Table.Row>
-							{/each}
-						{:else}
-							{#each listState.data.items as item (item.id)}
-								<Table.Row class="group">
-									<Table.Cell><Badge variant={item.target_user_id === null ? 'secondary' : 'outline'}>{item.target_user_id === null ? $_('admin.notifications.global') : $_('admin.notifications.targeted')}</Badge></Table.Cell>
-									<Table.Cell><p class="max-w-lg truncate font-medium">{item.title}</p></Table.Cell>
-									<Table.Cell>{notificationTypeLabel(item.type)}</Table.Cell>
-									<Table.Cell>
-										{#if item.target_user_id}<AdminUserReference userId={item.target_user_id} href={`/${data.locale}/admin/users?search=${encodeURIComponent(item.target_user_id)}`} />{:else}{$_('admin.common.none')}{/if}
-									</Table.Cell>
-									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell class="sticky right-0 z-10 bg-background text-right group-hover:bg-accent"><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openNotification(item)} aria-label={$_('admin.notifications.view')} title={$_('admin.notifications.view')}><ChevronRightIcon /></Button></Table.Cell>
-								</Table.Row>
-							{/each}
-						{/if}
-					</Table.Body>
-				</Table.Root>
-			</div>
+		<div class="admin-table-panel">
+			<Table.Root class="min-w-[1000px]">
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>{$_('admin.notifications.scope')}</Table.Head>
+						<Table.Head>{$_('admin.notifications.titleField')}</Table.Head>
+						<Table.Head>{$_('admin.notifications.type')}</Table.Head>
+						<Table.Head>{$_('admin.notifications.targetUser')}</Table.Head>
+						<Table.Head>{$_('admin.notifications.created')}</Table.Head>
+						<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.notifications.actions')}</span></Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#if listState.status === 'loading'}
+						{#each Array(6) as _item}
+							<Table.Row>
+								{#each Array(6) as _cell}
+									<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>
+								{/each}
+							</Table.Row>
+						{/each}
+					{:else}
+						{#each listState.data.items as item (item.id)}
+							<Table.Row class="group">
+								<Table.Cell><Badge variant={item.target_user_id === null ? 'secondary' : 'outline'}>{item.target_user_id === null ? $_('admin.notifications.global') : $_('admin.notifications.targeted')}</Badge></Table.Cell>
+								<Table.Cell><p class="max-w-lg truncate font-medium">{item.title}</p></Table.Cell>
+								<Table.Cell>{notificationTypeLabel(item.type)}</Table.Cell>
+								<Table.Cell>
+									{#if item.target_user_id}<AdminUserReference userId={item.target_user_id} href={`/${data.locale}/admin/users?search=${encodeURIComponent(item.target_user_id)}`} />{:else}{$_('admin.common.none')}{/if}
+								</Table.Cell>
+								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
+								<Table.Cell class="sticky right-0 z-10 bg-background text-right group-hover:bg-accent"><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openNotification(item)} aria-label={$_('admin.notifications.view')} title={$_('admin.notifications.view')}><ChevronRightIcon /></Button></Table.Cell>
+							</Table.Row>
+						{/each}
+					{/if}
+				</Table.Body>
+			</Table.Root>
 		</div>
 
 		{#if listState.status === 'loaded' && listState.data.total > 0}
-			<div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+			<div class="admin-pagination">
 				<p class="text-sm text-muted-foreground">{$_('admin.notifications.total', { values: { count: listState.data.total } })}</p>
 				<Pagination.Root count={listState.data.total} perPage={20} bind:page={currentPage} class="mx-0 w-auto">
 					{#snippet children({ pages, currentPage: activePage })}

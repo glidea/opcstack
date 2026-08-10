@@ -17,11 +17,7 @@
 	import { _ } from '$frontend/i18n'
 	import { buttonVariants } from '$frontend/ui/button'
 	import * as Sidebar from '$frontend/ui/sidebar'
-	import {
-		createAdminNavigation,
-		type AdminNavigationItem,
-		type AdminSection
-	} from './admin-navigation'
+	import { createAdminNavigation, type AdminNavigationItem, type AdminSection } from './admin-navigation'
 
 	type AdminLayoutData = {
 		locale: string
@@ -44,14 +40,15 @@
 	} = $props()
 
 	const navigation: AdminNavigationItem[] = $derived(createAdminNavigation(data.locale))
-	const currentItem: AdminNavigationItem = $derived(
-		navigation.find((item: AdminNavigationItem): boolean => item.href === page.url.pathname) ??
-			navigation[0]!
-	)
+	const currentItem: AdminNavigationItem = $derived(navigation.find((item: AdminNavigationItem): boolean => item.href === page.url.pathname) ?? navigation[0]!)
 	const navigationGroups: AdminNavigationGroup[] = $derived([
 		{
 			labelKey: null,
-			items: navigation.filter((item: AdminNavigationItem): boolean => item.id !== 'ai-tasks')
+			items: navigation.filter((item: AdminNavigationItem): boolean => item.id === 'overview')
+		},
+		{
+			labelKey: 'admin.nav.management',
+			items: navigation.filter((item: AdminNavigationItem): boolean => item.id !== 'overview' && item.id !== 'ai-tasks')
 		},
 		{
 			labelKey: 'admin.nav.operations',
@@ -80,16 +77,11 @@
 	<link rel="canonical" href={data.canonicalUrl} />
 </svelte:head>
 
-<Sidebar.Provider class="flex min-h-svh flex-col" style="--sidebar-width: 14rem;">
+<Sidebar.Provider class="admin-shell flex min-h-svh flex-col" style="--sidebar-width: 14rem;">
 	<AppHeader logoHref={`/${data.locale}/admin/overview`} showSidebarTrigger>
 		{#snippet actions()}
 			{#if data.cloudflareWorkerUrl}
-				<a
-					href={data.cloudflareWorkerUrl}
-					target="_blank"
-					rel="noopener"
-					class={buttonVariants({ variant: 'ghost', size: 'sm' })}
-				>
+				<a href={data.cloudflareWorkerUrl} target="_blank" rel="noopener" class={buttonVariants({ variant: 'ghost', size: 'sm' })}>
 					<CloudIcon class="size-4" />
 					<span class="hidden sm:inline">{$_('admin.cloudflare.worker')}</span>
 					<ExternalLinkIcon class="size-3.5 text-muted-foreground" />
@@ -100,7 +92,7 @@
 	</AppHeader>
 
 	<div class="flex min-h-0 flex-1">
-		<Sidebar.Root class="md:top-12 md:h-[calc(100svh-3rem)]">
+		<Sidebar.Root class="border-r md:top-12 md:h-[calc(100svh-3rem)]">
 			<Sidebar.Content class="py-3">
 				{#each navigationGroups as group}
 					<Sidebar.Group class="px-3 py-1.5">
@@ -113,13 +105,9 @@
 									{@const Icon: Component = sectionIcons[item.id]}
 									{@const isActive: boolean = item.href === page.url.pathname}
 									<Sidebar.MenuItem>
-										<Sidebar.MenuButton isActive={isActive} class="h-9 px-2.5">
+										<Sidebar.MenuButton {isActive} class="h-9 px-2.5 data-active:bg-sidebar-primary data-active:text-sidebar-primary-foreground">
 											{#snippet child({ props })}
-												<a
-													href={item.href}
-													aria-current={isActive ? 'page' : undefined}
-													{...props}
-												>
+												<a href={item.href} aria-current={isActive ? 'page' : undefined} {...props}>
 													<Icon class="size-4" />
 													<span>{$_(item.labelKey)}</span>
 												</a>

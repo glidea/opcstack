@@ -3,6 +3,7 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down'
 	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal'
 	import { Badge } from '$frontend/ui/badge'
+	import { buttonVariants } from '$frontend/ui/button'
 	import { cn } from '$frontend/ui/utils'
 
 	let {
@@ -21,9 +22,7 @@
 </script>
 
 <details bind:open class="group">
-	<summary
-		class="inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9 [&::-webkit-details-marker]:hidden"
-	>
+	<summary class={cn(buttonVariants({ variant: 'outline' }), 'w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden')}>
 		<SlidersHorizontalIcon class="size-4" />
 		<span>{label}</span>
 		{#if count > 0}<Badge variant="secondary">{count}</Badge>{/if}

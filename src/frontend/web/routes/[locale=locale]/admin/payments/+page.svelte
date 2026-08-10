@@ -2,11 +2,7 @@
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
 	import { client } from '$apiContract/client'
-	import type {
-		AdminPaymentTransactionItem,
-		ListAdminPaymentTransactionsRequest,
-		ListAdminPaymentTransactionsResponse
-	} from '$apiContract/payment'
+	import type { AdminPaymentTransactionItem, ListAdminPaymentTransactionsRequest, ListAdminPaymentTransactionsResponse } from '$apiContract/payment'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Badge } from '$frontend/ui/badge'
@@ -28,20 +24,9 @@
 	import { formatCreditAmount } from '../admin-presentation'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
 	import PaymentDetailSheet from './PaymentDetailSheet.svelte'
-	import {
-		createPaymentSearchParams,
-		createPaymentUserHref,
-		formatPaymentAmount,
-		getPaymentStatusVariant,
-		PAYMENT_TRANSACTION_STATUSES,
-		PAYMENT_TRANSACTION_TYPES,
-		parsePaymentListQuery
-	} from './payments-page'
+	import { createPaymentSearchParams, createPaymentUserHref, formatPaymentAmount, getPaymentStatusVariant, PAYMENT_TRANSACTION_STATUSES, PAYMENT_TRANSACTION_TYPES, parsePaymentListQuery } from './payments-page'
 
-	type PaymentListState =
-		| { status: 'loading' }
-		| { status: 'loaded'; data: ListAdminPaymentTransactionsResponse }
-		| { status: 'error' }
+	type PaymentListState = { status: 'loading' } | { status: 'loaded'; data: ListAdminPaymentTransactionsResponse } | { status: 'error' }
 
 	let {
 		data
@@ -78,7 +63,7 @@
 		if (!detailStateReady) {
 			return
 		}
-		const detailKey: string = detailOpen ? selectedTransaction?.id ?? '' : ''
+		const detailKey: string = detailOpen ? (selectedTransaction?.id ?? '') : ''
 		if (detailKey === readAdminDetailKey(page.url)) {
 			return
 		}
@@ -93,16 +78,13 @@
 	async function loadTransactions(): Promise<void> {
 		listState = { status: 'loading' }
 		try {
-			const response: ListAdminPaymentTransactionsResponse =
-				await client.api.listAdminPaymentTransactions(query)
+			const response: ListAdminPaymentTransactionsResponse = await client.api.listAdminPaymentTransactions(query)
 			listState = {
 				status: 'loaded',
 				data: response
 			}
 			if (!detailStateReady) {
-				const selected: AdminPaymentTransactionItem | undefined = response.items.find(
-					(transaction: AdminPaymentTransactionItem): boolean => transaction.id === initialDetailKey
-				)
+				const selected: AdminPaymentTransactionItem | undefined = response.items.find((transaction: AdminPaymentTransactionItem): boolean => transaction.id === initialDetailKey)
 				if (selected !== undefined) {
 					selectedTransaction = selected
 					detailOpen = true
@@ -194,16 +176,15 @@
 	}
 </script>
 
-<main class="mx-auto w-full max-w-[1650px] space-y-6 p-4 sm:p-6 lg:p-8">
-	<header class="flex flex-wrap items-start justify-between gap-4">
-		<h1 class="text-xl font-semibold sm:text-2xl">{$_('admin.payments.title')}</h1>
-		<Button variant="outline" size="sm" onclick={loadTransactions}>
+<main class="admin-page">
+	<header class="admin-page-header">
+		<h1>{$_('admin.payments.title')}</h1>
+		<Button variant="outline" size="icon-sm" onclick={loadTransactions} aria-label={$_('admin.payments.refresh')} title={$_('admin.payments.refresh')}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
-			{$_('admin.payments.refresh')}
 		</Button>
 	</header>
 
-	<form class="grid gap-3 sm:grid-cols-3 sm:items-end" onsubmit={applyFilters}>
+	<form class="admin-filter-bar sm:grid-cols-2 xl:grid-cols-[minmax(15rem,1.3fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto] xl:items-end" onsubmit={applyFilters}>
 		<AdminUserPicker id="payment-user-filter" label={$_('admin.payments.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="payment-type-filter">{$_('admin.payments.type')}</Field.Label>
@@ -233,7 +214,7 @@
 				</Select.Content>
 			</Select.Root>
 		</Field.Field>
-		<div class="flex gap-2 sm:col-span-3">
+		<div class="admin-filter-actions sm:col-span-2 xl:col-span-1">
 			<Button type="submit">{$_('admin.payments.apply')}</Button>
 			{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.payments.reset')}</Button>{/if}
 		</div>
@@ -256,45 +237,49 @@
 			{#if hasFilters()}<Empty.Content><Button variant="outline" onclick={resetFilters}>{$_('admin.payments.reset')}</Button></Empty.Content>{/if}
 		</Empty.Root>
 	{:else}
-		<div class="overflow-hidden rounded-md border bg-background">
-			<div class="overflow-x-auto">
-				<Table.Root class="min-w-[1120px]">
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>{$_('admin.payments.created')}</Table.Head>
-							<Table.Head>{$_('admin.payments.user')}</Table.Head>
-							<Table.Head>{$_('admin.payments.product')}</Table.Head>
-							<Table.Head>{$_('admin.payments.type')}</Table.Head>
-							<Table.Head>{$_('admin.payments.amount')}</Table.Head>
-							<Table.Head>{$_('admin.payments.status')}</Table.Head>
-							<Table.Head>{$_('admin.payments.credits')}</Table.Head>
-							<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.payments.actions')}</span></Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#if listState.status === 'loading'}
-							{#each Array(6) as _item}<Table.Row>{#each Array(8) as _cell}<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>{/each}</Table.Row>{/each}
-						{:else}
-							{#each listState.data.items as item (item.id)}
-								<Table.Row class={`group ${item.status === 'refunded' || item.status === 'disputed' ? 'bg-destructive/5' : ''}`}>
-									<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-									<Table.Cell><AdminUserReference userId={item.user_id} href={createPaymentUserHref(data.locale, item.user_id)} /></Table.Cell>
-									<Table.Cell>{item.product_id}</Table.Cell>
-									<Table.Cell>{paymentTypeLabel(item.type)}</Table.Cell>
-									<Table.Cell>{formatPaymentAmount(item.amount, item.currency, data.locale)}</Table.Cell>
-									<Table.Cell><Badge variant={getPaymentStatusVariant(item.status)}>{paymentStatusLabel(item.status)}</Badge></Table.Cell>
-									<Table.Cell>{formatCreditAmount(item.credits_granted, data.locale)}</Table.Cell>
-									<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'refunded' || item.status === 'disputed' ? 'bg-destructive/5' : 'bg-background'}`}><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openTransaction(item)} aria-label={$_('admin.payments.view')} title={$_('admin.payments.view')}><ChevronRightIcon /></Button></Table.Cell>
-								</Table.Row>
-							{/each}
-						{/if}
-					</Table.Body>
-				</Table.Root>
-			</div>
+		<div class="admin-table-panel">
+			<Table.Root class="min-w-[1120px]">
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>{$_('admin.payments.created')}</Table.Head>
+						<Table.Head>{$_('admin.payments.user')}</Table.Head>
+						<Table.Head>{$_('admin.payments.product')}</Table.Head>
+						<Table.Head>{$_('admin.payments.type')}</Table.Head>
+						<Table.Head>{$_('admin.payments.amount')}</Table.Head>
+						<Table.Head>{$_('admin.payments.status')}</Table.Head>
+						<Table.Head>{$_('admin.payments.credits')}</Table.Head>
+						<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.payments.actions')}</span></Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#if listState.status === 'loading'}
+						{#each Array(6) as _item}
+							<Table.Row>
+								{#each Array(8) as _cell}
+									<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>
+								{/each}
+							</Table.Row>
+						{/each}
+					{:else}
+						{#each listState.data.items as item (item.id)}
+							<Table.Row class={`group ${item.status === 'refunded' || item.status === 'disputed' ? 'bg-destructive/5' : ''}`}>
+								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
+								<Table.Cell><AdminUserReference userId={item.user_id} href={createPaymentUserHref(data.locale, item.user_id)} /></Table.Cell>
+								<Table.Cell>{item.product_id}</Table.Cell>
+								<Table.Cell>{paymentTypeLabel(item.type)}</Table.Cell>
+								<Table.Cell>{formatPaymentAmount(item.amount, item.currency, data.locale)}</Table.Cell>
+								<Table.Cell><Badge variant={getPaymentStatusVariant(item.status)}>{paymentStatusLabel(item.status)}</Badge></Table.Cell>
+								<Table.Cell>{formatCreditAmount(item.credits_granted, data.locale)}</Table.Cell>
+								<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'refunded' || item.status === 'disputed' ? 'bg-destructive/5' : 'bg-background'}`}><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openTransaction(item)} aria-label={$_('admin.payments.view')} title={$_('admin.payments.view')}><ChevronRightIcon /></Button></Table.Cell>
+							</Table.Row>
+						{/each}
+					{/if}
+				</Table.Body>
+			</Table.Root>
 		</div>
 
 		{#if listState.status === 'loaded' && listState.data.total > 0}
-			<div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+			<div class="admin-pagination">
 				<p class="text-sm text-muted-foreground">{$_('admin.payments.total', { values: { count: listState.data.total } })}</p>
 				<Pagination.Root count={listState.data.total} perPage={20} bind:page={currentPage} class="mx-0 w-auto">
 					{#snippet children({ pages, currentPage: activePage })}

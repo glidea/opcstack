@@ -17,22 +17,12 @@
 	import type { GetAdminOverviewResponse } from '$apiContract/admin-overview'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
+	import { Badge } from '$frontend/ui/badge'
 	import { Button } from '$frontend/ui/button'
-	import * as Card from '$frontend/ui/card'
 	import * as Empty from '$frontend/ui/empty'
 	import { Progress } from '$frontend/ui/progress'
 	import { Skeleton } from '$frontend/ui/skeleton'
-	import {
-		createOverviewDrilldowns,
-		createOverviewInitialState,
-		createTaskDistribution,
-		formatPaidAmount,
-		getProcessingTaskCount,
-		loadAdminOverview,
-		type AdminOverviewState,
-		type OverviewDrilldowns,
-		type TaskDistributionItem
-	} from './overview-page'
+	import { createOverviewDrilldowns, createOverviewInitialState, createTaskDistribution, formatPaidAmount, getProcessingTaskCount, loadAdminOverview, type AdminOverviewState, type OverviewDrilldowns, type TaskDistributionItem } from './overview-page'
 
 	let {
 		data
@@ -64,13 +54,6 @@
 		}).format(value)
 	}
 
-	function formatDateTime(value: number): string {
-		return new Intl.DateTimeFormat(data.locale, {
-			dateStyle: 'medium',
-			timeStyle: 'short'
-		}).format(value)
-	}
-
 	function taskTypeLabel(type: TaskDistributionItem['type']): string {
 		return $_(`admin.overview.ai.${type}`)
 	}
@@ -80,25 +63,22 @@
 	})
 </script>
 
-<main class="mx-auto w-full max-w-[1600px] space-y-8 p-4 sm:p-6 lg:p-8">
-	<header class="flex flex-wrap items-start justify-between gap-4">
-		<h1 class="min-w-0 text-xl font-semibold sm:text-2xl">{$_('admin.overview.title')}</h1>
-		<Button variant="outline" size="sm" onclick={refresh} disabled={refreshing}>
+<main class="admin-page">
+	<header class="admin-page-header">
+		<h1>{$_('admin.overview.title')}</h1>
+		<Button variant="outline" size="icon-sm" onclick={refresh} disabled={refreshing} aria-label={$_('admin.overview.refresh')} title={$_('admin.overview.refresh')}>
 			<RefreshCwIcon class={refreshing ? 'animate-spin' : ''} />
-			{$_('admin.overview.refresh')}
 		</Button>
 	</header>
 
 	{#if overviewState.status === 'loading'}
-		<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={$_('admin.loading')}>
+		<div class="admin-metric-strip" aria-label={$_('admin.loading')}>
 			{#each Array(4) as _item}
-				<Card.Root class="min-h-36">
-					<Card.Header><Skeleton class="h-4 w-24" /></Card.Header>
-					<Card.Content class="space-y-3">
-						<Skeleton class="h-8 w-32" />
-						<Skeleton class="h-4 w-40" />
-					</Card.Content>
-				</Card.Root>
+				<div class="admin-metric space-y-4">
+					<Skeleton class="h-4 w-24" />
+					<Skeleton class="h-8 w-32" />
+					<Skeleton class="h-4 w-40" />
+				</div>
 			{/each}
 		</div>
 	{:else if overviewState.status === 'error'}
@@ -117,85 +97,73 @@
 		{@const processingTasks: number = getProcessingTaskCount(overview)}
 		{@const pendingCount: number = overview.redemption_codes.claimed_count + overview.ai_tasks.failed_count_24h + overview.payments.disputed_count}
 
-		<p class="text-right text-xs text-muted-foreground">
-			{$_('admin.overview.updated', { values: { time: formatDateTime(overview.generated_at) } })}
-		</p>
-
 		<section aria-labelledby="overview-metrics-title">
 			<h2 id="overview-metrics-title" class="sr-only">{$_('admin.overview.metrics')}</h2>
-			<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-				<Card.Root>
-					<Card.Header class="flex-row items-center justify-between gap-3">
-						<Card.Title class="text-sm font-medium">{$_('admin.overview.users.title')}</Card.Title>
+			<div class="admin-metric-strip">
+				<article class="admin-metric">
+					<div class="flex items-center justify-between gap-3 text-sm font-medium">
+						<span>{$_('admin.overview.users.title')}</span>
 						<UsersIcon class="size-4 text-muted-foreground" />
-					</Card.Header>
-					<Card.Content>
-						<p class="text-2xl font-semibold tabular-nums">{formatNumber(overview.users.total)}</p>
-						<p class="mt-2 text-xs text-muted-foreground">
-							{$_('admin.overview.users.new', { values: { count: overview.users.new_7d } })}
-						</p>
-					</Card.Content>
-				</Card.Root>
+					</div>
+					<p class="mt-4 text-3xl font-semibold tabular-nums">{formatNumber(overview.users.total)}</p>
+					<p class="mt-1 text-xs text-muted-foreground">
+						{$_('admin.overview.users.new', { values: { count: overview.users.new_7d } })}
+					</p>
+				</article>
 
-				<Card.Root>
-					<Card.Header class="flex-row items-center justify-between gap-3">
-						<Card.Title class="text-sm font-medium">{$_('admin.overview.payments.title')}</Card.Title>
+				<article class="admin-metric">
+					<div class="flex items-center justify-between gap-3 text-sm font-medium">
+						<span>{$_('admin.overview.payments.title')}</span>
 						<CircleDollarSignIcon class="size-4 text-muted-foreground" />
-					</Card.Header>
-					<Card.Content>
-						{#if overview.payments.paid_amounts_30d.length === 0}
-							<p class="text-2xl font-semibold tabular-nums">0</p>
-							<p class="mt-2 text-xs text-muted-foreground">{$_('admin.overview.payments.none')}</p>
-						{:else}
-							<div class="flex flex-wrap gap-x-4 gap-y-1">
-								{#each overview.payments.paid_amounts_30d as amount}
-									<p class="text-xl font-semibold tabular-nums">
-										{formatPaidAmount(amount.amount, amount.currency, data.locale)}
-									</p>
-								{/each}
-							</div>
-							<p class="mt-2 text-xs text-muted-foreground">{$_('admin.overview.last30d')}</p>
-						{/if}
-					</Card.Content>
-				</Card.Root>
+					</div>
+					{#if overview.payments.paid_amounts_30d.length === 0}
+						<p class="mt-4 text-3xl font-semibold tabular-nums">0</p>
+						<p class="mt-1 text-xs text-muted-foreground">{$_('admin.overview.payments.none')}</p>
+					{:else}
+						<div class="mt-4 flex flex-wrap gap-x-4 gap-y-1">
+							{#each overview.payments.paid_amounts_30d as amount}
+								<p class="text-2xl font-semibold tabular-nums">
+									{formatPaidAmount(amount.amount, amount.currency, data.locale)}
+								</p>
+							{/each}
+						</div>
+						<p class="mt-1 text-xs text-muted-foreground">{$_('admin.overview.last30d')}</p>
+					{/if}
+				</article>
 
-				<Card.Root>
-					<Card.Header class="flex-row items-center justify-between gap-3">
-						<Card.Title class="text-sm font-medium">{$_('admin.overview.ai.title')}</Card.Title>
+				<article class="admin-metric">
+					<div class="flex items-center justify-between gap-3 text-sm font-medium">
+						<span>{$_('admin.overview.ai.title')}</span>
 						<BotIcon class="size-4 text-muted-foreground" />
-					</Card.Header>
-					<Card.Content>
-						<p class="text-2xl font-semibold tabular-nums">{formatPercent(overview.ai_tasks.terminal_completion_rate)}</p>
-						<p class="mt-2 text-xs text-muted-foreground">
-							{$_('admin.overview.ai.summary', { values: { total: overview.ai_tasks.total_24h, processing: processingTasks } })}
-						</p>
-					</Card.Content>
-				</Card.Root>
+					</div>
+					<p class="mt-4 text-3xl font-semibold tabular-nums">{formatPercent(overview.ai_tasks.terminal_completion_rate)}</p>
+					<p class="mt-1 text-xs text-muted-foreground">
+						{$_('admin.overview.ai.summary', { values: { total: overview.ai_tasks.total_24h, processing: processingTasks } })}
+					</p>
+				</article>
 
-				<Card.Root>
-					<Card.Header class="flex-row items-center justify-between gap-3">
-						<Card.Title class="text-sm font-medium">{$_('admin.overview.feedback.title')}</Card.Title>
+				<article class="admin-metric">
+					<div class="flex items-center justify-between gap-3 text-sm font-medium">
+						<span>{$_('admin.overview.feedback.title')}</span>
 						<MessageSquareTextIcon class="size-4 text-muted-foreground" />
-					</Card.Header>
-					<Card.Content>
-						<p class="text-2xl font-semibold tabular-nums">{formatNumber(overview.feedbacks.new_7d)}</p>
-						<p class="mt-2 text-xs text-muted-foreground">{$_('admin.overview.last7d')}</p>
-					</Card.Content>
-				</Card.Root>
+					</div>
+					<p class="mt-4 text-3xl font-semibold tabular-nums">{formatNumber(overview.feedbacks.new_7d)}</p>
+					<p class="mt-1 text-xs text-muted-foreground">{$_('admin.overview.last7d')}</p>
+				</article>
 			</div>
 		</section>
 
-		<div class="grid gap-8 border-t pt-8 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]">
-			<section aria-labelledby="overview-attention-title">
-				<div class="mb-4 flex items-center justify-between gap-4">
+		<div class="admin-overview-grid">
+			<section class="admin-overview-panel" aria-labelledby="overview-attention-title">
+				<header class="admin-overview-panel-header">
 					<h2 id="overview-attention-title" class="text-base font-semibold">{$_('admin.overview.attention.title')}</h2>
 					{#if pendingCount > 0}
-						<span class="text-sm font-medium tabular-nums">{formatNumber(pendingCount)}</span>
+						<Badge variant="secondary">{formatNumber(pendingCount)}</Badge>
 					{/if}
-				</div>
+				</header>
 
 				{#if pendingCount === 0}
-					<Empty.Root class="min-h-48 border">
+					<Empty.Root class="min-h-64">
 						<Empty.Media variant="icon"><CircleCheckIcon /></Empty.Media>
 						<Empty.Header>
 							<Empty.Title>{$_('admin.overview.attention.empty.title')}</Empty.Title>
@@ -203,9 +171,9 @@
 						</Empty.Header>
 					</Empty.Root>
 				{:else}
-					<div class="divide-y rounded-lg border">
+					<div class="divide-y">
 						{#if overview.ai_tasks.failed_count_24h > 0}
-							<a class="flex min-h-16 items-center gap-3 px-4 hover:bg-accent" href={drilldowns.failedTasks}>
+							<a class="flex min-h-20 items-center gap-3 px-4 transition-colors hover:bg-accent" href={drilldowns.failedTasks}>
 								<TriangleAlertIcon class="size-4 text-destructive" />
 								<div class="min-w-0 flex-1">
 									<p class="text-sm font-medium">{$_('admin.overview.attention.failed')}</p>
@@ -216,7 +184,7 @@
 							</a>
 						{/if}
 						{#if overview.redemption_codes.claimed_count > 0}
-							<a class="flex min-h-16 items-center gap-3 px-4 hover:bg-accent" href={drilldowns.claimedCodes}>
+							<a class="flex min-h-20 items-center gap-3 px-4 transition-colors hover:bg-accent" href={drilldowns.claimedCodes}>
 								<TicketCheckIcon class="size-4 text-muted-foreground" />
 								<div class="min-w-0 flex-1">
 									<p class="text-sm font-medium">{$_('admin.overview.attention.claimed')}</p>
@@ -227,7 +195,7 @@
 							</a>
 						{/if}
 						{#if overview.payments.disputed_count > 0}
-							<a class="flex min-h-16 items-center gap-3 px-4 hover:bg-accent" href={drilldowns.disputedPayments}>
+							<a class="flex min-h-20 items-center gap-3 px-4 transition-colors hover:bg-accent" href={drilldowns.disputedPayments}>
 								<CreditCardIcon class="size-4 text-muted-foreground" />
 								<div class="min-w-0 flex-1">
 									<p class="text-sm font-medium">{$_('admin.overview.attention.disputed')}</p>
@@ -241,14 +209,16 @@
 				{/if}
 			</section>
 
-			<section aria-labelledby="overview-distribution-title">
-				<div class="mb-4">
-					<h2 id="overview-distribution-title" class="text-base font-semibold">{$_('admin.overview.distribution.title')}</h2>
-					<p class="mt-1 text-sm text-muted-foreground">
-						{$_('admin.overview.distribution.description', { values: { total: overview.ai_tasks.total_24h } })}
-					</p>
-				</div>
-				<div class="space-y-5 rounded-lg border p-4">
+			<section class="admin-overview-panel" aria-labelledby="overview-distribution-title">
+				<header class="admin-overview-panel-header">
+					<div>
+						<h2 id="overview-distribution-title" class="text-base font-semibold">{$_('admin.overview.distribution.title')}</h2>
+						<p class="mt-0.5 text-xs text-muted-foreground">
+							{$_('admin.overview.distribution.description', { values: { total: overview.ai_tasks.total_24h } })}
+						</p>
+					</div>
+				</header>
+				<div class="space-y-5 p-4">
 					{#each distribution as item}
 						<div class="space-y-2">
 							<div class="flex items-center gap-3 text-sm">

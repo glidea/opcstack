@@ -329,6 +329,7 @@
 	"admin.nav.notifications": "Notifications",
 	"admin.nav.payments": "Payments",
 	"admin.nav.ai-tasks": "AI tasks",
+	"admin.nav.management": "Management",
 	"admin.nav.operations": "Operations",
 	"admin.cloudflare.worker": "Worker logs",
 	"admin.loading": "Loading",
