@@ -208,6 +208,8 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Keep related env keys together. Put a feature switch before its provider selection and provider-specific settings.
 - Keep optional settings after required settings inside the same group.
 - Keep `.env.secret.example` in the same business order as public env files.
+- Async AI channels are discovered from complete `<AREA>_<PROVIDER>_<CHANNEL>_{BASE_URL,MODELS,PRICE_MULTIPLIER,API_KEY}` ENV groups. ENV is the single channel registry; do not add channel ids, adapter registries, or parallel endpoint config.
+- `AI_ROUTING_ERROR_WEIGHT`, `AI_ROUTING_LATENCY_WEIGHT`, `AI_ROUTING_PRICE_WEIGHT`, and `AI_TASK_RETENTION_DAYS` are required and strictly validated during Cloudflare preparation.
 - `APP_CN_DOMAIN` is optional. When set without `APP_CN_CNAME_TARGET`, `prepare-cloudflare.mjs` adds it as a second Worker custom domain. It always adds it as an R2 CORS origin and Turnstile domain.
 - `APP_CN_CNAME_TARGET` is optional. When set with `APP_CN_DOMAIN` in prod mode, `prepare-cloudflare.mjs` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`, skips the Worker custom domain for that hostname, and adds a normal Worker zone route. It does not choose acceleration targets.
 - Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.
@@ -227,7 +229,8 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Tenant Shard DB uses generated bindings such as `TENANT_DB_WNAM_0000`. In requests, get the current user's DB with `ctx.get('tenantDb')`.
 - Tenant shard registry lives in Meta DB tables `d1_shards` and `user_shards`.
 - Meta-owned runtime data includes shard registry, auth-adjacent global state, redemption codes, affiliate referrals, payment rows, subscriptions, webhook events, and notifications.
-- Tenant-owned runtime data includes credit balances, credit entries, credit transactions, feedbacks, notification reads, and AI async task tables.
+- Tenant-owned runtime data includes credit balances, credit entries, credit transactions, feedbacks, notification reads, AI async task tables, and 1-minute AI channel metric buckets.
+- AI channel metrics are local to each Tenant Shard. Do not aggregate them in Meta DB or store per-call metric rows.
 - Modify Meta schema in `src/backend/db/schema.meta.ts`.
 - Modify Tenant Shard schema in `src/backend/db/schema.shard.ts`.
 - Restart `pnpm dev` to generate and apply Meta and Shard migrations.
@@ -294,6 +297,9 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - Use a single R2 bucket by default.
 - Payment is controlled by `PAYMENT_ENABLED`; enabled providers are Dodo and Creem via `src/backend/payment/`.
 - AI providers live under `src/backend/ai/`; async AI queue payloads carry only task id and user id.
+- Only Image, TTS, and Video async consumers use Channel Router. Task creation still stores provider and model only; the consumer selects a matching ENV channel at execution time.
+- Image and TTS may try ranked channels within one queue attempt. Video selects a channel only when creating a remote task and polls that task through the persisted channel until the provider reports a terminal failure.
+- Synchronous AI calls use their provider's configured endpoint. Providers accept an explicit endpoint from async consumers but never select or retry channels themselves.
 - Generated video output must be downloaded from provider and streamed into R2. Do not use `arrayBuffer` or base64 for video output upload.
 
 Before changing these areas, inspect the source directory and related tests.
@@ -309,6 +315,7 @@ Before changing these areas, inspect the source directory and related tests.
 - Queue handlers live in `src/backend/consumers/index.ts`.
 - Configure cron triggers with `CRONS`, separated by semicolon.
 - Cron handlers live in `src/backend/jobs/index.ts`.
+- The existing `*/10 * * * *` job deletes AI channel metric buckets older than 24 hours and terminal AI tasks older than `AI_TASK_RETENTION_DAYS` from every active or draining Tenant Shard. It must not delete processing tasks or access R2.
 - Configure Durable Object names with `DO_NAMES`, separated by semicolon.
 - Durable Object binding convention: `DO_<NAME_UPPER>`, for example `rate-limiter` -> `DO_RATE_LIMITER`.
 - Durable Object class convention: PascalCase name plus `DO` suffix, for example `RateLimiterDO`.

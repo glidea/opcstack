@@ -29,11 +29,7 @@ export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 		const nowMs = controller.scheduledTime
 		const retentionDays = parseRetentionDays(env.CREDITS_HISTORY_RETENTION_DAYS)
 		const metricCutoff: number = nowMs - 24 * 60 * 60 * 1000
-		const envValues: Record<string, string | undefined> = env as unknown as Record<
-			string,
-			string | undefined
-		>
-		const taskRetentionDays: number = Number(envValues['AI_TASK_RETENTION_DAYS'])
+		const taskRetentionDays: number = Number(env.AI_TASK_RETENTION_DAYS)
 		const taskCutoff: number = nowMs - taskRetentionDays * 24 * 60 * 60 * 1000
 		const shards = await createTenantShardAccess(db, env).listShardDbs()
 

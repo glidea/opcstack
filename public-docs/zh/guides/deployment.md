@@ -408,7 +408,7 @@ Binding 和类命名：
 | Dodo | `PAYMENT_DODO_API_KEY`、`PAYMENT_DODO_WEBHOOK_SECRET` |
 | Creem | `PAYMENT_CREEM_API_KEY`、`PAYMENT_CREEM_WEBHOOK_SECRET` |
 | AI providers | 配置时需要 provider API keys |
-| AI fallback | 设置 fallback base URL 时需要 fallback API key |
+| 异步 AI 渠道 | 配置渠道公共字段时需要对应渠道 API key |
 
 `.wrangler/wrangler.types.jsonc` 可能包含完整密钥 schema，以保持生成的 `Env` 类型稳定。这不意味着每个密钥在运行时都是必需的。
 

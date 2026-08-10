@@ -8,7 +8,7 @@ order: 5
 
 # AI Integration
 
-OPCStack keeps AI provider code under `src/backend/ai/`. Handlers and business modules should call the simple client interfaces from that directory, not provider SDKs directly. This keeps provider-specific request shapes, fallback endpoint rules, task persistence, queue retry behavior, and R2 output handling in one place.
+OPCStack keeps AI provider code under `src/backend/ai/`. Handlers and business modules should call the simple client interfaces from that directory, not provider SDKs directly. This keeps provider-specific request shapes, channel endpoint rules, task persistence, queue retry behavior, and R2 output handling in one place.
 
 The current AI surface is backend-only:
 
@@ -33,7 +33,7 @@ Business code
         |
         +-- provider implementation
               |
-              +-- resolveAIEndpoints(primary, fallback)
+              +-- explicit endpoint
               +-- provider SDK or fetch
               +-- optional task row in Tenant Shard DB
               +-- optional R2 output
@@ -56,7 +56,7 @@ Unsupported provider names throw `AIError('UNSUPPORTED_AI_PROVIDER')`.
 ```
 src/backend/ai/
   error.ts              # AIError and typed error codes
-  fallback.ts           # primary + fallback endpoint resolution
+  endpoint.ts           # explicit provider endpoint type
   chat/
     index.ts
     openai/
@@ -144,10 +144,8 @@ Chat config:
 | Key | File | Purpose |
 | --- | --- | --- |
 | `CHAT_OPENAI_BASE_URL` | `.env.dev`, `.env.prod` | Primary OpenAI-compatible base URL |
-| `CHAT_OPENAI_FALLBACK_BASE_URL` | `.env.dev`, `.env.prod` | Optional fallback base URL |
 | `CHAT_OPENAI_MODEL` | `.env.dev`, `.env.prod` | Default chat model |
 | `CHAT_OPENAI_API_KEY` | `.env.secret.example` | Primary API key placeholder |
-| `CHAT_OPENAI_FALLBACK_API_KEY` | `.env.secret.example` | Fallback API key placeholder |
 
 ## Image
 
@@ -386,6 +384,8 @@ Task statuses:
 
 Consumers skip missing tasks and non-processing tasks, then `ack()` the queue message. This makes retries idempotent at the task row boundary.
 
+The existing `*/10 * * * *` scheduled job deletes `completed` and `failed` task rows whose `updated_at` is older than `AI_TASK_RETENTION_DAYS`. It never deletes `processing` rows. This database cleanup does not read task results or delete generated R2 objects; object retention stays with R2 lifecycle rules.
+
 ## Queue Consumers
 
 Required queue names:
@@ -464,19 +464,27 @@ Request handlers that create tasks for the current user should use the current r
 
 Do not store AI task rows in Meta DB. Meta DB only owns the shard registry needed to find the tenant DB.
 
-## Fallback Endpoint Rules
+## Endpoint Rules
 
-Fallback config is shared by all AI provider implementations through `resolveAIEndpoints`.
+Synchronous Chat and Realtime calls use their provider's single configured endpoint. Image and TTS synchronous calls use the same provider endpoint unless the caller passes an explicit endpoint. Async consumers always pass the endpoint selected by Channel Router. Providers never choose a second endpoint or retry through another endpoint.
 
-Rules:
+## Channel Router
 
-- Primary base URL and primary API key are always used
-- Empty fallback base URL and empty fallback API key disables fallback
-- Fallback base URL without fallback API key is invalid
-- Fallback API key without fallback base URL is invalid
-- Invalid fallback pairs throw `AI_FALLBACK_CONFIG_INCOMPLETE`
+Channel Router is used only by Image, TTS, and Video async consumers. Task creation still accepts only a provider and model. The consumer discovers complete channel prefixes from `Env`, filters channels that declare the task model, and selects the highest score before calling the provider.
 
-`prepare-cloudflare.mjs` validates the same rule before deployment. If a fallback base URL is set, the matching fallback secret key is required.
+The score is calculated inside the current Tenant Shard from 1-minute buckets over the last 5 minutes and 1 hour:
+
+```text
+normalize(value, pool_max) = pool_max == 0 ? 0 : value / pool_max
+penalty = (error * error_weight + latency * latency_weight + price * price_weight) / total_weight
+score = (1 - penalty) * 100
+```
+
+The 5-minute and 1-hour values are combined as `70% + 30%` when both exist. Missing error or latency values use the candidate-pool median. When the entire pool has no value for one metric, its normalized penalty is `0.5`. Equal scores use the complete channel prefix in ascending order.
+
+Each upstream attempt increments one `(channel, model, bucket_start)` row. Successful attempts add latency; failed upstream attempts only add the error count. The router does not write per-call detail rows, use process memory, or add a global metrics service. The existing 10-minute scheduled job deletes metric buckets older than 24 hours from every active or draining Tenant Shard.
+
+Video selects a channel only when creating a new remote provider task. After the provider returns a task id, the consumer persists `channel`, `channel_started_at`, and `provider_task_id` together. Later polling resolves the endpoint from that stored channel and never calls Channel Router again. A confirmed remote `failed` result records the channel error, appends the channel to `failed_channels_json`, and clears all three execution fields before the next queue attempt selects another channel. Polling network errors keep the existing binding.
 
 ## Config
 
@@ -485,57 +493,61 @@ Public AI config lives in `.env.dev` and `.env.prod`.
 | Key | Purpose |
 | --- | --- |
 | `CHAT_OPENAI_BASE_URL` | OpenAI-compatible chat base URL |
-| `CHAT_OPENAI_FALLBACK_BASE_URL` | Optional chat fallback base URL |
 | `CHAT_OPENAI_MODEL` | Default chat model |
 | `IMAGE_GEMINI_BASE_URL` | Gemini image base URL |
-| `IMAGE_GEMINI_FALLBACK_BASE_URL` | Optional Gemini image fallback base URL |
 | `IMAGE_GEMINI_MODEL` | Default Gemini image model |
 | `IMAGE_OPENAI_BASE_URL` | OpenAI image base URL |
-| `IMAGE_OPENAI_FALLBACK_BASE_URL` | Optional OpenAI image fallback base URL |
 | `IMAGE_OPENAI_MODEL` | Default OpenAI image model |
 | `IMAGE_SEEDDREAM_BASE_URL` | SeedDream base URL |
-| `IMAGE_SEEDDREAM_FALLBACK_BASE_URL` | Optional SeedDream fallback base URL |
 | `IMAGE_SEEDDREAM_MODEL` | Default SeedDream image model |
 | `IMAGE_ALIYUN_BASE_URL` | Aliyun DashScope base URL |
-| `IMAGE_ALIYUN_FALLBACK_BASE_URL` | Optional Aliyun fallback base URL |
 | `IMAGE_ALIYUN_MODEL` | Default Aliyun image model |
 | `TTS_GEMINI_BASE_URL` | Gemini TTS base URL |
-| `TTS_GEMINI_FALLBACK_BASE_URL` | Optional Gemini TTS fallback base URL |
 | `TTS_GEMINI_MODEL` | Default Gemini TTS model |
 | `TTS_SEED_BASE_URL` | Seed TTS base URL |
-| `TTS_SEED_FALLBACK_BASE_URL` | Optional Seed TTS fallback base URL |
 | `TTS_SEED_MODEL` | Default Seed TTS model |
 | `REALTIME_DOUBAO_BASE_URL` | Doubao realtime base URL |
-| `REALTIME_DOUBAO_FALLBACK_BASE_URL` | Optional Doubao realtime fallback base URL |
 | `REALTIME_DOUBAO_MODEL` | Default Doubao realtime model |
 | `VIDEO_SEEDDANCE_BASE_URL` | SeedDance video base URL |
-| `VIDEO_SEEDDANCE_FALLBACK_BASE_URL` | Optional SeedDance fallback base URL |
 | `VIDEO_SEEDDANCE_MODEL` | Default SeedDance video model |
+| `AI_ROUTING_ERROR_WEIGHT` | Async channel error-rate score weight |
+| `AI_ROUTING_LATENCY_WEIGHT` | Async channel latency score weight |
+| `AI_ROUTING_PRICE_WEIGHT` | Async channel price score weight |
+| `AI_TASK_RETENTION_DAYS` | Retention period for completed and failed async tasks |
 
 Secret placeholders live in `.env.secret.example`.
 
 | Secret | Purpose |
 | --- | --- |
 | `CHAT_OPENAI_API_KEY` | Primary chat key |
-| `CHAT_OPENAI_FALLBACK_API_KEY` | Fallback chat key |
 | `IMAGE_GEMINI_API_KEY` | Primary Gemini image key |
-| `IMAGE_GEMINI_FALLBACK_API_KEY` | Fallback Gemini image key |
 | `IMAGE_OPENAI_API_KEY` | Primary OpenAI image key |
-| `IMAGE_OPENAI_FALLBACK_API_KEY` | Fallback OpenAI image key |
 | `IMAGE_SEEDDREAM_API_KEY` | Primary SeedDream key |
-| `IMAGE_SEEDDREAM_FALLBACK_API_KEY` | Fallback SeedDream key |
 | `IMAGE_ALIYUN_API_KEY` | Primary Aliyun key |
-| `IMAGE_ALIYUN_FALLBACK_API_KEY` | Fallback Aliyun key |
 | `TTS_GEMINI_API_KEY` | Primary Gemini TTS key |
-| `TTS_GEMINI_FALLBACK_API_KEY` | Fallback Gemini TTS key |
 | `TTS_SEED_API_KEY` | Primary Seed TTS key |
-| `TTS_SEED_FALLBACK_API_KEY` | Fallback Seed TTS key |
 | `REALTIME_DOUBAO_API_KEY` | Primary Doubao realtime key |
-| `REALTIME_DOUBAO_FALLBACK_API_KEY` | Fallback Doubao realtime key |
 | `VIDEO_SEEDDANCE_API_KEY` | Primary SeedDance key |
-| `VIDEO_SEEDDANCE_FALLBACK_API_KEY` | Fallback SeedDance key |
+| `IMAGE_GEMINI_OFFICIAL_API_KEY` | Gemini image channel key |
+| `IMAGE_OPENAI_OFFICIAL_API_KEY` | OpenAI image channel key |
+| `IMAGE_SEEDDREAM_OFFICIAL_API_KEY` | SeedDream image channel key |
+| `IMAGE_ALIYUN_OFFICIAL_API_KEY` | Aliyun image channel key |
+| `TTS_GEMINI_OFFICIAL_API_KEY` | Gemini TTS channel key |
+| `TTS_SEED_OFFICIAL_API_KEY` | Seed TTS channel key |
+| `VIDEO_SEEDDANCE_OFFICIAL_API_KEY` | SeedDance video channel key |
 
 Do not put API keys in public env files or frontend config.
+
+Async channel configuration uses one complete ENV prefix per channel:
+
+```bash
+IMAGE_OPENAI_OFFICIAL_BASE_URL=https://api.openai.com/v1
+IMAGE_OPENAI_OFFICIAL_MODELS=gpt-image-2
+IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER=1
+IMAGE_OPENAI_OFFICIAL_API_KEY=
+```
+
+`MODELS` accepts semicolon-separated model names. `PRICE_MULTIPLIER` must be positive. The Cloudflare preparation script discovers complete channel prefixes and injects their public fields and secret keys into the generated runtime configuration.
 
 ## Add A Provider
 
@@ -547,8 +559,7 @@ Keep provider additions boring.
 4. Add the provider id to the area's provider union
 5. Add one branch in the area's `createAI...Clients` factory
 6. Add env keys to `.env.dev`, `.env.prod`, `.env.secret.example`, `wrangler.jsonc.tpl`, and `SECRET_KEYS`
-7. Add fallback validation if the provider supports fallback
-8. Add focused unit tests for request mapping, fallback behavior, task creation, and provider error mapping
+7. Add focused unit tests for request mapping, task creation, and provider error mapping
 
 Do not create a generic provider registry unless at least two areas need the exact same dynamic registration behavior. The current explicit `switch`/branch style is simpler and easier to read.
 
@@ -556,7 +567,7 @@ Do not create a generic provider registry unless at least two areas need the exa
 
 **Calling provider SDKs from handlers**
 
-Do not do this. Use `src/backend/ai/*` simple clients so config, fallback, task rows, and R2 rules stay centralized.
+Do not do this. Use `src/backend/ai/*` simple clients so config, channel endpoints, task rows, and R2 rules stay centralized.
 
 **Putting task payload in the queue message**
 
@@ -569,10 +580,6 @@ AI tasks are tenant data. Store them in Tenant Shard DB.
 **Buffering video output**
 
 Do not use `arrayBuffer` or base64 for generated video output. Stream the provider response body into R2.
-
-**Setting only one fallback key**
-
-Fallback base URL and fallback API key must be configured together. One without the other is invalid config.
 
 **Assuming every provider supports every option**
 

@@ -182,11 +182,11 @@
 - 同步 Image/TTS、Chat 或 Realtime 路由
 
 ## TODO 清单
-- [ ] 1. 更新 `AGENTS.md` 的 AI、Database、Queues 与 Runtime Config 规则，记录 Channel Router、分钟桶和任务清理机制
-- [ ] 2. 检查 `template-docs/`、`.env.secret.example`、Schema 和实现命名一致，删除实现过程中残留的旧方案或临时代码
+- [x] 1. 更新 `AGENTS.md` 的 AI、Database、Queues 与 Runtime Config 规则，记录 Channel Router、分钟桶和任务清理机制
+- [x] 2. 检查 `template-docs/`、`.env.secret.example`、Schema 和实现命名一致，删除实现过程中残留的旧方案或临时代码
 - [ ] 3. 用户确认真实 secret env 已包含全部渠道密钥后，重新生成 Cloudflare config 与 `Env` 类型
-- [ ] 4. 运行全量测试并按技术设计 5.2 完成 Image 故障转移、Video 固定轮询渠道和 Cron 清理验收
-- [ ] 5. 确认每个前置任务均已有独立提交，再提交本任务的文档与最终回归修正
+- [x] 4. 运行全量测试并按技术设计 5.2 完成 Image 故障转移、Video 固定轮询渠道和 Cron 清理验收
+- [x] 5. 确认每个前置任务均已有独立提交，再提交本任务的文档与最终回归修正
 
 ## 验收测试步骤
 1. 运行 `pnpm prepare:cloudflare:dev`，再运行 `pnpm exec wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false`

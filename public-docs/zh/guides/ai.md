@@ -8,7 +8,7 @@ order: 5
 
 # AI 集成
 
-OPCStack 将 AI provider 代码放在 `src/backend/ai/` 下。处理器和业务模块应调用该目录下的简单客户端接口，而不是直接调用 provider SDK。这样可以将 provider 特定的请求结构、fallback 端点规则、任务持久化、队列重试行为和 R2 输出处理集中在一处。
+OPCStack 将 AI provider 代码放在 `src/backend/ai/` 下。处理器和业务模块应调用该目录下的简单客户端接口，而不是直接调用 provider SDK。这样可以将 provider 特定的请求结构、渠道端点规则、任务持久化、队列重试行为和 R2 输出处理集中在一处。
 
 当前 AI 功能仅限后端：
 
@@ -33,7 +33,7 @@ OPCStack 将 AI provider 代码放在 `src/backend/ai/` 下。处理器和业务
         |
         +-- provider 实现
               |
-              +-- resolveAIEndpoints(primary, fallback)
+              +-- 明确的 endpoint
               +-- provider SDK 或 fetch
               +-- 可选：Tenant Shard DB 中的任务行
               +-- 可选：R2 输出
@@ -56,7 +56,7 @@ Provider 在 `options.provider` 中显式指定。仅在产品有明确默认值
 ```
 src/backend/ai/
   error.ts              # AIError 和类型化错误码
-  fallback.ts           # primary + fallback 端点解析
+  endpoint.ts           # 明确的 provider endpoint 类型
   chat/
     index.ts
     openai/
@@ -143,11 +143,9 @@ const result = await createAIClients(env).simple.generateObject(
 
 | 键 | 文件 | 用途 |
 | --- | --- | --- |
-| `CHAT_OPENAI_BASE_URL` | `.env.dev`, `.env.prod` | 主 OpenAI 兼容 base URL |
-| `CHAT_OPENAI_FALLBACK_BASE_URL` | `.env.dev`, `.env.prod` | 可选 fallback base URL |
+| `CHAT_OPENAI_BASE_URL` | `.env.dev`, `.env.prod` | OpenAI 兼容 base URL |
 | `CHAT_OPENAI_MODEL` | `.env.dev`, `.env.prod` | 默认对话模型 |
-| `CHAT_OPENAI_API_KEY` | `.env.secret.example` | 主 API key 占位符 |
-| `CHAT_OPENAI_FALLBACK_API_KEY` | `.env.secret.example` | Fallback API key 占位符 |
+| `CHAT_OPENAI_API_KEY` | `.env.secret.example` | API key 占位符 |
 
 ## 图像
 
@@ -386,6 +384,8 @@ API 或业务代码
 
 Consumer 跳过缺失的任务和非 processing 状态的任务，然后对队列消息执行 `ack()`。这使重试在任务行边界上具有幂等性。
 
+现有的 `*/10 * * * *` scheduled job 会删除 `updated_at` 早于 `AI_TASK_RETENTION_DAYS` 的 `completed` 和 `failed` 任务行，但绝不删除 `processing` 任务。数据库清理不读取任务结果，也不删除生成的 R2 对象；对象保留仍由 R2 lifecycle rules 管理。
+
 ## 队列 Consumer
 
 所需队列名称：
@@ -464,19 +464,27 @@ Meta DB
 
 不要将 AI 任务行存储在 Meta DB 中。Meta DB 只负责存储找到 Tenant DB 所需的 shard 注册表。
 
-## Fallback 端点规则
+## Endpoint 规则
 
-Fallback 配置由所有 AI provider 实现通过 `resolveAIEndpoints` 共享。
+同步 Chat 和 Realtime 调用使用其 provider 唯一配置的 endpoint。同步 Image 和 TTS 调用也使用该 provider endpoint，除非调用方显式传入 endpoint。异步 consumer 始终传入 Channel Router 选中的 endpoint。Provider 自身不会选择第二个 endpoint，也不会通过其他 endpoint 重试。
 
-规则：
+## Channel Router
 
-- 始终使用主 base URL 和主 API key
-- 空 fallback base URL 和空 fallback API key 表示禁用 fallback
-- 有 fallback base URL 但没有 fallback API key 是无效配置
-- 有 fallback API key 但没有 fallback base URL 是无效配置
-- 无效的 fallback 组合会抛出 `AI_FALLBACK_CONFIG_INCOMPLETE`
+Channel Router 仅用于 Image、TTS 和 Video 异步 consumer。任务创建仍只接受 provider 和 model。Consumer 从 `Env` 发现完整渠道前缀，筛选声明支持该任务模型的渠道，并在调用 provider 前选择分数最高的渠道。
 
-`prepare-cloudflare.mjs` 在部署前校验同样的规则。如果设置了 fallback base URL，则需要对应的 fallback 密钥。
+评分使用当前 Tenant Shard 最近 5 分钟和 1 小时的 1 分钟桶：
+
+```text
+normalize(value, pool_max) = pool_max == 0 ? 0 : value / pool_max
+penalty = (error * error_weight + latency * latency_weight + price * price_weight) / total_weight
+score = (1 - penalty) * 100
+```
+
+同时存在 5 分钟和 1 小时数据时按 `70% + 30%` 合并。缺少错误率或延迟时使用候选池中位数。整个候选池都没有某项指标时，其归一化惩罚为 `0.5`。分数相同时按完整渠道前缀升序排列。
+
+每次上游尝试增加一条 `(channel, model, bucket_start)` 分钟桶。成功调用累计延迟，失败的上游调用只累计错误次数。Router 不写每次调用明细，不依赖进程内存，也不增加全局指标服务。现有 10 分钟 scheduled job 会清理每个 active 或 draining Tenant Shard 中超过 24 小时的指标桶。
+
+Video 仅在创建新的远程 provider 任务时选择渠道。Provider 返回 task id 后，consumer 同时持久化 `channel`、`channel_started_at` 和 `provider_task_id`。后续轮询从已存 channel 解析 endpoint，不再调用 Channel Router。远程任务明确返回 `failed` 时，consumer 记录渠道错误、把渠道追加到 `failed_channels_json`，并在下一次队列尝试选择其他渠道前清空三个执行字段。轮询网络错误保留已有绑定。
 
 ## 配置
 
@@ -485,57 +493,61 @@ Fallback 配置由所有 AI provider 实现通过 `resolveAIEndpoints` 共享。
 | 键 | 用途 |
 | --- | --- |
 | `CHAT_OPENAI_BASE_URL` | OpenAI 兼容对话 base URL |
-| `CHAT_OPENAI_FALLBACK_BASE_URL` | 可选对话 fallback base URL |
 | `CHAT_OPENAI_MODEL` | 默认对话模型 |
 | `IMAGE_GEMINI_BASE_URL` | Gemini 图像 base URL |
-| `IMAGE_GEMINI_FALLBACK_BASE_URL` | 可选 Gemini 图像 fallback base URL |
 | `IMAGE_GEMINI_MODEL` | 默认 Gemini 图像模型 |
 | `IMAGE_OPENAI_BASE_URL` | OpenAI 图像 base URL |
-| `IMAGE_OPENAI_FALLBACK_BASE_URL` | 可选 OpenAI 图像 fallback base URL |
 | `IMAGE_OPENAI_MODEL` | 默认 OpenAI 图像模型 |
 | `IMAGE_SEEDDREAM_BASE_URL` | SeedDream base URL |
-| `IMAGE_SEEDDREAM_FALLBACK_BASE_URL` | 可选 SeedDream fallback base URL |
 | `IMAGE_SEEDDREAM_MODEL` | 默认 SeedDream 图像模型 |
 | `IMAGE_ALIYUN_BASE_URL` | Aliyun DashScope base URL |
-| `IMAGE_ALIYUN_FALLBACK_BASE_URL` | 可选 Aliyun fallback base URL |
 | `IMAGE_ALIYUN_MODEL` | 默认 Aliyun 图像模型 |
 | `TTS_GEMINI_BASE_URL` | Gemini TTS base URL |
-| `TTS_GEMINI_FALLBACK_BASE_URL` | 可选 Gemini TTS fallback base URL |
 | `TTS_GEMINI_MODEL` | 默认 Gemini TTS 模型 |
 | `TTS_SEED_BASE_URL` | Seed TTS base URL |
-| `TTS_SEED_FALLBACK_BASE_URL` | 可选 Seed TTS fallback base URL |
 | `TTS_SEED_MODEL` | 默认 Seed TTS 模型 |
 | `REALTIME_DOUBAO_BASE_URL` | Doubao 实时 base URL |
-| `REALTIME_DOUBAO_FALLBACK_BASE_URL` | 可选 Doubao 实时 fallback base URL |
 | `REALTIME_DOUBAO_MODEL` | 默认 Doubao 实时模型 |
 | `VIDEO_SEEDDANCE_BASE_URL` | SeedDance 视频 base URL |
-| `VIDEO_SEEDDANCE_FALLBACK_BASE_URL` | 可选 SeedDance fallback base URL |
 | `VIDEO_SEEDDANCE_MODEL` | 默认 SeedDance 视频模型 |
+| `AI_ROUTING_ERROR_WEIGHT` | 异步渠道错误率评分权重 |
+| `AI_ROUTING_LATENCY_WEIGHT` | 异步渠道延迟评分权重 |
+| `AI_ROUTING_PRICE_WEIGHT` | 异步渠道价格评分权重 |
+| `AI_TASK_RETENTION_DAYS` | completed 和 failed 异步任务保留天数 |
 
 密钥占位符位于 `.env.secret.example`。
 
 | 密钥 | 用途 |
 | --- | --- |
-| `CHAT_OPENAI_API_KEY` | 主对话 key |
-| `CHAT_OPENAI_FALLBACK_API_KEY` | Fallback 对话 key |
-| `IMAGE_GEMINI_API_KEY` | 主 Gemini 图像 key |
-| `IMAGE_GEMINI_FALLBACK_API_KEY` | Fallback Gemini 图像 key |
-| `IMAGE_OPENAI_API_KEY` | 主 OpenAI 图像 key |
-| `IMAGE_OPENAI_FALLBACK_API_KEY` | Fallback OpenAI 图像 key |
-| `IMAGE_SEEDDREAM_API_KEY` | 主 SeedDream key |
-| `IMAGE_SEEDDREAM_FALLBACK_API_KEY` | Fallback SeedDream key |
-| `IMAGE_ALIYUN_API_KEY` | 主 Aliyun key |
-| `IMAGE_ALIYUN_FALLBACK_API_KEY` | Fallback Aliyun key |
-| `TTS_GEMINI_API_KEY` | 主 Gemini TTS key |
-| `TTS_GEMINI_FALLBACK_API_KEY` | Fallback Gemini TTS key |
-| `TTS_SEED_API_KEY` | 主 Seed TTS key |
-| `TTS_SEED_FALLBACK_API_KEY` | Fallback Seed TTS key |
-| `REALTIME_DOUBAO_API_KEY` | 主 Doubao 实时 key |
-| `REALTIME_DOUBAO_FALLBACK_API_KEY` | Fallback Doubao 实时 key |
-| `VIDEO_SEEDDANCE_API_KEY` | 主 SeedDance key |
-| `VIDEO_SEEDDANCE_FALLBACK_API_KEY` | Fallback SeedDance key |
+| `CHAT_OPENAI_API_KEY` | 对话 key |
+| `IMAGE_GEMINI_API_KEY` | Gemini 图像 key |
+| `IMAGE_OPENAI_API_KEY` | OpenAI 图像 key |
+| `IMAGE_SEEDDREAM_API_KEY` | SeedDream key |
+| `IMAGE_ALIYUN_API_KEY` | Aliyun key |
+| `TTS_GEMINI_API_KEY` | Gemini TTS key |
+| `TTS_SEED_API_KEY` | Seed TTS key |
+| `REALTIME_DOUBAO_API_KEY` | Doubao 实时 key |
+| `VIDEO_SEEDDANCE_API_KEY` | SeedDance key |
+| `IMAGE_GEMINI_OFFICIAL_API_KEY` | Gemini 图像渠道 key |
+| `IMAGE_OPENAI_OFFICIAL_API_KEY` | OpenAI 图像渠道 key |
+| `IMAGE_SEEDDREAM_OFFICIAL_API_KEY` | SeedDream 图像渠道 key |
+| `IMAGE_ALIYUN_OFFICIAL_API_KEY` | Aliyun 图像渠道 key |
+| `TTS_GEMINI_OFFICIAL_API_KEY` | Gemini TTS 渠道 key |
+| `TTS_SEED_OFFICIAL_API_KEY` | Seed TTS 渠道 key |
+| `VIDEO_SEEDDANCE_OFFICIAL_API_KEY` | SeedDance 视频渠道 key |
 
 不要将 API key 放在公共环境文件或前端配置中。
+
+异步渠道使用一个完整的 ENV 前缀配置：
+
+```bash
+IMAGE_OPENAI_OFFICIAL_BASE_URL=https://api.openai.com/v1
+IMAGE_OPENAI_OFFICIAL_MODELS=gpt-image-2
+IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER=1
+IMAGE_OPENAI_OFFICIAL_API_KEY=
+```
+
+`MODELS` 接受分号分隔的模型名。`PRICE_MULTIPLIER` 必须为正数。Cloudflare 准备脚本会发现完整渠道前缀，并把公共字段和 secret key 注入生成的运行时配置。
 
 ## 添加 Provider
 
@@ -547,8 +559,7 @@ Fallback 配置由所有 AI provider 实现通过 `resolveAIEndpoints` 共享。
 4. 将 provider id 添加到该领域的 provider 联合类型中
 5. 在该领域的 `createAI...Clients` 工厂中添加一个分支
 6. 将环境变量添加到 `.env.dev`、`.env.prod`、`.env.secret.example`、`wrangler.jsonc.tpl` 和 `SECRET_KEYS`
-7. 如果 provider 支持 fallback，添加 fallback 校验
-8. 针对请求映射、fallback 行为、任务创建和 provider 错误映射添加专项单元测试
+7. 针对请求映射、任务创建和 provider 错误映射添加专项单元测试
 
 除非至少有两个领域需要完全相同的动态注册行为，否则不要创建通用 provider 注册表。当前显式的 `switch`/分支写法更简单易读。
 
@@ -556,7 +567,7 @@ Fallback 配置由所有 AI provider 实现通过 `resolveAIEndpoints` 共享。
 
 **在处理器中直接调用 provider SDK**
 
-不要这样做。使用 `src/backend/ai/*` 的 simple 客户端，以便配置、fallback、任务行和 R2 规则保持集中管理。
+不要这样做。使用 `src/backend/ai/*` 的 simple 客户端，以便配置、渠道 endpoint、任务行和 R2 规则保持集中管理。
 
 **将任务负载放入队列消息**
 
@@ -569,10 +580,6 @@ AI 任务是租户数据，应存储在 Tenant Shard DB 中。
 **缓冲视频输出**
 
 不要对生成的视频输出使用 `arrayBuffer` 或 base64。将 provider 响应体流式写入 R2。
-
-**只配置一个 fallback key**
-
-Fallback base URL 和 fallback API key 必须同时配置。缺少其中一个是无效配置。
 
 **假设每个 provider 都支持所有选项**
 
