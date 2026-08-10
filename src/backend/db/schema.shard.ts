@@ -83,6 +83,22 @@ export const notificationRead = sqliteTable(
 	]
 )
 
+export const aiChannelMetricBucket = sqliteTable(
+	'ai_channel_metric_buckets',
+	{
+		channel: text('channel').notNull(),
+		model: text('model').notNull(),
+		bucketStart: integer('bucket_start').notNull(),
+		successCount: integer('success_count').notNull().default(0),
+		errorCount: integer('error_count').notNull().default(0),
+		successLatencyMsTotal: integer('success_latency_ms_total').notNull().default(0)
+	},
+	(table) => [
+		primaryKey({ columns: [table.channel, table.model, table.bucketStart] }),
+		index('ai_channel_metric_buckets_bucket_start_idx').on(table.bucketStart)
+	]
+)
+
 export const aiImageTask = sqliteTable(
 	'ai_image_tasks',
 	{
@@ -91,6 +107,7 @@ export const aiImageTask = sqliteTable(
 		status: text('status').notNull(),
 		provider: text('provider').notNull(),
 		model: text('model'),
+		channel: text('channel'),
 		prompt: text('prompt').notNull(),
 		numberOfImages: integer('number_of_images'),
 		aspectRatio: text('aspect_ratio'),
@@ -109,7 +126,8 @@ export const aiImageTask = sqliteTable(
 	},
 	(table) => [
 		index('ai_image_tasks_user_id_created_at_idx').on(table.userId, table.createdAt),
-		index('ai_image_tasks_user_id_status_idx').on(table.userId, table.status)
+		index('ai_image_tasks_user_id_status_idx').on(table.userId, table.status),
+		index('ai_image_tasks_status_updated_at_idx').on(table.status, table.updatedAt)
 	]
 )
 
@@ -121,6 +139,7 @@ export const aiTtsTask = sqliteTable(
 		status: text('status').notNull(),
 		provider: text('provider').notNull(),
 		model: text('model'),
+		channel: text('channel'),
 		sourceJson: text('source_json'),
 		instruction: text('instruction'),
 		speakersJson: text('speakers_json').notNull(),
@@ -135,7 +154,8 @@ export const aiTtsTask = sqliteTable(
 	},
 	(table) => [
 		index('ai_tts_tasks_user_id_created_at_idx').on(table.userId, table.createdAt),
-		index('ai_tts_tasks_user_id_status_idx').on(table.userId, table.status)
+		index('ai_tts_tasks_user_id_status_idx').on(table.userId, table.status),
+		index('ai_tts_tasks_status_updated_at_idx').on(table.status, table.updatedAt)
 	]
 )
 
@@ -147,6 +167,7 @@ export const aiVideoTask = sqliteTable(
 		status: text('status').notNull(),
 		provider: text('provider').notNull(),
 		model: text('model'),
+		channel: text('channel'),
 		prompt: text('prompt').notNull(),
 		ratio: text('ratio'),
 		resolution: text('resolution'),
@@ -155,6 +176,8 @@ export const aiVideoTask = sqliteTable(
 		r2UploadIsPublic: integer('r2_upload_is_public').notNull().default(0),
 		referencesJson: text('references_json').notNull(),
 		providerTaskId: text('provider_task_id'),
+		channelStartedAt: integer('channel_started_at'),
+		failedChannelsJson: text('failed_channels_json').notNull().default('[]'),
 		resultJson: text('result_json'),
 		attemptCount: integer('attempt_count').notNull().default(0),
 		lastErrorMessage: text('last_error_message'),
@@ -164,7 +187,8 @@ export const aiVideoTask = sqliteTable(
 	},
 	(table) => [
 		index('ai_video_tasks_user_id_created_at_idx').on(table.userId, table.createdAt),
-		index('ai_video_tasks_user_id_status_idx').on(table.userId, table.status)
+		index('ai_video_tasks_user_id_status_idx').on(table.userId, table.status),
+		index('ai_video_tasks_status_updated_at_idx').on(table.status, table.updatedAt)
 	]
 )
 
@@ -178,6 +202,8 @@ export type Feedback = typeof feedback.$inferSelect
 export type NewFeedback = typeof feedback.$inferInsert
 export type NotificationRead = typeof notificationRead.$inferSelect
 export type NewNotificationRead = typeof notificationRead.$inferInsert
+export type AIChannelMetricBucketRow = typeof aiChannelMetricBucket.$inferSelect
+export type NewAIChannelMetricBucketRow = typeof aiChannelMetricBucket.$inferInsert
 export type AIImageTaskRow = typeof aiImageTask.$inferSelect
 export type NewAIImageTaskRow = typeof aiImageTask.$inferInsert
 export type AITTSTaskRow = typeof aiTtsTask.$inferSelect
