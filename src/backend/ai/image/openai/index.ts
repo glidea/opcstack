@@ -5,7 +5,7 @@ import type {
 	ImageGenerateParamsStreaming,
 	ImageGenStreamEvent
 } from 'openai/resources/images'
-import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import type { AIEndpoint } from '../../endpoint'
 import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
@@ -42,7 +42,7 @@ export function createOpenAISimpleImageClient(
 }
 
 class openAISimpleImageClient implements AISimpleImageClient {
-	private readonly endpoints: AIEndpoint[]
+	private readonly endpoint: AIEndpoint
 	private readonly env: Env
 	private readonly model: string
 	private readonly userId: string
@@ -55,12 +55,10 @@ class openAISimpleImageClient implements AISimpleImageClient {
 		options: AISimpleImageClientOptions
 	) {
 		this.env = env
-		this.endpoints = resolveAIEndpoints(
-			env.IMAGE_OPENAI_BASE_URL,
-			env.IMAGE_OPENAI_API_KEY,
-			env.IMAGE_OPENAI_FALLBACK_BASE_URL,
-			env.IMAGE_OPENAI_FALLBACK_API_KEY
-		)
+		this.endpoint = options.endpoint ?? {
+			baseURL: env.IMAGE_OPENAI_BASE_URL,
+			apiKey: env.IMAGE_OPENAI_API_KEY
+		}
 		this.model = options.model ?? env.IMAGE_OPENAI_MODEL
 		this.userId = userId
 		this.tenantDb = tenantDb
@@ -80,10 +78,8 @@ class openAISimpleImageClient implements AISimpleImageClient {
 				stream: true,
 				partial_images: 1
 			}
-			const stream = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-				const client = createOpenAIClient(endpoint)
-				return client.images.edit(request)
-			})
+			const client = createOpenAIClient(this.endpoint)
+			const stream = await client.images.edit(request)
 			const outputs = await toImageResultsFromStream(stream)
 
 			return uploadImageResults(this.env, input, this.userId, outputs)
@@ -98,10 +94,8 @@ class openAISimpleImageClient implements AISimpleImageClient {
 			stream: true,
 			partial_images: 1
 		}
-		const stream = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = createOpenAIClient(endpoint)
-			return client.images.generate(request)
-		})
+		const client = createOpenAIClient(this.endpoint)
+		const stream = await client.images.generate(request)
 		const outputs = await toImageResultsFromStream(stream)
 
 		return uploadImageResults(this.env, input, this.userId, outputs)

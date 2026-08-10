@@ -530,8 +530,6 @@ function createEnv(
 	return {
 		IMAGE_SEEDDREAM_API_KEY: apiKey,
 		IMAGE_SEEDDREAM_BASE_URL: baseURL,
-		IMAGE_SEEDDREAM_FALLBACK_API_KEY: '',
-		IMAGE_SEEDDREAM_FALLBACK_BASE_URL: '',
 		IMAGE_SEEDDREAM_MODEL: model
 	} as unknown as Env
 }

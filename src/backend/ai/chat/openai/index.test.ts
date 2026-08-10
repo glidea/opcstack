@@ -250,74 +250,14 @@ describe('createOpenAINativeChatClient', () => {
 	})
 })
 
-describe('createOpenAISimpleChatClient fallback', () => {
-	type GivenDetail = Record<string, never>
-	type WhenDetail = Record<string, never>
-	type ThenExpected = {
-		text: string
-		firstBaseURL: string
-		secondBaseURL: string
-		firstApiKey: string
-		secondApiKey: string
-	}
-
-	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
-		{
-			scenario: 'chat text retries fallback endpoint',
-			given: 'primary client fails and fallback client succeeds',
-			when: 'generating text',
-			then: 'uses fallback base url and api key with same model',
-			givenDetail: {},
-			whenDetail: {},
-			thenExpected: {
-				text: 'fallback-text',
-				firstBaseURL: 'https://primary.test/v1',
-				secondBaseURL: 'https://fallback.test/v1',
-				firstApiKey: 'primary-key',
-				secondApiKey: 'fallback-key'
-			}
-		}
-	]
-
-	runCases(cases, async (): Promise<ThenExpected> => {
-		vi.clearAllMocks()
-		createMock.mockRejectedValueOnce(new Error('PRIMARY_FAILED'))
-		createMock.mockResolvedValueOnce({ choices: [{ message: { content: 'fallback-text' } }] })
-
-		const env = createEnv(
-			'gpt-env',
-			'primary-key',
-			'https://primary.test/v1',
-			'fallback-key',
-			'https://fallback.test/v1'
-		)
-		const client = createOpenAISimpleChatClient(env)
-		const text = await client.generateText('hello')
-
-		const firstConfig = openAIConstructorMock.mock.calls[0]?.[0] as { apiKey?: string; baseURL?: string } | undefined
-		const secondConfig = openAIConstructorMock.mock.calls[1]?.[0] as { apiKey?: string; baseURL?: string } | undefined
-		return {
-			text,
-			firstBaseURL: firstConfig?.baseURL ?? '',
-			secondBaseURL: secondConfig?.baseURL ?? '',
-			firstApiKey: firstConfig?.apiKey ?? '',
-			secondApiKey: secondConfig?.apiKey ?? ''
-		}
-	})
-})
-
 function createEnv(
 	model: string,
 	apiKey = 'k',
-	baseURL = 'https://api.openai.com/v1',
-	fallbackApiKey = '',
-	fallbackBaseURL = ''
+	baseURL = 'https://api.openai.com/v1'
 ): Env {
 	return {
 		CHAT_OPENAI_API_KEY: apiKey,
 		CHAT_OPENAI_BASE_URL: baseURL,
-		CHAT_OPENAI_FALLBACK_API_KEY: fallbackApiKey,
-		CHAT_OPENAI_FALLBACK_BASE_URL: fallbackBaseURL,
 		CHAT_OPENAI_MODEL: model
 	} as unknown as Env
 }

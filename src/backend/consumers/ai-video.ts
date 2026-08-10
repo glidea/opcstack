@@ -123,7 +123,10 @@ async function createProviderTask(
 ): Promise<string> {
 	switch (task.provider) {
 		case 'seedance':
-			return createSeedDanceProviderTask(env, task.userId, model, input)
+			return createSeedDanceProviderTask(env, task.userId, model, input, {
+				baseURL: env.VIDEO_SEEDDANCE_BASE_URL,
+				apiKey: env.VIDEO_SEEDDANCE_API_KEY
+			})
 		default:
 			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${task.provider}`)
 	}
@@ -152,7 +155,10 @@ async function getProviderTask(
 ): Promise<AIVideoProviderTaskResult> {
 	switch (task.provider) {
 		case 'seedance':
-			return getSeedDanceProviderTask(env, providerTaskId)
+			return getSeedDanceProviderTask(providerTaskId, {
+				baseURL: env.VIDEO_SEEDDANCE_BASE_URL,
+				apiKey: env.VIDEO_SEEDDANCE_API_KEY
+			})
 		default:
 			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${task.provider}`)
 	}

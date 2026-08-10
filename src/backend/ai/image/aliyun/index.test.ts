@@ -520,8 +520,6 @@ function createEnv(
 	return {
 		IMAGE_ALIYUN_API_KEY: apiKey,
 		IMAGE_ALIYUN_BASE_URL: baseURL,
-		IMAGE_ALIYUN_FALLBACK_API_KEY: '',
-		IMAGE_ALIYUN_FALLBACK_BASE_URL: '',
 		IMAGE_ALIYUN_MODEL: model
 	} as unknown as Env
 }

@@ -171,7 +171,7 @@ Examples already in the repo:
 
 | File | Purpose |
 | --- | --- |
-| `scripts/prepare-cloudflare.test.mjs` | Cloudflare config rendering, bindings, fallback secret validation |
+| `scripts/prepare-cloudflare.test.mjs` | Cloudflare config rendering, bindings, async channel secret validation |
 | `src/backend/payment/config.test.ts` | Payment product config parsing |
 | `src/frontend/lib/i18n/locales.test.ts` | Locale config |
 

@@ -82,7 +82,8 @@ describe('seedance video client', () => {
 			{
 				prompt: 'make a video',
 				duration: 5
-			}
+			},
+			{ baseURL: 'https://ark.cn-beijing.volces.com/api/v3', apiKey: 'key' }
 		)
 		const requestBody: {
 			model: string
@@ -122,7 +123,10 @@ describe('seedance video client', () => {
 		}
 	]
 	runCases(getCases, async (): Promise<GetThen> => {
-		const result = await getSeedDanceProviderTask(createEnv(), 'remote-1')
+		const result = await getSeedDanceProviderTask('remote-1', {
+			baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+			apiKey: 'key'
+		})
 		return {
 			status: result.status,
 			videoUrl: result.status === 'completed' ? result.videoUrl : ''
@@ -204,8 +208,6 @@ function createEnv(): Env {
 	return {
 		VIDEO_SEEDDANCE_BASE_URL: 'https://ark.cn-beijing.volces.com/api/v3',
 		VIDEO_SEEDDANCE_API_KEY: 'key',
-		VIDEO_SEEDDANCE_FALLBACK_BASE_URL: '',
-		VIDEO_SEEDDANCE_FALLBACK_API_KEY: '',
 		VIDEO_SEEDDANCE_MODEL: 'doubao-seedance-2-0-fast-260128',
 		APP_BASE_URL: 'https://app',
 		R2_ORIGIN_SIGNING_SECRET: 'secret'

@@ -407,7 +407,7 @@ Conditionally required:
 | Dodo | `PAYMENT_DODO_API_KEY`, `PAYMENT_DODO_WEBHOOK_SECRET` |
 | Creem | `PAYMENT_CREEM_API_KEY`, `PAYMENT_CREEM_WEBHOOK_SECRET` |
 | AI providers | Provider API keys when configured |
-| AI fallback | Fallback API key when fallback base URL is set |
+| AI channels | API keys for discovered async channels |
 
 `.wrangler/wrangler.types.jsonc` may include the full secret schema so generated `Env` stays stable. That does not mean every secret is required at runtime.
 

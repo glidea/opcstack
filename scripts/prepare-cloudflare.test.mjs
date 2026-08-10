@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
 	buildDnsCnameRecordPayload,
 	buildAgentOAuthClientUpsertSql,
+	buildAIChannelVars,
 	buildRequiredSecretKeys,
 	buildRuntimeSecretLines,
 	buildTypesWranglerConfig,
@@ -161,6 +162,116 @@ describe('prepare cloudflare dns config', () => {
 })
 
 describe('prepare cloudflare runtime config validation', () => {
+	it('discovers complete async ai channels', () => {
+		const env = createRuntimeEnv({
+			IMAGE_OPENAI_BASE_URL: 'https://primary.example.com/v1',
+			IMAGE_OPENAI_MODEL: 'gpt-image-2',
+			IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
+			IMAGE_OPENAI_OFFICIAL_MODELS: 'gpt-image-2;gpt-image-1',
+			IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '1',
+			IMAGE_OPENAI_OFFICIAL_API_KEY: 'official-key'
+		})
+
+		validateRuntimeConfig(env, { isRemote: false })
+
+		expect({
+			vars: buildAIChannelVars(env),
+			keys: buildRequiredSecretKeys(env)
+		}).toEqual({
+			vars: {
+				IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
+				IMAGE_OPENAI_OFFICIAL_MODELS: 'gpt-image-2;gpt-image-1',
+				IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '1'
+			},
+			keys: [
+				'BETTER_AUTH_SECRET',
+				'IMAGE_OPENAI_OFFICIAL_API_KEY'
+			]
+		})
+	})
+
+	it('rejects incomplete async ai channel config', () => {
+		const env = createRuntimeEnv({
+			IMAGE_OPENAI_BASE_URL: 'https://primary.example.com/v1',
+			IMAGE_OPENAI_MODEL: 'gpt-image-2',
+			IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
+			IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '1',
+			IMAGE_OPENAI_OFFICIAL_API_KEY: 'official-key'
+		})
+
+		expect(() => {
+			validateRuntimeConfig(env, { isRemote: false })
+		}).toThrow('IMAGE_OPENAI_OFFICIAL_MODELS_MISSING')
+	})
+
+	it('rejects invalid async ai channel price multiplier', () => {
+		const env = createRuntimeEnv({
+			IMAGE_OPENAI_BASE_URL: 'https://primary.example.com/v1',
+			IMAGE_OPENAI_MODEL: 'gpt-image-2',
+			IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
+			IMAGE_OPENAI_OFFICIAL_MODELS: 'gpt-image-2',
+			IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '0',
+			IMAGE_OPENAI_OFFICIAL_API_KEY: 'official-key'
+		})
+
+		expect(() => {
+			validateRuntimeConfig(env, { isRemote: false })
+		}).toThrow('IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER_INVALID')
+	})
+
+	it('rejects async ai provider default model without a matching channel', () => {
+		const env = createRuntimeEnv({
+			IMAGE_OPENAI_BASE_URL: 'https://primary.example.com/v1',
+			IMAGE_OPENAI_MODEL: 'gpt-image-2',
+			IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
+			IMAGE_OPENAI_OFFICIAL_MODELS: 'gpt-image-1',
+			IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '1',
+			IMAGE_OPENAI_OFFICIAL_API_KEY: 'official-key'
+		})
+
+		expect(() => {
+			validateRuntimeConfig(env, { isRemote: false })
+		}).toThrow('IMAGE_OPENAI_DEFAULT_MODEL_CHANNEL_MISSING')
+	})
+
+	it('rejects unsupported async ai provider channel config', () => {
+		const env = createRuntimeEnv({
+			IMAGE_UNKNOWN_OFFICIAL_BASE_URL: 'https://example.com/v1',
+			IMAGE_UNKNOWN_OFFICIAL_MODELS: 'model',
+			IMAGE_UNKNOWN_OFFICIAL_PRICE_MULTIPLIER: '1',
+			IMAGE_UNKNOWN_OFFICIAL_API_KEY: 'key'
+		})
+
+		expect(() => {
+			validateRuntimeConfig(env, { isRemote: false })
+		}).toThrow('IMAGE_UNKNOWN_CHANNEL_PROVIDER_UNSUPPORTED')
+	})
+
+	it('rejects invalid async ai routing weights and task retention', () => {
+		expect(() => {
+			validateRuntimeConfig(
+				createRuntimeEnv({
+					AI_ROUTING_ERROR_WEIGHT: '0',
+					AI_ROUTING_LATENCY_WEIGHT: '0',
+					AI_ROUTING_PRICE_WEIGHT: '0'
+				}),
+				{ isRemote: false }
+			)
+		}).toThrow('AI_ROUTING_WEIGHTS_INVALID')
+
+		expect(() => {
+			validateRuntimeConfig(createRuntimeEnv({ AI_ROUTING_PRICE_WEIGHT: '-1' }), {
+				isRemote: false
+			})
+		}).toThrow('AI_ROUTING_PRICE_WEIGHT_INVALID')
+
+		expect(() => {
+			validateRuntimeConfig(createRuntimeEnv({ AI_TASK_RETENTION_DAYS: '0' }), {
+				isRemote: false
+			})
+		}).toThrow('AI_TASK_RETENTION_DAYS_INVALID')
+	})
+
 	it('omits disabled optional secrets from runtime required keys', () => {
 		const keys = buildRequiredSecretKeys(createRuntimeEnv())
 
@@ -209,6 +320,24 @@ describe('prepare cloudflare runtime config validation', () => {
 		})
 	})
 
+	it('keeps dynamic async ai channel secrets in wrangler types config', () => {
+		const config = {
+			secrets: {
+				required: ['BETTER_AUTH_SECRET', 'IMAGE_OPENAI_OFFICIAL_API_KEY']
+			}
+		}
+
+		const typesConfig = buildTypesWranglerConfig(config)
+
+		expect({
+			hasChannelSecret: typesConfig.secrets.required.includes(
+				'IMAGE_OPENAI_OFFICIAL_API_KEY'
+			)
+		}).toEqual({
+			hasChannelSecret: true
+		})
+	})
+
 	it('requires enabled feature secrets', () => {
 		const env = createRuntimeEnv({
 			GOOGLE_AUTH_ENABLED: 'true',
@@ -219,9 +348,7 @@ describe('prepare cloudflare runtime config validation', () => {
 			PAYMENT_PRODUCTS:
 				'[{"product_id":"credits_100","type":"one_time","credits_amount":"100","providers":{"creem":{"kind":"remote_product","product_id":"prod_1"}}}]',
 			PAYMENT_CREEM_API_KEY: 'creem-key',
-			PAYMENT_CREEM_WEBHOOK_SECRET: 'creem-webhook',
-			IMAGE_GEMINI_FALLBACK_BASE_URL: 'https://fallback.example.com',
-			IMAGE_GEMINI_FALLBACK_API_KEY: 'fallback-key'
+			PAYMENT_CREEM_WEBHOOK_SECRET: 'creem-webhook'
 		})
 
 		const keys = buildRequiredSecretKeys(env)
@@ -233,8 +360,7 @@ describe('prepare cloudflare runtime config validation', () => {
 				'BETTER_AUTH_SECRET',
 				'GOOGLE_CLIENT_SECRET',
 				'PAYMENT_CREEM_API_KEY',
-				'PAYMENT_CREEM_WEBHOOK_SECRET',
-				'IMAGE_GEMINI_FALLBACK_API_KEY'
+				'PAYMENT_CREEM_WEBHOOK_SECRET'
 			]
 		})
 	})
@@ -276,17 +402,6 @@ describe('prepare cloudflare runtime config validation', () => {
 			validateRuntimeConfig(env, { isRemote: false })
 		}).toThrow('PAYMENT_CREEM_API_KEY_MISSING')
 	})
-
-	it('rejects fallback base url without fallback api key', () => {
-		const env = createRuntimeEnv({
-			IMAGE_GEMINI_FALLBACK_BASE_URL: 'https://fallback.example.com',
-			IMAGE_GEMINI_FALLBACK_API_KEY: ''
-		})
-
-		expect(() => {
-			validateRuntimeConfig(env, { isRemote: false })
-		}).toThrow('IMAGE_GEMINI_FALLBACK_API_KEY_MISSING')
-	})
 })
 
 function createRuntimeEnv(overrides = {}) {
@@ -315,24 +430,10 @@ function createRuntimeEnv(overrides = {}) {
 		PAYMENT_DODO_WEBHOOK_SECRET: '',
 		PAYMENT_CREEM_API_KEY: '',
 		PAYMENT_CREEM_WEBHOOK_SECRET: '',
-		CHAT_OPENAI_FALLBACK_BASE_URL: '',
-		CHAT_OPENAI_FALLBACK_API_KEY: '',
-		IMAGE_GEMINI_FALLBACK_BASE_URL: '',
-		IMAGE_GEMINI_FALLBACK_API_KEY: '',
-		IMAGE_OPENAI_FALLBACK_BASE_URL: '',
-		IMAGE_OPENAI_FALLBACK_API_KEY: '',
-		IMAGE_SEEDDREAM_FALLBACK_BASE_URL: '',
-		IMAGE_SEEDDREAM_FALLBACK_API_KEY: '',
-		IMAGE_ALIYUN_FALLBACK_BASE_URL: '',
-		IMAGE_ALIYUN_FALLBACK_API_KEY: '',
-		TTS_GEMINI_FALLBACK_BASE_URL: '',
-		TTS_GEMINI_FALLBACK_API_KEY: '',
-		TTS_SEED_FALLBACK_BASE_URL: '',
-		TTS_SEED_FALLBACK_API_KEY: '',
-		REALTIME_DOUBAO_FALLBACK_BASE_URL: '',
-		REALTIME_DOUBAO_FALLBACK_API_KEY: '',
-		VIDEO_SEEDDANCE_FALLBACK_BASE_URL: '',
-		VIDEO_SEEDDANCE_FALLBACK_API_KEY: '',
+		AI_ROUTING_ERROR_WEIGHT: '1',
+		AI_ROUTING_LATENCY_WEIGHT: '0.8',
+		AI_ROUTING_PRICE_WEIGHT: '0.2',
+		AI_TASK_RETENTION_DAYS: '30',
 		...overrides
 	}
 }

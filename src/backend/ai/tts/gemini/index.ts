@@ -1,5 +1,5 @@
 import { GoogleGenAI, type GenerateContentResponse } from '@google/genai'
-import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import type { AIEndpoint } from '../../endpoint'
 import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
@@ -33,7 +33,7 @@ export function createGeminiSimpleTTSClient(
 }
 
 class geminiSimpleTTSClient implements AISimpleTTSClient {
-	private readonly endpoints: AIEndpoint[]
+	private readonly endpoint: AIEndpoint
 	private readonly env: Env
 	private readonly model: string
 	private readonly userId: string
@@ -46,12 +46,10 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 		options: AISimpleTTSClientOptions
 	) {
 		this.env = env
-		this.endpoints = resolveAIEndpoints(
-			env.TTS_GEMINI_BASE_URL,
-			env.TTS_GEMINI_API_KEY,
-			env.TTS_GEMINI_FALLBACK_BASE_URL,
-			env.TTS_GEMINI_FALLBACK_API_KEY
-		)
+		this.endpoint = options.endpoint ?? {
+			baseURL: env.TTS_GEMINI_BASE_URL,
+			apiKey: env.TTS_GEMINI_API_KEY
+		}
 		this.model = options.model ?? env.TTS_GEMINI_MODEL
 		this.userId = userId
 		this.tenantDb = tenantDb
@@ -60,21 +58,19 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 	async generateSpeech(input: AITTSSpeechInput): Promise<AITTSResult> {
 		validateInput(input)
 
-		const result = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = createGeminiClient(endpoint)
-			return client.models.generateContent({
-				model: this.model,
-				contents: [
-					{
-						role: 'user',
-						parts: [{ text: toPrompt(input) }]
-					}
-				],
-				config: {
-					responseModalities: ['AUDIO'],
-					speechConfig: toSpeechConfig(input)
+		const client = createGeminiClient(this.endpoint)
+		const result = await client.models.generateContent({
+			model: this.model,
+			contents: [
+				{
+					role: 'user',
+					parts: [{ text: toPrompt(input) }]
 				}
-			})
+			],
+			config: {
+				responseModalities: ['AUDIO'],
+				speechConfig: toSpeechConfig(input)
+			}
 		})
 
 		return toSpeechResult(this.env, this.userId, input, result)

@@ -1,5 +1,4 @@
 export type AIErrorCode =
-	| 'AI_FALLBACK_CONFIG_INCOMPLETE'
 	| 'UNSUPPORTED_AI_PROVIDER'
 	| 'AI_IMAGE_REFERENCE_R2_READ_FAILED'
 	| 'AI_IMAGE_R2_UPLOAD_DIR_REQUIRED'
@@ -40,9 +39,7 @@ export class AIError extends Error {
 }
 
 function aiErrorMessage(code: AIErrorCode): string {
-	switch (code) {
-		case 'AI_FALLBACK_CONFIG_INCOMPLETE':
-			return 'AI fallback config is incomplete'
+	 switch (code) {
 		case 'UNSUPPORTED_AI_PROVIDER':
 			return 'AI provider is unsupported'
 		case 'AI_IMAGE_REFERENCE_R2_READ_FAILED':

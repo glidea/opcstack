@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import type { AIEndpoint } from '../../endpoint'
 import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
@@ -46,7 +46,7 @@ type SeedDreamImageStreamEvent = {
 }
 
 class seedDreamSimpleImageClient implements AISimpleImageClient {
-	private readonly endpoints: AIEndpoint[]
+	private readonly endpoint: AIEndpoint
 	private readonly env: Env
 	private readonly model: string
 	private readonly userId: string
@@ -59,12 +59,10 @@ class seedDreamSimpleImageClient implements AISimpleImageClient {
 		options: AISimpleImageClientOptions
 	) {
 		this.env = env
-		this.endpoints = resolveAIEndpoints(
-			env.IMAGE_SEEDDREAM_BASE_URL,
-			env.IMAGE_SEEDDREAM_API_KEY,
-			env.IMAGE_SEEDDREAM_FALLBACK_BASE_URL,
-			env.IMAGE_SEEDDREAM_FALLBACK_API_KEY
-		)
+		this.endpoint = options.endpoint ?? {
+			baseURL: env.IMAGE_SEEDDREAM_BASE_URL,
+			apiKey: env.IMAGE_SEEDDREAM_API_KEY
+		}
 		this.model = options.model ?? env.IMAGE_SEEDDREAM_MODEL
 		this.userId = userId
 		this.tenantDb = tenantDb
@@ -86,10 +84,10 @@ class seedDreamSimpleImageClient implements AISimpleImageClient {
 				sequential_image_generation: 'disabled'
 			}
 		}
-		const stream = (await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = createOpenAIClient(endpoint)
-			return client.images.generate(request as Parameters<OpenAI['images']['generate']>[0])
-		})) as unknown as AsyncIterable<SeedDreamImageStreamEvent>
+		const client = createOpenAIClient(this.endpoint)
+		const stream = (await client.images.generate(
+			request as Parameters<OpenAI['images']['generate']>[0]
+		)) as unknown as AsyncIterable<SeedDreamImageStreamEvent>
 		const outputs = await toImageResultsFromStream(stream)
 
 		return uploadImageResults(this.env, input, this.userId, outputs)

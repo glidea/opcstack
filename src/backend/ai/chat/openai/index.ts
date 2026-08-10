@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
 import type { z } from 'zod'
-import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import type { AIEndpoint } from '../../endpoint'
 import type { AISimpleChatClient, AIChatClientOptions } from '..'
 
 export function createOpenAINativeChatClient(env: Env): OpenAI {
@@ -16,29 +16,25 @@ export function createOpenAISimpleChatClient(env: Env, options: AIChatClientOpti
 }
 
 class openAISimpleChatClient implements AISimpleChatClient {
-	private readonly endpoints: AIEndpoint[]
+	private readonly endpoint: AIEndpoint
 	private readonly model: string
 	private readonly temperature: number | undefined
 
 	constructor(env: Env, options: AIChatClientOptions) {
-		this.endpoints = resolveAIEndpoints(
-			env.CHAT_OPENAI_BASE_URL,
-			env.CHAT_OPENAI_API_KEY,
-			env.CHAT_OPENAI_FALLBACK_BASE_URL,
-			env.CHAT_OPENAI_FALLBACK_API_KEY
-		)
+		this.endpoint = {
+			baseURL: env.CHAT_OPENAI_BASE_URL,
+			apiKey: env.CHAT_OPENAI_API_KEY
+		}
 		this.model = options.model ?? env.CHAT_OPENAI_MODEL
 		this.temperature = options.temperature
 	}
 
 	async generateText(prompt: string): Promise<string> {
-		const completion = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = createOpenAIClient(endpoint)
-			return client.chat.completions.create({
-				model: this.model,
-				messages: [{ role: 'system', content: prompt }],
-				temperature: this.temperature,
-			})
+		const client = createOpenAIClient(this.endpoint)
+		const completion = await client.chat.completions.create({
+			model: this.model,
+			messages: [{ role: 'system', content: prompt }],
+			temperature: this.temperature,
 		})
 
 		return completion.choices[0]?.message.content ?? ''
@@ -48,14 +44,12 @@ class openAISimpleChatClient implements AISimpleChatClient {
 		prompt: string,
 		schema: TSchema
 	): Promise<z.infer<TSchema>> {
-		const completion = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = createOpenAIClient(endpoint)
-			return client.chat.completions.parse({
-				model: this.model,
-				messages: [{ role: 'system', content: prompt }],
-				temperature: this.temperature,
-				response_format: zodResponseFormat(schema, 'output')
-			})
+		const client = createOpenAIClient(this.endpoint)
+		const completion = await client.chat.completions.parse({
+			model: this.model,
+			messages: [{ role: 'system', content: prompt }],
+			temperature: this.temperature,
+			response_format: zodResponseFormat(schema, 'output')
 		})
 
 		return completion.choices[0]?.message.parsed as z.infer<TSchema>

@@ -420,8 +420,6 @@ function createEnv(model: string, baseUrl?: string): Env {
 	return {
 		TTS_SEED_BASE_URL: baseUrl ?? 'https://openspeech.bytedance.com/api/v3',
 		TTS_SEED_API_KEY: 'api-key',
-		TTS_SEED_FALLBACK_BASE_URL: '',
-		TTS_SEED_FALLBACK_API_KEY: '',
 		TTS_SEED_MODEL: model
 	} as unknown as Env
 }

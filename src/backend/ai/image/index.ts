@@ -11,6 +11,7 @@ import { createGeminiNativeImageClient, createGeminiSimpleImageClient } from './
 import { createOpenAINativeImageClient, createOpenAISimpleImageClient } from './openai'
 import { createSeedDreamNativeImageClient, createSeedDreamSimpleImageClient } from './seedream'
 import { AIError } from '../error'
+import type { AIEndpoint } from '../endpoint'
 
 export * from './aliyun/constants'
 export * from './gemini/constants'
@@ -69,6 +70,7 @@ export interface AISimpleImageClient {
 export interface AISimpleImageClientOptions {
 	provider?: AIImageProvider
 	model?: string
+	endpoint?: AIEndpoint
 }
 
 export type AIImageProvider = 'gemini' | 'openai' | 'seedream' | 'aliyun'

@@ -5,7 +5,7 @@ import type {
 	AIRealtimeStartSessionInput,
 	AIRealtimeSession
 } from '..'
-import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import type { AIEndpoint } from '../../endpoint'
 import { AIError } from '../../error'
 import {
 	decodeDoubaoRealtimeFrame,
@@ -129,17 +129,15 @@ export function encodeDoubaoRealtimeInterruptFrame(sessionId: string): Uint8Arra
 }
 
 class WebSocketDoubaoRealtimeClient implements AIRealtimeClient {
-	private readonly endpoints: AIEndpoint[]
+	private readonly endpoint: AIEndpoint
 	private readonly userId: string
 	private readonly model: string
 
 	constructor(env: Env, userId: string, model: string) {
-		this.endpoints = resolveAIEndpoints(
-			env.REALTIME_DOUBAO_BASE_URL,
-			env.REALTIME_DOUBAO_API_KEY,
-			env.REALTIME_DOUBAO_FALLBACK_BASE_URL,
-			env.REALTIME_DOUBAO_FALLBACK_API_KEY
-		)
+		this.endpoint = {
+			baseURL: env.REALTIME_DOUBAO_BASE_URL,
+			apiKey: env.REALTIME_DOUBAO_API_KEY
+		}
 		this.userId = userId
 		this.model = model
 	}
@@ -152,9 +150,7 @@ class WebSocketDoubaoRealtimeClient implements AIRealtimeClient {
 			speaker: input.speaker,
 			prompt: input.prompt
 		}
-		const socket: WebSocket = await runWithAIFallback(this.endpoints, (endpoint: AIEndpoint) => {
-			return openDoubaoRealtimeSocket(endpoint, crypto.randomUUID())
-		})
+		const socket: WebSocket = await openDoubaoRealtimeSocket(this.endpoint, crypto.randomUUID())
 
 		const events: ReadableStream<AIRealtimeEvent> = createEventStream(socket, sessionInput.sessionId)
 		socket.send(encodeDoubaoRealtimeConnectionFrame(DOUBAO_REALTIME_START_CONNECTION_EVENT, toUtf8Bytes('{}')))

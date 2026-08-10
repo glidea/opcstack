@@ -4,7 +4,7 @@ import {
 	type Part,
 	type GenerateContentResponse
 } from '@google/genai'
-import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import type { AIEndpoint } from '../../endpoint'
 import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
@@ -39,7 +39,7 @@ export function createGeminiSimpleImageClient(
 }
 
 class geminiSimpleImageClient implements AISimpleImageClient {
-	private readonly endpoints: AIEndpoint[]
+	private readonly endpoint: AIEndpoint
 	private readonly env: Env
 	private readonly model: string
 	private readonly userId: string
@@ -52,12 +52,10 @@ class geminiSimpleImageClient implements AISimpleImageClient {
 		options: AISimpleImageClientOptions
 	) {
 		this.env = env
-		this.endpoints = resolveAIEndpoints(
-			env.IMAGE_GEMINI_BASE_URL,
-			env.IMAGE_GEMINI_API_KEY,
-			env.IMAGE_GEMINI_FALLBACK_BASE_URL,
-			env.IMAGE_GEMINI_FALLBACK_API_KEY
-		)
+		this.endpoint = options.endpoint ?? {
+			baseURL: env.IMAGE_GEMINI_BASE_URL,
+			apiKey: env.IMAGE_GEMINI_API_KEY
+		}
 		this.model = options.model ?? env.IMAGE_GEMINI_MODEL
 		this.userId = userId
 		this.tenantDb = tenantDb
@@ -65,26 +63,24 @@ class geminiSimpleImageClient implements AISimpleImageClient {
 
 	async generate(input: AISimpleImageClientGenerateInput): Promise<AIImageResult[]> {
 		const references = await resolveImageReferences(this.env, this.userId, input.references)
-		const result = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const client = createGeminiClient(endpoint)
-			return client.models.generateContent({
-				model: this.model,
-				contents: [
-					{
-						role: 'user',
-						parts: toRequestParts(input, references)
-					}
-				],
-				config: {
-					responseModalities: ['IMAGE'],
-					...(input.numberOfImages ? { candidateCount: input.numberOfImages } : {}),
-					imageConfig: {
-						aspectRatio: input.aspectRatio ?? '1:1',
-						...(input.imageSize ? { imageSize: input.imageSize } : {}),
-						...(input.lowCensorship ? { personGeneration: PersonGeneration.ALLOW_ALL } : {})
-					}
+		const client = createGeminiClient(this.endpoint)
+		const result = await client.models.generateContent({
+			model: this.model,
+			contents: [
+				{
+					role: 'user',
+					parts: toRequestParts(input, references)
 				}
-			})
+			],
+			config: {
+				responseModalities: ['IMAGE'],
+				...(input.numberOfImages ? { candidateCount: input.numberOfImages } : {}),
+				imageConfig: {
+					aspectRatio: input.aspectRatio ?? '1:1',
+					...(input.imageSize ? { imageSize: input.imageSize } : {}),
+					...(input.lowCensorship ? { personGeneration: PersonGeneration.ALLOW_ALL } : {})
+				}
+			}
 		})
 
 		return toImageResults(this.env, input, this.userId, result)

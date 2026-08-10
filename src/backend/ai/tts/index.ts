@@ -1,6 +1,7 @@
 import type { GoogleGenAI } from '@google/genai'
 import type { TenantShardDb } from '../../db'
 import { AIError } from '../error'
+import type { AIEndpoint } from '../endpoint'
 import { createGeminiNativeTTSClient, createGeminiSimpleTTSClient } from './gemini'
 import { createSeedSimpleTTSClient } from './seed'
 
@@ -45,6 +46,7 @@ export interface AISimpleTTSClient {
 export interface AISimpleTTSClientOptions {
 	provider?: AITTSProvider
 	model?: string
+	endpoint?: AIEndpoint
 }
 
 export type AITTSProvider = 'gemini' | 'seed'

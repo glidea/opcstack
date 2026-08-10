@@ -461,8 +461,6 @@ function createEnv(model: string, apiKey = 'k', baseURL = 'https://api.openai.co
 	return {
 		IMAGE_OPENAI_API_KEY: apiKey,
 		IMAGE_OPENAI_BASE_URL: baseURL,
-		IMAGE_OPENAI_FALLBACK_API_KEY: '',
-		IMAGE_OPENAI_FALLBACK_BASE_URL: '',
 		IMAGE_OPENAI_MODEL: model
 	} as unknown as Env
 }

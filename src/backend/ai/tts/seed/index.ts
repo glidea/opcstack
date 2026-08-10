@@ -1,4 +1,4 @@
-import { resolveAIEndpoints, runWithAIFallback, type AIEndpoint } from '../../fallback'
+import type { AIEndpoint } from '../../endpoint'
 import { AIError } from '../../error'
 import type { TenantShardDb } from '../../../db'
 import { createR2Client } from '../../../r2'
@@ -74,7 +74,7 @@ export function createSeedSimpleTTSClient(
 }
 
 class seedSimpleTTSClient implements AISimpleTTSClient {
-	private readonly endpoints: AIEndpoint[]
+	private readonly endpoint: AIEndpoint
 	private readonly env: Env
 	private readonly model: string
 	private readonly userId: string
@@ -87,12 +87,10 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 		options: AISimpleTTSClientOptions
 	) {
 		this.env = env
-		this.endpoints = resolveAIEndpoints(
-			env.TTS_SEED_BASE_URL,
-			env.TTS_SEED_API_KEY,
-			env.TTS_SEED_FALLBACK_BASE_URL,
-			env.TTS_SEED_FALLBACK_API_KEY
-		)
+		this.endpoint = options.endpoint ?? {
+			baseURL: env.TTS_SEED_BASE_URL,
+			apiKey: env.TTS_SEED_API_KEY
+		}
 		this.model = options.model ?? env.TTS_SEED_MODEL
 		this.userId = userId
 		this.tenantDb = tenantDb
@@ -100,26 +98,23 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 
 	async generateSpeech(input: AITTSSpeechInput): Promise<AITTSResult> {
 		if (this.model === SEED_TTS_MODEL_DOUBAO_SEED_PODCAST) {
-			return generateSeedPodcast(this.endpoints, this.env, this.userId, toSeedPodcastScriptRequest(input), input.uploadToR2)
+			return generateSeedPodcast(this.endpoint, this.env, this.userId, toSeedPodcastScriptRequest(input), input.uploadToR2)
 		}
 
 		validateInput(input)
 
-		const response: Response = await runWithAIFallback(this.endpoints, async (endpoint: AIEndpoint) => {
-			const response: Response = await fetch(`${trimRightSlash(endpoint.baseURL)}/tts/unidirectional`, {
-				method: 'POST',
-				headers: {
-					'content-type': 'application/json',
-					'X-Api-Key': endpoint.apiKey,
-					'X-Api-Resource-Id': 'seed-tts-2.0'
-				},
-				body: JSON.stringify(toSeedRequest(this.userId, this.model, input))
-			})
-			if (!response.ok) {
-				throw new AIError('SEED_TTS_FAILED')
-			}
-			return response
+		const response: Response = await fetch(`${trimRightSlash(this.endpoint.baseURL)}/tts/unidirectional`, {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				'X-Api-Key': this.endpoint.apiKey,
+				'X-Api-Resource-Id': 'seed-tts-2.0'
+			},
+			body: JSON.stringify(toSeedRequest(this.userId, this.model, input))
 		})
+		if (!response.ok) {
+			throw new AIError('SEED_TTS_FAILED')
+		}
 
 		const output: AITTSResult = {
 			audioBase64: await readAudioBase64(response),
@@ -143,7 +138,7 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 			throw new AIError('TTS_SOURCE_NOT_SUPPORTED')
 		}
 
-		return generateSeedPodcast(this.endpoints, this.env, this.userId, toSeedPodcastSourceRequest(input), input.uploadToR2)
+		return generateSeedPodcast(this.endpoint, this.env, this.userId, toSeedPodcastSourceRequest(input), input.uploadToR2)
 	}
 
 	async generateSpeechAsync(input: AITTSSpeechInput): Promise<AITTSTask> {
@@ -164,16 +159,14 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 }
 
 async function generateSeedPodcast(
-	endpoints: AIEndpoint[],
+	endpoint: AIEndpoint,
 	env: Env,
 	userId: string,
 	request: SeedPodcastRequest,
 	uploadToR2?: boolean
 ): Promise<AITTSResult> {
 	const requestId: string = crypto.randomUUID()
-	const socket: WebSocket = await runWithAIFallback(endpoints, (endpoint: AIEndpoint) => {
-		return openSeedPodcastSocket(endpoint, requestId)
-	})
+	const socket: WebSocket = await openSeedPodcastSocket(endpoint, requestId)
 	const audioChunks: Uint8Array[] = []
 	let audioUrl: string | undefined
 
