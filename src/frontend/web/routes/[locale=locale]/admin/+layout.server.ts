@@ -1,4 +1,6 @@
 import { error, redirect } from '@sveltejs/kit'
+import { authCore } from '$backend/api/auth'
+import { getMetaDb } from '$backend/db'
 import { createCloudflareWorkerUrl } from './admin-cloudflare'
 
 type AdminSession = {
@@ -21,7 +23,8 @@ type AdminLayoutEvent = {
 	fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 	params: { locale: string }
 	parent: () => Promise<AdminParentData>
-	platform?: { env?: Cloudflare.Env }
+	platform?: { env?: Env }
+	request: Request
 	url: URL
 }
 
@@ -31,8 +34,7 @@ type AdminLayoutData = AdminParentData & {
 
 export async function load(event: AdminLayoutEvent): Promise<AdminLayoutData> {
 	const parentData: AdminParentData = await event.parent()
-	const response: Response = await event.fetch('/api/auth/get-session')
-	const session: AdminSession | null = await response.json()
+	const session: AdminSession | null = await readAdminSession(event)
 	if (session === null) {
 		const redirectPath: string = `${event.url.pathname}${event.url.search}`
 		const search: URLSearchParams = new URLSearchParams({ redirect: redirectPath })
@@ -49,4 +51,15 @@ export async function load(event: AdminLayoutEvent): Promise<AdminLayoutData> {
 			event.platform?.env?.APP_NAME ?? ''
 		)
 	}
+}
+
+async function readAdminSession(event: AdminLayoutEvent): Promise<AdminSession | null> {
+	const env: Env | undefined = event.platform?.env
+	if (env) {
+		const metaDb = getMetaDb(env.META_DB.withSession('first-primary'))
+		return authCore(env, metaDb).api.getSession({ headers: event.request.headers })
+	}
+
+	const response: Response = await event.fetch('/api/auth/get-session')
+	return response.json()
 }

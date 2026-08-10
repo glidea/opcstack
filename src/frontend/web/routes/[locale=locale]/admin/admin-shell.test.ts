@@ -1,7 +1,23 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { load as loadAdminLayout } from './+layout.server'
 import { load as loadAdminIndex } from './+page.server'
 import { createAdminNavigation } from './admin-navigation'
+
+const { getRuntimeSession } = vi.hoisted(() => {
+	return { getRuntimeSession: vi.fn() }
+})
+
+vi.mock('$backend/api/auth', () => {
+	return {
+		authCore: (): { api: { getSession: typeof getRuntimeSession } } => {
+			return { api: { getSession: getRuntimeSession } }
+		}
+	}
+})
+
+vi.mock('$backend/db', () => {
+	return { getMetaDb: (db: unknown): unknown => db }
+})
 
 type SessionPayload = {
 	user: {
@@ -38,6 +54,30 @@ describe('admin route protection', () => {
 			supportEmail: 'admin@example.com'
 		})
 	})
+
+	test('reads the session from Worker bindings in production', async (): Promise<void> => {
+		const session: SessionPayload = {
+			user: { id: 'admin-1', email: 'admin@example.com', name: 'Admin' }
+		}
+		getRuntimeSession.mockResolvedValueOnce(session)
+		const fetchSession = vi.fn(async (): Promise<Response> => {
+			throw new Error('SvelteKit cannot dispatch the Hono API internally')
+		})
+		const event: LayoutEventFixture = createLayoutEvent(null, fetchSession)
+		event.platform = {
+			env: {
+				META_DB: {
+					withSession: (): Record<string, never> => ({})
+				}
+			} as unknown as Env
+		}
+
+		const result: Record<string, unknown> = await loadAdminLayout(event)
+
+		expect(result).toMatchObject({ supportEmail: 'admin@example.com' })
+		expect(fetchSession).not.toHaveBeenCalled()
+		expect(getRuntimeSession).toHaveBeenCalledWith({ headers: event.request.headers })
+	})
 })
 
 describe('admin navigation', () => {
@@ -64,11 +104,31 @@ describe('admin navigation', () => {
 	})
 })
 
-function createLayoutEvent(session: SessionPayload | null): never {
+type LayoutEventFixture = {
+	fetch: () => Promise<Response>
+	params: { locale: string }
+	parent: () => Promise<LayoutParentFixture>
+	platform?: { env?: Env }
+	request: Request
+	url: URL
+}
+
+type LayoutParentFixture = {
+	locale: string
+	siteName: string
+	supportEmail: string
+	canonicalUrl: string
+	[key: string]: unknown
+}
+
+function createLayoutEvent(
+	session: SessionPayload | null,
+	fetchSession?: () => Promise<Response>
+): LayoutEventFixture {
 	return {
-		fetch: async (): Promise<Response> => Response.json(session),
+		fetch: fetchSession ?? (async (): Promise<Response> => Response.json(session)),
 		params: { locale: 'en' },
-		parent: async (): Promise<Record<string, unknown>> => {
+		parent: async (): Promise<LayoutParentFixture> => {
 			return {
 				locale: 'en',
 				siteName: 'OPCStack',
@@ -76,6 +136,7 @@ function createLayoutEvent(session: SessionPayload | null): never {
 				canonicalUrl: 'https://example.com/en/admin/users'
 			}
 		},
+		request: new Request('https://example.com/en/admin/users?page=2'),
 		url: new URL('https://example.com/en/admin/users?page=2')
-	} as never
+	}
 }
