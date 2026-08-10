@@ -23,6 +23,7 @@ OPCStack 是给 One Person Company 准备的 Cloudflare-native AI SaaS 模板。
 | Payments   | Dodo、Creem、一次性包、订阅、Webhook、退款扣回                | [支付](guides/payments.md)                                         |
 | AI         | 聊天、图像、TTS、实时、视频提供商，带 R2 输出的异步任务       | [AI](guides/ai.md)                                                 |
 | Operations | 用户反馈、系统通知、全局与定向公告                            | [运营](guides/operations.md)                                       |
+| Admin      | 用户、积分、码、公告、支付和 AI 任务查看                      | [管理控制台](guides/admin-console.md)                              |
 | Testing    | Vitest、BDD 辅助工具、Mock D1 和 R2、E2E、覆盖率              | [测试](guides/testing.md)                                          |
 | Deployment | prepare-cloudflare 自动化、DNS、CN 域名、密钥、部署命令       | [部署](guides/deployment.md)                                       |
 
@@ -37,7 +38,8 @@ OPCStack 是给 One Person Company 准备的 Cloudflare-native AI SaaS 模板。
 1. [部署](guides/deployment.md) — 了解部署路径和资源供给。
 2. [认证](guides/authentication.md) — 锁定注册和 OAuth。
 3. [支付](guides/payments.md) 和 [积分](guides/credits.md) — 接入计费。
-4. [测试](guides/testing.md) — 上线前跑一遍。
+4. [管理控制台](guides/admin-console.md) — 运营已部署的产品。
+5. [测试](guides/testing.md) — 上线前跑一遍。
 
 **在模板本身上工作？**
 

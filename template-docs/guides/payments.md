@@ -572,6 +572,8 @@ POST /api/admin/list_payment_transactions
 
 Admin only. Same response as user list, but includes `user_id` and supports filtering by user.
 
+For filtering and inspecting transactions in the browser, see [Admin Console](admin-console.md).
+
 ### Webhooks
 
 ```http

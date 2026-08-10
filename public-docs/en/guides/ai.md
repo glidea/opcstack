@@ -350,6 +350,8 @@ The video consumer downloads the final provider video URL as a stream and writes
 
 Image, TTS, and Video support async task rows in the Tenant Shard DB.
 
+For cross-user task inspection and contextual Cloudflare links, see [Admin Console](admin-console.md).
+
 ```
 API or business code
   |

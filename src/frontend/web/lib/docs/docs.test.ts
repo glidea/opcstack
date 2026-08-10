@@ -13,6 +13,61 @@ import {
 
 type EmptyWhenDetail = Record<string, never>
 
+const adminConsoleDocs: Record<string, string> = import.meta.glob<string>(
+	'/public-docs/{en,zh}/guides/admin-console.md',
+	{
+		eager: true,
+		import: 'default',
+		query: '?raw'
+	}
+)
+
+type AdminConsoleDocsExpected = {
+	locales: string[]
+	coversAllRoutes: boolean
+}
+
+describe('admin console operator docs', () => {
+	const cases: TestCase<EmptyWhenDetail, EmptyWhenDetail, AdminConsoleDocsExpected>[] = [
+		{
+			scenario: 'publish localized admin console guides',
+			given: 'English and Chinese operator documentation',
+			when: 'checking the documented admin routes',
+			then: 'both guides cover every admin page',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: {
+				locales: ['en', 'zh'],
+				coversAllRoutes: true
+			}
+		}
+	]
+
+	runCases(cases, (): AdminConsoleDocsExpected => {
+		const routes: string[] = [
+			'/admin/overview',
+			'/admin/users',
+			'/admin/beta-codes',
+			'/admin/credit-codes',
+			'/admin/feedback',
+			'/admin/notifications',
+			'/admin/payments',
+			'/admin/ai-tasks'
+		]
+		const entries: Array<[string, string]> = Object.entries(adminConsoleDocs)
+		const locales: string[] = entries
+			.map(([path]: [string, string]): string => path.split('/')[2] ?? '')
+			.sort()
+
+		return {
+			locales,
+			coversAllRoutes: entries.every(([, content]: [string, string]): boolean => {
+				return routes.every((route: string): boolean => content.includes(route))
+			})
+		}
+	})
+})
+
 type PathGivenDetail = {
 	sourcePath: string
 	locale: string

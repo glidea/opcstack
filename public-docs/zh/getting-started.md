@@ -54,7 +54,11 @@ pnpm deploy:cloudflare
 
 完整的资源供给和部署流程请参阅 [部署](guides/deployment.md)。
 
-## 4. 开发浏览器扩展
+## 4. 访问管理控制台
+
+使用 `SYSTEM_EMAIL` 配置的账号登录，然后打开 `/{locale}/admin`。全部页面和运营操作参阅[管理控制台](guides/admin-console.md)。
+
+## 5. 开发浏览器扩展
 
 ```bash
 pnpm dev:extension

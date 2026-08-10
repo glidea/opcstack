@@ -460,6 +460,8 @@ Errors:
 
 Admin endpoints require `adminUserMiddleware`, which accepts a super admin session or `ADMIN_API_TOKEN`.
 
+For generating credit codes or granting credits through the browser, see [Admin Console](admin-console.md).
+
 ### Generate Codes
 
 ```http

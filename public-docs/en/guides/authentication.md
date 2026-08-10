@@ -444,6 +444,8 @@ Session expiry is 30 days. Better Auth refreshes the session after 27 days of ac
 
 The `SYSTEM_EMAIL` user must already exist in the database. The token path does not create it. If no user with that email exists, even a correct token returns 401.
 
+The browser console requires the super admin session path. `ADMIN_API_TOKEN` is only for API clients. See [Admin Console](admin-console.md) for sign-in and operator workflows.
+
 ## Frontend Integration
 
 The frontend does not instantiate `createAuthClient` directly. It imports `client` from `src/api-contract/client`, which wraps `createAuthClient` with bookmark handling, token storage, and typed API methods.

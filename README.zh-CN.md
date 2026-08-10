@@ -23,7 +23,7 @@ OPCStack 是面向一人公司的 Cloudflare 原生 AI SaaS 模板。内置认�
 | 账户 | Better Auth、邮箱登录、Google、GitHub、LinuxDO、Turnstile、内测码 |
 | 积分 | 积分钱包、账本、注册赠送、每日签到、邀请奖励、兑换码、过期清理 |
 | 支付 | Dodo、Creem、一次性积分包、订阅、Webhook、退款冲正 |
-| 运营 | 用户反馈、系统公告、定向通知、通知已读状态 |
+| 运营 | 管理控制台、用户、积分、码、反馈、公告、支付和 AI 任务查看 |
 | AI | OpenAI、Gemini、SeedDream、阿里云、豆包、SeedDance、异步任务、R2 结果存储 |
 | 前端 | Tailwind CSS、shadcn-svelte、共享 UI、中英文国际化、Web 应用 |
 | 浏览器扩展 | Chrome 扩展、WXT、弹窗、设置页、后台脚本、内容脚本 |
@@ -34,7 +34,7 @@ OPCStack 是面向一人公司的 Cloudflare 原生 AI SaaS 模板。内置认�
 这些能力不是互不相关的演示代码，而是围绕真实产品流程组织：
 
 ```text
-注册 -> 内测码 -> 积分 -> 邀请奖励 -> 支付和订阅 -> 通知 -> 反馈 -> 管理 API
+注册 -> 内测码 -> 积分 -> 邀请奖励 -> 支付和订阅 -> 通知 -> 反馈 -> 管理控制台
 ```
 
 不需要的模块可以直接删除，不必重新设计这些基础流程。
@@ -171,7 +171,7 @@ pnpm build:extension
 
 ### 运营
 
-- [ ] 统一运营和管理控制台
+- [x] 统一运营和管理控制台
 - [ ] 基于 Cloudflare Analytics 的指标监控和告警
 
 ### 支付和计费
@@ -186,13 +186,6 @@ pnpm build:extension
 - [ ] 统一限流
 - [ ] 用户级配额
 - [ ] API、AI 任务、存储和积分消耗的用量控制
-
-### Agent Runtime
-
-- [ ] 大规模多租户 Agent Runtime
-- [ ] 长期记忆
-- [ ] Skill 系统
-- [ ] 工具调用和运行时隔离
 
 ### 多平台支持
 

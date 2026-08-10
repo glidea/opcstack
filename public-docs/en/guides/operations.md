@@ -10,6 +10,8 @@ order: 11
 
 Two lightweight operational features share this page: user feedback and system notifications. Both are simple admin-driven CRUD with no complex business logic, so they do not warrant separate files.
 
+For the browser workflows that inspect feedback and publish notifications, see [Admin Console](admin-console.md).
+
 ## Data Ownership
 
 | Table | Database | Scoping |

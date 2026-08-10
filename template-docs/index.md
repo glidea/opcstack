@@ -22,6 +22,7 @@ OPCStack is a Cloudflare-native product skeleton for one-person or small teams t
 | Payments | Dodo, Creem, one-time packs, subscriptions, webhooks, refund clawback | [Payments](guides/payments.md) |
 | AI | Chat, image, TTS, realtime, video providers, async tasks with R2 output | [AI](guides/ai.md) |
 | Operations | User feedback, system notifications, global and targeted announcements | [Operations](guides/operations.md) |
+| Admin Console | Users, credits, codes, announcements, payments, AI task inspection | [Admin Console](guides/admin-console.md) |
 | Testing | Vitest, BDD helper, mock D1 and R2, E2E, coverage | [Testing](guides/testing.md) |
 | Deployment | prepare-cloudflare automation, DNS, CN domain, secrets, deploy commands | [Deployment](guides/deployment.md) |
 
@@ -36,7 +37,8 @@ Start with [Getting Started](getting-started.md). On first use, give the Quick S
 1. [Deployment](guides/deployment.md) for the deploy path and resource provisioning.
 2. [Authentication](guides/authentication.md) to lock down signup and OAuth.
 3. [Payments](guides/payments.md) and [Credits](guides/credits.md) to wire billing.
-4. [Testing](guides/testing.md) before you ship.
+4. [Admin Console](guides/admin-console.md) to operate the deployed product.
+5. [Testing](guides/testing.md) before you ship.
 
 **Working on the template itself?**
 

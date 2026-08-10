@@ -23,7 +23,7 @@ What slows development down is usually not that AI cannot write code. It is the 
 | Accounts              | Better Auth, email login, Google, GitHub, LinuxDO, Turnstile, beta codes                                                            |
 | Credits               | Credit wallet, ledger, signup grants, daily check-ins, referral rewards, redemption codes, expiry cleanup                           |
 | Payments              | Dodo, Creem, one-time credit packs, subscriptions, webhooks, refund reversals                                                       |
-| Operations            | User feedback, system announcements, targeted notifications, notification read state                                                |
+| Operations            | Admin console, users, credits, codes, feedback, announcements, payments, AI task inspection                                         |
 | AI                    | OpenAI, Gemini, SeedDream, Aliyun, Doubao, SeedDance, async tasks, R2 output storage                                                |
 | Frontend              | Tailwind CSS, shadcn-svelte, shared UI, English and Chinese i18n, web app                                                           |
 | Browser extension     | Chrome extension, WXT, popup, options, background, content scripts                                                                  |
@@ -34,7 +34,7 @@ What slows development down is usually not that AI cannot write code. It is the 
 These are not isolated demos. They are organized around a real product flow:
 
 ```text
-Signup -> Beta code -> Credits -> Referral rewards -> Payments and subscriptions -> Notifications -> Feedback -> Admin API
+Signup -> Beta code -> Credits -> Referral rewards -> Payments and subscriptions -> Notifications -> Feedback -> Admin console
 ```
 
 Remove the modules you do not need without redesigning these foundational flows from scratch.
@@ -171,7 +171,7 @@ pnpm build:extension
 
 ### Operations
 
-- [ ] Unified operations and administration console
+- [x] Unified operations and administration console
 - [ ] Metrics monitoring and alerts based on Cloudflare Analytics
 
 ### Payments and Billing
@@ -186,13 +186,6 @@ pnpm build:extension
 - [ ] Unified rate limiting
 - [ ] Per-user quotas
 - [ ] Usage controls for APIs, AI tasks, storage, and credit consumption
-
-### Agent Runtime
-
-- [ ] Large-scale multi-tenant agent runtime
-- [ ] Long-term memory
-- [ ] Skill system
-- [ ] Tool calling and runtime isolation
 
 ### Multi-Platform Support
 

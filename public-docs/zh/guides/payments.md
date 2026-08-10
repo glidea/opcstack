@@ -573,6 +573,8 @@ POST /api/admin/list_payment_transactions
 
 仅管理员。响应与用户列表相同，但包含 `user_id` 并支持按用户过滤。
 
+在浏览器中筛选和查看交易的流程参阅[管理控制台](admin-console.md)。
+
 ### Webhooks
 
 ```http

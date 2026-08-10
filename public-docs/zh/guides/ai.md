@@ -350,6 +350,8 @@ const task = await clients.simple.generate({
 
 图像、TTS 和视频支持在 Tenant Shard DB 中存储异步任务行。
 
+跨用户查看任务并跳转相关 Cloudflare 资源的流程参阅[管理控制台](admin-console.md)。
+
 ```
 API 或业务代码
   |

@@ -444,6 +444,8 @@ Handler 读写 Meta DB
 
 `SYSTEM_EMAIL` 用户必须已存在于数据库中。token 路径不会创建用户。如果没有匹配 `SYSTEM_EMAIL` 的用户，即使 token 正确也会返回 401。
 
+浏览器控制台必须使用超级管理员会话，`ADMIN_API_TOKEN` 只用于 API 客户端。登录和运营操作参阅[管理控制台](admin-console.md)。
+
 ## 前端集成
 
 前端不直接实例化 `createAuthClient`，而是从 `src/api-contract/client` 导入 `client`，该模块封装了 `createAuthClient` 并处理 bookmark、token 存储和类型化 API 方法。

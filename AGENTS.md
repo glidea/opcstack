@@ -372,6 +372,7 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 - Business pages should set `<title>`, `<meta name="description">`, and `<link rel="canonical">`.
 - Product docs rendered by the app live in `public-docs/en/` and `public-docs/zh/`.
 - Template explanation docs live in `template-docs/` and are not rendered by the app.
+- Admin console operator usage lives in `template-docs/guides/admin-console.md` and the localized public copies. Keep them synchronized when admin routes or workflows change.
 - Docs route is `/docs/[...slug]` when `DOCS_ENABLED=true`; client config exposes `docsEnabled`.
 - Docs use Markdown frontmatter with `title`, `description`, `group`, `group_order`, and `order`.
 - In docs frontmatter, `group_order` sorts groups and `order` sorts docs inside the same group.

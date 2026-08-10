@@ -53,7 +53,11 @@ First remote deploy prompts you to create a Cloudflare API Token. Follow the lin
 
 See [Deployment](guides/deployment.md) for the full provisioning and deploy flow.
 
-## 4. Develop the browser extension
+## 4. Access the admin console
+
+Sign in with the account configured by `SYSTEM_EMAIL`, then open `/{locale}/admin`. See [Admin Console](guides/admin-console.md) for every page and operator workflow.
+
+## 5. Develop the browser extension
 
 ```bash
 pnpm dev:extension

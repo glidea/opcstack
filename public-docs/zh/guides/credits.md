@@ -460,6 +460,8 @@ POST /api/redeem_credit_code
 
 管理员端点需要 `adminUserMiddleware`，接受超级管理员会话或 `ADMIN_API_TOKEN`。
 
+在浏览器中生成兑换码或为用户发放积分的流程参阅[管理控制台](admin-console.md)。
+
 ### 生成码
 
 ```http
