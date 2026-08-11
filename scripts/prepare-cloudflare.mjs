@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { createCipheriv, createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createInterface } from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
@@ -17,6 +17,7 @@ import {
 const SVELTE_WORKER_PATH = '.svelte-kit/cloudflare/_worker.js'
 const SVELTE_SERVER_PATH = '.svelte-kit/output/server/index.js'
 const SVELTE_MANIFEST_PATH = '.svelte-kit/cloudflare-tmp/manifest.js'
+const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA'
 const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
 const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
@@ -33,6 +34,7 @@ const AI_ASYNC_PROVIDER_CONFIGS = [
 ]
 const SECRET_KEYS = [
 	'BETTER_AUTH_SECRET',
+	'CONFIG_ENCRYPTION_KEY',
 	'SUPER_ADMIN_PASSWORD',
 	'ADMIN_API_TOKEN',
 	'TURNSTILE_SECRET_KEY',
@@ -196,6 +198,24 @@ function resolveTurnstileConfig(input) {
 	}
 }
 
+export function resolveTurnstileInitializationConfig(input) {
+	if (!input.isRemote) {
+		return {
+			siteKey: TURNSTILE_TEST_SITE_KEY,
+			secretKey: TURNSTILE_TEST_SECRET_KEY
+		}
+	}
+
+	if (!input.widget) {
+		throw new Error('TURNSTILE_WIDGET_MISSING')
+	}
+
+	return {
+		siteKey: input.widget.sitekey,
+		secretKey: input.widget.secret
+	}
+}
+
 function selectTurnstileWidget(widgets, appName) {
 	const matches = widgets.filter((widget) => {
 		return widget.name === appName
@@ -239,7 +259,7 @@ function formatEnvValue(value) {
 }
 
 export function buildRequiredSecretKeys(env) {
-	const keys = ['BETTER_AUTH_SECRET']
+	const keys = ['BETTER_AUTH_SECRET', 'CONFIG_ENCRYPTION_KEY']
 
 	if (String(env.ADMIN_API_TOKEN ?? '').trim() !== '') {
 		keys.push('ADMIN_API_TOKEN')
@@ -470,6 +490,8 @@ function validateEmailConfig(env) {
 
 export function validateRuntimeConfig(env, options = {}) {
 	requireSecret(env, 'BETTER_AUTH_SECRET')
+	requireSecret(env, 'CONFIG_ENCRYPTION_KEY')
+	validateConfigEncryptionKey(env.CONFIG_ENCRYPTION_KEY)
 
 	if (env.R2_ENABLED === 'true') {
 		requireSecret(env, 'R2_ORIGIN_SIGNING_SECRET')
@@ -705,6 +727,14 @@ function requireSecret(env, key) {
 	}
 }
 
+function validateConfigEncryptionKey(value) {
+	const encoded = String(value).trim()
+	const key = Buffer.from(encoded, 'base64')
+	if (key.byteLength !== 32 || key.toString('base64') !== encoded) {
+		throw new Error('CONFIG_ENCRYPTION_KEY_INVALID')
+	}
+}
+
 export function readAdminConfig(env) {
 	const email = String(env.SYSTEM_EMAIL ?? '').trim().toLowerCase()
 	if (email === '') {
@@ -890,6 +920,39 @@ function sqlString(value) {
 	return `'${String(value).replaceAll("'", "''")}'`
 }
 
+export function encryptInitializationSecret(encryptionKey, value) {
+	const key = Buffer.from(String(encryptionKey).trim(), 'base64')
+	if (key.byteLength !== 32 || key.toString('base64') !== String(encryptionKey).trim()) {
+		throw new Error('CONFIG_ENCRYPTION_KEY_INVALID')
+	}
+
+	const iv = randomBytes(12)
+	const cipher = createCipheriv('aes-256-gcm', key, iv)
+	const ciphertext = Buffer.concat([
+		cipher.update(String(value), 'utf8'),
+		cipher.final(),
+		cipher.getAuthTag()
+	])
+	return {
+		ciphertext: ciphertext.toString('base64'),
+		iv: iv.toString('base64')
+	}
+}
+
+export function buildSystemSettingsInitializationSql(input) {
+	return [
+		'UPDATE system_settings SET',
+		`turnstile_site_key = ${sqlString(input.siteKey)},`,
+		`turnstile_secret_key_ciphertext = ${sqlString(input.secretKeyCiphertext)},`,
+		`turnstile_secret_key_iv = ${sqlString(input.secretKeyIv)},`,
+		`updated_at = ${input.nowMs}`,
+		'WHERE id = 1 AND authentication_version = 1',
+		'AND turnstile_site_key IS NULL',
+		'AND turnstile_secret_key_ciphertext IS NULL',
+		'AND turnstile_secret_key_iv IS NULL'
+	].join(' ')
+}
+
 export function buildAgentOAuthClientUpsertSql(input) {
 	const redirectUri = new URL('/api/agent/authorization_callback', input.baseUrl).toString()
 	const scopes = JSON.stringify(['agent', 'offline_access'])
@@ -903,6 +966,22 @@ export function buildAgentOAuthClientUpsertSql(input) {
 		`('opcstack-agent', 'opcstack-agent', 0, 0, ${sqlString(scopes)}, ${input.nowMs}, ${input.nowMs}, 'OPCStack Agent', ${sqlString(redirectUris)}, 'none', ${sqlString(grantTypes)}, ${sqlString(responseTypes)}, 1, 'user-agent-based', 1)`,
 		'ON CONFLICT(client_id) DO UPDATE SET',
 		`disabled = 0, skip_consent = 0, scopes = ${sqlString(scopes)}, updated_at = ${input.nowMs}, redirect_uris = ${sqlString(redirectUris)}, token_endpoint_auth_method = 'none', grant_types = ${sqlString(grantTypes)}, response_types = ${sqlString(responseTypes)}, public = 1, type = 'user-agent-based', require_pkce = 1`
+	].join(' ')
+}
+
+export function buildOAuthClientUpsertSql(input) {
+	const redirectUri = new URL('/api/oauth/authorization_callback', input.baseUrl).toString()
+	const scopes = JSON.stringify(['api_access', 'offline_access'])
+	const redirectUris = JSON.stringify([redirectUri])
+	const grantTypes = JSON.stringify(['authorization_code', 'refresh_token'])
+	const responseTypes = JSON.stringify(['code'])
+	return [
+		'INSERT INTO oauth_client',
+		'(id, client_id, disabled, skip_consent, scopes, created_at, updated_at, name, redirect_uris, token_endpoint_auth_method, grant_types, response_types, public, type, require_pkce)',
+		'VALUES',
+		`('opc-cli', 'opc-cli', 0, 0, ${sqlString(scopes)}, ${input.nowMs}, ${input.nowMs}, 'OPC CLI', ${sqlString(redirectUris)}, 'none', ${sqlString(grantTypes)}, ${sqlString(responseTypes)}, 1, 'native', 1)`,
+		'ON CONFLICT(client_id) DO UPDATE SET',
+		`disabled = 0, skip_consent = 0, scopes = ${sqlString(scopes)}, updated_at = ${input.nowMs}, redirect_uris = ${sqlString(redirectUris)}, token_endpoint_auth_method = 'none', grant_types = ${sqlString(grantTypes)}, response_types = ${sqlString(responseTypes)}, public = 1, type = 'native', require_pkce = 1`
 	].join(' ')
 }
 
@@ -1528,7 +1607,6 @@ async function main() {
 	const cronExpressions = parseCronExpressions(env.CRONS)
 	const r2Enabled = env.R2_ENABLED === 'true'
 	const r2TmpLifecycleRules = parseR2TmpLifecycleRules(env.R2_TMP_LIFECYCLE_RULES)
-	const turnstileEnabled = env.TURNSTILE_ENABLED === 'true'
 	const shardSpecs = parseShardSpecs(env.D1_SHARDS)
 	const shards = buildShardDescriptors(env.APP_NAME, shardSpecs)
 
@@ -1691,7 +1769,7 @@ async function main() {
 	}
 
 	let turnstileWidget
-	if (isRemote && turnstileEnabled) {
+	if (isRemote) {
 		console.log('\nChecking Turnstile widget...')
 		turnstileWidget = await ensureTurnstileWidget(
 			accountId,
@@ -1701,6 +1779,10 @@ async function main() {
 		)
 		console.log(`Turnstile sitekey: ${turnstileWidget.sitekey}`)
 	}
+	const initialTurnstileConfig = resolveTurnstileInitializationConfig({
+		isRemote,
+		widget: turnstileWidget
+	})
 
 	const turnstileConfig = resolveTurnstileConfig({
 		enabled: env.TURNSTILE_ENABLED,
@@ -1806,10 +1888,31 @@ async function main() {
 
 	console.log('\nUpserting shard registry...')
 	const nowMs = Date.now()
+	const encryptedTurnstileSecret = encryptInitializationSecret(
+		env.CONFIG_ENCRYPTION_KEY,
+		initialTurnstileConfig.secretKey
+	)
+	run(buildD1ExecuteCommand({
+		databaseName: metaDbName,
+		migrateFlag,
+		sql: buildSystemSettingsInitializationSql({
+			siteKey: initialTurnstileConfig.siteKey,
+			secretKeyCiphertext: encryptedTurnstileSecret.ciphertext,
+			secretKeyIv: encryptedTurnstileSecret.iv,
+			nowMs
+		}),
+		json: false
+	}))
 	run(buildD1ExecuteCommand({
 		databaseName: metaDbName,
 		migrateFlag,
 		sql: buildAgentOAuthClientUpsertSql({ baseUrl: env.APP_BASE_URL, nowMs }),
+		json: false
+	}))
+	run(buildD1ExecuteCommand({
+		databaseName: metaDbName,
+		migrateFlag,
+		sql: buildOAuthClientUpsertSql({ baseUrl: env.APP_BASE_URL, nowMs }),
 		json: false
 	}))
 	for (const shard of shards) {

@@ -152,7 +152,8 @@ export const oauthRefreshToken = sqliteTable(
 	(table) => [
 		index('oauthRefreshToken_clientId_idx').on(table.clientId),
 		index('oauthRefreshToken_sessionId_idx').on(table.sessionId),
-		index('oauthRefreshToken_userId_idx').on(table.userId)
+		index('oauthRefreshToken_userId_idx').on(table.userId),
+		index('oauthRefreshToken_referenceId_idx').on(table.referenceId)
 	]
 )
 
@@ -176,7 +177,8 @@ export const oauthAccessToken = sqliteTable(
 		index('oauthAccessToken_clientId_idx').on(table.clientId),
 		index('oauthAccessToken_sessionId_idx').on(table.sessionId),
 		index('oauthAccessToken_userId_idx').on(table.userId),
-		index('oauthAccessToken_refreshId_idx').on(table.refreshId)
+		index('oauthAccessToken_refreshId_idx').on(table.refreshId),
+		index('oauthAccessToken_referenceId_idx').on(table.referenceId)
 	]
 )
 

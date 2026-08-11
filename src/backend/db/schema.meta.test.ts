@@ -7,7 +7,12 @@ import {
 	d1Shard,
 	agentAuthorizationRequest,
 	agentGrant,
+	aiChannel,
+	oauthAuthorizationRequest,
+	oauthGrant,
+	paymentProduct,
 	paymentTransaction,
+	systemSettings,
 	userSubscription
 } from './schema.meta'
 
@@ -25,6 +30,24 @@ describe('schema.meta', () => {
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
+		{
+			scenario: 'dynamic configuration ownership',
+			given: 'meta schema',
+			when: 'checking configuration tables',
+			then: 'singleton settings payment products and ai channels stay in meta',
+			givenDetail: { schema: 'meta' },
+			whenDetail: { check: 'configuration-tables' },
+			thenExpected: { result: true }
+		},
+		{
+			scenario: 'oauth api access ownership',
+			given: 'meta schema',
+			when: 'checking oauth api access tables',
+			then: 'authorization requests and grants stay in meta',
+			givenDetail: { schema: 'meta' },
+			whenDetail: { check: 'oauth-api-access-tables' },
+			thenExpected: { result: true }
+		},
 		{
 			scenario: 'global payment ownership',
 			given: 'meta schema',
@@ -83,6 +106,19 @@ describe('schema.meta', () => {
 
 	runCases(cases, async (_given: GivenDetail, when: WhenDetail): Promise<ThenExpected> => {
 		switch (when.check) {
+			case 'configuration-tables':
+				return {
+					result:
+						systemSettings.id !== undefined &&
+						paymentProduct.version !== undefined &&
+						aiChannel.apiKeyCiphertext !== undefined
+				}
+			case 'oauth-api-access-tables':
+				return {
+					result:
+						oauthAuthorizationRequest.requestedScopes !== undefined &&
+						oauthGrant.scopes !== undefined
+				}
 			case 'payment-tables':
 				return {
 					result:

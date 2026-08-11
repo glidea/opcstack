@@ -208,6 +208,9 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Keep related env keys together. Put a feature switch before its provider selection and provider-specific settings.
 - Keep optional settings after required settings inside the same group.
 - Keep `.env.secret.example` in the same business order as public env files.
+- `CONFIG_ENCRYPTION_KEY` is a fixed 32-byte Base64 ENV secret. It encrypts sensitive D1 configuration values and must fail validation before startup when invalid.
+- Dynamic configuration storage lives in `src/backend/config/` and the Meta DB `system_settings` row. Each business domain has an independent version for optimistic updates.
+- Migrate one business domain atomically: after its runtime reads D1, delete the same ENV keys and parsers in that change. Never keep ENV fallback for a migrated setting.
 - Async AI channels are discovered from complete `<AREA>_<PROVIDER>_<CHANNEL>_{BASE_URL,MODELS,PRICE_MULTIPLIER,API_KEY}` ENV groups. ENV is the single channel registry; do not add channel ids, adapter registries, or parallel endpoint config.
 - `AI_ROUTING_ERROR_WEIGHT`, `AI_ROUTING_LATENCY_WEIGHT`, `AI_ROUTING_PRICE_WEIGHT`, and `AI_TASK_RETENTION_DAYS` are required and strictly validated during Cloudflare preparation.
 - `APP_CN_DOMAIN` is optional. When set without `APP_CN_CNAME_TARGET`, `prepare-cloudflare.mjs` adds it as a second Worker custom domain. It always adds it as an R2 CORS origin and Turnstile domain.
@@ -228,7 +231,7 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Meta DB uses `META_DB`. In requests, get it with `ctx.get('metaDb')`.
 - Tenant Shard DB uses generated bindings such as `TENANT_DB_WNAM_0000`. In requests, get the current user's DB with `ctx.get('tenantDb')`.
 - Tenant shard registry lives in Meta DB tables `d1_shards` and `user_shards`.
-- Meta-owned runtime data includes shard registry, auth-adjacent global state, redemption codes, affiliate referrals, payment rows, subscriptions, webhook events, and notifications.
+- Meta-owned runtime data includes shard registry, system configuration, OAuth API access, auth-adjacent global state, redemption codes, affiliate referrals, payment rows and products, AI channels, subscriptions, webhook events, and notifications.
 - Tenant-owned runtime data includes credit balances, credit entries, credit transactions, feedbacks, notification reads, AI async task tables, and 1-minute AI channel metric buckets.
 - AI channel metrics are local to each Tenant Shard. Do not aggregate them in Meta DB or store per-call metric rows.
 - Modify Meta schema in `src/backend/db/schema.meta.ts`.

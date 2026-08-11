@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
+import { decryptConfigSecret } from '../src/backend/config/crypto.ts'
 import {
-	buildDnsCnameRecordPayload,
 	buildAgentOAuthClientUpsertSql,
 	buildAIChannelVars,
+	buildDnsCnameRecordPayload,
+	buildOAuthClientUpsertSql,
 	buildRequiredSecretKeys,
 	buildRuntimeSecretLines,
+	buildSystemSettingsInitializationSql,
 	buildTypesWranglerConfig,
 	buildWorkerRoutes,
+	encryptInitializationSecret,
+	resolveTurnstileInitializationConfig,
 	selectDnsCnameRecord,
 	validateRuntimeConfig
 } from './prepare-cloudflare.mjs'
@@ -22,6 +27,18 @@ describe('prepare cloudflare dns config', () => {
 		expect(sql).toContain("'opcstack-agent', 'opcstack-agent'")
 		expect(sql).toContain('https://app.example.com/api/agent/authorization_callback')
 		expect(sql).toContain('authorization_code')
+	})
+
+	it('seeds the fixed opc cli public client with pkce', () => {
+		const sql = buildOAuthClientUpsertSql({
+			baseUrl: 'https://app.example.com',
+			nowMs: 123
+		})
+
+		expect(sql).toContain("'opc-cli', 'opc-cli'")
+		expect(sql).toContain('https://app.example.com/api/oauth/authorization_callback')
+		expect(sql).toContain('["api_access","offline_access"]')
+		expect(sql).toContain('require_pkce')
 	})
 
 	it('normalizes app cn cname target', () => {
@@ -161,7 +178,58 @@ describe('prepare cloudflare dns config', () => {
 	})
 })
 
+describe('prepare cloudflare configuration initialization', () => {
+	it('uses local Turnstile test credentials', () => {
+		const config = resolveTurnstileInitializationConfig({ isRemote: false })
+
+		expect(config).toEqual({
+			siteKey: '1x00000000000000000000AA',
+			secretKey: '1x0000000000000000000000000000000AA'
+		})
+	})
+
+	it('uses the provisioned remote Turnstile widget credentials', () => {
+		const config = resolveTurnstileInitializationConfig({
+			isRemote: true,
+			widget: { sitekey: 'remote-site-key', secret: 'remote-secret-key' }
+		})
+
+		expect(config).toEqual({ siteKey: 'remote-site-key', secretKey: 'remote-secret-key' })
+	})
+
+	it('encrypts the initial secret for Worker decryption', async () => {
+		const encryptionKey = Buffer.alloc(32, 7).toString('base64')
+		const encrypted = encryptInitializationSecret(encryptionKey, 'turnstile-secret')
+
+		const result = await decryptConfigSecret(encryptionKey, encrypted)
+
+		expect({ result }).toEqual({ result: 'turnstile-secret' })
+	})
+
+	it('initializes Turnstile credentials only before Authentication is configured', () => {
+		const sql = buildSystemSettingsInitializationSql({
+			siteKey: 'site-key',
+			secretKeyCiphertext: 'ciphertext',
+			secretKeyIv: 'iv',
+			nowMs: 123
+		})
+
+		expect(sql).toContain('authentication_version = 1')
+		expect(sql).toContain('turnstile_secret_key_ciphertext IS NULL')
+		expect(sql).not.toContain('turnstile-secret')
+	})
+})
+
 describe('prepare cloudflare runtime config validation', () => {
+	it('rejects an invalid configuration encryption key', () => {
+		expect(() => {
+			validateRuntimeConfig(
+				createRuntimeEnv({ CONFIG_ENCRYPTION_KEY: Buffer.alloc(31).toString('base64') }),
+				{ isRemote: false }
+			)
+		}).toThrow('CONFIG_ENCRYPTION_KEY_INVALID')
+	})
+
 	it('discovers complete async ai channels', () => {
 		const env = createRuntimeEnv({
 			IMAGE_OPENAI_BASE_URL: 'https://primary.example.com/v1',
@@ -185,6 +253,7 @@ describe('prepare cloudflare runtime config validation', () => {
 			},
 			keys: [
 				'BETTER_AUTH_SECRET',
+				'CONFIG_ENCRYPTION_KEY',
 				'IMAGE_OPENAI_OFFICIAL_API_KEY'
 			]
 		})
@@ -278,7 +347,7 @@ describe('prepare cloudflare runtime config validation', () => {
 		expect({
 			keys
 		}).toEqual({
-			keys: ['BETTER_AUTH_SECRET']
+			keys: ['BETTER_AUTH_SECRET', 'CONFIG_ENCRYPTION_KEY']
 		})
 	})
 
@@ -288,7 +357,10 @@ describe('prepare cloudflare runtime config validation', () => {
 		expect({
 			lines
 		}).toEqual({
-			lines: ['BETTER_AUTH_SECRET="auth-secret"']
+			lines: [
+				'BETTER_AUTH_SECRET="auth-secret"',
+				'CONFIG_ENCRYPTION_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="'
+			]
 		})
 	})
 
@@ -298,7 +370,7 @@ describe('prepare cloudflare runtime config validation', () => {
 		expect({
 			keys
 		}).toEqual({
-			keys: ['BETTER_AUTH_SECRET', 'ADMIN_API_TOKEN']
+			keys: ['BETTER_AUTH_SECRET', 'CONFIG_ENCRYPTION_KEY', 'ADMIN_API_TOKEN']
 		})
 	})
 
@@ -358,6 +430,7 @@ describe('prepare cloudflare runtime config validation', () => {
 		}).toEqual({
 			keys: [
 				'BETTER_AUTH_SECRET',
+				'CONFIG_ENCRYPTION_KEY',
 				'GOOGLE_CLIENT_SECRET',
 				'PAYMENT_CREEM_API_KEY',
 				'PAYMENT_CREEM_WEBHOOK_SECRET'
@@ -407,6 +480,7 @@ describe('prepare cloudflare runtime config validation', () => {
 function createRuntimeEnv(overrides = {}) {
 	return {
 		BETTER_AUTH_SECRET: 'auth-secret',
+		CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 		ADMIN_API_TOKEN: '',
 		R2_ENABLED: 'false',
 		R2_ORIGIN_SIGNING_SECRET: '',

@@ -119,7 +119,7 @@ The important idea: public routes skip auth entirely, user routes run the full m
 
 Two database tiers with different ownership:
 
-**Meta DB** (`META_DB`): global control state. One database for the whole product. Holds shard registry, user-to-shard mapping, auth, payments, subscriptions, webhooks, notifications. Accessed via `ctx.get('metaDb')`.
+**Meta DB** (`META_DB`): global control state. One database for the whole product. Holds shard registry, user-to-shard mapping, dynamic system configuration, OAuth API access, auth, payments, AI channels, subscriptions, webhooks, and notifications. Accessed via `ctx.get('metaDb')`.
 
 **Tenant Shard DB**: user-scoped runtime data. Sharded across multiple D1 databases by region. Holds credit balances, credit transactions, feedbacks, notification reads, AI async task tables. Accessed via `ctx.get('tenantDb')`.
 
@@ -144,6 +144,12 @@ In production, `prepare-cloudflare.mjs` enables read replication automatically. 
 The consistency problem this creates: after a user writes, a later read might hit a replica that has not caught up. OPCStack solves this with **bookmarks**. Each D1 session returns a bookmark that represents a consistent point-in-time snapshot. The bookmark flows through response headers and cookies back to the client, and the client sends it back on the next request. This gives monotonic reads ("read your own writes") without distributed transactions.
 
 Meta DB and Tenant Shard DB each maintain independent bookmark flows, because they are separate databases with separate primaries.
+
+## Dynamic Configuration Foundation
+
+`system_settings` is the singleton source for dynamic product configuration. Its business domains have independent versions so the admin API can reject stale writes without coupling unrelated settings. `payment_products` and `ai_channels` are separate versioned collections.
+
+Sensitive values are stored as AES-GCM ciphertext and IV pairs. `CONFIG_ENCRYPTION_KEY` is the fixed 32-byte Base64 root key supplied through ENV and is never stored in D1. Runtime modules move to this source one complete business domain at a time; once a domain reads D1, its old ENV keys and fallback paths are removed in the same change.
 
 ## prepare-cloudflare Automation
 
