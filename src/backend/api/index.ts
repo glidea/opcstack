@@ -57,10 +57,14 @@ import { getAdminOverviewHandler } from './handler/admin-overview'
 import { listAdminUsersHandler, updateAdministratorEmailHandler } from './handler/admin-users'
 import {
 	getAuthenticationConfigHandler,
+	getAffiliateConfigHandler,
+	getCreditsConfigHandler,
 	getEmailConfigHandler,
 	getGeneralConfigHandler,
 	getStorageConfigHandler,
 	updateAuthenticationConfigHandler,
+	updateAffiliateConfigHandler,
+	updateCreditsConfigHandler,
 	updateEmailConfigHandler,
 	updateGeneralConfigHandler,
 	updateStorageConfigHandler
@@ -150,6 +154,10 @@ adminApi.post('/admin/get_email_config', getEmailConfigHandler)
 adminApi.post('/admin/update_email_config', updateEmailConfigHandler)
 adminApi.post('/admin/get_storage_config', getStorageConfigHandler)
 adminApi.post('/admin/update_storage_config', updateStorageConfigHandler)
+adminApi.post('/admin/get_credits_config', getCreditsConfigHandler)
+adminApi.post('/admin/update_credits_config', updateCreditsConfigHandler)
+adminApi.post('/admin/get_affiliate_config', getAffiliateConfigHandler)
+adminApi.post('/admin/update_affiliate_config', updateAffiliateConfigHandler)
 adminApi.put('/admin/r2/public/*', uploadR2PublicObjectHandler)
 adminApi.get('/admin/ai_realtime_connect', aiRealtimeConnectHandler)
 

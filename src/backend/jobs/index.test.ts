@@ -14,6 +14,12 @@ const creditsMock = vi.hoisted(() => {
 	}
 })
 
+const configMock = vi.hoisted(() => {
+	return {
+		getCreditsConfig: vi.fn()
+	}
+})
+
 vi.mock('../credits', () => {
 	return {
 		CreditsService: vi.fn().mockImplementation(function CreditsService() {
@@ -35,6 +41,12 @@ vi.mock('../db/shard-router', () => {
 	}
 })
 
+vi.mock('../config', () => {
+	return {
+		getCreditsConfig: configMock.getCreditsConfig
+	}
+})
+
 describe('handleScheduled', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
@@ -51,11 +63,19 @@ describe('handleScheduled', () => {
 		vi.mocked(creditsMock.expire).mockResolvedValue({ processedEntries: 0, processedUsers: 0 })
 		vi.mocked(creditsMock.cleanupTransactions).mockResolvedValue({ deletedRows: 0 })
 		vi.mocked(creditsMock.runRawD1Batch).mockResolvedValue([])
+		configMock.getCreditsConfig.mockResolvedValue({
+			signupEnabled: false,
+			signupAmount: 100_000_000,
+			dailyCheckinEnabled: false,
+			dailyCheckinAmount: 10_000_000,
+			historyRetentionDays: 90,
+			version: 1
+		})
 	})
 
 	type GivenDetail = {
 		cron: string
-		retentionDays: string
+		retentionDays: number
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -75,7 +95,7 @@ describe('handleScheduled', () => {
 			then: 'does not touch databases',
 			givenDetail: {
 				cron: '0 0 * * *',
-				retentionDays: '30'
+				retentionDays: 30
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -94,7 +114,7 @@ describe('handleScheduled', () => {
 			then: 'runs expire and cleanup on shard db',
 			givenDetail: {
 				cron: '*/10 * * * *',
-				retentionDays: '30'
+				retentionDays: 30
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -106,31 +126,19 @@ describe('handleScheduled', () => {
 				aiCleanupCalls: 1
 			}
 		},
-		{
-			scenario: 'default invalid retention days',
-			given: 'registered cron and invalid retention setting',
-			when: 'handling scheduled event',
-			then: 'uses default retention days',
-			givenDetail: {
-				cron: '*/10 * * * *',
-				retentionDays: '0'
-			},
-			whenDetail: {},
-			thenExpected: {
-				metaDbCalls: 1,
-				listShardDbsCalls: 1,
-				expireCalls: 1,
-				cleanupCalls: 1,
-				cleanupRetentionDays: 90,
-				aiCleanupCalls: 1
-			}
-		}
 	]
 
 	runCases(cases, async (given): Promise<ThenExpected> => {
+		configMock.getCreditsConfig.mockResolvedValue({
+			signupEnabled: false,
+			signupAmount: 100_000_000,
+			dailyCheckinEnabled: false,
+			dailyCheckinAmount: 10_000_000,
+			historyRetentionDays: given.retentionDays,
+			version: 1
+		})
 		const env = {
 			META_DB: {},
-			CREDITS_HISTORY_RETENTION_DAYS: given.retentionDays,
 			AI_TASK_RETENTION_DAYS: '30'
 		} as unknown as Env
 
@@ -177,7 +185,6 @@ describe('handleScheduled', () => {
 			{ cron: '*/10 * * * *', scheduledTime } as ScheduledController,
 			{
 				META_DB: {},
-				CREDITS_HISTORY_RETENTION_DAYS: '90',
 				AI_TASK_RETENTION_DAYS: '30'
 			} as unknown as Env,
 			{} as ExecutionContext

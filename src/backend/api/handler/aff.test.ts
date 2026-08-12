@@ -5,6 +5,18 @@ import { bindAffHandler, getAffSummaryHandler } from './aff'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 
+const configMocks = vi.hoisted(() => {
+	return {
+		getAffiliateConfig: vi.fn()
+	}
+})
+
+vi.mock('../../config', () => {
+	return {
+		getAffiliateConfig: configMocks.getAffiliateConfig
+	}
+})
+
 const affServiceMocks = vi.hoisted(() => {
 	return {
 		bind: vi.fn(),
@@ -79,7 +91,7 @@ describe('getAffSummaryHandler', () => {
 	})
 
 	type GivenDetail = {
-		enabled: string
+		enabled: boolean
 		errorCode: '' | AffErrorCode
 	}
 	type WhenDetail = Record<string, never>
@@ -98,7 +110,7 @@ describe('getAffSummaryHandler', () => {
 			when: 'calling getAffSummaryHandler',
 			then: 'returns disabled summary',
 			givenDetail: {
-				enabled: 'false',
+				enabled: false,
 				errorCode: ''
 			},
 			whenDetail: {},
@@ -116,7 +128,7 @@ describe('getAffSummaryHandler', () => {
 			when: 'calling getAffSummaryHandler',
 			then: 'returns snake_case response',
 			givenDetail: {
-				enabled: 'true',
+				enabled: true,
 				errorCode: ''
 			},
 			whenDetail: {},
@@ -134,7 +146,7 @@ describe('getAffSummaryHandler', () => {
 			when: 'calling getAffSummaryHandler',
 			then: 'returns 404 with code',
 			givenDetail: {
-				enabled: 'true',
+					enabled: true,
 				errorCode: 'AFF_USER_NOT_FOUND'
 			},
 			whenDetail: {},
@@ -158,10 +170,14 @@ describe('getAffSummaryHandler', () => {
 			})
 		}
 
+		configMocks.getAffiliateConfig.mockResolvedValue({
+			enabled: given.enabled,
+			inviterCreditAmount: 50_000_000,
+			inviteeCreditAmount: 20_000_000,
+			version: 1
+		})
 		const ctx = createJsonContext({
-			env: {
-				AFF_ENABLED: given.enabled
-			},
+			env: {},
 			userId: 'u1',
 			db: {},
 			body: {}
@@ -189,10 +205,10 @@ describe('bindAffHandler', () => {
 	})
 
 	type GivenDetail = {
-		enabled: string
+		enabled: boolean
 		body: { aff_code: string } | null
-		inviterAmount: string
-		inviteeAmount: string
+		inviterAmount: number
+		inviteeAmount: number
 		errorCode: '' | AffErrorCode
 		inviterGrantedAt: number | null
 	}
@@ -214,10 +230,10 @@ describe('bindAffHandler', () => {
 			when: 'calling bindAffHandler',
 			then: 'returns empty response',
 			givenDetail: {
-				enabled: 'false',
+				enabled: false,
 				body: { aff_code: 'ABCD1234' },
-				inviterAmount: '50',
-				inviteeAmount: '20',
+				inviterAmount: 50_000_000,
+				inviteeAmount: 20_000_000,
 				errorCode: '',
 				inviterGrantedAt: null
 			},
@@ -238,10 +254,10 @@ describe('bindAffHandler', () => {
 			when: 'calling bindAffHandler',
 			then: 'returns invalid request',
 			givenDetail: {
-				enabled: 'true',
+				enabled: true,
 				body: null,
-				inviterAmount: '50',
-				inviteeAmount: '20',
+				inviterAmount: 50_000_000,
+				inviteeAmount: 20_000_000,
 				errorCode: '',
 				inviterGrantedAt: null
 			},
@@ -262,10 +278,10 @@ describe('bindAffHandler', () => {
 			when: 'calling bindAffHandler',
 			then: 'returns conflict code',
 			givenDetail: {
-				enabled: 'true',
+				enabled: true,
 				body: { aff_code: 'ABCD1234' },
-				inviterAmount: '50',
-				inviteeAmount: '20',
+				inviterAmount: 50_000_000,
+				inviteeAmount: 20_000_000,
 				errorCode: 'AFF_ALREADY_BOUND',
 				inviterGrantedAt: null
 			},
@@ -286,10 +302,10 @@ describe('bindAffHandler', () => {
 			when: 'calling bindAffHandler',
 			then: 'returns bad request code',
 			givenDetail: {
-				enabled: 'true',
+				enabled: true,
 				body: { aff_code: 'ABCD1234' },
-				inviterAmount: '50',
-				inviteeAmount: '20',
+				inviterAmount: 50_000_000,
+				inviteeAmount: 20_000_000,
 				errorCode: 'INVALID_AFF_CODE',
 				inviterGrantedAt: null
 			},
@@ -310,10 +326,10 @@ describe('bindAffHandler', () => {
 			when: 'calling bindAffHandler',
 			then: 'returns empty response',
 			givenDetail: {
-				enabled: 'true',
+				enabled: true,
 				body: { aff_code: 'ABCD1234' },
-				inviterAmount: '50',
-				inviteeAmount: '20',
+				inviterAmount: 50_000_000,
+				inviteeAmount: 20_000_000,
 				errorCode: '',
 				inviterGrantedAt: null
 			},
@@ -334,10 +350,10 @@ describe('bindAffHandler', () => {
 			when: 'calling bindAffHandler again',
 			then: 'only grants invitee reward',
 			givenDetail: {
-				enabled: 'true',
+				enabled: true,
 				body: { aff_code: 'ABCD1234' },
-				inviterAmount: '50',
-				inviteeAmount: '20',
+				inviterAmount: 50_000_000,
+				inviteeAmount: 20_000_000,
 				errorCode: '',
 				inviterGrantedAt: 1890000000000
 			},
@@ -368,12 +384,14 @@ describe('bindAffHandler', () => {
 		}
 		vi.mocked(affServiceMocks.markRewardGranted).mockResolvedValue(undefined)
 
+		configMocks.getAffiliateConfig.mockResolvedValue({
+			enabled: given.enabled,
+			inviterCreditAmount: given.inviterAmount,
+			inviteeCreditAmount: given.inviteeAmount,
+			version: 1
+		})
 		const ctx = createJsonContext({
-			env: {
-				AFF_ENABLED: given.enabled,
-				AFF_INVITER_CREDIT_AMOUNT: given.inviterAmount,
-				AFF_INVITEE_CREDIT_AMOUNT: given.inviteeAmount
-			},
+			env: {},
 			userId: 'u1',
 			metaDb: { name: 'meta-db' },
 			tenantDb: { name: 'current-tenant-db' },

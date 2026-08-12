@@ -18,18 +18,18 @@ import {
 	type CreditTransactionItem
 } from '../../credits'
 import { createTenantShardAccess } from '../../db/shard-router'
+import { getCreditsConfig, type CreditsConfig } from '../../config'
 import { formatDecimal, parseDecimal } from '../../lib/decimal'
 import { parseRequest } from '../../lib/request'
 
 export async function getCreditSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const env = ctx.env
-	const dailyCheckinAmount = toCreditUnits(env.CREDITS_DAILY_CHECKIN_AMOUNT)
+	const config: CreditsConfig = await getCreditsConfig(ctx.get('metaDb'))
 
 	try {
 		const credits = new CreditsService(ctx.get('tenantDb'))
 		const summary = await credits.getSummary({
 			userId: ctx.get('userId'),
-			dailyCheckinAmount
+			dailyCheckinAmount: config.dailyCheckinAmount
 		})
 		return ctx.json({
 			balance: formatCreditAmount(summary.balance),
@@ -78,12 +78,12 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 }
 
 export async function dailyCheckinHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const env = ctx.env
-	if (env.CREDITS_DAILY_CHECKIN_ENABLED !== 'true') {
+	const config: CreditsConfig = await getCreditsConfig(ctx.get('metaDb'))
+	if (!config.dailyCheckinEnabled) {
 		return ctx.json({})
 	}
 
-	const amount = toCreditUnits(env.CREDITS_DAILY_CHECKIN_AMOUNT)
+	const amount: number = config.dailyCheckinAmount
 	if (amount <= 0) {
 		const error = DailyCheckinApi.errors.INVALID_DAILY_CHECKIN_AMOUNT()
 		return ctx.json(error.body, error.status)

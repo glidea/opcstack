@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { CreditsService } from '../credits'
 import { getMetaDb, runRawD1Batch } from '../db'
 import { createTenantShardAccess } from '../db/shard-router'
+import { getCreditsConfig, type CreditsConfig } from '../config'
 import { logInfo } from '../lib/log'
 
 export type ScheduledJobHandler = (
@@ -27,7 +28,7 @@ export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 	'*/10 * * * *': async (controller, env): Promise<void> => {
 		const db = getMetaDb(env.META_DB)
 		const nowMs = controller.scheduledTime
-		const retentionDays = parseRetentionDays(env.CREDITS_HISTORY_RETENTION_DAYS)
+		const creditsConfig: CreditsConfig = await getCreditsConfig(db)
 		const metricCutoff: number = nowMs - 24 * 60 * 60 * 1000
 		const taskRetentionDays: number = Number(env.AI_TASK_RETENTION_DAYS)
 		const taskCutoff: number = nowMs - taskRetentionDays * 24 * 60 * 60 * 1000
@@ -48,7 +49,7 @@ export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 
 			const cleanupResult = await credits.cleanupTransactions({
 				nowMs,
-				retentionDays,
+				retentionDays: creditsConfig.historyRetentionDays,
 				limit: 100
 			})
 			logInfo('Credits cleanup job finished', {
@@ -90,12 +91,4 @@ export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 
 function readDeletedRows(result: D1Result | undefined): number {
 	return Number(result?.meta.changes ?? 0)
-}
-
-function parseRetentionDays(raw: string | undefined): number {
-	const value = Number(raw ?? '90')
-	if (!Number.isInteger(value) || value <= 0) {
-		return 90
-	}
-	return value
 }

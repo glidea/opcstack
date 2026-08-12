@@ -4,7 +4,7 @@ import { AFF_CREDIT_SOURCE_INVITEE, AFF_CREDIT_SOURCE_INVITER, AffError, AffServ
 import { CreditsService, type CreditTransactionType } from '../../credits'
 import { createTenantShardAccess } from '../../db/shard-router'
 import type { TenantShardDb } from '../../db'
-import { parseDecimal } from '../../lib/decimal'
+import { getAffiliateConfig, type AffiliateConfig } from '../../config'
 import { parseRequest } from '../../lib/request'
 import {
 	BindAffApi,
@@ -13,7 +13,8 @@ import {
 } from '../../../api-contract/aff'
 
 export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	if (ctx.env.AFF_ENABLED !== 'true') {
+	const config: AffiliateConfig = await getAffiliateConfig(ctx.get('metaDb'))
+	if (!config.enabled) {
 		return ctx.json({
 			aff_enabled: false,
 			aff_code: '',
@@ -47,8 +48,8 @@ export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Respon
 }
 
 export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const env = ctx.env
-	if (env.AFF_ENABLED !== 'true') {
+	const config: AffiliateConfig = await getAffiliateConfig(ctx.get('metaDb'))
+	if (!config.enabled) {
 		return ctx.json({})
 	}
 
@@ -58,9 +59,6 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 		return ctx.json(error.body, error.status)
 	}
 	const req = request.data
-
-	const inviterAmount: number = parseDecimal(env.AFF_INVITER_CREDIT_AMOUNT)
-	const inviteeAmount: number = parseDecimal(env.AFF_INVITEE_CREDIT_AMOUNT)
 
 	try {
 		const aff = new AffService(ctx.get('metaDb'))
@@ -72,7 +70,7 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 			await grantAffCredits(
 				ctx,
 				result.inviterUserId,
-				inviterAmount,
+				config.inviterCreditAmount,
 				AFF_CREDIT_SOURCE_INVITER,
 				result.affId
 			)
@@ -85,7 +83,7 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 			await grantAffCredits(
 				ctx,
 				result.inviteeUserId,
-				inviteeAmount,
+				config.inviteeCreditAmount,
 				AFF_CREDIT_SOURCE_INVITEE,
 				result.affId
 			)

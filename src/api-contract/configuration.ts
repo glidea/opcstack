@@ -123,6 +123,50 @@ export const UpdateEmailConfigRequestSchema = z.object({
 })
 export type UpdateEmailConfigRequest = z.infer<typeof UpdateEmailConfigRequestSchema>
 
+const CreditConfigAmountSchema = z.string().refine((raw: string): boolean => {
+	if (!/^\d+(?:\.\d{1,6})?$/.test(raw)) {
+		return false
+	}
+	const parts: string[] = raw.split('.')
+	const fraction: string = (parts[1] ?? '').padEnd(6, '0')
+	const units: number = Number(parts[0]) * 1_000_000 + Number(fraction)
+	return Number.isSafeInteger(units)
+}, 'Credit amount is invalid')
+
+export const GetCreditsConfigRequestSchema = z.object({})
+export type GetCreditsConfigRequest = z.infer<typeof GetCreditsConfigRequestSchema>
+
+export const CreditsConfigSchema = z.object({
+	signup_enabled: z.boolean(),
+	signup_amount: CreditConfigAmountSchema,
+	daily_checkin_enabled: z.boolean(),
+	daily_checkin_amount: CreditConfigAmountSchema,
+	history_retention_days: z.number().int().positive(),
+	version: z.number().int().min(1)
+})
+export type CreditsConfig = z.infer<typeof CreditsConfigSchema>
+
+export const UpdateCreditsConfigRequestSchema = CreditsConfigSchema.omit({ version: true }).extend({
+	expected_version: z.number().int().min(1)
+})
+export type UpdateCreditsConfigRequest = z.infer<typeof UpdateCreditsConfigRequestSchema>
+
+export const GetAffiliateConfigRequestSchema = z.object({})
+export type GetAffiliateConfigRequest = z.infer<typeof GetAffiliateConfigRequestSchema>
+
+export const AffiliateConfigSchema = z.object({
+	enabled: z.boolean(),
+	inviter_credit_amount: CreditConfigAmountSchema,
+	invitee_credit_amount: CreditConfigAmountSchema,
+	version: z.number().int().min(1)
+})
+export type AffiliateConfig = z.infer<typeof AffiliateConfigSchema>
+
+export const UpdateAffiliateConfigRequestSchema = AffiliateConfigSchema.omit({ version: true }).extend({
+	expected_version: z.number().int().min(1)
+})
+export type UpdateAffiliateConfigRequest = z.infer<typeof UpdateAffiliateConfigRequestSchema>
+
 const ConfigurationErrors = {
 	INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
 		return {
@@ -207,5 +251,29 @@ export const GetEmailConfigApi = {
 export const UpdateEmailConfigApi = {
 	request: UpdateEmailConfigRequestSchema,
 	response: EmailConfigSchema,
+	errors: ConfigurationErrors
+}
+
+export const GetCreditsConfigApi = {
+	request: GetCreditsConfigRequestSchema,
+	response: CreditsConfigSchema,
+	errors: ConfigurationErrors
+}
+
+export const UpdateCreditsConfigApi = {
+	request: UpdateCreditsConfigRequestSchema,
+	response: CreditsConfigSchema,
+	errors: ConfigurationErrors
+}
+
+export const GetAffiliateConfigApi = {
+	request: GetAffiliateConfigRequestSchema,
+	response: AffiliateConfigSchema,
+	errors: ConfigurationErrors
+}
+
+export const UpdateAffiliateConfigApi = {
+	request: UpdateAffiliateConfigRequestSchema,
+	response: AffiliateConfigSchema,
 	errors: ConfigurationErrors
 }

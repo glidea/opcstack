@@ -223,12 +223,7 @@ create credit balance
 grant signup credits when enabled
 ```
 
-Config:
-
-```bash
-CREDITS_SIGNUP_ENABLED=true
-CREDITS_SIGNUP_AMOUNT=100
-```
+The Credits configuration in Meta D1 controls whether the reward is enabled and its amount. The hook reads one configuration snapshot after user creation.
 
 The grant uses:
 
@@ -250,12 +245,7 @@ sourceType  daily_checkin
 sourceId    user_id:yyyy-mm-dd
 ```
 
-Config:
-
-```bash
-CREDITS_DAILY_CHECKIN_ENABLED=true
-CREDITS_DAILY_CHECKIN_AMOUNT=10
-```
+The Credits configuration in Meta D1 controls whether daily check-in is enabled and its amount.
 
 The date is UTC. A second checkin on the same UTC day returns `409 DAILY_CHECKIN_ALREADY_DONE`.
 
@@ -339,11 +329,7 @@ delete up to 100 old credit_transactions
 
 Expiration writes a negative `expired` transaction and sets the entry's `remaining_amount` to `0`.
 
-Transaction cleanup uses:
-
-```bash
-CREDITS_HISTORY_RETENTION_DAYS=90
-```
+Transaction cleanup reads `historyRetentionDays` from the Credits configuration in Meta D1 once per cron execution.
 
 `credit_entries` are not deleted. They preserve grant idempotency and expiration state.
 
@@ -553,23 +539,9 @@ Use a stable `source_id` for the operator action. Include the user id or grant i
 
 ## Configuration
 
-```bash
-# Grant signup credits after user creation.
-CREDITS_SIGNUP_ENABLED=true
-CREDITS_SIGNUP_AMOUNT=100
+Credits settings are managed in the admin Configuration area and stored in Meta D1. API amounts are decimal strings: `100` and `100.000000` both mean 100 credits. D1 stores the same value as `100000000` integer units.
 
-# Allow authenticated users to claim a daily reward.
-CREDITS_DAILY_CHECKIN_ENABLED=true
-CREDITS_DAILY_CHECKIN_AMOUNT=10
-
-# Delete old credit_transactions after this many days.
-CREDITS_HISTORY_RETENTION_DAYS=90
-
-# Required for expiration and cleanup jobs.
-CRONS=*/10 * * * *
-```
-
-Amounts are credit decimal strings. `100` and `100.000000` both mean 100 credits.
+`CRONS=*/10 * * * *` remains deployment topology configuration and is required for expiration and cleanup jobs.
 
 ## Common Mistakes
 

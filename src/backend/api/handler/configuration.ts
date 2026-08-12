@@ -2,33 +2,47 @@ import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
 	GetAuthenticationConfigApi,
+	GetAffiliateConfigApi,
+	GetCreditsConfigApi,
 	GetEmailConfigApi,
 	GetGeneralConfigApi,
 	GetStorageConfigApi,
 	UpdateAuthenticationConfigApi,
+	UpdateAffiliateConfigApi,
+	UpdateCreditsConfigApi,
 	UpdateEmailConfigApi,
 	UpdateGeneralConfigApi,
 	UpdateStorageConfigApi,
 	type AuthenticationConfig as AuthenticationConfigResponse,
+	type AffiliateConfig as AffiliateConfigResponse,
+	type CreditsConfig as CreditsConfigResponse,
 	type EmailConfig as EmailConfigResponse,
 	type GeneralConfig as GeneralConfigResponse,
 	type StorageConfig as StorageConfigResponse
 } from '../../../api-contract/configuration'
 import {
 	ConfigStoreError,
+	getAffiliateConfig,
 	getAuthenticationConfig,
+	getCreditsConfig,
 	getEmailConfig,
 	getGeneralConfig,
 	getStorageConfig,
 	updateGeneralConfig,
+	updateAffiliateConfig,
 	updateAuthenticationConfig,
+	updateCreditsConfig,
 	updateEmailConfig,
 	updateStorageConfig,
 	type AuthenticationConfig,
+	type AffiliateConfig,
+	type CreditsConfig,
 	type EmailConfig,
 	type GeneralConfig,
 	type StorageConfig
 } from '../../config'
+
+import { formatDecimal, parseDecimal } from '../../lib/decimal'
 import { logError } from '../../lib/log'
 import { parseRequest } from '../../lib/request'
 
@@ -210,6 +224,80 @@ export async function updateStorageConfigHandler(ctx: Context<ApiEnv>): Promise<
 	}
 }
 
+export async function getCreditsConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, GetCreditsConfigApi.request)
+	if (!request.success) {
+		const error = GetCreditsConfigApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+
+	try {
+		const config: CreditsConfig = await getCreditsConfig(ctx.get('metaDb'))
+		return ctx.json(toCreditsConfigResponse(config) as CreditsConfigResponse)
+	} catch (error) {
+		return mapConfigurationError(ctx, error, 'credits')
+	}
+}
+
+export async function updateCreditsConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, UpdateCreditsConfigApi.request)
+	if (!request.success) {
+		const error = UpdateCreditsConfigApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+
+	try {
+		const config: CreditsConfig = await updateCreditsConfig(ctx.get('metaDb'), {
+			signupEnabled: request.data.signup_enabled,
+			signupAmount: parseConfigCreditAmount(request.data.signup_amount),
+			dailyCheckinEnabled: request.data.daily_checkin_enabled,
+			dailyCheckinAmount: parseConfigCreditAmount(request.data.daily_checkin_amount),
+			historyRetentionDays: request.data.history_retention_days,
+			expectedVersion: request.data.expected_version,
+			nowMs: Date.now()
+		})
+		return ctx.json(toCreditsConfigResponse(config) as CreditsConfigResponse)
+	} catch (error) {
+		return mapConfigurationError(ctx, error, 'credits')
+	}
+}
+
+export async function getAffiliateConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, GetAffiliateConfigApi.request)
+	if (!request.success) {
+		const error = GetAffiliateConfigApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+
+	try {
+		const config: AffiliateConfig = await getAffiliateConfig(ctx.get('metaDb'))
+		return ctx.json(toAffiliateConfigResponse(config) as AffiliateConfigResponse)
+	} catch (error) {
+		return mapConfigurationError(ctx, error, 'affiliate')
+	}
+}
+
+export async function updateAffiliateConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, UpdateAffiliateConfigApi.request)
+	if (!request.success) {
+		const error = UpdateAffiliateConfigApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+
+	try {
+		const config: AffiliateConfig = await updateAffiliateConfig(ctx.get('metaDb'), {
+			enabled: request.data.enabled,
+			inviterCreditAmount: parseConfigCreditAmount(request.data.inviter_credit_amount),
+			inviteeCreditAmount: parseConfigCreditAmount(request.data.invitee_credit_amount),
+			expectedVersion: request.data.expected_version,
+			nowMs: Date.now()
+		})
+		return ctx.json(toAffiliateConfigResponse(config) as AffiliateConfigResponse)
+	} catch (error) {
+		return mapConfigurationError(ctx, error, 'affiliate')
+	}
+}
+
 function toGeneralConfigResponse(config: GeneralConfig): GeneralConfigResponse {
 	return {
 		design_system: config.designSystem,
@@ -264,10 +352,37 @@ function toEmailConfigResponse(config: EmailConfig): EmailConfigResponse {
 	}
 }
 
+function toCreditsConfigResponse(config: CreditsConfig): CreditsConfigResponse {
+	return {
+		signup_enabled: config.signupEnabled,
+		signup_amount: formatDecimal(config.signupAmount),
+		daily_checkin_enabled: config.dailyCheckinEnabled,
+		daily_checkin_amount: formatDecimal(config.dailyCheckinAmount),
+		history_retention_days: config.historyRetentionDays,
+		version: config.version
+	}
+}
+
+function toAffiliateConfigResponse(config: AffiliateConfig): AffiliateConfigResponse {
+	return {
+		enabled: config.enabled,
+		inviter_credit_amount: formatDecimal(config.inviterCreditAmount),
+		invitee_credit_amount: formatDecimal(config.inviteeCreditAmount),
+		version: config.version
+	}
+}
+
+function parseConfigCreditAmount(raw: string): number {
+	if (/^0+(?:\.0{1,6})?$/.test(raw)) {
+		return 0
+	}
+	return parseDecimal(raw)
+}
+
 function mapConfigurationError(
 	ctx: Context<ApiEnv>,
 	error: unknown,
-	domain: 'general' | 'authentication' | 'email' | 'storage'
+	domain: 'general' | 'authentication' | 'email' | 'storage' | 'credits' | 'affiliate'
 ): Response {
 	if (!(error instanceof ConfigStoreError)) {
 		throw error

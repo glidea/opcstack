@@ -5,10 +5,14 @@ import type { MetaDb } from '../../db'
 import type { SystemSettings } from '../../db/schema.meta'
 import {
 	getAuthenticationConfigHandler,
+	getAffiliateConfigHandler,
+	getCreditsConfigHandler,
 	getEmailConfigHandler,
 	getGeneralConfigHandler,
 	getStorageConfigHandler,
 	updateAuthenticationConfigHandler,
+	updateAffiliateConfigHandler,
+	updateCreditsConfigHandler,
 	updateEmailConfigHandler,
 	updateGeneralConfigHandler,
 	updateStorageConfigHandler
@@ -246,6 +250,80 @@ describe('configuration handlers', () => {
 			}
 		})
 	})
+
+	test('reads Credits configuration using decimal credit amounts', async (): Promise<void> => {
+		const response: Response = await getCreditsConfigHandler(
+			createContext({}, createMetaDb({ row: createSettingsRow() }))
+		)
+
+		expect({ status: response.status, body: await response.json() }).toEqual({
+			status: 200,
+			body: {
+				signup_enabled: false,
+				signup_amount: '100.000000',
+				daily_checkin_enabled: false,
+				daily_checkin_amount: '10.000000',
+				history_retention_days: 90,
+				version: 1
+			}
+		})
+	})
+
+	test('updates Affiliate configuration using decimal credit amounts', async (): Promise<void> => {
+		const updated: SystemSettings = createSettingsRow()
+		updated.affiliateConfig = {
+			enabled: true,
+			inviterCreditAmount: 75_000_000,
+			inviteeCreditAmount: 25_000_000
+		}
+		updated.affiliateVersion = 2
+
+		const response: Response = await updateAffiliateConfigHandler(
+			createContext(
+				{
+					enabled: true,
+					inviter_credit_amount: '75',
+					invitee_credit_amount: '25',
+					expected_version: 1
+				},
+				createMetaDb({ row: createSettingsRow(), updated })
+			)
+		)
+
+		expect({ status: response.status, body: await response.json() }).toEqual({
+			status: 200,
+			body: {
+				enabled: true,
+				inviter_credit_amount: '75.000000',
+				invitee_credit_amount: '25.000000',
+				version: 2
+			}
+		})
+	})
+
+	test('rejects enabling Credits with a zero signup reward', async (): Promise<void> => {
+		const response: Response = await updateCreditsConfigHandler(
+			createContext(
+				{
+					signup_enabled: true,
+					signup_amount: '0',
+					daily_checkin_enabled: false,
+					daily_checkin_amount: '10',
+					history_retention_days: 90,
+					expected_version: 1
+				},
+				createMetaDb({ row: createSettingsRow() })
+			)
+		)
+
+		expect({ status: response.status, body: await response.json() }).toEqual({
+			status: 400,
+			body: {
+				code: 'INVALID_REQUEST',
+				message: 'signupAmount must be positive when signup credits are enabled'
+			}
+		})
+	})
 })
 
 type MetaDbInput = {
@@ -305,6 +383,10 @@ function createSettingsRow(): SystemSettings {
 		emailUpdatedAt: 1000,
 		storageVersion: 1,
 		storageUpdatedAt: 1000,
+		creditsVersion: 1,
+		creditsUpdatedAt: 1000,
+		affiliateVersion: 1,
+		affiliateUpdatedAt: 1000,
 		generalConfig: {
 			designSystem: 'apple-saas',
 			docsEnabled: true
@@ -330,6 +412,18 @@ function createSettingsRow(): SystemSettings {
 		storageConfig: {
 			allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
 			maxUploadBytes: 5_242_880
+		},
+		creditsConfig: {
+			signupEnabled: false,
+			signupAmount: 100_000_000,
+			dailyCheckinEnabled: false,
+			dailyCheckinAmount: 10_000_000,
+			historyRetentionDays: 90
+		},
+		affiliateConfig: {
+			enabled: false,
+			inviterCreditAmount: 50_000_000,
+			inviteeCreditAmount: 20_000_000
 		}
 	} as unknown as SystemSettings
 }

@@ -14,9 +14,9 @@ const paymentEnabled = readConfig('PAYMENT_ENABLED') ?? 'false'
 const paymentProvider = readConfig('PAYMENT_PROVIDER') ?? ''
 const paymentProducts = readConfig('PAYMENT_PRODUCTS') ?? ''
 const paymentCreemWebhookSecret = readConfig('PAYMENT_CREEM_WEBHOOK_SECRET') ?? ''
-const affEnabled = readConfig('AFF_ENABLED') ?? 'false'
 const d1ShardCount = readConfig('D1_SHARD_COUNT') ?? '1'
-const creditsDailyCheckinEnabled = readConfig('CREDITS_DAILY_CHECKIN_ENABLED') ?? 'false'
+const runAffiliateFlow = process.env.E2E_RUN_AFFILIATE_FLOW ?? 'false'
+const runDailyCheckinFlow = process.env.E2E_RUN_DAILY_CHECKIN_FLOW ?? 'false'
 
 export default defineConfig({
 	test: {
@@ -34,9 +34,9 @@ export default defineConfig({
 			E2E_PAYMENT_PROVIDER: paymentProvider,
 			E2E_PAYMENT_PRODUCTS: paymentProducts,
 			E2E_PAYMENT_CREEM_WEBHOOK_SECRET: paymentCreemWebhookSecret,
-			E2E_AFF_ENABLED: affEnabled,
+			E2E_RUN_AFFILIATE_FLOW: runAffiliateFlow,
 			E2E_D1_SHARD_COUNT: d1ShardCount,
-			E2E_CREDITS_DAILY_CHECKIN_ENABLED: creditsDailyCheckinEnabled
+			E2E_RUN_DAILY_CHECKIN_FLOW: runDailyCheckinFlow
 		}
 	}
 })

@@ -13,7 +13,6 @@ import {
 import { createEmailClients, EmailError, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
-import { parseDecimal } from '../../lib/decimal'
 import {
 	AGENT_CLIENT_ID,
 	AgentAuthError,
@@ -21,11 +20,13 @@ import {
 	getOrCreateActiveGrant,
 	parseCanonicalScopes
 } from '../../agent-auth'
-import type {
-	AuthenticationRuntimeConfig,
-	AuthenticationRuntimeProviderConfig,
-	AuthRuntimeConfig,
-	EmailRuntimeConfig
+import {
+	getCreditsConfig,
+	type CreditsConfig,
+	type AuthenticationRuntimeConfig,
+	type AuthenticationRuntimeProviderConfig,
+	type AuthRuntimeConfig,
+	type EmailRuntimeConfig
 } from '../../config'
 
 const REGISTRATION_UTM_SOURCE_COOKIE = 'registration_utm_source'
@@ -98,19 +99,15 @@ export function authCore(env: Env, db: MetaDb, config: AuthRuntimeConfig) {
             )
             const credits = new CreditsService(tenant.db)
             await credits.createBalance({ userId })
-            if (!readCreditsSignupEnabled(env)) {
-              return
-            }
-
-            const signupAmount = parseDecimal(env.CREDITS_SIGNUP_AMOUNT)
-            if (signupAmount <= 0) {
+			const creditsConfig: CreditsConfig = await getCreditsConfig(db)
+			if (!creditsConfig.signupEnabled) {
               return
             }
 
             await credits.grant({
               userId,
               type: 'signup',
-              amount: signupAmount,
+				amount: creditsConfig.signupAmount,
               sourceType: 'signup',
               sourceId: userId,
               description: 'Signup reward'
@@ -191,10 +188,6 @@ function readRegistrationUtmSource(context: AuthHookContext | null): string | nu
     }
   }
   return null
-}
-
-function readCreditsSignupEnabled(env: Env): boolean {
-  return env.CREDITS_SIGNUP_ENABLED === 'true'
 }
 
 function buildEmailAndPassword(config: AuthRuntimeConfig): AuthEmailAndPasswordConfig {

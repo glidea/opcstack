@@ -6,7 +6,7 @@ type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_REMOTE?: string
 	E2E_D1_SHARD_COUNT?: string
-	E2E_CREDITS_DAILY_CHECKIN_ENABLED?: string
+	E2E_RUN_DAILY_CHECKIN_FLOW?: string
 }
 
 type AuthToken = {
@@ -71,7 +71,7 @@ const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const d1ShardCount: number = Number(e2eEnv.E2E_D1_SHARD_COUNT ?? '1')
 const creditsDailyCheckinEnabled: boolean =
-	e2eEnv.E2E_CREDITS_DAILY_CHECKIN_ENABLED === 'true'
+	e2eEnv.E2E_RUN_DAILY_CHECKIN_FLOW === 'true'
 let adminSessionCookie: string
 
 describe('tenant sharding e2e', () => {

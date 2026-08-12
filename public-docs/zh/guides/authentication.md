@@ -380,7 +380,7 @@ Better Auth 创建新用户时，在 `authCore` 中运行两个钩子：
 **`create.after`** 在写入用户行之后运行：
 - 调用 `createTenantShardAccess(env, db).openUserDb(userId, region)` 将用户分配到租户分片。region 从 `request.cf.continent` 解析，使用与分片路由器相同的映射：`AS -> apac`、`EU -> weur`、`OC -> oc`，默认 `apac`
 - 通过 `CreditsService.createBalance` 在租户分片 DB 中创建用户的积分余额
-- 如果 `CREDITS_SIGNUP_ENABLED` 为 `'true'` 且 `CREDITS_SIGNUP_AMOUNT` 为正数，则以 `sourceType: 'signup'` 和 `sourceId: userId` 授予注册积分
+- 从 Meta D1 读取一次 Credits 配置快照；启用注册奖励时，以 `sourceType: 'signup'` 和 `sourceId: userId` 授予配置金额
 
 这意味着认证创建是跨 DB 流程：用户行在 Meta DB，分片分配在 Meta DB（`user_shards`），积分余额在 Tenant Shard DB。没有跨 DB 事务。如果进程在 Meta 写入和 Shard 写入之间崩溃，用户存在但没有余额行。注册授予通过 `source_type + source_id` 保证幂等性。
 

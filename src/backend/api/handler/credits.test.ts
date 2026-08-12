@@ -40,6 +40,18 @@ const shardRouterMocks = vi.hoisted(() => {
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 
+const configMocks = vi.hoisted(() => {
+	return {
+		getCreditsConfig: vi.fn()
+	}
+})
+
+vi.mock('../../config', () => {
+	return {
+		getCreditsConfig: configMocks.getCreditsConfig
+	}
+})
+
 vi.mock('../../credits', async () => {
 	const actual = await vi.importActual<typeof import('../../credits')>('../../credits')
 	return {
@@ -68,6 +80,14 @@ vi.mock('../../db/shard-router', () => {
 })
 
 beforeEach(() => {
+	configMocks.getCreditsConfig.mockResolvedValue({
+		signupEnabled: false,
+		signupAmount: 100_000_000,
+		dailyCheckinEnabled: false,
+		dailyCheckinAmount: 10_000_000,
+		historyRetentionDays: 90,
+		version: 1
+	})
 	shardRouterMocks.openUserDb.mockResolvedValue({
 		shardId: 'shard_0001',
 		bindingName: 'TENANT_DB_0001',
@@ -83,7 +103,7 @@ describe('getCreditSummaryHandler', () => {
 	})
 
 	type GivenDetail = {
-		dailyCheckinAmount: string
+		dailyCheckinAmount: number
 		summaryErrorCode: '' | CreditsErrorCode
 	}
 	type WhenDetail = Record<string, never>
@@ -100,7 +120,7 @@ describe('getCreditSummaryHandler', () => {
 			when: 'calling getCreditSummaryHandler',
 			then: 'returns snake_case response',
 			givenDetail: {
-				dailyCheckinAmount: '10',
+				dailyCheckinAmount: 10_000_000,
 				summaryErrorCode: ''
 			},
 			whenDetail: {},
@@ -116,7 +136,7 @@ describe('getCreditSummaryHandler', () => {
 			when: 'calling getCreditSummaryHandler',
 			then: 'returns 404 with code',
 			givenDetail: {
-				dailyCheckinAmount: '0',
+				dailyCheckinAmount: 0,
 				summaryErrorCode: 'CREDIT_USER_NOT_FOUND'
 			},
 			whenDetail: {},
@@ -139,10 +159,16 @@ describe('getCreditSummaryHandler', () => {
 			})
 		}
 
+		configMocks.getCreditsConfig.mockResolvedValue({
+			signupEnabled: false,
+			signupAmount: 100_000_000,
+			dailyCheckinEnabled: true,
+			dailyCheckinAmount: given.dailyCheckinAmount,
+			historyRetentionDays: 90,
+			version: 1
+		})
 		const ctx = createJsonContext({
-			env: {
-				CREDITS_DAILY_CHECKIN_AMOUNT: given.dailyCheckinAmount
-			},
+			env: {},
 			userId: 'u1',
 			metaDb: { name: 'meta' },
 			tenantDb: { name: 'tenant' },
@@ -168,8 +194,8 @@ describe('dailyCheckinHandler', () => {
 	})
 
 	type GivenDetail = {
-		enabled: string
-		amount: string
+		enabled: boolean
+		amount: number
 		errorCode: '' | CreditsErrorCode
 	}
 	type WhenDetail = Record<string, never>
@@ -186,8 +212,8 @@ describe('dailyCheckinHandler', () => {
 			when: 'calling dailyCheckinHandler',
 			then: 'returns empty object',
 			givenDetail: {
-				enabled: 'false',
-				amount: '10',
+				enabled: false,
+				amount: 10_000_000,
 				errorCode: ''
 			},
 			whenDetail: {},
@@ -203,8 +229,8 @@ describe('dailyCheckinHandler', () => {
 			when: 'calling dailyCheckinHandler',
 			then: 'returns invalid amount',
 			givenDetail: {
-				enabled: 'true',
-				amount: '0',
+				enabled: true,
+				amount: 0,
 				errorCode: ''
 			},
 			whenDetail: {},
@@ -220,8 +246,8 @@ describe('dailyCheckinHandler', () => {
 			when: 'calling dailyCheckinHandler',
 			then: 'returns 409 duplicated error',
 			givenDetail: {
-				enabled: 'true',
-				amount: '10',
+				enabled: true,
+				amount: 10_000_000,
 				errorCode: 'DAILY_CHECKIN_ALREADY_DONE'
 			},
 			whenDetail: {},
@@ -237,8 +263,8 @@ describe('dailyCheckinHandler', () => {
 			when: 'calling dailyCheckinHandler',
 			then: 'returns balance and checked_in',
 			givenDetail: {
-				enabled: 'true',
-				amount: '10',
+				enabled: true,
+				amount: 10_000_000,
 				errorCode: ''
 			},
 			whenDetail: {},
@@ -261,11 +287,16 @@ describe('dailyCheckinHandler', () => {
 			})
 		}
 
+		configMocks.getCreditsConfig.mockResolvedValue({
+			signupEnabled: false,
+			signupAmount: 100_000_000,
+			dailyCheckinEnabled: given.enabled,
+			dailyCheckinAmount: given.amount,
+			historyRetentionDays: 90,
+			version: 1
+		})
 		const ctx = createJsonContext({
-			env: {
-				CREDITS_DAILY_CHECKIN_ENABLED: given.enabled,
-				CREDITS_DAILY_CHECKIN_AMOUNT: given.amount
-			},
+			env: {},
 			userId: 'u1',
 			metaDb: { name: 'meta' },
 			tenantDb: { name: 'tenant' },

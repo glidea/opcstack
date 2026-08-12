@@ -224,12 +224,7 @@ user.create.after
 启用时授予注册积分
 ```
 
-配置：
-
-```bash
-CREDITS_SIGNUP_ENABLED=true
-CREDITS_SIGNUP_AMOUNT=100
-```
+Meta D1 中的 Credits 配置决定是否启用注册奖励及其金额。用户创建后只读取一次配置快照。
 
 授予使用：
 
@@ -251,12 +246,7 @@ sourceType  daily_checkin
 sourceId    user_id:yyyy-mm-dd
 ```
 
-配置：
-
-```bash
-CREDITS_DAILY_CHECKIN_ENABLED=true
-CREDITS_DAILY_CHECKIN_AMOUNT=10
-```
+Meta D1 中的 Credits 配置决定是否启用每日签到及其金额。
 
 日期为 UTC。同一 UTC 日的第二次签到返回 `409 DAILY_CHECKIN_ALREADY_DONE`。
 
@@ -340,11 +330,7 @@ CRONS=*/10 * * * *
 
 过期操作写入一条负向 `expired` 交易并将条目的 `remaining_amount` 设为 `0`。
 
-交易清理使用：
-
-```bash
-CREDITS_HISTORY_RETENTION_DAYS=90
-```
+交易清理在每次 Cron 执行时从 Meta D1 的 Credits 配置读取一次 `historyRetentionDays`。
 
 `credit_entries` 不会被删除。它们保留授予幂等性和过期状态。
 
@@ -554,23 +540,9 @@ POST /api/admin/grant_credits
 
 ## 配置
 
-```bash
-# 用户创建后授予注册积分
-CREDITS_SIGNUP_ENABLED=true
-CREDITS_SIGNUP_AMOUNT=100
+Credits 配置由后台 Configuration 管理并存入 Meta D1。API 金额使用十进制字符串：`100` 和 `100.000000` 都表示 100 积分；D1 中存为 `100000000` 整数 units。
 
-# 允许已认证用户领取每日奖励
-CREDITS_DAILY_CHECKIN_ENABLED=true
-CREDITS_DAILY_CHECKIN_AMOUNT=10
-
-# 超过此天数后删除旧的 credit_transactions
-CREDITS_HISTORY_RETENTION_DAYS=90
-
-# 过期和清理任务所必需
-CRONS=*/10 * * * *
-```
-
-金额为积分十进制字符串。`100` 和 `100.000000` 都表示 100 积分。
+`CRONS=*/10 * * * *` 仍是部署拓扑配置，积分过期和清理任务依赖它。
 
 ## 常见错误
 

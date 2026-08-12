@@ -52,6 +52,14 @@ export type EmailConfig = EmailSettingsDocument & {
 	version: number
 }
 
+export type CreditsConfig = CreditsSettingsDocument & {
+	version: number
+}
+
+export type AffiliateConfig = AffiliateSettingsDocument & {
+	version: number
+}
+
 export type AuthenticationRuntimeConfig = Omit<
 	AuthenticationSettingsDocument,
 	'turnstile' | 'providers'
@@ -145,6 +153,16 @@ export type UpdateEmailConfigInput = {
 	nowMs: number
 }
 
+export type UpdateCreditsConfigInput = CreditsSettingsDocument & {
+	expectedVersion: number
+	nowMs: number
+}
+
+export type UpdateAffiliateConfigInput = AffiliateSettingsDocument & {
+	expectedVersion: number
+	nowMs: number
+}
+
 export type SystemSettingsDomainUpdate =
 	| DomainUpdate<'general', GeneralSettingsDocument>
 	| DomainUpdate<'authentication', AuthenticationSettingsDocument>
@@ -212,6 +230,22 @@ const EmailSettingsSchema = z.object({
 	resendApiKey: EncryptedSecretSchema.nullable()
 })
 
+const CreditUnitsSchema = z.number().int().nonnegative().safe()
+
+const CreditsSettingsSchema = z.object({
+	signupEnabled: z.boolean(),
+	signupAmount: CreditUnitsSchema,
+	dailyCheckinEnabled: z.boolean(),
+	dailyCheckinAmount: CreditUnitsSchema,
+	historyRetentionDays: z.number().int().positive()
+})
+
+const AffiliateSettingsSchema = z.object({
+	enabled: z.boolean(),
+	inviterCreditAmount: CreditUnitsSchema,
+	inviteeCreditAmount: CreditUnitsSchema
+})
+
 export async function readSystemSettingsSnapshot(db: MetaDb): Promise<SystemSettings> {
 	const row: SystemSettings | undefined = await db.query.systemSettings.findFirst({
 		where: eq(systemSettings.id, 1)
@@ -274,6 +308,16 @@ export async function getAuthenticationConfig(db: MetaDb): Promise<Authenticatio
 export async function getEmailConfig(db: MetaDb): Promise<EmailConfig> {
 	const settings: SystemSettings = await readSystemSettingsSnapshot(db)
 	return toEmailConfig(settings)
+}
+
+export async function getCreditsConfig(db: MetaDb): Promise<CreditsConfig> {
+	const settings: SystemSettings = await readSystemSettingsSnapshot(db)
+	return toCreditsConfig(settings)
+}
+
+export async function getAffiliateConfig(db: MetaDb): Promise<AffiliateConfig> {
+	const settings: SystemSettings = await readSystemSettingsSnapshot(db)
+	return toAffiliateConfig(settings)
 }
 
 export async function updateAuthenticationConfig(
@@ -357,6 +401,36 @@ export async function updateEmailConfig(
 		nowMs: input.nowMs
 	})
 	return toEmailConfig(settings)
+}
+
+export async function updateCreditsConfig(
+	db: MetaDb,
+	input: UpdateCreditsConfigInput
+): Promise<CreditsConfig> {
+	const values: CreditsSettingsDocument = parseCreditsSettings(input)
+	validateCreditsDependencies(values)
+	const settings: SystemSettings = await updateSystemSettingsDomain(db, {
+		domain: 'credits',
+		expectedVersion: input.expectedVersion,
+		values,
+		nowMs: input.nowMs
+	})
+	return toCreditsConfig(settings)
+}
+
+export async function updateAffiliateConfig(
+	db: MetaDb,
+	input: UpdateAffiliateConfigInput
+): Promise<AffiliateConfig> {
+	const values: AffiliateSettingsDocument = parseAffiliateSettings(input)
+	validateAffiliateDependencies(values)
+	const settings: SystemSettings = await updateSystemSettingsDomain(db, {
+		domain: 'affiliate',
+		expectedVersion: input.expectedVersion,
+		values,
+		nowMs: input.nowMs
+	})
+	return toAffiliateConfig(settings)
 }
 
 export async function getAuthRuntimeConfig(
@@ -608,6 +682,24 @@ function toEmailConfig(settings: SystemSettings): EmailConfig {
 	}
 }
 
+function toCreditsConfig(settings: SystemSettings): CreditsConfig {
+	const config: CreditsSettingsDocument = parseCreditsSettings(settings.creditsConfig)
+	validateCreditsDependencies(config)
+	return {
+		...config,
+		version: settings.creditsVersion
+	}
+}
+
+function toAffiliateConfig(settings: SystemSettings): AffiliateConfig {
+	const config: AffiliateSettingsDocument = parseAffiliateSettings(settings.affiliateConfig)
+	validateAffiliateDependencies(config)
+	return {
+		...config,
+		version: settings.affiliateVersion
+	}
+}
+
 function parseAuthenticationSettings(value: unknown): AuthenticationSettingsDocument {
 	const result: z.ZodSafeParseResult<AuthenticationSettingsDocument> =
 		AuthenticationSettingsSchema.safeParse(value)
@@ -623,6 +715,52 @@ function parseEmailSettings(value: unknown): EmailSettingsDocument {
 		throw new ConfigStoreError('SETTINGS_INVALID', 'Email settings are invalid')
 	}
 	return result.data
+}
+
+function parseCreditsSettings(value: unknown): CreditsSettingsDocument {
+	const result: z.ZodSafeParseResult<CreditsSettingsDocument> = CreditsSettingsSchema.safeParse(value)
+	if (!result.success) {
+		throw new ConfigStoreError('SETTINGS_INVALID', 'Credits settings are invalid')
+	}
+	return result.data
+}
+
+function parseAffiliateSettings(value: unknown): AffiliateSettingsDocument {
+	const result: z.ZodSafeParseResult<AffiliateSettingsDocument> = AffiliateSettingsSchema.safeParse(value)
+	if (!result.success) {
+		throw new ConfigStoreError('SETTINGS_INVALID', 'Affiliate settings are invalid')
+	}
+	return result.data
+}
+
+function validateCreditsDependencies(config: CreditsSettingsDocument): void {
+	if (config.signupEnabled && config.signupAmount === 0) {
+		throw new ConfigStoreError(
+			'INVALID_UPDATE',
+			'signupAmount must be positive when signup credits are enabled'
+		)
+	}
+	if (config.dailyCheckinEnabled && config.dailyCheckinAmount === 0) {
+		throw new ConfigStoreError(
+			'INVALID_UPDATE',
+			'dailyCheckinAmount must be positive when daily check-in is enabled'
+		)
+	}
+}
+
+function validateAffiliateDependencies(config: AffiliateSettingsDocument): void {
+	if (config.enabled && config.inviterCreditAmount === 0) {
+		throw new ConfigStoreError(
+			'INVALID_UPDATE',
+			'inviterCreditAmount must be positive when Affiliate is enabled'
+		)
+	}
+	if (config.enabled && config.inviteeCreditAmount === 0) {
+		throw new ConfigStoreError(
+			'INVALID_UPDATE',
+			'inviteeCreditAmount must be positive when Affiliate is enabled'
+		)
+	}
 }
 
 async function applyAuthenticationProviderUpdate(

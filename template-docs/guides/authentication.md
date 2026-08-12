@@ -379,7 +379,7 @@ When Better Auth creates a new user, two hooks run in `authCore`:
 **`create.after`** runs after the user row is written:
 - Calls `createTenantShardAccess(env, db).openUserDb(userId, region)` to assign the user to a tenant shard. The region is resolved from `request.cf.continent` using the same mapping as the shard router: `AS -> apac`, `EU -> weur`, `OC -> oc`, default `apac`
 - Creates the user's credit balance in the tenant shard DB via `CreditsService.createBalance`
-- If `CREDITS_SIGNUP_ENABLED` is `'true'` and `CREDITS_SIGNUP_AMOUNT` is positive, grants signup credits with `sourceType: 'signup'` and `sourceId: userId`
+- Reads one Credits configuration snapshot from Meta D1 and grants the configured signup reward with `sourceType: 'signup'` and `sourceId: userId` when enabled
 
 This means auth creation is a cross-DB flow: User row in Meta DB, shard assignment in Meta DB (`user_shards`), credit balance in Tenant Shard DB. There is no cross-DB transaction. If the process crashes between Meta write and Shard write, the user exists but has no balance row. The signup grant is idempotent by `source_type + source_id`.
 

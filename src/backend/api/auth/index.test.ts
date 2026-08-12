@@ -8,6 +8,12 @@ import { createEmailClients, type EmailSimpleSendInput } from '../../email'
 import type { Resend } from 'resend'
 import type { AuthRuntimeConfig } from '../../config'
 
+const configMocks = vi.hoisted(() => {
+	return {
+		getCreditsConfig: vi.fn()
+	}
+})
+
 const creditServiceMocks = vi.hoisted(() => {
 	return {
 		constructorArgs: [] as unknown[][],
@@ -91,6 +97,12 @@ vi.mock('../../db/shard-router', () => {
 				openUserDb: shardRouterMocks.openUserDb
 			}
 		})
+	}
+})
+
+vi.mock('../../config', () => {
+	return {
+		getCreditsConfig: configMocks.getCreditsConfig
 	}
 })
 
@@ -630,8 +642,8 @@ describe('authCore user create hook', () => {
 	})
 
 	type GivenDetail = {
-		creditsSignupEnabled: string
-		creditsSignupAmount: string
+		creditsSignupEnabled: boolean
+		creditsSignupAmount: number
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -648,8 +660,8 @@ describe('authCore user create hook', () => {
 			when: 'better auth creates user',
 			then: 'tenant credit balance is initialized without grant transaction',
 			givenDetail: {
-				creditsSignupEnabled: 'false',
-				creditsSignupAmount: '0'
+				creditsSignupEnabled: false,
+				creditsSignupAmount: 0
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -658,21 +670,38 @@ describe('authCore user create hook', () => {
 				grantCalls: 0,
 				createBalanceUserId: 'u1'
 			}
+		},
+		{
+			scenario: 'grant signup credits from the D1 snapshot',
+			given: 'credits signup reward enabled',
+			when: 'better auth creates user',
+			then: 'tenant credit balance and signup grant use the configured units',
+			givenDetail: {
+				creditsSignupEnabled: true,
+				creditsSignupAmount: 125_000_000
+			},
+			whenDetail: {},
+			thenExpected: {
+				openUserDbCalls: 1,
+				createBalanceCalls: 1,
+				grantCalls: 1,
+				createBalanceUserId: 'u1'
+			}
 		}
 	]
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
-		const env: Env = createEnv()
-		type CreditSignupTestEnv = Omit<Env, 'CREDITS_SIGNUP_ENABLED' | 'CREDITS_SIGNUP_AMOUNT'> & {
-			CREDITS_SIGNUP_ENABLED: string
-			CREDITS_SIGNUP_AMOUNT: string
-		}
-		const testEnv = env as CreditSignupTestEnv
-		testEnv.CREDITS_SIGNUP_ENABLED = given.creditsSignupEnabled
-		testEnv.CREDITS_SIGNUP_AMOUNT = given.creditsSignupAmount
+		configMocks.getCreditsConfig.mockResolvedValue({
+			signupEnabled: given.creditsSignupEnabled,
+			signupAmount: given.creditsSignupAmount,
+			dailyCheckinEnabled: false,
+			dailyCheckinAmount: 10_000_000,
+			historyRetentionDays: 90,
+			version: 1
+		})
 
 		const auth = authCore(
-			testEnv as unknown as Env,
+			createEnv(),
 			{} as never,
 			createAuthRuntimeConfig({
 				emailEnabled: true,
@@ -1098,9 +1127,7 @@ function readEmailAutoSignInAfterVerification(): boolean {
 function createEnv(): Env {
 	const env = {
 		APP_BASE_URL: 'http://localhost:5173',
-		BETTER_AUTH_SECRET: 'secret',
-		CREDITS_SIGNUP_ENABLED: 'false',
-		CREDITS_SIGNUP_AMOUNT: '0'
+		BETTER_AUTH_SECRET: 'secret'
 	}
 	return env as unknown as Env
 }

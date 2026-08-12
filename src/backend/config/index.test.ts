@@ -3,12 +3,16 @@ import type { MetaDb } from '../db'
 import type { SystemSettings } from '../db/schema.meta'
 import {
 	ConfigStoreError,
+	getAffiliateConfig,
 	getAuthenticationConfig,
+	getCreditsConfig,
 	getEmailConfig,
 	getPublicRuntimeConfig,
 	getStorageConfig,
 	readSystemSettingsSnapshot,
 	updateAuthenticationConfig,
+	updateAffiliateConfig,
+	updateCreditsConfig,
 	updateEmailConfig,
 	updateStorageConfig,
 	updateSystemSettingsDomain
@@ -245,6 +249,75 @@ describe('system configuration store', () => {
 			version: 2
 		})
 	})
+
+	it('reads Credits and Affiliate as validated operation snapshots', async (): Promise<void> => {
+		const db: MetaDb = createConfigDb({ row: createSettingsRow(1) })
+
+		const credits = await getCreditsConfig(db)
+		const affiliate = await getAffiliateConfig(db)
+
+		expect({ credits, affiliate }).toEqual({
+			credits: {
+				signupEnabled: false,
+				signupAmount: 100_000_000,
+				dailyCheckinEnabled: false,
+				dailyCheckinAmount: 10_000_000,
+				historyRetentionDays: 90,
+				version: 1
+			},
+			affiliate: {
+				enabled: false,
+				inviterCreditAmount: 50_000_000,
+				inviteeCreditAmount: 20_000_000,
+				version: 1
+			}
+		})
+	})
+
+	it('rejects enabling a Credits reward with zero amount before writing', async (): Promise<void> => {
+		let writes: number = 0
+		const db: MetaDb = createConfigDb({
+			row: createSettingsRow(1),
+			onWrite: (): void => {
+				writes += 1
+			}
+		})
+
+		await expect(updateCreditsConfig(db, {
+			signupEnabled: true,
+			signupAmount: 0,
+			dailyCheckinEnabled: false,
+			dailyCheckinAmount: 10_000_000,
+			historyRetentionDays: 90,
+			expectedVersion: 1,
+			nowMs: 2000
+		})).rejects.toEqual(new ConfigStoreError(
+			'INVALID_UPDATE',
+			'signupAmount must be positive when signup credits are enabled'
+		))
+		expect(writes).toBe(0)
+	})
+
+	it('updates Affiliate rewards as one versioned domain', async (): Promise<void> => {
+		const updated: SystemSettings = createSettingsRow(1)
+		updated.affiliateConfig = {
+			enabled: true,
+			inviterCreditAmount: 75_000_000,
+			inviteeCreditAmount: 25_000_000
+		}
+		updated.affiliateVersion = 2
+		const db: MetaDb = createConfigDb({ row: createSettingsRow(1), updated })
+
+		const result = await updateAffiliateConfig(db, {
+			enabled: true,
+			inviterCreditAmount: 75_000_000,
+			inviteeCreditAmount: 25_000_000,
+			expectedVersion: 1,
+			nowMs: 2000
+		})
+
+		expect(result).toEqual({ ...updated.affiliateConfig, version: 2 })
+	})
 })
 
 type ConfigDbInput = {
@@ -297,6 +370,10 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 		emailUpdatedAt: 1000,
 		storageVersion,
 		storageUpdatedAt: 1000,
+		creditsVersion: 1,
+		creditsUpdatedAt: 1000,
+		affiliateVersion: 1,
+		affiliateUpdatedAt: 1000,
 		generalConfig: {
 			designSystem: generalVersion === 1 ? 'apple-saas' : 'brutalism',
 			docsEnabled: generalVersion === 1
@@ -322,6 +399,18 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 		storageConfig: {
 			allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
 			maxUploadBytes: 5_242_880
+		},
+		creditsConfig: {
+			signupEnabled: false,
+			signupAmount: 100_000_000,
+			dailyCheckinEnabled: false,
+			dailyCheckinAmount: 10_000_000,
+			historyRetentionDays: 90
+		},
+		affiliateConfig: {
+			enabled: false,
+			inviterCreditAmount: 50_000_000,
+			inviteeCreditAmount: 20_000_000
 		}
 	} as unknown as SystemSettings
 }

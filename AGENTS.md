@@ -212,7 +212,8 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Existing D1 configuration without the matching generated system secrets is unrecoverable and must fail preparation. Never silently generate replacement roots for initialized data.
 - Dynamic configuration storage lives in `src/backend/config/` and the Meta DB `system_settings` row. Each business domain owns one JSON document, version, and update timestamp.
 - Configuration documents use code-side camelCase and are fully validated on every read and write. Admin API contracts remain snake_case.
-- General, Authentication, Email, and Storage runtime configuration is read from the nearest Meta D1 replica. Admin writes return a D1 bookmark that subsequent browser and API reads use for immediate consistency.
+- General, Authentication, Email, Storage, Credits, and Affiliate runtime configuration is read from the nearest Meta D1 replica. Admin writes return a D1 bookmark that subsequent browser and API reads use for immediate consistency.
+- Signup rewards, daily check-in, affiliate rewards, and credit transaction retention read one domain snapshot per operation and never use ENV fallbacks.
 - Better Auth, beta gate, Turnstile, social OAuth, and email delivery share one request-scoped Authentication and Email snapshot. Disabled email delivery keeps password login available but disables signup, verification, and password-reset email actions.
 - Migrate one business domain atomically: after its runtime reads D1, delete the same ENV keys and parsers in that change. Never keep ENV fallback for a migrated setting.
 - Async AI channels are discovered from complete `<AREA>_<PROVIDER>_<CHANNEL>_{BASE_URL,MODELS,PRICE_MULTIPLIER,API_KEY}` ENV groups. ENV is the single channel registry; do not add channel ids, adapter registries, or parallel endpoint config.

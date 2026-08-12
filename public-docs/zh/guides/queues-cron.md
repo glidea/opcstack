@@ -242,7 +242,7 @@ export async function handleScheduled(
 4. 对每个分片运行 `CreditsService.cleanupTransactions({ limit: 100 })`
 5. 记录结构化的任务结果
 
-`CREDITS_HISTORY_RETENTION_DAYS` 控制交易清理的保留时间。当前解析逻辑在值缺失或无效时回退到 `90`。这是现有行为；不要在没有产品需求的情况下将这种模式复制到新配置中。
+Cron 每次执行时从 Meta D1 读取一次 Credits 交易保留期和 AI 任务保留期。动态配置缺失或无效时任务直接失败，不使用 ENV 静默回退。
 
 ## 添加队列
 

@@ -242,7 +242,7 @@ The job:
 4. Runs `CreditsService.cleanupTransactions({ limit: 100 })` on each shard
 5. Logs structured job results
 
-`CREDITS_HISTORY_RETENTION_DAYS` controls transaction cleanup retention. Current parsing falls back to `90` when the value is missing or invalid. That is existing behavior; do not copy this pattern into new config without a product reason.
+The cron reads Credits transaction retention and AI task retention from Meta D1 once per execution. Invalid or missing dynamic configuration fails the job instead of silently using an ENV fallback.
 
 ## Add A Queue
 
