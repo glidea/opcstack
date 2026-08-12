@@ -66,17 +66,17 @@ Better Auth handler (/api/auth/*)
 
 ### 邮件密码
 
-由 `EMAIL_SIGNUP_ENABLED` 和 `EMAIL_REQUIRE_VERIFICATION` 控制。启用注册后，用户通过邮件和密码注册。需要验证时，前端在注册后调用 `sendVerificationOtp` 发送 6 位验证码。
+由 Meta D1 中的 Authentication 和 Email 配置文档控制。启用邮件发送和注册后，用户通过邮件和密码注册。需要验证时，前端在注册后调用 `sendVerificationOtp` 发送 6 位验证码。
 
 ```
 用户输入邮件 + 密码
   |
   v
 POST /api/auth/sign-up/email
-  -- 创建用户（EMAIL_SIGNUP_ENABLED=false 时禁用）
+  -- Email 和注册都启用时创建用户
   |
   v
-POST /api/auth/email-otp/send-verification-otp  (EMAIL_REQUIRE_VERIFICATION=true 时)
+POST /api/auth/email-otp/send-verification-otp  (启用验证时)
   -- 发送 6 位 OTP 到邮件
   |
   v
@@ -165,15 +165,15 @@ OTP 用于三个流程：注册后邮件验证、密码重置和邮件变更。O
 
 ### Google OAuth
 
-由 `GOOGLE_AUTH_ENABLED` 控制。Client ID 和 Secret 配置原生 Google 社交 provider。回调 URI 为 `https://your-domain.com/api/auth/callback/google`。
+在 Authentication 配置中启用。Client ID 和 Secret 配置原生 Google 社交 provider。回调 URI 为 `https://your-domain.com/api/auth/callback/google`。
 
 ### GitHub OAuth
 
-由 `GITHUB_AUTH_ENABLED` 控制。与 Google 相同的原生社交 provider 模式。回调 URI 为 `https://your-domain.com/api/auth/callback/github`。
+在 Authentication 配置中启用。与 Google 相同的原生社交 provider 模式。回调 URI 为 `https://your-domain.com/api/auth/callback/github`。
 
 ### LinuxDo OAuth
 
-由 `LINUXDO_AUTH_ENABLED` 控制。使用 `genericOAuth` 插件，因为 LinuxDo 不是 Better Auth 的原生 provider。Profile 映射将 LinuxDo 用户 id 转换为合成邮件：
+在 Authentication 配置中启用。使用 `genericOAuth` 插件，因为 LinuxDo 不是 Better Auth 的原生 provider。Profile 映射将 LinuxDo 用户 id 转换为合成邮件：
 
 ```ts
 email: `linuxdo-${id}@linuxdo.local`
@@ -185,18 +185,18 @@ email: `linuxdo-${id}@linuxdo.local`
 
 使用 `APP_BASE_URL` 作为回调 URL 的事实来源。生产环境解析为 `https://<APP_DOMAIN>`。本地开发时 `APP_DOMAIN=localhost`，解析为 `http://localhost:5173`。
 
-| 平台 | 控制台操作 | 环境变量 |
+| 平台 | 控制台操作 | OPCStack 配置 |
 | --- | --- | --- |
-| Cloudflare Email Service | 接入发送域名，使用生成的 `SEND_EMAIL` binding | `EMAIL_PROVIDER=cloudflare`、`SYSTEM_EMAIL` |
-| Resend | 验证发送域名，创建带发送权限的 API key | `EMAIL_PROVIDER=resend`、`EMAIL_RESEND_API_KEY`、`SYSTEM_EMAIL` |
-| Cloudflare Turnstile | 为 `APP_DOMAIN` 和可选的 `APP_CN_DOMAIN` 创建或复用 widget | `TURNSTILE_ENABLED`、`TURNSTILE_SITE_KEY`、`TURNSTILE_SECRET_KEY` |
-| Google OAuth | 创建 Web application OAuth client | `GOOGLE_AUTH_ENABLED`、`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET` |
-| GitHub OAuth | 创建 OAuth App | `GITHUB_AUTH_ENABLED`、`GITHUB_CLIENT_ID`、`GITHUB_CLIENT_SECRET` |
-| LinuxDo OAuth | 在 LinuxDo 控制台创建 OAuth 应用 | `LINUXDO_AUTH_ENABLED`、`LINUXDO_CLIENT_ID`、`LINUXDO_CLIENT_SECRET` |
+| Cloudflare Email Service | 接入发送域名，使用生成的 `SEND_EMAIL` binding | Email Tab：Cloudflare provider；固定 `SYSTEM_EMAIL` |
+| Resend | 验证发送域名，创建带发送权限的 API key | Email Tab：Resend provider 和 API key；固定 `SYSTEM_EMAIL` |
+| Cloudflare Turnstile | 为 `APP_DOMAIN` 和可选的 `APP_CN_DOMAIN` 创建或复用 widget | Authentication Tab：site key、secret key 和启用开关 |
+| Google OAuth | 创建 Web application OAuth client | Authentication Tab：client ID、client secret 和启用开关 |
+| GitHub OAuth | 创建 OAuth App | Authentication Tab：client ID、client secret 和启用开关 |
+| LinuxDo OAuth | 在 LinuxDo 控制台创建 OAuth 应用 | Authentication Tab：client ID、client secret 和启用开关 |
 
 ### Cloudflare Email Service
 
-当 `EMAIL_PROVIDER=cloudflare` 时使用。Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` binding，不要再添加新的 binding。
+Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` binding，不要再添加新的 binding。
 
 配置步骤：
 
@@ -205,9 +205,8 @@ email: `linuxdo-${id}@linuxdo.local`
 3. 选择 **Onboard Domain**，选择 `SYSTEM_EMAIL` 使用的域名
 4. 让 Cloudflare 创建所需的 SPF、DKIM、DMARC 和 bounce 记录
 5. 等待发送域名激活
-6. 设置 `EMAIL_PROVIDER=cloudflare`
-7. 将 `SYSTEM_EMAIL` 设置为接入域名上的地址
-8. 部署前运行 `pnpm prepare:cloudflare:prod`
+6. 将固定 `SYSTEM_EMAIL` 设置为接入域名上的地址并部署
+7. 打开后台 Configuration 的 Email Tab，启用邮件，选择 Cloudflare 并保存
 
 如果需要本地真实发送而不依赖 Cloudflare 远端邮件行为，使用 Resend。
 
@@ -215,17 +214,14 @@ email: `linuxdo-${id}@linuxdo.local`
 
 ### Resend
 
-当 `EMAIL_PROVIDER=resend` 时使用。
-
 配置步骤：
 
 1. 打开 Resend 控制台
 2. 添加并验证发送域名
 3. 创建带发送权限的 API key
-4. 设置 `EMAIL_PROVIDER=resend`
-5. 将 `SYSTEM_EMAIL` 设置为已验证域名上的地址
-6. 将 API key 填入 `EMAIL_RESEND_API_KEY`
-7. 运行 `pnpm prepare:cloudflare:dev` 或 `pnpm prepare:cloudflare:prod`
+4. 将固定 `SYSTEM_EMAIL` 设置为已验证域名上的地址并部署
+5. 打开后台 Configuration 的 Email Tab
+6. 启用邮件，选择 Resend，填写 API key 并保存
 
 `from` 地址始终是 `SYSTEM_EMAIL`。如果 Resend 拒绝邮件，先修复发件域名，不要在代码中绕过。
 
@@ -233,14 +229,13 @@ email: `linuxdo-${id}@linuxdo.local`
 
 ### Cloudflare Turnstile
 
-`prepare-cloudflare` 可以在生产环境中管理此项。当 `TURNSTILE_ENABLED=true` 且 prepare 命令以 prod 模式运行时，会为 `APP_DOMAIN` 和可选的 `APP_CN_DOMAIN` 创建或复用一个名为 `APP_NAME` 的 Turnstile widget。
+首次生产初始化时，`prepare-cloudflare` 会为 `APP_DOMAIN` 和可选的 `APP_CN_DOMAIN` 创建或复用一个名为 `APP_NAME` 的 Turnstile widget，并把 site key 和加密后的 secret 写入默认禁用的 Authentication 配置。本地初始化使用 Cloudflare 测试凭据。
 
 正常生产步骤：
 
-1. 设置 `TURNSTILE_ENABLED=true`
-2. 除非想强制使用已知 widget，否则留空 `TURNSTILE_SITE_KEY`
-3. 运行 `pnpm prepare:cloudflare:prod`
-4. 仅在需要检查时才复制生成的值；运行时通过生成的配置和 secrets 获取
+1. 部署应用
+2. 打开后台 Configuration 的 Authentication Tab
+3. 启用 Turnstile 并保存，生成的凭据已经存在
 
 手动配置步骤：
 
@@ -248,9 +243,7 @@ email: `linuxdo-${id}@linuxdo.local`
 2. 进入 **Turnstile**
 3. 创建 widget
 4. 将 `APP_DOMAIN` 和可选的 `APP_CN_DOMAIN` 添加为允许的主机名
-5. 将 site key 复制到 `TURNSTILE_SITE_KEY`
-6. 将 secret key 复制到 `TURNSTILE_SECRET_KEY`
-7. 再次运行 prepare
+5. 打开 Authentication Tab，替换 site key 和 secret key，启用 Turnstile 并保存
 
 Turnstile 附加到邮件注册、邮件登录和密码重置请求端点。
 
@@ -284,10 +277,8 @@ http://localhost:5173/api/auth/callback/google
 4. 创建类型为 **Web application** 的 OAuth client
 5. 将上述回调 URL 添加到 **Authorized redirect URIs**
 6. Google 要求时，将应用域名添加到 **Authorized domains**
-7. 将 client ID 复制到 `GOOGLE_CLIENT_ID`
-8. 将 client secret 复制到 `GOOGLE_CLIENT_SECRET`
-9. 设置 `GOOGLE_AUTH_ENABLED=true`
-10. 再次运行 prepare
+7. 打开后台 Configuration 的 Authentication Tab
+8. 填写 client ID 和 client secret，启用 Google 并保存
 
 Google 要求 redirect URI 完全匹配。scheme、host、port 或 path 不匹配会返回 `redirect_uri_mismatch`。
 
@@ -320,10 +311,8 @@ http://localhost:5173/api/auth/callback/github
 3. 创建新 OAuth App
 4. 将 **Homepage URL** 设置为 `APP_BASE_URL`
 5. 将 **Authorization callback URL** 设置为上述回调 URL
-6. 将 client ID 复制到 `GITHUB_CLIENT_ID`
-7. 生成 client secret 并填入 `GITHUB_CLIENT_SECRET`
-8. 设置 `GITHUB_AUTH_ENABLED=true`
-9. 再次运行 prepare
+6. 打开后台 Configuration 的 Authentication Tab
+7. 填写 client ID 和生成的 client secret，启用 GitHub 并保存
 
 GitHub OAuth App 只有一个回调 URL。如果本地和生产需要同时工作，请为它们分别创建独立的 OAuth App。
 
@@ -354,10 +343,8 @@ http://localhost:5173/api/auth/oauth2/callback/linuxdo
 1. 打开 LinuxDo OAuth 应用控制台
 2. 创建 OAuth 应用
 3. 设置上述回调 URL
-4. 将 client ID 复制到 `LINUXDO_CLIENT_ID`
-5. 将 client secret 复制到 `LINUXDO_CLIENT_SECRET`
-6. 设置 `LINUXDO_AUTH_ENABLED=true`
-7. 再次运行 prepare
+4. 打开后台 Configuration 的 Authentication Tab
+5. 填写 client ID 和 client secret，启用 LinuxDo 并保存
 
 运行时直接使用以下 LinuxDo 端点：
 
@@ -375,11 +362,11 @@ LinuxDo 不向本应用提供真实邮件。映射后的用户邮件是合成的
 
 1. **OTP 登录拦截。** 路由 `/api/auth/sign-in/email-otp` 始终返回 400 `EMAIL_OTP_SIGN_IN_DISABLED`。
 
-2. **注册门控。** 如果 `scene === 'signup'` 且 `EMAIL_SIGNUP_ENABLED` 不为 `'true'`，返回 400 `EMAIL_SIGNUP_DISABLED`。
+2. **注册门控。** 如果 `scene === 'signup'` 且 Authentication 配置关闭注册，返回 400 `EMAIL_SIGNUP_DISABLED`。
 
-3. **域名 allowlist。** `EMAIL_SIGNUP_DOMAIN_ALLOWLIST` 是分号分隔的允许注册域名列表。为空表示允许所有域名。域名不在列表中的注册邮件返回 400 `EMAIL_DOMAIN_NOT_ALLOWED`。
+3. **域名 allowlist。** Authentication 配置保存允许注册的域名列表。为空表示允许所有域名。域名不在列表中的注册邮件返回 400 `EMAIL_DOMAIN_NOT_ALLOWED`。
 
-4. **每邮件冷却时间。** 每个 (scene, email) 对有一个由 `EMAIL_USER_ACTION_COOLDOWN_SECONDS` 控制的冷却窗口。冷却时间通过本地内存 `Map` 和 KV 双重追踪。KV 键为 `email:cooldown:{scene}:{sha256(email)}`。冷却期内返回 429 `EMAIL_ACTION_RATE_LIMITED`。
+4. **每邮件冷却时间。** 每个 (scene, email) 对的冷却窗口由 Authentication 配置控制。冷却时间通过本地内存 `Map` 和 KV 双重追踪。KV 键为 `email:cooldown:{scene}:{sha256(email)}`。冷却期内返回 429 `EMAIL_ACTION_RATE_LIMITED`。
 
 ## 用户创建副作用
 
@@ -428,7 +415,7 @@ Handler 读写 Meta DB
 
 ### betaGateMiddleware
 
-`src/backend/api/middleware/beta-gate.ts`。如果 `BETA_CODE_ENABLED` 为 `'true'`，在 Meta DB 中查询 `betaCode`，查找 `usedBy === userId` 的行。未找到则返回 403 `BETA_CODE_REQUIRED`。功能禁用时直接通过。
+`src/backend/api/middleware/beta-gate.ts`。Authentication 配置启用内测门控时，在 Meta DB 中查询 `betaCode`，查找 `usedBy === userId` 的行。未找到则返回 403 `BETA_CODE_REQUIRED`。功能禁用时直接通过。
 
 ### tenantDbMiddleware
 
@@ -436,15 +423,7 @@ Handler 读写 Meta DB
 
 ## 管理员访问
 
-`src/backend/api/middleware/auth.ts` 中的 `adminUserMiddleware` 接受两种路径：
-
-1. **API token。** 如果 `Authorization: Bearer <ADMIN_API_TOKEN>` 与配置的 secret 匹配，则在 Meta DB 中查找邮件等于 `SYSTEM_EMAIL` 的用户。如果找到，将 `userId` 设置为该用户的 id。未找到则返回 401 `UNAUTHORIZED`。
-
-2. **超级管理员会话。** 解析 Better Auth 会话。如果会话用户的邮件等于 `SYSTEM_EMAIL`，设置 `userId`。否则返回 401。
-
-`SYSTEM_EMAIL` 用户必须已存在于数据库中。token 路径不会创建用户。如果没有匹配 `SYSTEM_EMAIL` 的用户，即使 token 正确也会返回 401。
-
-浏览器控制台必须使用超级管理员会话，`ADMIN_API_TOKEN` 只用于 API 客户端。登录和运营操作参阅[管理控制台](admin-console.md)。
+`src/backend/api/middleware/auth.ts` 中的 `adminUserMiddleware` 解析 Better Auth 浏览器会话。会话用户邮件等于 `SYSTEM_EMAIL` 时设置 `userId`，否则返回 401 `UNAUTHORIZED`。程序化客户端通过明确 scope 的 OAuth Grant 调用 API，不使用静态管理员 Token。
 
 ## 前端集成
 
@@ -489,52 +468,11 @@ await client.auth.signOut()
 
 ## 配置
 
-### 公开环境变量（.env.dev / .env.prod）
+Authentication 和 Email 配置只保存在 Meta D1 的 `system_settings` 记录中。打开后台 Configuration，编辑单个 Tab 并显式保存。每次保存都会校验完整业务域，成功后无需重新部署，后续请求立即生效。
 
-```bash
-# 系统
-SYSTEM_EMAIL=admin@example.com
+Authentication Tab 管理内测门控、邮件注册策略、Turnstile，以及 Google、GitHub 和 LinuxDo 凭据。Email Tab 管理发送开关、provider 和 Resend API key。读取密钥时只返回是否已配置；替换或删除密钥都是显式保存动作。
 
-# 内测门控
-BETA_CODE_ENABLED=false
-
-# 邮件
-EMAIL_PROVIDER=cloudflare
-EMAIL_SIGNUP_ENABLED=true
-EMAIL_REQUIRE_VERIFICATION=false
-EMAIL_SIGNUP_DOMAIN_ALLOWLIST=
-EMAIL_USER_ACTION_COOLDOWN_SECONDS=50
-
-# Turnstile
-TURNSTILE_ENABLED=false
-TURNSTILE_SITE_KEY=
-
-# OAuth providers（公开 client ID）
-GOOGLE_AUTH_ENABLED=false
-GOOGLE_CLIENT_ID=
-GITHUB_AUTH_ENABLED=false
-GITHUB_CLIENT_ID=
-LINUXDO_AUTH_ENABLED=false
-LINUXDO_CLIENT_ID=
-
-# 注册积分授予
-CREDITS_SIGNUP_ENABLED=false
-CREDITS_SIGNUP_AMOUNT=100
-```
-
-### 密钥环境变量（.env.secret.dev / .env.secret.prod）
-
-```bash
-BETTER_AUTH_SECRET=
-ADMIN_API_TOKEN=
-EMAIL_RESEND_API_KEY=
-GOOGLE_CLIENT_SECRET=
-GITHUB_CLIENT_SECRET=
-LINUXDO_CLIENT_SECRET=
-TURNSTILE_SECRET_KEY=
-```
-
-`EMAIL_PROVIDER` 接受 `cloudflare` 或 `resend`。设置为 `resend` 时，密钥文件中必须有 `EMAIL_RESEND_API_KEY`。
+固定 `SYSTEM_EMAIL` 仍属于部署 ENV，因为它在读取 D1 配置前就定义了管理员身份和发件地址。`BETTER_AUTH_SECRET` 和 `CONFIG_ENCRYPTION_KEY` 由 `prepare-cloudflare` 自动生成，用户不配置。
 
 ## 常见错误
 
@@ -542,7 +480,7 @@ TURNSTILE_SECRET_KEY=
 
 **假设 LinuxDo 用户有真实邮件。** 邮件合成为 `linuxdo-{id}@linuxdo.local`。密码重置等基于邮件的功能对 LinuxDo 用户无效。
 
-**忘记管理员访问需要 SYSTEM_EMAIL 用户存在。** 即使 `ADMIN_API_TOKEN` 正确，如果数据库中没有匹配 `SYSTEM_EMAIL` 的用户行，仍会返回 401。
+**忘记管理员访问需要 SYSTEM_EMAIL 用户存在。** 准备流程会创建或更新该账号；修改邮箱后未重新运行准备流程，会导致浏览器会话无管理员权限。
 
 **期望注册时有跨 DB 事务。** 用户创建分别写入 Meta DB 和 Tenant Shard DB。如果进程在两者之间崩溃，用户存在但没有积分余额。这是设计如此。
 

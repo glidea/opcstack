@@ -146,6 +146,12 @@ The consistency problem this creates: after a user writes, a later read might hi
 
 Meta DB and Tenant Shard DB each maintain independent bookmark flows, because they are separate databases with separate primaries.
 
+## Dynamic Configuration Foundation
+
+`system_settings` is the singleton source for dynamic product configuration. Its business domains have independent versions so the admin API can reject stale writes without coupling unrelated settings. `payment_products` and `ai_channels` are separate versioned collections.
+
+Sensitive values are stored as AES-GCM ciphertext and IV pairs. `prepare-cloudflare` generates `CONFIG_ENCRYPTION_KEY` once and stores it in local secret state or Cloudflare Worker Secrets; it is never stored in D1 or replaced after D1 initialization. Runtime modules move to this source one complete business domain at a time; once a domain reads D1, its old ENV keys and fallback paths are removed in the same change.
+
 ## prepare-cloudflare Automation
 
 `scripts/prepare-cloudflare.mjs` is the single entry point for provisioning:

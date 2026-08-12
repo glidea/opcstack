@@ -18,7 +18,7 @@ order: 10
 
 未登录用户会跳转到登录页。已登录账号的邮箱与 `SYSTEM_EMAIL` 不一致时返回 `403 Forbidden`。
 
-`ADMIN_API_TOKEN` 只用于 API 客户端，不会创建浏览器会话，也不能单独授予控制台访问权限。
+程序化客户端通过明确 scope 的 OAuth Grant 调用 API，不存在静态管理员 API Token。
 
 ## 页面
 

@@ -4,16 +4,16 @@ import type {
 	GenerateBetaCodesResponse,
 	ListBetaCodesResponse
 } from '../src/api-contract/beta'
+import { getAdminSessionCookie } from './support/auth'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
-	E2E_ADMIN_API_TOKEN?: string
 }
 
 const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
-const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
+let adminSessionCookie: string
 
 describe('beta code api e2e', () => {
 	beforeAll(async () => {
@@ -21,6 +21,7 @@ describe('beta code api e2e', () => {
 		if (res.status !== 200) {
 			throw new Error('dev server is not ready for e2e tests')
 		}
+		adminSessionCookie = await getAdminSessionCookie(appBaseUrl)
 	})
 
 	type PublicCaseGiven = Record<string, never>
@@ -112,7 +113,7 @@ describe('beta code api e2e', () => {
 			'/api/admin/generate_beta_codes',
 			{ count: 1 },
 			{
-				authorization: `Bearer ${adminApiToken}`
+				cookie: adminSessionCookie
 			}
 		)
 		const generatePayload = (await generateRes.json()) as GenerateBetaCodesResponse
@@ -125,7 +126,7 @@ describe('beta code api e2e', () => {
 			'/api/admin/list_beta_codes',
 			{},
 			{
-				authorization: `Bearer ${adminApiToken}`
+				cookie: adminSessionCookie
 			}
 		)
 		const listPayload = (await listRes.json()) as ListBetaCodesResponse

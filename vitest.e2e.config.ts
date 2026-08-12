@@ -7,10 +7,9 @@ const secretEnvFile = isRemote ? '.env.secret.prod' : '.env.secret.dev'
 const envValues: Record<string, string> = readEnvFiles([envFile, secretEnvFile, '.env'])
 const appDomain = readConfig('APP_DOMAIN') ?? 'localhost'
 const appBaseUrl = resolveAppBaseUrl(appDomain, isRemote)
-const adminApiToken = readConfig('ADMIN_API_TOKEN') ?? 'admin-token'
-const betterAuthSecret = readConfig('BETTER_AUTH_SECRET') ?? ''
 const r2Enabled = readConfig('R2_ENABLED') ?? 'false'
 const systemEmail = readConfig('SYSTEM_EMAIL') ?? ''
+const superAdminPassword = readConfig('SUPER_ADMIN_PASSWORD') ?? ''
 const paymentEnabled = readConfig('PAYMENT_ENABLED') ?? 'false'
 const paymentProvider = readConfig('PAYMENT_PROVIDER') ?? ''
 const paymentProducts = readConfig('PAYMENT_PRODUCTS') ?? ''
@@ -28,10 +27,9 @@ export default defineConfig({
 		env: {
 			APP_BASE_URL: appBaseUrl,
 			E2E_REMOTE: isRemote ? '1' : '0',
-			E2E_ADMIN_API_TOKEN: adminApiToken,
-			E2E_BETTER_AUTH_SECRET: betterAuthSecret,
 			E2E_R2_ENABLED: r2Enabled,
 			E2E_SYSTEM_EMAIL: systemEmail,
+			E2E_SUPER_ADMIN_PASSWORD: superAdminPassword,
 			E2E_PAYMENT_ENABLED: paymentEnabled,
 			E2E_PAYMENT_PROVIDER: paymentProvider,
 			E2E_PAYMENT_PRODUCTS: paymentProducts,

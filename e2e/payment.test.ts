@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { readdirSync } from 'node:fs'
 import { beforeAll, describe } from 'vitest'
 import { runCases, type TestCase } from '../src/backend/testing/bdd'
+import { getAdminSessionCookie } from './support/auth'
 
 interface JsonErrorResponse {
 	code?: string
@@ -57,7 +58,6 @@ interface LocalPaymentFixture {
 type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_REMOTE?: string
-	E2E_ADMIN_API_TOKEN?: string
 	E2E_PAYMENT_ENABLED?: string
 	E2E_PAYMENT_PROVIDER?: string
 	E2E_PAYMENT_PRODUCTS?: string
@@ -68,7 +68,6 @@ const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const isRemote: boolean = e2eEnv.E2E_REMOTE === '1'
-const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? ''
 const paymentEnabled: boolean = e2eEnv.E2E_PAYMENT_ENABLED === 'true'
 const paymentProvider: string = e2eEnv.E2E_PAYMENT_PROVIDER ?? ''
 const paymentProducts: string = e2eEnv.E2E_PAYMENT_PRODUCTS ?? ''
@@ -77,7 +76,6 @@ const hasPaymentConfig: boolean =
 	paymentProvider.trim() !== '' &&
 	paymentProducts.trim() !== ''
 const hasCreemWebhookConfig: boolean =
-	adminApiToken !== '' &&
 	paymentProvider === 'creem' &&
 	paymentCreemWebhookSecret.trim() !== ''
 const localCreditsProduct: LocalCreditsProduct | null = readLocalCreditsProduct(paymentProducts)
@@ -86,12 +84,16 @@ const canRunLocalPaymentWebhookFlow: boolean =
 const expectedLocalCreditsAmount: string = normalizeCreditText(
 	localCreditsProduct?.creditsAmount ?? '0'
 )
+let adminSessionCookie: string
 
 describe('payment api e2e', () => {
 	beforeAll(async () => {
 		const res = await fetch(`${appBaseUrl}/api/health`)
 		if (res.status !== 200) {
 			throw new Error('dev server is not ready for e2e tests')
+		}
+		if (!isRemote) {
+			adminSessionCookie = await getAdminSessionCookie(appBaseUrl)
 		}
 	})
 
@@ -275,7 +277,7 @@ describe('payment api e2e', () => {
 		}
 	)
 
-	describe.skipIf(!(adminApiToken !== '' && hasPaymentConfig))('return url behavior', () => {
+	describe.skipIf(isRemote || !hasPaymentConfig)('return url behavior', () => {
 		type ReturnGiven = Record<string, never>
 		type ReturnWhen = {
 			action: 'visit_return_url'
@@ -513,7 +515,7 @@ async function listAdminPaymentTransactions(): Promise<{ status: number; total: 
 		method: 'POST',
 		headers: {
 			'content-type': 'application/json',
-			authorization: `Bearer ${adminApiToken}`
+			cookie: adminSessionCookie
 		},
 		body: JSON.stringify({
 			page: 1,

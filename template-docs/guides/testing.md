@@ -288,8 +288,8 @@ Important derived values:
 | --- | --- |
 | `APP_BASE_URL` | Local or remote app base URL |
 | `E2E_REMOTE` | `1` for remote runs |
-| `E2E_ADMIN_API_TOKEN` | Admin API token for admin API tests |
-| `E2E_BETA_CODE_ENABLED` | Whether beta gate is enabled |
+| `E2E_SYSTEM_EMAIL` | Super admin email used for admin session tests |
+| `E2E_SUPER_ADMIN_PASSWORD` | Super admin password used for admin session tests |
 | `E2E_R2_ENABLED` | Whether R2 tests can run |
 | `E2E_PAYMENT_ENABLED` | Whether payment tests can run |
 | `E2E_D1_SHARD_COUNT` | Expected shard count for sharding tests |

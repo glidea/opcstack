@@ -458,7 +458,7 @@ Errors:
 
 ## Admin API
 
-Admin endpoints require `adminUserMiddleware`, which accepts a super admin session or `ADMIN_API_TOKEN`.
+Admin endpoints require `adminUserMiddleware`, which accepts the `SYSTEM_EMAIL` super admin session.
 
 For generating credit codes or granting credits through the browser, see [Admin Console](admin-console.md).
 

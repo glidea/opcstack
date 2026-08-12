@@ -11,8 +11,12 @@ import {
 	buildTypesWranglerConfig,
 	buildWorkerRoutes,
 	encryptInitializationSecret,
+	resolveLocalSystemSecrets,
+	resolveRemoteSystemSecrets,
+	resolveSystemSettingsInitialization,
 	resolveTurnstileInitializationConfig,
 	selectDnsCnameRecord,
+	validateSystemSecretRecovery,
 	validateRuntimeConfig
 } from './prepare-cloudflare.mjs'
 import { resolveAppCnCnameTarget } from './prepare-public.mjs'
@@ -225,6 +229,109 @@ describe('prepare cloudflare configuration initialization', () => {
 })
 
 describe('prepare cloudflare runtime config validation', () => {
+	it('generates and then reuses local system secrets', () => {
+		const generated = resolveLocalSystemSecrets({}, () => Buffer.alloc(32, 7))
+		const reused = resolveLocalSystemSecrets(generated, () => Buffer.alloc(32, 8))
+
+		expect({ generated, reused }).toEqual({
+			generated: {
+				BETTER_AUTH_SECRET: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
+				CONFIG_ENCRYPTION_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+				R2_ORIGIN_SIGNING_SECRET: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc'
+			},
+			reused: generated
+		})
+	})
+
+	it('generates remote system secrets only for a new Worker', () => {
+		const generated = resolveRemoteSystemSecrets(null, {}, () => Buffer.alloc(32, 7))
+		const reusedPending = resolveRemoteSystemSecrets(null, generated, () => Buffer.alloc(32, 8))
+		const existing = resolveRemoteSystemSecrets(
+			new Set([
+				'BETTER_AUTH_SECRET',
+				'CONFIG_ENCRYPTION_KEY',
+				'R2_ORIGIN_SIGNING_SECRET'
+			]),
+			{},
+			() => Buffer.alloc(32, 8)
+		)
+
+		expect({ generated, reusedPending, existing }).toEqual({
+			generated: {
+				BETTER_AUTH_SECRET: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
+				CONFIG_ENCRYPTION_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+				R2_ORIGIN_SIGNING_SECRET: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc'
+			},
+			reusedPending: generated,
+			existing: {}
+		})
+	})
+
+	it('rejects missing generated secrets on an existing Worker', () => {
+		expect(() => {
+			resolveRemoteSystemSecrets(new Set(['BETTER_AUTH_SECRET']), {}, () =>
+				Buffer.alloc(32, 7)
+			)
+		}).toThrow('WORKER_SYSTEM_SECRETS_INCOMPLETE')
+	})
+
+	it('initializes settings only when the generated encryption key is available', () => {
+		expect(
+			resolveSystemSettingsInitialization({
+				settingsExist: false,
+				encryptionKey: 'generated-key'
+			})
+		).toBe(true)
+		expect(
+			resolveSystemSettingsInitialization({ settingsExist: true, encryptionKey: '' })
+		).toBe(false)
+		expect(() => {
+			resolveSystemSettingsInitialization({ settingsExist: false, encryptionKey: '' })
+		}).toThrow('CONFIG_ENCRYPTION_KEY_UNAVAILABLE')
+	})
+
+	it('rejects existing encrypted settings when system secrets cannot be recovered', () => {
+		expect(() => {
+			validateSystemSecretRecovery({
+				settingsExist: true,
+				isRemote: true,
+				workerExists: false,
+				hasPendingSecrets: false,
+				hasLocalSecrets: false
+			})
+		}).toThrow('SYSTEM_SECRETS_RECOVERY_UNAVAILABLE')
+		expect(() => {
+			validateSystemSecretRecovery({
+				settingsExist: true,
+				isRemote: false,
+				workerExists: false,
+				hasPendingSecrets: false,
+				hasLocalSecrets: false
+			})
+		}).toThrow('SYSTEM_SECRETS_RECOVERY_UNAVAILABLE')
+	})
+
+	it('allows existing settings when the matching system secrets are recoverable', () => {
+		expect(() => {
+			validateSystemSecretRecovery({
+				settingsExist: true,
+				isRemote: true,
+				workerExists: false,
+				hasPendingSecrets: true,
+				hasLocalSecrets: false
+			})
+		}).not.toThrow()
+		expect(() => {
+			validateSystemSecretRecovery({
+				settingsExist: true,
+				isRemote: false,
+				workerExists: false,
+				hasPendingSecrets: false,
+				hasLocalSecrets: true
+			})
+		}).not.toThrow()
+	})
+
 	it('rejects an invalid configuration encryption key', () => {
 		expect(() => {
 			validateRuntimeConfig(
@@ -258,6 +365,7 @@ describe('prepare cloudflare runtime config validation', () => {
 			keys: [
 				'BETTER_AUTH_SECRET',
 				'CONFIG_ENCRYPTION_KEY',
+				'R2_ORIGIN_SIGNING_SECRET',
 				'IMAGE_OPENAI_OFFICIAL_API_KEY'
 			]
 		})
@@ -351,7 +459,11 @@ describe('prepare cloudflare runtime config validation', () => {
 		expect({
 			keys
 		}).toEqual({
-			keys: ['BETTER_AUTH_SECRET', 'CONFIG_ENCRYPTION_KEY']
+			keys: [
+				'BETTER_AUTH_SECRET',
+				'CONFIG_ENCRYPTION_KEY',
+				'R2_ORIGIN_SIGNING_SECRET'
+			]
 		})
 	})
 
@@ -363,19 +475,22 @@ describe('prepare cloudflare runtime config validation', () => {
 		}).toEqual({
 			lines: [
 				'BETTER_AUTH_SECRET="auth-secret"',
-				'CONFIG_ENCRYPTION_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="'
+				'CONFIG_ENCRYPTION_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="',
+				'R2_ORIGIN_SIGNING_SECRET="r2-secret"'
 			]
 		})
 	})
 
-	it('declares optional admin api token when configured', () => {
-		const keys = buildRequiredSecretKeys(createRuntimeEnv({ ADMIN_API_TOKEN: 'admin-token' }))
+	it('omits system secret values already stored by Cloudflare', () => {
+		const lines = buildRuntimeSecretLines(
+			createRuntimeEnv({
+				BETTER_AUTH_SECRET: '',
+				CONFIG_ENCRYPTION_KEY: '',
+				R2_ORIGIN_SIGNING_SECRET: ''
+			})
+		)
 
-		expect({
-			keys
-		}).toEqual({
-			keys: ['BETTER_AUTH_SECRET', 'CONFIG_ENCRYPTION_KEY', 'ADMIN_API_TOKEN']
-		})
+		expect({ lines }).toEqual({ lines: [] })
 	})
 
 	it('keeps full secret schema for wrangler types config', () => {
@@ -389,10 +504,13 @@ describe('prepare cloudflare runtime config validation', () => {
 
 		expect({
 			runtimeKeys: config.secrets.required,
-			typeHasPaymentSecret: typesConfig.secrets.required.includes('PAYMENT_DODO_API_KEY')
+			typeHasPaymentSecret: typesConfig.secrets.required.includes('PAYMENT_DODO_API_KEY'),
+			typeHasPrepareOnlyPassword:
+				typesConfig.secrets.required.includes('SUPER_ADMIN_PASSWORD')
 		}).toEqual({
 			runtimeKeys: ['BETTER_AUTH_SECRET'],
-			typeHasPaymentSecret: true
+			typeHasPaymentSecret: true,
+			typeHasPrepareOnlyPassword: false
 		})
 	})
 
@@ -432,21 +550,11 @@ describe('prepare cloudflare runtime config validation', () => {
 			keys: [
 				'BETTER_AUTH_SECRET',
 				'CONFIG_ENCRYPTION_KEY',
+				'R2_ORIGIN_SIGNING_SECRET',
 				'PAYMENT_CREEM_API_KEY',
 				'PAYMENT_CREEM_WEBHOOK_SECRET'
 			]
 		})
-	})
-
-	it('rejects enabled r2 without origin signing secret', () => {
-		const env = createRuntimeEnv({
-			R2_ENABLED: 'true',
-			R2_ORIGIN_SIGNING_SECRET: ''
-		})
-
-		expect(() => {
-			validateRuntimeConfig(env, { isRemote: false })
-		}).toThrow('R2_ORIGIN_SIGNING_SECRET_MISSING')
 	})
 
 	it('rejects enabled payment without selected provider secrets', () => {
@@ -469,9 +577,8 @@ function createRuntimeEnv(overrides = {}) {
 	return {
 		BETTER_AUTH_SECRET: 'auth-secret',
 		CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-		ADMIN_API_TOKEN: '',
 		R2_ENABLED: 'false',
-		R2_ORIGIN_SIGNING_SECRET: '',
+		R2_ORIGIN_SIGNING_SECRET: 'r2-secret',
 		PAYMENT_ENABLED: 'false',
 		PAYMENT_PROVIDER: 'creem',
 		PAYMENT_PROVIDER_COUNTRY_OVERRIDES: '',

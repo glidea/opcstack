@@ -200,7 +200,7 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - `wrangler.jsonc` is the runtime config and should include only secrets required by enabled features.
 - `.wrangler/wrangler.types.jsonc` is type-generation-only config and may include the full secret schema so `Env` stays stable.
 - Fixed public deployment config lives in `.env.dev` and `.env.prod`. `.env` is a local override.
-- Secret config lives in `.env.secret.dev` and `.env.secret.prod`.
+- User-provided secret config lives in `.env.secret.dev` and `.env.secret.prod`.
 - Agents must not read, print, search, edit, create, or copy secret files or token caches: `.env.secret.dev`, `.env.secret.prod`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
 - Any work involving secret values must be performed by the user.
 - Env loading order: `.env.dev` or `.env.prod` -> `.env.secret.dev` or `.env.secret.prod` -> `.env` -> `process.env`.
@@ -208,7 +208,8 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Keep related env keys together. Put a feature switch before its provider selection and provider-specific settings.
 - Keep optional settings after required settings inside the same group.
 - Keep `.env.secret.example` in the same business order as public env files.
-- `CONFIG_ENCRYPTION_KEY` is a fixed 32-byte Base64 ENV secret. It encrypts sensitive D1 configuration values and must fail validation before startup when invalid.
+- `prepare-cloudflare` owns `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET`. It generates them once, persists local values in `.env.secret.dev`, and uploads production values as Cloudflare Worker Secrets without overwriting existing values.
+- Existing D1 configuration without the matching generated system secrets is unrecoverable and must fail preparation. Never silently generate replacement roots for initialized data.
 - Dynamic configuration storage lives in `src/backend/config/` and the Meta DB `system_settings` row. Each business domain owns one JSON document, version, and update timestamp.
 - Configuration documents use code-side camelCase and are fully validated on every read and write. Admin API contracts remain snake_case.
 - General, Authentication, Email, and Storage runtime configuration is read from the nearest Meta D1 replica. Admin writes return a D1 bookmark that subsequent browser and API reads use for immediate consistency.
@@ -292,7 +293,7 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - `authMiddleware` injects `userId` into `ctx.variables`.
 - Authenticated API routes accept Better Auth browser sessions from Cookie or `Authorization: Bearer <token>`. Agent JWTs are verified by the OAuth Provider resource client and expose `agentAuthorization`; existing browser-only routes reject them. Agent-enabled routes must explicitly use `requireAgentScope(scope)`.
 - The generic credential client is `opc auth connect` plus `opc api request`; it injects tokens and must not contain business API types or route-specific methods.
-- `adminUserMiddleware` validates super admin session or `ADMIN_API_TOKEN`.
+- `adminUserMiddleware` accepts only the `SYSTEM_EMAIL` Better Auth browser session. Automated API access uses scoped OAuth rather than a static admin token.
 - `SYSTEM_EMAIL` is the single operator mailbox used for public support contact, super admin identity, and outbound email sender.
 - Credits use integer units where `1 credit = 1_000_000 units`; API credit amounts use decimal strings.
 - Payment `price_amount` is provider minor currency units and must not be mixed with credit units.

@@ -28,9 +28,50 @@ export type LocalTestUser = {
 	userId: string
 }
 
+let adminSessionCookiePromise: Promise<string> | undefined
+
+export function getAdminSessionCookie(appBaseUrl: string): Promise<string> {
+	if (adminSessionCookiePromise) {
+		return adminSessionCookiePromise
+	}
+
+	adminSessionCookiePromise = createAdminSessionCookie(appBaseUrl)
+	return adminSessionCookiePromise
+}
+
+async function createAdminSessionCookie(appBaseUrl: string): Promise<string> {
+	const email: string = process.env['E2E_SYSTEM_EMAIL'] ?? ''
+	const password: string = process.env['E2E_SUPER_ADMIN_PASSWORD'] ?? ''
+	if (email === '' || password === '') {
+		throw new Error('E2E_ADMIN_SESSION_CONFIG_REQUIRED')
+	}
+
+	const origin: string = new URL(appBaseUrl).origin
+	const response: Response = await fetch(`${appBaseUrl}/api/auth/sign-in/email`, {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/json',
+			origin,
+			referer: `${origin}/`
+		},
+		body: JSON.stringify({ email, password })
+	})
+	if (!response.ok) {
+		throw new Error(`failed to sign in super admin: ${response.status}`)
+	}
+
+	const setCookie: string = response.headers.get('set-cookie') ?? ''
+	const match: RegExpMatchArray | null = setCookie.match(
+		/((?:__Secure-)?better-auth\.session_token=[^;,]+)/
+	)
+	if (!match) {
+		throw new Error('E2E_ADMIN_SESSION_COOKIE_MISSING')
+	}
+	return match[1]
+}
+
 export async function createLocalTestUser(input: {
 	appBaseUrl: string
-	adminApiToken: string
 	tag: string
 }): Promise<LocalTestUser> {
 	const authentication: AuthenticationConfig = await readConfig<AuthenticationConfig>(
@@ -170,7 +211,7 @@ function buildAuthenticationUpdate(
 }
 
 async function readConfig<TConfig>(
-	input: { appBaseUrl: string; adminApiToken: string },
+	input: { appBaseUrl: string },
 	endpoint: string
 ): Promise<TConfig> {
 	const response: Response = await callAdminConfig(input, endpoint, {})
@@ -178,13 +219,14 @@ async function readConfig<TConfig>(
 }
 
 async function callAdminConfig(
-	input: { appBaseUrl: string; adminApiToken: string },
+	input: { appBaseUrl: string },
 	endpoint: string,
 	body: unknown,
 	bookmark?: string
 ): Promise<Response> {
+	const adminCookie: string = await getAdminSessionCookie(input.appBaseUrl)
 	const headers: Record<string, string> = {
-		authorization: `Bearer ${input.adminApiToken}`,
+		cookie: adminCookie,
 		'content-type': 'application/json'
 	}
 	if (bookmark) {

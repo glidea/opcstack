@@ -17,7 +17,7 @@ The admin console turns the existing Admin APIs into one operator workspace. It 
 
 An unauthenticated visitor is redirected to login. A signed-in account whose email does not match `SYSTEM_EMAIL` receives `403 Forbidden`.
 
-`ADMIN_API_TOKEN` authenticates API clients only. It does not create a browser session or grant console access by itself.
+Programmatic clients use OAuth grants with explicit scopes. There is no static admin API token.
 
 ## Pages
 

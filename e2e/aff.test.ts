@@ -5,7 +5,6 @@ import { createLocalTestUser, type LocalTestUser } from './support/auth'
 type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_AFF_ENABLED?: string
-	E2E_ADMIN_API_TOKEN?: string
 }
 
 interface AffSummaryResponse {
@@ -20,7 +19,6 @@ const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const affEnabled: boolean = e2eEnv.E2E_AFF_ENABLED === 'true'
-const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
 const canRunAffFlow: boolean = affEnabled && !isRemote
 
 describe('aff api e2e', () => {
@@ -251,7 +249,7 @@ describe('aff api e2e', () => {
 })
 
 async function createUserToken(tag: string): Promise<string> {
-	const user: LocalTestUser = await createLocalTestUser({ appBaseUrl, adminApiToken, tag })
+	const user: LocalTestUser = await createLocalTestUser({ appBaseUrl, tag })
 	return user.token
 }
 

@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, test } from 'vitest'
+import { getAdminSessionCookie } from './support/auth'
 
 const appBaseUrl: string = process.env['APP_BASE_URL'] ?? 'http://localhost:5173'
-const adminApiToken: string = process.env['E2E_ADMIN_API_TOKEN'] ?? 'admin-token'
+let adminSessionCookie: string
 
 describe('admin console api e2e', () => {
 	beforeAll(async () => {
@@ -9,6 +10,7 @@ describe('admin console api e2e', () => {
 		if (response.status !== 200) {
 			throw new Error('dev server is not ready for e2e tests')
 		}
+		adminSessionCookie = await getAdminSessionCookie(appBaseUrl)
 	})
 
 	test('user directory requires admin authorization', async () => {
@@ -29,7 +31,7 @@ describe('admin console api e2e', () => {
 		const response: Response = await fetch(`${appBaseUrl}/api/admin/list_users`, {
 			method: 'POST',
 			headers: {
-				'authorization': `Bearer ${adminApiToken}`,
+				cookie: adminSessionCookie,
 				'content-type': 'application/json'
 			},
 			body: JSON.stringify({ page: 1, page_size: 20 })
@@ -59,7 +61,7 @@ describe('admin console api e2e', () => {
 		const response: Response = await fetch(`${appBaseUrl}/api/admin/list_notifications`, {
 			method: 'POST',
 			headers: {
-				'authorization': `Bearer ${adminApiToken}`,
+				cookie: adminSessionCookie,
 				'content-type': 'application/json'
 			},
 			body: JSON.stringify({ page: 1, page_size: 20 })
@@ -89,7 +91,7 @@ describe('admin console api e2e', () => {
 		const response: Response = await fetch(`${appBaseUrl}/api/admin/list_ai_tasks`, {
 			method: 'POST',
 			headers: {
-				'authorization': `Bearer ${adminApiToken}`,
+				cookie: adminSessionCookie,
 				'content-type': 'application/json'
 			},
 			body: JSON.stringify({ page: 1, page_size: 20 })
@@ -119,7 +121,7 @@ describe('admin console api e2e', () => {
 		const response: Response = await fetch(`${appBaseUrl}/api/admin/get_overview`, {
 			method: 'POST',
 			headers: {
-				'authorization': `Bearer ${adminApiToken}`,
+				cookie: adminSessionCookie,
 				'content-type': 'application/json'
 			},
 			body: JSON.stringify({})

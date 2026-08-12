@@ -162,8 +162,6 @@ describe('adminUserMiddleware', () => {
 
 	type GivenDetail = {
 		authorization?: string
-		adminApiToken?: string | null
-		adminUserId?: string
 		sessionUserId?: string
 		sessionUserEmail?: string
 	}
@@ -177,29 +175,12 @@ describe('adminUserMiddleware', () => {
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'accept admin api token',
-			given: 'a matching admin api token and configured admin user',
-			when: 'running admin user middleware',
-			then: 'sets configured admin user id',
-			givenDetail: {
-				authorization: 'Bearer admin-token',
-				adminUserId: 'admin-user'
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 0,
-				code: '',
-				nextCalled: true,
-				setUserId: 'admin-user'
-			}
-		},
-		{
-			scenario: 'reject admin api token without configured user',
-			given: 'a matching admin api token and missing configured admin user',
+			scenario: 'reject bearer token without agent authorization',
+			given: 'a bearer token without a browser session',
 			when: 'running admin user middleware',
 			then: 'returns unauthorized',
 			givenDetail: {
-				authorization: 'Bearer admin-token'
+				authorization: 'Bearer static-token'
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -259,24 +240,6 @@ describe('adminUserMiddleware', () => {
 				nextCalled: false,
 				setUserId: ''
 			}
-		},
-		{
-			scenario: 'reject missing configured admin api token',
-			given: 'missing admin api token and bearer undefined authorization',
-			when: 'running admin user middleware',
-			then: 'returns unauthorized',
-			givenDetail: {
-				authorization: 'Bearer undefined',
-				adminApiToken: null,
-				adminUserId: 'admin-user'
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 401,
-				code: 'UNAUTHORIZED',
-				nextCalled: false,
-				setUserId: ''
-			}
 		}
 	]
 
@@ -303,26 +266,6 @@ describe('adminUserMiddleware', () => {
 			given.authorization,
 			given.sessionUserId ? 'better-auth.session_token=test' : undefined
 		)
-		if (given.adminApiToken === null) {
-			delete state.env['ADMIN_API_TOKEN']
-		} else if (given.adminApiToken !== undefined) {
-			state.env['ADMIN_API_TOKEN'] = given.adminApiToken
-		}
-		state.values['metaDb'] = {
-			query: {
-				user: {
-					findFirst: vi.fn(async () => {
-						if (!given.adminUserId) {
-							return null
-						}
-						return {
-							id: given.adminUserId,
-							email: 'admin@example.com'
-						}
-					})
-				}
-			}
-		}
 		const ctx = createContext(state)
 		const res = await adminUserMiddleware(ctx, state.next)
 
@@ -340,82 +283,6 @@ describe('adminUserMiddleware', () => {
 			code: payload.code ?? '',
 			nextCalled: state.nextCalled,
 			setUserId: String(state.values['userId'] ?? '')
-		}
-	})
-
-	type IdentityGivenDetail = {
-		adminUserId: string
-		adminEmail: string
-	}
-	type IdentityWhenDetail = Record<string, never>
-	type IdentityThenExpected = {
-		tokenUserId: string
-		sessionUserId: string
-	}
-
-	const identityCases: TestCase<
-		IdentityGivenDetail,
-		IdentityWhenDetail,
-		IdentityThenExpected
-	>[] = [
-		{
-			scenario: 'resolve one admin identity',
-			given: 'the configured admin user exists and has a session',
-			when: 'admin api token and admin session are both accepted',
-			then: 'both paths set the same user id',
-			givenDetail: {
-				adminUserId: 'admin-user',
-				adminEmail: 'admin@example.com'
-			},
-			whenDetail: {},
-			thenExpected: {
-				tokenUserId: 'admin-user',
-				sessionUserId: 'admin-user'
-			}
-		}
-	]
-
-	runCases(identityCases, async (given) => {
-		vi.mocked(authCore).mockReturnValue({
-			api: {
-				getSession: vi.fn(async () => {
-					return {
-						user: {
-							id: given.adminUserId,
-							email: given.adminEmail
-						}
-					}
-				})
-			}
-		} as never)
-
-		const tokenState = createContextState(
-			'/api/admin/list_payment_transactions',
-			'Bearer admin-token'
-		)
-		tokenState.values['metaDb'] = {
-			query: {
-				user: {
-					findFirst: vi.fn(async () => {
-						return {
-							id: given.adminUserId
-						}
-					})
-				}
-			}
-		}
-		await adminUserMiddleware(createContext(tokenState), tokenState.next)
-
-		const sessionState = createContextState(
-			'/api/admin/list_payment_transactions',
-			undefined,
-			'better-auth.session_token=test'
-		)
-		await adminUserMiddleware(createContext(sessionState), sessionState.next)
-
-		return {
-			tokenUserId: String(tokenState.values['userId'] ?? ''),
-			sessionUserId: String(sessionState.values['userId'] ?? '')
 		}
 	})
 })
@@ -561,7 +428,6 @@ function createContextState(
 		...(cookie !== undefined ? { cookie } : {}),
 		env: {
 			SYSTEM_EMAIL: 'admin@example.com',
-			ADMIN_API_TOKEN: 'admin-token',
 			BETTER_AUTH_SECRET: 'secret',
 			APP_BASE_URL: 'http://localhost:5173'
 		},

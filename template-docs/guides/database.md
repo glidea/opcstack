@@ -87,7 +87,7 @@ Concrete table ownership:
 | system_settings, payment_products | |
 | ai_channels, oauth_grants, oauth_authorization_requests | |
 
-`system_settings` has exactly one row. Each configuration domain owns one JSON document, version, and update timestamp. Domain documents are fully validated on every read and write; invalid data fails instead of receiving runtime defaults. Sensitive fields store only AES-GCM ciphertext and IV pairs; the root `CONFIG_ENCRYPTION_KEY` remains a fixed ENV secret and is not persisted in D1.
+`system_settings` has exactly one row. Each configuration domain owns one JSON document, version, and update timestamp. Domain documents are fully validated on every read and write; invalid data fails instead of receiving runtime defaults. Sensitive fields store only AES-GCM ciphertext and IV pairs; `prepare-cloudflare` generates the root `CONFIG_ENCRYPTION_KEY` once and persists it outside D1.
 
 ## Schema and Migrations
 

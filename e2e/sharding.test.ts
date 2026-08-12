@@ -1,11 +1,10 @@
 import { beforeAll, describe } from 'vitest'
 import { runCases, type TestCase } from '../src/backend/testing/bdd'
-import { createLocalTestUser } from './support/auth'
+import { createLocalTestUser, getAdminSessionCookie } from './support/auth'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
 	E2E_REMOTE?: string
-	E2E_ADMIN_API_TOKEN?: string
 	E2E_D1_SHARD_COUNT?: string
 	E2E_CREDITS_DAILY_CHECKIN_ENABLED?: string
 }
@@ -70,16 +69,19 @@ const e2eEnv: E2EEnv =
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
-const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? ''
 const d1ShardCount: number = Number(e2eEnv.E2E_D1_SHARD_COUNT ?? '1')
 const creditsDailyCheckinEnabled: boolean =
 	e2eEnv.E2E_CREDITS_DAILY_CHECKIN_ENABLED === 'true'
+let adminSessionCookie: string
 
 describe('tenant sharding e2e', () => {
 	beforeAll(async (): Promise<void> => {
 		const res: Response = await fetch(`${appBaseUrl}/api/health`)
 		if (res.status !== 200) {
 			throw new Error('dev server is not ready for e2e tests')
+		}
+		if (!isRemote) {
+			adminSessionCookie = await getAdminSessionCookie(appBaseUrl)
 		}
 	})
 
@@ -142,7 +144,6 @@ describe('tenant sharding e2e', () => {
 
 	describe.skipIf(isRemote)('authenticated shard flow', () => {
 		runCases(cases, async (): Promise<FlowThen> => {
-			assertShardE2EConfig()
 			const runId: string = String(Date.now())
 			const auth: AuthToken = await createUserAuthToken(`shard-${runId}`)
 
@@ -176,7 +177,7 @@ describe('tenant sharding e2e', () => {
 					amount: '3'
 				},
 				{
-					authorization: `Bearer ${adminApiToken}`
+					cookie: adminSessionCookie
 				}
 			)
 			const generated = (await generateRes.json()) as GenerateCreditCodesResponse
@@ -199,7 +200,7 @@ describe('tenant sharding e2e', () => {
 					code
 				},
 				{
-					authorization: `Bearer ${adminApiToken}`
+					cookie: adminSessionCookie
 				}
 			)
 			const listCodesPayload = (await listCodesRes.json()) as ListCreditCodesResponse
@@ -218,7 +219,7 @@ describe('tenant sharding e2e', () => {
 					target_user_id: auth.userId
 				},
 				{
-					authorization: `Bearer ${adminApiToken}`
+					cookie: adminSessionCookie
 				}
 			)
 			const createdNotification = (await createNotificationRes.json()) as CreateNotificationResponse
@@ -287,14 +288,8 @@ describe('tenant sharding e2e', () => {
 	})
 })
 
-function assertShardE2EConfig(): void {
-	if (adminApiToken === '') {
-		throw new Error('E2E_ADMIN_API_TOKEN_REQUIRED')
-	}
-}
-
 async function createUserAuthToken(tag: string): Promise<AuthToken> {
-	return createLocalTestUser({ appBaseUrl, adminApiToken, tag })
+	return createLocalTestUser({ appBaseUrl, tag })
 }
 
 function buildHeaders(extra?: Record<string, string>): Headers {

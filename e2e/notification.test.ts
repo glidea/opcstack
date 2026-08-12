@@ -1,10 +1,13 @@
 import { beforeAll, describe } from 'vitest'
 import { runCases, type TestCase } from '../src/backend/testing/bdd'
-import { createLocalTestUser, type LocalTestUser } from './support/auth'
+import {
+	createLocalTestUser,
+	getAdminSessionCookie,
+	type LocalTestUser
+} from './support/auth'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
-	E2E_ADMIN_API_TOKEN?: string
 }
 
 interface NotificationListResponse {
@@ -23,14 +26,17 @@ const e2eEnv =
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
-const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
 const canCreateUser: boolean = !isRemote
+let adminSessionCookie: string
 
 describe('notification api e2e', () => {
 	beforeAll(async () => {
 		const res = await fetch(`${appBaseUrl}/api/health`)
 		if (res.status !== 200) {
 			throw new Error('dev server is not ready for e2e tests')
+		}
+		if (canCreateUser) {
+			adminSessionCookie = await getAdminSessionCookie(appBaseUrl)
 		}
 	})
 
@@ -166,7 +172,7 @@ describe('notification api e2e', () => {
 					content
 				},
 				{
-					authorization: `Bearer ${adminApiToken}`
+					cookie: adminSessionCookie
 				}
 			)
 
@@ -231,7 +237,7 @@ describe('notification api e2e', () => {
 })
 
 async function createUserToken(tag: string): Promise<string> {
-	const user: LocalTestUser = await createLocalTestUser({ appBaseUrl, adminApiToken, tag })
+	const user: LocalTestUser = await createLocalTestUser({ appBaseUrl, tag })
 	return user.token
 }
 

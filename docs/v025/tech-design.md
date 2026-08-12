@@ -15,10 +15,12 @@ Source of Truth 必须严格单一：任何一项配置要么属于 ENV，要么
 ENV 只保留在连接 `META_DB` 前必须确定的输入：
 
 - Cloudflare 资源和 Worker 绑定的部署拓扑，例如应用标识、域名、D1 Shard、Queue、Cron、R2 和 Durable Object
-- 系统根身份与根密钥：`SYSTEM_EMAIL`、`SUPER_ADMIN_PASSWORD`、`BETTER_AUTH_SECRET`、`CONFIG_ENCRYPTION_KEY` 和 `R2_ORIGIN_SIGNING_SECRET`
+- 系统根身份与初始化凭据：`SYSTEM_EMAIL` 和 `SUPER_ADMIN_PASSWORD`
 - Chrome 扩展 Manifest 必须在构建时固化的字段，例如版本和 host permissions
 
-这些根配置长期以 ENV 为唯一权威来源，不使用 `BOOTSTRAP_*` 临时命名，也不允许在后台或 D1 中修改。`SUPER_ADMIN_PASSWORD` 在 D1 中对应的密码 Hash 是认证运行数据，不是第二个配置来源。
+`SYSTEM_EMAIL` 和 `SUPER_ADMIN_PASSWORD` 长期以 ENV 为唯一权威来源，不使用 `BOOTSTRAP_*` 临时命名，也不允许在后台或 D1 中修改。`SUPER_ADMIN_PASSWORD` 在 D1 中对应的密码 Hash 是认证运行数据，不是第二个配置来源。
+
+`BETTER_AUTH_SECRET`、`CONFIG_ENCRYPTION_KEY` 和 `R2_ORIGIN_SIGNING_SECRET` 不是用户配置项。准备脚本在项目首次初始化时直接生成具体随机值。本地将值写入 `.env.secret.dev` 作为固定本地 secret 状态；远程将值写入 Cloudflare Worker Secrets。后续启动和部署只复用，不覆盖。D1 已初始化但对应根密钥缺失时直接失败，不生成替代密钥。
 
 以下信息全部迁入 `META_DB`：
 
@@ -66,7 +68,7 @@ ENV 只保留在连接 `META_DB` 前必须确定的输入：
 
 状态：已确认
 
-决策：第三方 API Key、外部 OAuth Secret 与 Webhook Secret 使用 AES-GCM 加密后保存在 `META_DB`。`BETTER_AUTH_SECRET` 是系统根密钥，长期只存在 ENV，不迁入 D1。Worker Secret 另保留 `CONFIG_ENCRYPTION_KEY` 作为 D1 敏感配置的解密根密钥。
+决策：第三方 API Key、外部 OAuth Secret 与 Webhook Secret 使用 AES-GCM 加密后保存在 `META_DB`。`CONFIG_ENCRYPTION_KEY` 作为 D1 敏感配置的解密根密钥，由准备脚本首次生成并作为本地 secret 状态或 Cloudflare Worker Secret 保存，不存入 D1。
 
 约束：
 
@@ -80,7 +82,7 @@ ENV 只保留在连接 `META_DB` 前必须确定的输入：
 
 以 AI 渠道 `openai-official` 的 API Key 为例。
 
-ENV 只保存一个根密钥：
+Worker 运行时只接收一个根密钥：
 
 ```env
 CONFIG_ENCRYPTION_KEY=<32-byte-base64-key>
@@ -121,13 +123,13 @@ Source of Truth 边界：
 - `openai-official` 的 API Key 只存在 D1 密文中，ENV 中不存在同名或备用 API Key
 - `CONFIG_ENCRYPTION_KEY` 只是解密根密钥，不是 AI、支付或 OAuth 的业务配置
 - 根密钥不能与密文一起存入 D1，否则数据库读取权限可同时获得密文和解密能力
-- 替换根密钥前必须重新加密所有敏感值，不允许用旧 ENV 凭据作回退
+- 根密钥不提供日常替换入口；灾备替换前必须重新加密所有敏感值，不允许用旧 ENV 凭据作回退
 
 ### 1.4 OAuth API Access
 
 状态：已确认
 
-保留固定 secret ENV `ADMIN_API_TOKEN`，供受信任的管理员脚本和运维调用使用，但不把它交给 Agent。Agent、CLI 和其他委托客户端统一通过 OAuth API Access 获得有限、可撤销的业务权限。
+不保留静态管理员 API Token。人类管理员使用 `SYSTEM_EMAIL` 对应的浏览器 Session；Agent、CLI 和其他委托客户端统一通过 OAuth API Access 获得有限、可撤销的业务权限。
 
 - OAuth Client 通过 `opc auth connect` 发起授权，请求当前操作需要的业务 scope
 - 管理员使用 `SYSTEM_EMAIL` 对应的浏览器 Session 显式批准
@@ -211,9 +213,9 @@ Source of Truth 边界：
   -> 执行配置并验证结果
 ```
 
-首次配置不依赖 OAuth API Access。固定 ENV 只负责让系统和管理员认证先运行起来，OAuth 负责系统运行后把有限、可撤销的管理权限授予 Agent。
+首次配置不依赖 OAuth API Access。初始化流程先生成内部根密钥并同步超级管理员账号，OAuth 负责系统运行后把有限、可撤销的管理权限授予 Agent。
 
-本地环境中的 Agent 也在项目启动后使用同一套设备授权流程，授权 URL 指向本地应用。设备授权不依赖浏览器回调到 Agent，用户确认后由 Agent 轮询取 Token，因此本地与 Cloudflare 可以保持同一用户流程。固定 `ADMIN_API_TOKEN` 仍可供管理员直接调用 API，但不进入 Agent 的安装和授权流程。
+本地环境中的 Agent 也在项目启动后使用同一套设备授权流程，授权 URL 指向本地应用。设备授权不依赖浏览器回调到 Agent，用户确认后由 Agent 轮询取 Token，因此本地与 Cloudflare 可以保持同一用户流程。
 
 ### 1.8 初始业务配置状态
 
@@ -609,7 +611,7 @@ General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
 | Allowed user upload MIME types | `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` | 可增删的 MIME type 列表 |
 | Maximum user upload bytes | `R2_USER_UPLOAD_MAX_BYTES` | Number input，UI 同时显示换算后的 MB |
 
-`R2_ENABLED` 决定是否创建 Bucket 和 Worker Binding，`R2_TMP_LIFECYCLE_RULES` 修改 Cloudflare Bucket 生命周期，两者都属于固定部署拓扑。`R2_ORIGIN_SIGNING_SECRET` 是 Worker 内部图片 Origin 的签名根密钥，不是业务配置，也继续保留在固定 secret ENV。Storage Tab 不重复展示这三个值。
+`R2_ENABLED` 决定是否创建 Bucket 和 Worker Binding，`R2_TMP_LIFECYCLE_RULES` 修改 Cloudflare Bucket 生命周期，两者都属于固定部署拓扑。`R2_ORIGIN_SIGNING_SECRET` 是准备脚本自动生成的 Worker 内部签名根密钥，不是业务配置。Storage Tab 不展示这三个值。
 
 #### Credits
 
@@ -716,15 +718,15 @@ AI 通用设置：
 | `CRONS` | Worker Cron Trigger 部署配置 |
 | `DO_NAMES` | Durable Object Binding 和 Migration 拓扑 |
 
-固定 secret ENV：
+固定内部 secret，由准备脚本生成：
 
-| ENV | 保留原因 |
+| Secret | 保留原因 |
 | --- | --- |
 | `BETTER_AUTH_SECRET` | Session、Token 和 OAuth Provider 的根签名密钥 |
-| `SUPER_ADMIN_PASSWORD` | 初始化及同步根管理员账号所需凭据 |
-| `ADMIN_API_TOKEN` | 受信任管理员脚本的固定 API 凭据，不提供给 Agent |
 | `CONFIG_ENCRYPTION_KEY` | D1 敏感配置的 AES-GCM 根密钥 |
 | `R2_ORIGIN_SIGNING_SECRET` | Worker 内部图片 Origin URL 签名根密钥 |
+
+用户提供的固定 secret ENV 只包含 `SUPER_ADMIN_PASSWORD` 及尚未迁入 D1 的外部服务凭据。
 
 部署工具还接受 `CLOUDFLARE_API_TOKEN` 或本地 Token Cache。它是部署凭据，不注入 Worker，也不属于产品配置。
 
@@ -906,7 +908,7 @@ flowchart TB
 
   subgraph ControlPlane["Deployment control plane"]
     Prepare["prepare-cloudflare"]
-    FixedEnv["Fixed ENV<br/>bindings, topology, root secrets"]
+    FixedEnv["Fixed ENV<br/>bindings and topology"]
   end
 
   subgraph Worker["Single Cloudflare Worker"]
@@ -959,7 +961,7 @@ flowchart TB
   Runtime --> ExternalAI
 
   FixedEnv --> Prepare
-  FixedEnv -->|CONFIG_ENCRYPTION_KEY and fixed runtime roots| Worker
+  Prepare -->|generated system roots| Worker
   Prepare -->|migrate and initialize disabled configuration| MetaPrimary
 ```
 
@@ -995,7 +997,7 @@ Browser Session or OAuth Bearer Token
   -> conditional D1 update by expected_version
 ```
 
-浏览器 Session 和 `ADMIN_API_TOKEN` 不检查 OAuth scope。OAuth Token 必须同时满足管理员身份和当前路由声明的 scope。Agent 不读取或保存 `ADMIN_API_TOKEN`。
+浏览器 Session 不检查 OAuth scope。OAuth Token 必须同时满足管理员身份和当前路由声明的 scope。
 
 单例业务域使用一组读取和更新接口：
 
@@ -1102,7 +1104,7 @@ Turnstile 是唯一需要部署工具与动态配置衔接的外部资源。部�
 
 | Consumer | Target input |
 | --- | --- |
-| Better Auth | Authentication config、Email config、固定 `BETTER_AUTH_SECRET` 和 `SYSTEM_EMAIL` |
+| Better Auth | Authentication config、Email config、准备脚本生成的 `BETTER_AUTH_SECRET` 和固定 `SYSTEM_EMAIL` |
 | Email clients | Provider、Provider credential、固定 sender `SYSTEM_EMAIL` |
 | R2 upload validation | Allowed MIME types、maximum bytes；Bucket Binding 仍来自 ENV |
 | Credits and Affiliate | 当前业务域规则和整数 credit units |
@@ -1166,7 +1168,7 @@ flowchart LR
 
 目录只按真实职责增加两个组件：`config` 和 `oauth`。不新增 Repository 层、Provider Registry、配置事件总线或前后端共享表单元数据。Zod API 契约负责输入输出类型，Drizzle Schema 负责持久化约束，配置组件负责跨字段业务校验，三者不互相替代。
 
-`QUICK_START.md` 和 `CREATE_OPCSTACK_APP.md` 是产品初始化流程，不是普通说明文档，必须与代码在同一次迁移中修改。`README.md`、`template-docs/` 和 `public-docs/` 同步删除动态配置写入 ENV 和旧 Agent OAuth 路径的示例，并明确 `ADMIN_API_TOKEN` 只用于受信任管理员脚本。迁移完成后，任何用户入口都不能继续把同一配置引导到 ENV 和 D1 两个来源。
+`QUICK_START.md` 和 `CREATE_OPCSTACK_APP.md` 是产品初始化流程，不是普通说明文档，必须与代码在同一次迁移中修改。`README.md`、`template-docs/` 和 `public-docs/` 同步删除动态配置写入 ENV、静态管理员 Token 和旧 Agent OAuth 路径的示例。迁移完成后，任何用户入口都不能继续把同一配置引导到 ENV 和 D1 两个来源。
 
 ### 2.9 用户流程影响
 
@@ -1189,7 +1191,7 @@ flowchart LR
   -> 返回写入结果并验证
 ```
 
-用户只在初始化固定 secret ENV 时设置一次 `ADMIN_API_TOKEN`，日常业务配置不再接触它，也不需要重新部署。Agent 通过 OAuth 获得有限权限。代价是首次运行只有可登录的项目壳子，AI、支付、外部登录等能力必须在后台或授权后由 OAuth Client 明确配置并启用。
+用户初始化时只填写超级管理员密码等真正需要人工决定的凭据，内部根密钥由脚本生成。日常业务配置不需要重新部署，Agent 通过 OAuth 获得有限权限。代价是首次运行只有可登录的项目壳子，AI、支付、外部登录等能力必须在后台或授权后由 OAuth Client 明确配置并启用。
 
 ## 3. 关键流程
 
@@ -1238,14 +1240,15 @@ sequenceDiagram
 | 文档 | 唯一职责 | 本次迁移要求 |
 | --- | --- | --- |
 | `QUICK_START.md` | 安装并调用最新的创建项目 Skill | 保持轻量，只传递项目名并启动 Skill，不复制配置步骤，不列动态配置项 |
-| `CREATE_OPCSTACK_APP.md` | 定义从创建代码到得到可登录项目壳子的标准流程 | 只收集固定 ENV 和初始化绕不过的根密钥；删除把认证、邮件、支付、AI、存储规则等写入 `.env*` 的步骤 |
+| `CREATE_OPCSTACK_APP.md` | 定义从创建代码到得到可登录项目壳子的标准流程 | 只收集固定 ENV 和超级管理员密码；内部根密钥由准备脚本生成；删除把认证、邮件、支付、AI、存储规则等写入 `.env*` 的步骤 |
 | `README.md` | 给已创建项目的开发者提供最短启动入口 | 启动后引导进入 Configuration；不再把 ENV 文件描述为业务配置入口 |
 
 `CREATE_OPCSTACK_APP.md` 的目标用户流程固定为：
 
 ```text
 创建项目代码
-  -> 收集固定公开 ENV、资源拓扑和根密钥
+  -> 收集固定公开 ENV、资源拓扑和超级管理员密码
+  -> 准备脚本生成内部根密钥
   -> 启动本地实例或部署 Cloudflare 实例
   -> Migration 写入明确禁用的 D1 初始配置
   -> 用户使用 SYSTEM_EMAIL 和 SUPER_ADMIN_PASSWORD 登录

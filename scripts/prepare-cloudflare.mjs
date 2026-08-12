@@ -23,6 +23,11 @@ const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
 const RUNTIME_SECRETS_PATH = '.wrangler/runtime-secrets.env'
 const TYPES_WRANGLER_CONFIG_PATH = '.wrangler/wrangler.types.jsonc'
+const SYSTEM_SECRET_KEYS = [
+	'BETTER_AUTH_SECRET',
+	'CONFIG_ENCRYPTION_KEY',
+	'R2_ORIGIN_SIGNING_SECRET'
+]
 const AI_ASYNC_PROVIDER_CONFIGS = [
 	{ prefix: 'IMAGE_GEMINI', defaultModelKey: 'IMAGE_GEMINI_MODEL' },
 	{ prefix: 'IMAGE_OPENAI', defaultModelKey: 'IMAGE_OPENAI_MODEL' },
@@ -35,8 +40,6 @@ const AI_ASYNC_PROVIDER_CONFIGS = [
 const SECRET_KEYS = [
 	'BETTER_AUTH_SECRET',
 	'CONFIG_ENCRYPTION_KEY',
-	'SUPER_ADMIN_PASSWORD',
-	'ADMIN_API_TOKEN',
 	'PAYMENT_DODO_API_KEY',
 	'PAYMENT_DODO_WEBHOOK_SECRET',
 	'PAYMENT_CREEM_API_KEY',
@@ -226,14 +229,7 @@ function formatEnvValue(value) {
 }
 
 export function buildRequiredSecretKeys(env) {
-	const keys = ['BETTER_AUTH_SECRET', 'CONFIG_ENCRYPTION_KEY']
-
-	if (String(env.ADMIN_API_TOKEN ?? '').trim() !== '') {
-		keys.push('ADMIN_API_TOKEN')
-	}
-	if (env.R2_ENABLED === 'true') {
-		keys.push('R2_ORIGIN_SIGNING_SECRET')
-	}
+	const keys = [...SYSTEM_SECRET_KEYS]
 	if (env.PAYMENT_ENABLED === 'true') {
 		const providers = collectPaymentProviders(parsePaymentProducts(env.PAYMENT_PRODUCTS))
 		if (providers.includes('dodo')) {
@@ -261,9 +257,91 @@ export function buildRequiredSecretKeys(env) {
 export function buildRuntimeSecretLines(env) {
 	const lines = []
 	for (const key of buildRequiredSecretKeys(env)) {
+		if (String(env[key] ?? '').trim() === '') {
+			continue
+		}
 		lines.push(`${key}=${formatEnvValue(env[key])}`)
 	}
 	return lines
+}
+
+function generateSystemSecret(key, randomBytesFactory) {
+	const value = randomBytesFactory(32)
+	if (key === 'CONFIG_ENCRYPTION_KEY') {
+		return value.toString('base64')
+	}
+	return value.toString('base64url')
+}
+
+export function resolveLocalSystemSecrets(existing, randomBytesFactory = randomBytes) {
+	const resolved = {}
+	for (const key of SYSTEM_SECRET_KEYS) {
+		const current = String(existing[key] ?? '').trim()
+		resolved[key] = current || generateSystemSecret(key, randomBytesFactory)
+	}
+	validateConfigEncryptionKey(resolved.CONFIG_ENCRYPTION_KEY)
+	return resolved
+}
+
+export function resolveRemoteSystemSecrets(
+	existingNames,
+	pending,
+	randomBytesFactory = randomBytes
+) {
+	if (existingNames === null) {
+		return resolveLocalSystemSecrets(pending, randomBytesFactory)
+	}
+
+	const existingCount = SYSTEM_SECRET_KEYS.filter((key) => {
+		return existingNames.has(key)
+	}).length
+	if (existingCount !== SYSTEM_SECRET_KEYS.length) {
+		throw new Error('WORKER_SYSTEM_SECRETS_INCOMPLETE')
+	}
+	return {}
+}
+
+export function resolveSystemSettingsInitialization(input) {
+	if (input.settingsExist) {
+		return false
+	}
+	if (String(input.encryptionKey ?? '').trim() === '') {
+		throw new Error('CONFIG_ENCRYPTION_KEY_UNAVAILABLE')
+	}
+	return true
+}
+
+export function validateSystemSecretRecovery(input) {
+	if (!input.settingsExist) {
+		return
+	}
+	if (input.isRemote) {
+		if (!input.workerExists && !input.hasPendingSecrets) {
+			throw new Error('SYSTEM_SECRETS_RECOVERY_UNAVAILABLE')
+		}
+		return
+	}
+	if (!input.hasLocalSecrets) {
+		throw new Error('SYSTEM_SECRETS_RECOVERY_UNAVAILABLE')
+	}
+}
+
+function appendLocalSystemSecrets(existing, resolved) {
+	const generatedKeys = SYSTEM_SECRET_KEYS.filter((key) => {
+		return String(existing[key] ?? '').trim() === ''
+	})
+	if (generatedKeys.length === 0) {
+		return
+	}
+
+	const path = '.env.secret.dev'
+	const current = existsSync(path) ? readFileSync(path, 'utf-8') : ''
+	const separator = current === '' || current.endsWith('\n') ? '' : '\n'
+	const lines = generatedKeys.map((key) => {
+		return `${key}=${formatEnvValue(resolved[key])}`
+	})
+	writeFileSync(path, `${current}${separator}${lines.join('\n')}\n`, { mode: 0o600 })
+	console.log(`Generated local system secrets in ${path}`)
 }
 
 function writeRuntimeSecrets(env) {
@@ -389,12 +467,14 @@ function renderTemplate(template, env) {
 }
 
 export function validateRuntimeConfig(env) {
-	requireSecret(env, 'BETTER_AUTH_SECRET')
-	requireSecret(env, 'CONFIG_ENCRYPTION_KEY')
-	validateConfigEncryptionKey(env.CONFIG_ENCRYPTION_KEY)
-
-	if (env.R2_ENABLED === 'true') {
-		requireSecret(env, 'R2_ORIGIN_SIGNING_SECRET')
+	const configuredSystemSecrets = SYSTEM_SECRET_KEYS.filter((key) => {
+		return String(env[key] ?? '').trim() !== ''
+	})
+	if (configuredSystemSecrets.length !== 0) {
+		if (configuredSystemSecrets.length !== SYSTEM_SECRET_KEYS.length) {
+			throw new Error('SYSTEM_SECRETS_INCOMPLETE')
+		}
+		validateConfigEncryptionKey(env.CONFIG_ENCRYPTION_KEY)
 	}
 
 	validatePaymentRuntimeConfig(env)
@@ -1193,6 +1273,25 @@ async function cfApiRequest(token, method, path, body) {
 	return payload?.result
 }
 
+async function listWorkerSecretNames(accountId, token, scriptName) {
+	const path = `/accounts/${accountId}/workers/scripts/${encodeURIComponent(scriptName)}/secrets`
+	const endpoint = `https://api.cloudflare.com/client/v4${path}`
+	const response = await fetch(endpoint, {
+		headers: {
+			Authorization: `Bearer ${token}`
+		}
+	})
+	if (response.status === 404) {
+		return null
+	}
+
+	const payload = await response.json()
+	if (!response.ok || payload?.success === false || !Array.isArray(payload?.result)) {
+		throw new Error('WORKER_SECRETS_LIST_FAILED')
+	}
+	return new Set(payload.result.map((secret) => secret.name))
+}
+
 async function getSingleCloudflareAccountId(token) {
 	const memberships = await cfApiRequest(token, 'GET', '/memberships', undefined)
 	const accounts = Array.isArray(memberships)
@@ -1556,6 +1655,20 @@ async function main() {
 	const mode = readMode()
 	const isRemote = mode === 'prod'
 	const env = loadEnv(isRemote)
+	for (const key of SYSTEM_SECRET_KEYS) {
+		env[key] = ''
+	}
+	let existingLocalSystemSecrets = {}
+	let localSystemSecrets = {}
+	let hadCompleteLocalSystemSecrets = false
+	if (!isRemote) {
+		existingLocalSystemSecrets = parseEnvFile('.env.secret.dev')
+		hadCompleteLocalSystemSecrets = SYSTEM_SECRET_KEYS.every((key) => {
+			return String(existingLocalSystemSecrets[key] ?? '').trim() !== ''
+		})
+		localSystemSecrets = resolveLocalSystemSecrets(existingLocalSystemSecrets)
+		Object.assign(env, localSystemSecrets)
+	}
 	const adminConfig = readAdminConfig(env)
 	resolveAppBase(env, mode)
 	resolveAppCnDomain(env)
@@ -1579,6 +1692,9 @@ async function main() {
 	let accountId = ''
 	let cloudflareApiToken = ''
 	let appCnZoneName = ''
+	let remoteWorkerSecretNames = null
+	let hadPendingRemoteSystemSecrets = false
+	let remoteSystemSecrets = {}
 
 	if (isRemote) {
 		console.log('\nResolving Cloudflare API token...')
@@ -1588,6 +1704,28 @@ async function main() {
 		console.log('\nResolving Cloudflare account...')
 		accountId = await getSingleCloudflareAccountId(cloudflareApiToken)
 		console.log(`Account ID: ${accountId}`)
+
+		console.log('\nChecking Worker system secrets...')
+		remoteWorkerSecretNames = await listWorkerSecretNames(
+			accountId,
+			cloudflareApiToken,
+			appName
+		)
+		const pendingRemoteSystemSecrets = parseEnvFile(RUNTIME_SECRETS_PATH)
+		hadPendingRemoteSystemSecrets = SYSTEM_SECRET_KEYS.every((key) => {
+			return String(pendingRemoteSystemSecrets[key] ?? '').trim() !== ''
+		})
+		remoteSystemSecrets = resolveRemoteSystemSecrets(
+			remoteWorkerSecretNames,
+			pendingRemoteSystemSecrets
+		)
+		if (Object.keys(remoteSystemSecrets).length > 0) {
+			Object.assign(env, remoteSystemSecrets)
+			console.log('Worker system secrets ready for first deploy')
+		} else {
+			console.log('Worker system secrets already exist')
+		}
+		validateRuntimeConfig(env)
 
 		appCnZoneName = await ensureAppCnDnsRecord(
 			accountId,
@@ -1822,7 +1960,6 @@ async function main() {
 	writeFileSync('wrangler.jsonc', JSON.stringify(config, null, 4))
 	console.log('wrangler.jsonc generated successfully')
 	writeTypesWranglerConfig(config)
-	writeRuntimeSecrets(env)
 
 	console.log('\nGenerating migrations...')
 	run('pnpm exec drizzle-kit generate --config drizzle.meta.config.ts')
@@ -1837,21 +1974,49 @@ async function main() {
 
 	console.log('\nUpserting shard registry...')
 	const nowMs = Date.now()
-	const encryptedTurnstileSecret = encryptInitializationSecret(
-		env.CONFIG_ENCRYPTION_KEY,
-		initialTurnstileConfig.secretKey
-	)
-	run(buildD1ExecuteCommand({
+	const settingsQueryOutput = runOutput(buildD1ExecuteCommand({
 		databaseName: metaDbName,
 		migrateFlag,
-		sql: buildSystemSettingsInitializationSql({
-			siteKey: initialTurnstileConfig.siteKey,
-			secretKeyCiphertext: encryptedTurnstileSecret.ciphertext,
-			secretKeyIv: encryptedTurnstileSecret.iv,
-			nowMs
-		}),
-		json: false
+		sql: 'SELECT id FROM system_settings WHERE id = 1',
+		json: true
 	}))
+	const settingsQuery = JSON.parse(settingsQueryOutput)
+	const settingsExist = settingsQuery.some((result) => {
+		return Array.isArray(result.results) && result.results.some((row) => row.id === 1)
+	})
+	validateSystemSecretRecovery({
+		settingsExist,
+		isRemote,
+		workerExists: remoteWorkerSecretNames !== null,
+		hasPendingSecrets: hadPendingRemoteSystemSecrets,
+		hasLocalSecrets: hadCompleteLocalSystemSecrets
+	})
+	if (!isRemote && !settingsExist) {
+		appendLocalSystemSecrets(existingLocalSystemSecrets, localSystemSecrets)
+	}
+	writeRuntimeSecrets(env)
+	if (
+		resolveSystemSettingsInitialization({
+			settingsExist,
+			encryptionKey: env.CONFIG_ENCRYPTION_KEY
+		})
+	) {
+		const encryptedTurnstileSecret = encryptInitializationSecret(
+			env.CONFIG_ENCRYPTION_KEY,
+			initialTurnstileConfig.secretKey
+		)
+		run(buildD1ExecuteCommand({
+			databaseName: metaDbName,
+			migrateFlag,
+			sql: buildSystemSettingsInitializationSql({
+				siteKey: initialTurnstileConfig.siteKey,
+				secretKeyCiphertext: encryptedTurnstileSecret.ciphertext,
+				secretKeyIv: encryptedTurnstileSecret.iv,
+				nowMs
+			}),
+			json: false
+		}))
+	}
 	run(buildD1ExecuteCommand({
 		databaseName: metaDbName,
 		migrateFlag,

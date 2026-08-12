@@ -347,6 +347,8 @@ Runtime R2 secrets:
 | --- | --- |
 | `R2_ORIGIN_SIGNING_SECRET` | Signed origin/read URL behavior |
 
+`prepare-cloudflare` generates this internal secret. It is not user-provided R2 configuration.
+
 ## Queues, Cron, and Durable Objects
 
 Queues:
@@ -388,23 +390,18 @@ Create DO classes only when you actually add a Durable Object implementation.
 
 `wrangler.jsonc` includes only secrets required by enabled features.
 
-Always required:
+Generated once by `prepare-cloudflare` and always required:
 
 | Secret |
 | --- |
 | `BETTER_AUTH_SECRET` |
+| `CONFIG_ENCRYPTION_KEY` |
+| `R2_ORIGIN_SIGNING_SECRET` |
 
 Conditionally required:
 
 | Feature | Secrets |
 | --- | --- |
-| Admin API | `ADMIN_API_TOKEN` when configured |
-| Turnstile | `TURNSTILE_SECRET_KEY` |
-| Google OAuth | `GOOGLE_CLIENT_SECRET` |
-| GitHub OAuth | `GITHUB_CLIENT_SECRET` |
-| LinuxDO OAuth | `LINUXDO_CLIENT_SECRET` |
-| Resend email | `EMAIL_RESEND_API_KEY` |
-| R2 | `R2_ORIGIN_SIGNING_SECRET` |
 | Dodo | `PAYMENT_DODO_API_KEY`, `PAYMENT_DODO_WEBHOOK_SECRET` |
 | Creem | `PAYMENT_CREEM_API_KEY`, `PAYMENT_CREEM_WEBHOOK_SECRET` |
 | AI providers | Provider API keys when configured |
@@ -418,8 +415,8 @@ External services must point back to the deployed Worker origin.
 
 | Service | Required setup |
 | --- | --- |
-| Google OAuth | OAuth client id in public env, secret in secret env, callback URL using `APP_DOMAIN` |
-| GitHub OAuth | OAuth app id in public env, secret in secret env, callback URL using `APP_DOMAIN` |
+| Google OAuth | Client id and secret in the Authentication tab, callback URL using `APP_DOMAIN` |
+| GitHub OAuth | App id and secret in the Authentication tab, callback URL using `APP_DOMAIN` |
 | LinuxDO OAuth | OAuth id and secret, callback URL using `APP_DOMAIN` |
 | Resend | API key and verified sender domain for `SYSTEM_EMAIL` |
 | Cloudflare Email | Paid Worker plan and `SEND_EMAIL` binding |

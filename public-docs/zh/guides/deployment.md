@@ -347,6 +347,8 @@ tmp/private/
 | --- | --- |
 | `R2_ORIGIN_SIGNING_SECRET` | 签名 origin/读取 URL 行为 |
 
+`prepare-cloudflare` 生成此内部密钥，它不是用户提供的 R2 配置。
+
 ## 队列、Cron 与 Durable Objects
 
 队列：
@@ -388,23 +390,18 @@ Binding 和类命名：
 
 `wrangler.jsonc` 只包含已启用功能所需的密钥。
 
-始终需要：
+由 `prepare-cloudflare` 首次生成并始终需要：
 
 | 密钥 |
 | --- |
 | `BETTER_AUTH_SECRET` |
+| `CONFIG_ENCRYPTION_KEY` |
+| `R2_ORIGIN_SIGNING_SECRET` |
 
 条件需要：
 
 | 功能 | 密钥 |
 | --- | --- |
-| Admin API | 配置时需要 `ADMIN_API_TOKEN` |
-| Turnstile | `TURNSTILE_SECRET_KEY` |
-| Google OAuth | `GOOGLE_CLIENT_SECRET` |
-| GitHub OAuth | `GITHUB_CLIENT_SECRET` |
-| LinuxDO OAuth | `LINUXDO_CLIENT_SECRET` |
-| Resend 邮件 | `EMAIL_RESEND_API_KEY` |
-| R2 | `R2_ORIGIN_SIGNING_SECRET` |
 | Dodo | `PAYMENT_DODO_API_KEY`、`PAYMENT_DODO_WEBHOOK_SECRET` |
 | Creem | `PAYMENT_CREEM_API_KEY`、`PAYMENT_CREEM_WEBHOOK_SECRET` |
 | AI providers | 配置时需要 provider API keys |
@@ -418,8 +415,8 @@ Binding 和类命名：
 
 | 服务 | 所需配置 |
 | --- | --- |
-| Google OAuth | public env 中的 OAuth client id，secret env 中的密钥，使用 `APP_DOMAIN` 的回调 URL |
-| GitHub OAuth | public env 中的 OAuth app id，secret env 中的密钥，使用 `APP_DOMAIN` 的回调 URL |
+| Google OAuth | Authentication Tab 中的 client id 和 secret，使用 `APP_DOMAIN` 的回调 URL |
+| GitHub OAuth | Authentication Tab 中的 app id 和 secret，使用 `APP_DOMAIN` 的回调 URL |
 | LinuxDO OAuth | OAuth id 和密钥，使用 `APP_DOMAIN` 的回调 URL |
 | Resend | API key 和 `SYSTEM_EMAIL` 的已验证发件人域名 |
 | Cloudflare Email | 付费 Worker 方案和 `SEND_EMAIL` binding |

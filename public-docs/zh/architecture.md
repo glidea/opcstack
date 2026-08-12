@@ -146,6 +146,12 @@ AS -> apac | EU -> weur | OC -> oc | default -> apac
 
 Meta DB 和租户分片 DB 各自维护独立的 bookmark 流，因为它们是拥有各自主节点的独立数据库。
 
+## 动态配置基础
+
+`system_settings` 是动态产品配置的单例权威来源。每个业务域有独立版本，管理员 API 可以拒绝过期写入而不耦合其他配置域。`payment_products` 和 `ai_channels` 是独立的版本化集合。
+
+敏感值以 AES-GCM 密文和 IV 保存。`prepare-cloudflare` 首次生成 `CONFIG_ENCRYPTION_KEY`，并保存在本地 secret 状态或 Cloudflare Worker Secrets 中；它不会写入 D1，也不会在 D1 初始化后被替换。每个运行时模块按完整业务域迁移，切换到 D1 后在同一修改中删除旧 ENV 和回退路径。
+
 ## prepare-cloudflare 自动化
 
 `scripts/prepare-cloudflare.mjs` 是资源供给的唯一入口：

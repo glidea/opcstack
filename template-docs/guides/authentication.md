@@ -65,17 +65,17 @@ Auth tables do not live in tenant shards because the request layer needs to reso
 
 ### Email and Password
 
-Controlled by `EMAIL_SIGNUP_ENABLED` and `EMAIL_REQUIRE_VERIFICATION`. When signup is enabled, users register with email and password. When verification is required, the frontend calls `sendVerificationOtp` after signup to send a 6-digit code.
+Controlled by the Authentication and Email configuration documents in Meta D1. When email delivery and signup are enabled, users register with email and password. When verification is required, the frontend calls `sendVerificationOtp` after signup to send a 6-digit code.
 
 ```
 User enters email + password
   |
   v
 POST /api/auth/sign-up/email
-  -- creates user (disabled if EMAIL_SIGNUP_ENABLED=false)
+  -- creates user when Email and signup are enabled
   |
   v
-POST /api/auth/email-otp/send-verification-otp  (if EMAIL_REQUIRE_VERIFICATION=true)
+POST /api/auth/email-otp/send-verification-otp  (if verification is enabled)
   -- sends 6-digit OTP to email
   |
   v
@@ -164,15 +164,15 @@ OTP is used for three flows: email verification after signup, password reset, an
 
 ### Google OAuth
 
-Enabled by `GOOGLE_AUTH_ENABLED`. The client ID and secret configure the native Google social provider. Redirect URI is `https://your-domain.com/api/auth/callback/google`.
+Enabled in the Authentication configuration. The client ID and secret configure the native Google social provider. Redirect URI is `https://your-domain.com/api/auth/callback/google`.
 
 ### GitHub OAuth
 
-Enabled by `GITHUB_AUTH_ENABLED`. Same native social provider pattern as Google. Redirect URI is `https://your-domain.com/api/auth/callback/github`.
+Enabled in the Authentication configuration. Same native social provider pattern as Google. Redirect URI is `https://your-domain.com/api/auth/callback/github`.
 
 ### LinuxDo OAuth
 
-Enabled by `LINUXDO_AUTH_ENABLED`. Uses the `genericOAuth` plugin because LinuxDo is not a native Better Auth provider. Profile mapping converts the LinuxDo user id into a synthetic email:
+Enabled in the Authentication configuration. Uses the `genericOAuth` plugin because LinuxDo is not a native Better Auth provider. Profile mapping converts the LinuxDo user id into a synthetic email:
 
 ```ts
 email: `linuxdo-${id}@linuxdo.local`
@@ -184,18 +184,18 @@ This email is not real. It only ensures uniqueness in the `user` table. The `map
 
 Use `APP_BASE_URL` as the source of truth for callback URLs. In production it resolves to `https://<APP_DOMAIN>`. In local dev with `APP_DOMAIN=localhost`, it resolves to `http://localhost:5173`.
 
-| Platform | Dashboard action | Env keys |
+| Platform | Dashboard action | OPCStack configuration |
 | --- | --- | --- |
-| Cloudflare Email Service | Onboard the sending domain, then use the generated `SEND_EMAIL` binding | `EMAIL_PROVIDER=cloudflare`, `SYSTEM_EMAIL` |
-| Resend | Verify the sending domain, create an API key with sending permission | `EMAIL_PROVIDER=resend`, `EMAIL_RESEND_API_KEY`, `SYSTEM_EMAIL` |
-| Cloudflare Turnstile | Create or reuse a widget for `APP_DOMAIN` and optional `APP_CN_DOMAIN` | `TURNSTILE_ENABLED`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` |
-| Google OAuth | Create a Web application OAuth client | `GOOGLE_AUTH_ENABLED`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
-| GitHub OAuth | Create an OAuth App | `GITHUB_AUTH_ENABLED`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` |
-| LinuxDo OAuth | Create an OAuth application in the LinuxDo console | `LINUXDO_AUTH_ENABLED`, `LINUXDO_CLIENT_ID`, `LINUXDO_CLIENT_SECRET` |
+| Cloudflare Email Service | Onboard the sending domain, then use the generated `SEND_EMAIL` binding | Email tab: Cloudflare provider; fixed `SYSTEM_EMAIL` |
+| Resend | Verify the sending domain, create an API key with sending permission | Email tab: Resend provider and API key; fixed `SYSTEM_EMAIL` |
+| Cloudflare Turnstile | Create or reuse a widget for `APP_DOMAIN` and optional `APP_CN_DOMAIN` | Authentication tab: site key, secret key, and enabled switch |
+| Google OAuth | Create a Web application OAuth client | Authentication tab: client ID, client secret, and enabled switch |
+| GitHub OAuth | Create an OAuth App | Authentication tab: client ID, client secret, and enabled switch |
+| LinuxDo OAuth | Create an OAuth application in the LinuxDo console | Authentication tab: client ID, client secret, and enabled switch |
 
 ### Cloudflare Email Service
 
-Use this when `EMAIL_PROVIDER=cloudflare`. The Worker already has a `send_email` binding named `SEND_EMAIL` in `wrangler.jsonc.tpl`; do not add another binding.
+The Worker already has a `send_email` binding named `SEND_EMAIL` in `wrangler.jsonc.tpl`; do not add another binding.
 
 Platform steps:
 
@@ -204,9 +204,8 @@ Platform steps:
 3. Select **Onboard Domain** and choose the domain used by `SYSTEM_EMAIL`.
 4. Let Cloudflare create the required SPF, DKIM, DMARC, and bounce records.
 5. Wait until the sending domain is active.
-6. Set `EMAIL_PROVIDER=cloudflare`.
-7. Set `SYSTEM_EMAIL` to an address on the onboarded domain.
-8. Run `pnpm prepare:cloudflare:prod` before deployment.
+6. Set fixed `SYSTEM_EMAIL` to an address on the onboarded domain and deploy.
+7. Open the admin Configuration workspace, select the Email tab, enable email, choose Cloudflare, and save.
 
 Use Resend if you need local real delivery without depending on Cloudflare remote email behavior.
 
@@ -214,17 +213,14 @@ Docs: [Cloudflare Email Service](https://developers.cloudflare.com/email-service
 
 ### Resend
 
-Use this when `EMAIL_PROVIDER=resend`.
-
 Platform steps:
 
 1. Open Resend dashboard.
 2. Add and verify the sending domain.
 3. Create an API key with sending access.
-4. Set `EMAIL_PROVIDER=resend`.
-5. Set `SYSTEM_EMAIL` to an address on the verified domain.
-6. Put the API key in `EMAIL_RESEND_API_KEY`.
-7. Run `pnpm prepare:cloudflare:dev` or `pnpm prepare:cloudflare:prod`.
+4. Set fixed `SYSTEM_EMAIL` to an address on the verified domain and deploy.
+5. Open the admin Configuration workspace and select the Email tab.
+6. Enable email, choose Resend, enter the API key, and save.
 
 The `from` address is always `SYSTEM_EMAIL`. If Resend rejects mail, fix the sender domain first. Do not work around it in code.
 
@@ -232,14 +228,13 @@ Docs: [Resend domains](https://resend.com/docs/dashboard/domains/introduction), 
 
 ### Cloudflare Turnstile
 
-`prepare-cloudflare` can manage this in production. When `TURNSTILE_ENABLED=true` and the prepare command runs in prod mode, it creates or reuses one Turnstile widget named `APP_NAME` for `APP_DOMAIN` and optional `APP_CN_DOMAIN`.
+On first production initialization, `prepare-cloudflare` creates or reuses one Turnstile widget named `APP_NAME` for `APP_DOMAIN` and optional `APP_CN_DOMAIN`. It seeds the site key and encrypted secret into the disabled Authentication configuration. Local initialization uses Cloudflare test credentials.
 
 Normal production steps:
 
-1. Set `TURNSTILE_ENABLED=true`.
-2. Leave `TURNSTILE_SITE_KEY` empty unless you want to force a known widget.
-3. Run `pnpm prepare:cloudflare:prod`.
-4. Copy generated values only if you need to inspect them; the runtime gets them through generated config and secrets.
+1. Deploy the application.
+2. Open the Authentication tab in the admin Configuration workspace.
+3. Enable Turnstile and save. The generated credentials are already present.
 
 Manual setup steps:
 
@@ -247,9 +242,7 @@ Manual setup steps:
 2. Go to **Turnstile**.
 3. Create a widget.
 4. Add `APP_DOMAIN` and optional `APP_CN_DOMAIN` as allowed hostnames.
-5. Copy the site key to `TURNSTILE_SITE_KEY`.
-6. Copy the secret key to `TURNSTILE_SECRET_KEY`.
-7. Run prepare again.
+5. Open the Authentication tab, replace the site key and secret key, enable Turnstile, and save.
 
 Turnstile is attached to email sign-up, email sign-in, and password reset request endpoints.
 
@@ -283,10 +276,8 @@ Platform steps:
 4. Create an OAuth client of type **Web application**.
 5. Add the callback URL above to **Authorized redirect URIs**.
 6. Add the app domain to **Authorized domains** when Google requires it.
-7. Copy the client ID to `GOOGLE_CLIENT_ID`.
-8. Copy the client secret to `GOOGLE_CLIENT_SECRET`.
-9. Set `GOOGLE_AUTH_ENABLED=true`.
-10. Run prepare again.
+7. Open the Authentication tab in the admin Configuration workspace.
+8. Enter the client ID and client secret, enable Google, and save.
 
 Google requires the redirect URI to match exactly. A scheme, host, port, or path mismatch returns `redirect_uri_mismatch`.
 
@@ -319,10 +310,8 @@ Platform steps:
 3. Create a new OAuth App.
 4. Set **Homepage URL** to `APP_BASE_URL`.
 5. Set **Authorization callback URL** to the callback URL above.
-6. Copy the client ID to `GITHUB_CLIENT_ID`.
-7. Generate a client secret and put it in `GITHUB_CLIENT_SECRET`.
-8. Set `GITHUB_AUTH_ENABLED=true`.
-9. Run prepare again.
+6. Open the Authentication tab in the admin Configuration workspace.
+7. Enter the client ID and generated client secret, enable GitHub, and save.
 
 GitHub OAuth Apps have one callback URL. Use a separate OAuth App for local and production if both need to work at the same time.
 
@@ -353,10 +342,8 @@ Platform steps:
 1. Open the LinuxDo OAuth application console.
 2. Create an OAuth application.
 3. Set the callback URL above.
-4. Copy the client ID to `LINUXDO_CLIENT_ID`.
-5. Copy the client secret to `LINUXDO_CLIENT_SECRET`.
-6. Set `LINUXDO_AUTH_ENABLED=true`.
-7. Run prepare again.
+4. Open the Authentication tab in the admin Configuration workspace.
+5. Enter the client ID and client secret, enable LinuxDo, and save.
 
 The runtime uses these LinuxDo endpoints directly:
 
@@ -374,11 +361,11 @@ LinuxDo does not provide a real email to this app. The mapped user email is synt
 
 1. **OTP sign-in block.** The route `/api/auth/sign-in/email-otp` always returns 400 `EMAIL_OTP_SIGN_IN_DISABLED`.
 
-2. **Signup gate.** If `scene === 'signup'` and `EMAIL_SIGNUP_ENABLED` is not `'true'`, returns 400 `EMAIL_SIGNUP_DISABLED`.
+2. **Signup gate.** If `scene === 'signup'` and the Authentication configuration disables signup, returns 400 `EMAIL_SIGNUP_DISABLED`.
 
-3. **Domain allowlist.** `EMAIL_SIGNUP_DOMAIN_ALLOWLIST` is a semicolon-separated list of allowed signup domains. Empty means all domains allowed. A signup email whose domain is not in the list gets 400 `EMAIL_DOMAIN_NOT_ALLOWED`.
+3. **Domain allowlist.** The Authentication configuration stores the allowed signup domains as a list. Empty means all domains are allowed. A signup email whose domain is not in the list gets 400 `EMAIL_DOMAIN_NOT_ALLOWED`.
 
-4. **Per-email cooldown.** Each (scene, email) pair has a cooldown window controlled by `EMAIL_USER_ACTION_COOLDOWN_SECONDS`. The cooldown is tracked in both a local in-memory `Map` and in KV. The KV key is `email:cooldown:{scene}:{sha256(email)}`. Within the cooldown, returns 429 `EMAIL_ACTION_RATE_LIMITED`.
+4. **Per-email cooldown.** Each (scene, email) pair has a cooldown window controlled by the Authentication configuration. The cooldown is tracked in both a local in-memory `Map` and in KV. The KV key is `email:cooldown:{scene}:{sha256(email)}`. Within the cooldown, returns 429 `EMAIL_ACTION_RATE_LIMITED`.
 
 ## User Creation Side Effects
 
@@ -427,7 +414,7 @@ Session expiry is 30 days. Better Auth refreshes the session after 27 days of ac
 
 ### betaGateMiddleware
 
-`src/backend/api/middleware/beta-gate.ts`. If `BETA_CODE_ENABLED` is `'true'`, queries `betaCode` in Meta DB for a row where `usedBy === userId`. If none found, returns 403 `BETA_CODE_REQUIRED`. If the feature is disabled, it passes through.
+`src/backend/api/middleware/beta-gate.ts`. If the Authentication configuration enables the beta gate, queries `betaCode` in Meta DB for a row where `usedBy === userId`. If none found, returns 403 `BETA_CODE_REQUIRED`. If the feature is disabled, it passes through.
 
 ### tenantDbMiddleware
 
@@ -435,15 +422,7 @@ Session expiry is 30 days. Better Auth refreshes the session after 27 days of ac
 
 ## Admin Access
 
-`adminUserMiddleware` in `src/backend/api/middleware/auth.ts` accepts two paths:
-
-1. **API token.** If `Authorization: Bearer <ADMIN_API_TOKEN>` matches the configured secret, it looks up the user whose email equals `SYSTEM_EMAIL` in Meta DB. If found, sets `userId` to that user's id. If not found, returns 401 `UNAUTHORIZED`.
-
-2. **Super admin session.** Resolves the Better Auth session. If the session user's email equals `SYSTEM_EMAIL`, sets `userId`. Otherwise 401.
-
-The `SYSTEM_EMAIL` user must already exist in the database. The token path does not create it. If no user with that email exists, even a correct token returns 401.
-
-The browser console requires the super admin session path. `ADMIN_API_TOKEN` is only for API clients. See [Admin Console](admin-console.md) for sign-in and operator workflows.
+`adminUserMiddleware` in `src/backend/api/middleware/auth.ts` resolves the Better Auth browser session. If the session user's email equals `SYSTEM_EMAIL`, it sets `userId`; otherwise it returns 401 `UNAUTHORIZED`. Programmatic clients use OAuth grants with explicit scopes rather than a static admin token.
 
 ## Frontend Integration
 
@@ -486,54 +465,13 @@ Pre-built auth UI components live in `src/frontend/lib/app-ui/auth/`:
 
 These components read feature flags from `clientConfig` to decide which sign-in methods to render.
 
-## Config
+## Configuration
 
-### Public env (.env.dev / .env.prod)
+Authentication and Email configuration live only in the Meta D1 `system_settings` row. Open the admin Configuration workspace, edit one tab, and explicitly save it. Each successful save validates the complete domain and becomes effective for subsequent requests without redeployment.
 
-```bash
-# System
-SYSTEM_EMAIL=admin@example.com
+The Authentication tab owns the beta gate, email signup policy, Turnstile, and Google, GitHub, and LinuxDo credentials. The Email tab owns delivery enablement, provider selection, and the Resend API key. Secret reads expose only whether a value is configured; replacing or removing a secret is an explicit save action.
 
-# Beta gate
-BETA_CODE_ENABLED=false
-
-# Email
-EMAIL_PROVIDER=cloudflare
-EMAIL_SIGNUP_ENABLED=true
-EMAIL_REQUIRE_VERIFICATION=false
-EMAIL_SIGNUP_DOMAIN_ALLOWLIST=
-EMAIL_USER_ACTION_COOLDOWN_SECONDS=50
-
-# Turnstile
-TURNSTILE_ENABLED=false
-TURNSTILE_SITE_KEY=
-
-# OAuth providers (public client IDs)
-GOOGLE_AUTH_ENABLED=false
-GOOGLE_CLIENT_ID=
-GITHUB_AUTH_ENABLED=false
-GITHUB_CLIENT_ID=
-LINUXDO_AUTH_ENABLED=false
-LINUXDO_CLIENT_ID=
-
-# Signup credit grant
-CREDITS_SIGNUP_ENABLED=false
-CREDITS_SIGNUP_AMOUNT=100
-```
-
-### Secret env (.env.secret.dev / .env.secret.prod)
-
-```bash
-BETTER_AUTH_SECRET=
-ADMIN_API_TOKEN=
-EMAIL_RESEND_API_KEY=
-GOOGLE_CLIENT_SECRET=
-GITHUB_CLIENT_SECRET=
-LINUXDO_CLIENT_SECRET=
-TURNSTILE_SECRET_KEY=
-```
-
-`EMAIL_PROVIDER` accepts `cloudflare` or `resend`. When set to `resend`, `EMAIL_RESEND_API_KEY` is required in the secret env file.
+Fixed `SYSTEM_EMAIL` remains deployment ENV because it defines the operator identity and sender address before D1 configuration can be read. `BETTER_AUTH_SECRET` and `CONFIG_ENCRYPTION_KEY` are generated by `prepare-cloudflare`; users do not configure them.
 
 ## Common Mistakes
 
@@ -541,7 +479,7 @@ TURNSTILE_SECRET_KEY=
 
 **Assuming LinuxDo users have a real email.** The email is synthesized as `linuxdo-{id}@linuxdo.local`. Email-based features like password reset do not work for LinuxDo users.
 
-**Forgetting that admin access requires the SYSTEM_EMAIL user to exist.** A correct `ADMIN_API_TOKEN` still returns 401 if no user row matches `SYSTEM_EMAIL` in the database.
+**Forgetting that admin access requires the SYSTEM_EMAIL user to exist.** Preparation creates or updates this account; changing the email without rerunning preparation leaves the browser session unauthorized.
 
 **Expecting a cross-DB transaction on signup.** User creation writes to Meta DB and Tenant Shard DB separately. If the process crashes between them, the user exists but has no credit balance. This is by design.
 

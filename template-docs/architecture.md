@@ -149,7 +149,7 @@ Meta DB and Tenant Shard DB each maintain independent bookmark flows, because th
 
 `system_settings` is the singleton source for dynamic product configuration. Its business domains have independent versions so the admin API can reject stale writes without coupling unrelated settings. `payment_products` and `ai_channels` are separate versioned collections.
 
-Sensitive values are stored as AES-GCM ciphertext and IV pairs. `CONFIG_ENCRYPTION_KEY` is the fixed 32-byte Base64 root key supplied through ENV and is never stored in D1. Runtime modules move to this source one complete business domain at a time; once a domain reads D1, its old ENV keys and fallback paths are removed in the same change.
+Sensitive values are stored as AES-GCM ciphertext and IV pairs. `prepare-cloudflare` generates `CONFIG_ENCRYPTION_KEY` once and stores it in local secret state or Cloudflare Worker Secrets; it is never stored in D1 or replaced after D1 initialization. Runtime modules move to this source one complete business domain at a time; once a domain reads D1, its old ENV keys and fallback paths are removed in the same change.
 
 ## prepare-cloudflare Automation
 

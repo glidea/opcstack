@@ -14,7 +14,7 @@
 - [x] 2. 按技术设计修改 Meta Schema，生成并检查 D1 Migration
 - [x] 3. 实现结构化配置存储、请求内快照、乐观锁更新和 AES-GCM SecretMutation
 - [x] 4. 在初始化流程写入明确的禁用配置、内置 AI Provider 和 `opc-cli` Public Client
-- [x] 5. 更新 `CONFIG_ENCRYPTION_KEY` 固定 ENV 契约、生成类型和相关架构文档
+- [x] 5. 更新系统密钥运行时契约、生成类型和相关架构文档
 
 ## 验收测试步骤
 1. 启动本地环境并应用 Meta Migration，确认所有配置表和初始化记录存在
@@ -62,6 +62,24 @@
 1. 在禁用状态启动项目并使用固定管理员身份登录，确认未配置的注册和第三方登录入口隐藏
 2. 保存一套完整认证和邮件配置，确认新请求立即使用新 Provider，Callback URL 由应用地址派生
 3. 尝试在缺少必填凭据时启用功能，确认保存失败且旧配置完整保留
+
+# Task-003A: 自动初始化系统密钥并删除静态管理员 Token
+
+## 描述
+由准备脚本首次生成 Better Auth、D1 配置加密和 R2 Origin 三个内部根密钥。本地持久化到本地 secret 状态，远程写入 Cloudflare Worker Secrets，后续启动和部署只复用、不覆盖。彻底删除 `ADMIN_API_TOKEN`，管理员使用浏览器 Session，程序化访问统一使用 OAuth scope。
+
+## TODO 清单
+- [x] 1. 先增加本地生成复用、远程首次部署、密钥缺失和旧管理员 Token 失效的失败测试
+- [x] 2. 实现三个内部根密钥的首次生成、失败重试复用和已有 Worker 完整性检查
+- [x] 3. 删除 `ADMIN_API_TOKEN` 中间件、运行时类型、示例配置和测试调用
+- [x] 4. 将管理员 E2E 改为真实 Better Auth Session
+- [x] 5. 更新创建项目流程、技术设计和配置说明
+
+## 验收测试步骤
+1. 从空 D1 启动本地项目，确认脚本自动生成三个根密钥并在再次启动时保持不变
+2. 首次远程部署确认三个值进入 Worker Secrets，后续部署不上传或覆盖已有值
+3. 使用旧静态 Bearer Token 调用管理员接口确认返回 401，使用 `SYSTEM_EMAIL` Session 确认成功
+4. 模拟已有 D1 丢失根密钥，确认准备阶段明确失败而不是生成错误的新密钥
 
 # Task-004: 迁移 Credits 与 Affiliate 配置
 
@@ -129,7 +147,7 @@
 # Task-007: 用通用 OAuth API Access 替换 Agent 授权
 
 ## 描述
-保留供受信任管理员脚本使用的固定 `ADMIN_API_TOKEN`，删除所有 Agent 命名授权逻辑，建立基于 Better Auth OAuth Provider、PKCE、设备授权适配层和业务 Scope Registry 的通用 API Access。CLI 一次性切换为按连接名保存多项目凭据的新格式，Agent 不读取或保存 `ADMIN_API_TOKEN`。
+删除所有 Agent 命名授权逻辑，建立基于 Better Auth OAuth Provider、PKCE、设备授权适配层和业务 Scope Registry 的通用 API Access。CLI 一次性切换为按连接名保存多项目凭据的新格式，不提供静态管理员 Token。
 
 ## 不包含
 - 不开放第三方 OAuth Client 动态注册
@@ -140,12 +158,12 @@
 - [ ] 2. 实现 OAuth Authorization Request、Grant、Token Claim 和撤销流程
 - [ ] 3. 为所有受保护 JSON 业务路由显式注册 scope，并统一 Session 与 Bearer Token 授权
 - [ ] 4. 实现 `opc auth connect/status/disconnect` 与 `opc api request` 的新连接存储和同源限制
-- [ ] 5. 删除旧 Agent Schema、路由、中间件、Context、页面、CLI 和文档，保留独立的 `ADMIN_API_TOKEN` 管理员认证路径
+- [ ] 5. 删除旧 Agent Schema、路由、中间件、Context、页面、CLI 和文档
 
 ## 验收测试步骤
 1. 分别对两个本地项目连接执行 `opc auth connect`，在浏览器批准不同 scope，确认凭据互不覆盖
 2. 使用连接调用获批业务 API、未获批 API 和管理员 API，确认结果分别为成功、`FORBIDDEN` 和按管理员身份校验
-3. 在后台撤销 Grant 后再次调用和刷新 Token，确认立即失效，并确认仓库不存在旧 Agent 授权且 Agent 凭据不含 `ADMIN_API_TOKEN`
+3. 在后台撤销 Grant 后再次调用和刷新 Token，确认立即失效，并确认仓库不存在旧 Agent 授权或静态管理员 Token
 
 # Task-008: 实现基础 Configuration 管理界面
 

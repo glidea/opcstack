@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from 'vitest'
+import { getAdminSessionCookie } from './support/auth'
 
 type GeneralConfig = {
 	design_system: 'apple-saas' | 'brutalism'
@@ -46,8 +47,8 @@ type EmailConfig = {
 }
 
 const appBaseUrl: string = process.env['APP_BASE_URL'] ?? 'http://localhost:5173'
-const adminApiToken: string = process.env['E2E_ADMIN_API_TOKEN'] ?? 'admin-token'
 const remote: boolean = process.env['E2E_REMOTE'] === '1'
+let adminSessionCookie: string
 
 describe.skipIf(remote)('dynamic configuration e2e', () => {
 	beforeAll(async (): Promise<void> => {
@@ -55,6 +56,7 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 		if (response.status !== 200) {
 			throw new Error('dev server is not ready for e2e tests')
 		}
+		adminSessionCookie = await getAdminSessionCookie(appBaseUrl)
 	})
 
 	test('saved General and Storage configuration affects the next operation', async (): Promise<void> => {
@@ -105,7 +107,7 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 				{
 					method: 'PUT',
 					headers: {
-						authorization: `Bearer ${adminApiToken}`,
+						cookie: adminSessionCookie,
 						'content-type': 'text/plain',
 						'content-length': '5',
 						'x-d1-meta-bookmark': storageBookmark
@@ -295,7 +297,7 @@ async function callAdminConfigRaw(
 	bookmark?: string
 ): Promise<Response> {
 	const headers: Record<string, string> = {
-		authorization: `Bearer ${adminApiToken}`,
+		cookie: adminSessionCookie,
 		'content-type': 'application/json'
 	}
 	if (bookmark) {
