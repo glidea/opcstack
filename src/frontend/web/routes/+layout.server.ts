@@ -5,6 +5,7 @@ import {
 	type SystemLocale
 } from '$frontend/i18n/locales'
 import { clientConfig } from '$frontend/config/client'
+import type { PublicRuntimeConfig } from '$backend/config'
 
 type AlternateUrl = {
 	locale: string
@@ -14,6 +15,7 @@ type AlternateUrl = {
 export async function load(event: {
 	params: { locale?: string }
 	url: URL
+	locals: { publicRuntimeConfig: PublicRuntimeConfig }
 }): Promise<{
 	locale: SystemLocale
 	siteName: string
@@ -24,6 +26,7 @@ export async function load(event: {
 	alternateUrls: AlternateUrl[]
 	xDefaultUrl: string
 	websiteJsonLd: string
+	publicRuntimeConfig: PublicRuntimeConfig
 }> {
 	const origin = clientConfig.webBaseUrl
 	const siteName = clientConfig.appName
@@ -44,6 +47,7 @@ export async function load(event: {
 		logoUrl: new URL('/logo.svg', origin).toString(),
 		canonicalUrl: new URL(event.url.pathname, origin).toString(),
 		alternateUrls,
+		publicRuntimeConfig: event.locals.publicRuntimeConfig,
 		xDefaultUrl: new URL(resolveLocalePath(event.url.pathname, defaultLocale), origin).toString(),
 		websiteJsonLd: JSON.stringify({
 			'@context': 'https://schema.org',

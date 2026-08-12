@@ -67,6 +67,12 @@ import type {
 	UploadR2PublicObjectRequest,
 	UploadR2PublicObjectResponse
 } from '../r2'
+import type {
+	GeneralConfig,
+	StorageConfig,
+	UpdateGeneralConfigRequest,
+	UpdateStorageConfigRequest
+} from '../configuration'
 import type { ApiErrorResponse } from '../common'
 
 const META_BOOKMARK_HEADER = 'x-d1-meta-bookmark'
@@ -136,6 +142,8 @@ type ApiMethods = {
 	getAffSummary(): Promise<GetAffSummaryResponse>
 	getAdminAiTask(input: GetAdminAiTaskRequest): Promise<GetAdminAiTaskResponse>
 	getAdminOverview(): Promise<GetAdminOverviewResponse>
+	getGeneralConfig(): Promise<GeneralConfig>
+	getStorageConfig(): Promise<StorageConfig>
 	getCreditSummary(): Promise<GetCreditSummaryResponse>
 	getSubscription(): Promise<GetSubscriptionResponse>
 	grantCredits(input: AdminGrantCreditsRequest): Promise<AdminGrantCreditsResponse>
@@ -163,6 +171,8 @@ type ApiMethods = {
 	submitFeedback(input: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse>
 	uploadR2Object(input: UploadR2ObjectRequest): Promise<UploadR2ObjectResponse>
 	uploadR2PublicObject(input: UploadR2PublicObjectRequest): Promise<UploadR2PublicObjectResponse>
+	updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig>
+	updateStorageConfig(input: UpdateStorageConfigRequest): Promise<StorageConfig>
 	upgradeSubscription(input: UpgradeSubscriptionRequest): Promise<UpgradeSubscriptionResponse>
 }
 
@@ -365,6 +375,12 @@ function createApiMethods(
 		getAdminOverview(): Promise<GetAdminOverviewResponse> {
 			return call({ path: '/api/admin/get_overview', body: {} })
 		},
+		getGeneralConfig(): Promise<GeneralConfig> {
+			return call({ path: '/api/admin/get_general_config', body: {} })
+		},
+		getStorageConfig(): Promise<StorageConfig> {
+			return call({ path: '/api/admin/get_storage_config', body: {} })
+		},
 		getCreditSummary(): Promise<GetCreditSummaryResponse> {
 			return call({ path: '/api/get_credit_summary', body: {} })
 		},
@@ -429,6 +445,12 @@ function createApiMethods(
 		},
 		uploadR2PublicObject(input: UploadR2PublicObjectRequest): Promise<UploadR2PublicObjectResponse> {
 			return upload(`/api/admin/r2/${encodeR2Key(input.key)}`, input)
+		},
+		updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig> {
+			return call({ path: '/api/admin/update_general_config', body: input })
+		},
+		updateStorageConfig(input: UpdateStorageConfigRequest): Promise<StorageConfig> {
+			return call({ path: '/api/admin/update_storage_config', body: input })
 		},
 		upgradeSubscription(input: UpgradeSubscriptionRequest): Promise<UpgradeSubscriptionResponse> {
 			return call({ path: '/api/upgrade_subscription', body: input })

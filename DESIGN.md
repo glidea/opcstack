@@ -1,6 +1,6 @@
 # Design System
 
-> Active style is controlled by `DESIGN_SYSTEM` in the public environment configuration
+> Active style is controlled by the General domain in Meta D1
 > Valid values: `apple-saas` (default) | `brutalism`
 
 ---

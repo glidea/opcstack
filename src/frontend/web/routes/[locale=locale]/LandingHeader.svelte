@@ -12,9 +12,11 @@
 	};
 
 	let {
-		locale: pageLocale
+		locale: pageLocale,
+		docsEnabled
 	}: {
 		locale: string;
+		docsEnabled: boolean;
 	} = $props();
 
 	const session = client.auth.useSession();
@@ -37,7 +39,9 @@
 			{#each navItems as item (item.id)}
 				<a href={`#${item.id}`}>{$_(item.key)}</a>
 			{/each}
-			<a href={`/${pageLocale}/docs`}>{$_("home.nav.docs")}</a>
+			{#if docsEnabled}
+				<a href={`/${pageLocale}/docs`}>{$_("home.nav.docs")}</a>
+			{/if}
 		</nav>
 
 		<div class="landing-header-actions">
@@ -45,10 +49,12 @@
 			{#if $session.data}
 				<UserMenu onSignOut={() => {}} settingsHref={`/${pageLocale}/settings`} />
 			{/if}
-			<a class="landing-header-cta" href={`/${pageLocale}/docs/getting-started`} aria-label={$_("home.hero.cta.init")}>
-				<span>{$_("home.hero.cta.init")}</span>
-				<ArrowRightIcon class="size-4" />
-			</a>
+			{#if docsEnabled}
+				<a class="landing-header-cta" href={`/${pageLocale}/docs/getting-started`} aria-label={$_("home.hero.cta.init")}>
+					<span>{$_("home.hero.cta.init")}</span>
+					<ArrowRightIcon class="size-4" />
+				</a>
+			{/if}
 		</div>
 	</div>
 </header>

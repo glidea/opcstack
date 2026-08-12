@@ -556,8 +556,6 @@ function createEnv(): Env & { R2: R2Bucket } {
 		APP_NAME: 'opcstack',
 		APP_BASE_URL: 'http://localhost:5173',
 		R2_ACCOUNT_ID: 'abc',
-		R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
-		R2_USER_UPLOAD_MAX_BYTES: '5242880',
 		R2_ORIGIN_SIGNING_SECRET: 'test-secret',
 		R2: r2
 	} as unknown as Env & { R2: R2Bucket }
@@ -568,8 +566,6 @@ function createEnvWithoutR2(): Env {
 		APP_NAME: 'opcstack',
 		APP_BASE_URL: 'http://localhost:5173',
 		R2_ACCOUNT_ID: 'abc',
-		R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
-		R2_USER_UPLOAD_MAX_BYTES: '5242880',
 		R2_ORIGIN_SIGNING_SECRET: 'test-secret'
 	} as unknown as Env
 }

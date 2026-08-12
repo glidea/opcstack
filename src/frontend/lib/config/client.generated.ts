@@ -4,8 +4,6 @@ export type ClientConfig = {
 	apiBaseUrl: string
 	webBaseUrl: string
 	supportEmail: string
-	designSystem: string
-	docsEnabled: boolean
 	emailSignupEnabled: boolean
 	emailRequireVerification: boolean
 	emailUserActionCooldownSeconds: number
@@ -26,8 +24,6 @@ export const clientConfig: ClientConfig = {
 	"apiBaseUrl": "https://opcstack.glidea.app",
 	"webBaseUrl": "https://opcstack.glidea.app",
 	"supportEmail": "yourfriend@glidea.app",
-	"designSystem": "apple-saas",
-	"docsEnabled": true,
 	"emailSignupEnabled": true,
 	"emailRequireVerification": false,
 	"emailUserActionCooldownSeconds": 50,

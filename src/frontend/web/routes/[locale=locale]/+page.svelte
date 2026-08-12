@@ -23,6 +23,9 @@
 		canonicalUrl: string;
 		alternateUrls: AlternateUrl[];
 		xDefaultUrl: string;
+		publicRuntimeConfig: {
+			docs_enabled: boolean;
+		};
 	};
 
 	type CapabilityKey =
@@ -45,6 +48,7 @@
 
 	const docsBase: string = $derived(`/${data.locale}/docs`);
 	const quickStartHref: string = $derived(`${docsBase}/getting-started`);
+	const docsEnabled: boolean = $derived(data.publicRuntimeConfig.docs_enabled);
 	const quickStartPrompt: string =
 		"Create an OPCStack app named <APP_NAME> by following:\nhttps://raw.githubusercontent.com/glidea/opcstack/main/QUICK_START.md";
 	const capabilities: CapabilityKey[] = [
@@ -107,7 +111,7 @@
 	<meta name="twitter:image" content={data.logoUrl} />
 </svelte:head>
 
-<LandingHeader locale={data.locale} />
+<LandingHeader locale={data.locale} {docsEnabled} />
 
 <main class="landing-page">
 	<section class="landing-hero">
@@ -127,15 +131,17 @@
 					</div>
 					<h1>{$_("home.hero.positioning")}</h1>
 					<p class="hero-summary">{$_("home.hero.subtitle")}</p>
-					<div class="landing-actions">
-						<Button size="lg" href={quickStartHref} class="landing-primary-button">
-							{$_("home.hero.cta.init")}
-							<ArrowRightIcon class="size-4" />
-						</Button>
-						<Button size="lg" variant="outline" href={docsBase} class="landing-secondary-button">
-							{$_("home.nav.docs")}
-						</Button>
-					</div>
+					{#if docsEnabled}
+						<div class="landing-actions">
+							<Button size="lg" href={quickStartHref} class="landing-primary-button">
+								{$_("home.hero.cta.init")}
+								<ArrowRightIcon class="size-4" />
+							</Button>
+							<Button size="lg" variant="outline" href={docsBase} class="landing-secondary-button">
+								{$_("home.nav.docs")}
+							</Button>
+						</div>
+					{/if}
 				</div>
 
 				<div class="deployment-scene" aria-label={$_("home.architecture.label")}>
@@ -318,7 +324,9 @@
 					</Button>
 				</div>
 				<pre><code>{quickStartPrompt}</code></pre>
-				<a href={quickStartHref}>{$_("home.hero.cta.init")} <ArrowRightIcon class="size-4" /></a>
+				{#if docsEnabled}
+					<a href={quickStartHref}>{$_("home.hero.cta.init")} <ArrowRightIcon class="size-4" /></a>
+				{/if}
 			</div>
 		</div>
 	</section>
@@ -344,7 +352,9 @@
 		<div class="landing-shell landing-footer-inner">
 			<div class="footer-brand"><img src="/logo.svg" alt="" /><span>OPCStack</span></div>
 			<p>{$_("home.final.subtitle")}</p>
-			<Button size="lg" href={quickStartHref} class="landing-footer-button">{$_("home.hero.cta.init")} <ArrowRightIcon class="size-4" /></Button>
+			{#if docsEnabled}
+				<Button size="lg" href={quickStartHref} class="landing-footer-button">{$_("home.hero.cta.init")} <ArrowRightIcon class="size-4" /></Button>
+			{/if}
 		</div>
 	</footer>
 </main>

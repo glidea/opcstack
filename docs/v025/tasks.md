@@ -31,11 +31,11 @@
 - 不迁移认证、邮件、支付或 AI 配置
 
 ## TODO 清单
-- [ ] 1. 先增加配置 API、公开首屏快照和 R2 限制的失败测试
-- [ ] 2. 实现 General、Storage API 契约、Handler、校验和按域版本更新
-- [ ] 3. 在 SvelteKit 请求中读取一次 `PublicRuntimeConfig` 并下发 General 字段
-- [ ] 4. 将 R2 运行时读取切换到 Storage 快照
-- [ ] 5. 删除 `DESIGN_SYSTEM`、`DOCS_ENABLED` 和上传限制的 ENV、模板、生成字段及旧读取
+- [x] 1. 先增加配置 API、公开首屏快照和 R2 限制的失败测试
+- [x] 2. 实现 General、Storage API 契约、Handler、校验和按域版本更新
+- [x] 3. 在 SvelteKit 请求中读取一次 `PublicRuntimeConfig` 并下发 General 字段
+- [x] 4. 将 R2 运行时读取切换到 Storage 快照
+- [x] 5. 删除 `DESIGN_SYSTEM`、`DOCS_ENABLED` 和上传限制的 ENV、模板、生成字段及旧读取
 
 ## 验收测试步骤
 1. 调用 General 和 Storage 更新接口并携带返回 bookmark，确认随后读取立即得到新值
@@ -129,7 +129,7 @@
 # Task-007: 用通用 OAuth API Access 替换 Agent 授权
 
 ## 描述
-删除 `ADMIN_API_TOKEN` 和所有 Agent 命名授权逻辑，建立基于 Better Auth OAuth Provider、PKCE、设备授权适配层和业务 Scope Registry 的通用 API Access。CLI 一次性切换为按连接名保存多项目凭据的新格式。
+保留供受信任管理员脚本使用的固定 `ADMIN_API_TOKEN`，删除所有 Agent 命名授权逻辑，建立基于 Better Auth OAuth Provider、PKCE、设备授权适配层和业务 Scope Registry 的通用 API Access。CLI 一次性切换为按连接名保存多项目凭据的新格式，Agent 不读取或保存 `ADMIN_API_TOKEN`。
 
 ## 不包含
 - 不开放第三方 OAuth Client 动态注册
@@ -140,12 +140,12 @@
 - [ ] 2. 实现 OAuth Authorization Request、Grant、Token Claim 和撤销流程
 - [ ] 3. 为所有受保护 JSON 业务路由显式注册 scope，并统一 Session 与 Bearer Token 授权
 - [ ] 4. 实现 `opc auth connect/status/disconnect` 与 `opc api request` 的新连接存储和同源限制
-- [ ] 5. 删除 `ADMIN_API_TOKEN`、旧 Agent Schema、路由、中间件、Context、页面、CLI 和文档
+- [ ] 5. 删除旧 Agent Schema、路由、中间件、Context、页面、CLI 和文档，保留独立的 `ADMIN_API_TOKEN` 管理员认证路径
 
 ## 验收测试步骤
 1. 分别对两个本地项目连接执行 `opc auth connect`，在浏览器批准不同 scope，确认凭据互不覆盖
 2. 使用连接调用获批业务 API、未获批 API 和管理员 API，确认结果分别为成功、`FORBIDDEN` 和按管理员身份校验
-3. 在后台撤销 Grant 后再次调用和刷新 Token，确认立即失效，并确认仓库不存在旧 Agent 授权或 `ADMIN_API_TOKEN`
+3. 在后台撤销 Grant 后再次调用和刷新 Token，确认立即失效，并确认仓库不存在旧 Agent 授权且 Agent 凭据不含 `ADMIN_API_TOKEN`
 
 # Task-008: 实现基础 Configuration 管理界面
 

@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
+import { getStorageConfig, type StorageConfig } from '../../config'
 import {
 	createR2Client,
 	R2Error,
@@ -165,12 +166,13 @@ async function uploadR2Object(ctx: Context<ApiEnv>, key: string): Promise<Respon
 	if (contentLength === undefined) {
 		return uploadError(ctx, 'R2_UPLOAD_CONTENT_LENGTH_REQUIRED')
 	}
-	if (contentLength > Number(ctx.env.R2_USER_UPLOAD_MAX_BYTES)) {
+	const storageConfig: StorageConfig = await getStorageConfig(ctx.get('metaDb'))
+	if (contentLength > storageConfig.maxUploadBytes) {
 		return uploadError(ctx, 'R2_USER_UPLOAD_SIZE_TOO_LARGE')
 	}
 
 	const contentType: string = ctx.req.header('content-type') ?? ''
-	if (!isAllowedUploadContentType(ctx.env, contentType)) {
+	if (!storageConfig.allowedContentTypes.includes(contentType)) {
 		return uploadError(ctx, 'R2_USER_UPLOAD_CONTENT_TYPE_NOT_ALLOWED')
 	}
 	const env: Env & { R2?: R2Bucket } = ctx.env as Env & { R2?: R2Bucket }
@@ -203,11 +205,6 @@ function parseContentLength(value: string | undefined): number | undefined {
 		return undefined
 	}
 	return size
-}
-
-function isAllowedUploadContentType(env: Env, contentType: string): boolean {
-	const allowedTypes: string[] = env.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES.split(';')
-	return allowedTypes.includes(contentType)
 }
 
 function isWritablePrivateKey(key: string, userId: string): boolean {

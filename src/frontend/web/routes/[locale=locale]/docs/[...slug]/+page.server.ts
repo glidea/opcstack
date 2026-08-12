@@ -4,26 +4,6 @@ import { defaultLocale } from '$frontend/i18n/locales'
 import { getDocBySlug, getDocNeighbors, getDocSwitchPath, getLocaleManifest, type DocHeading } from '../../../../lib/docs/docs'
 import { getDocsManifest } from '../../../../lib/docs/manifest.server'
 
-export const prerender = true
-
-export async function entries(): Promise<Array<{ locale: string; slug: string }>> {
-	if (!clientConfig.docsEnabled) {
-		return []
-	}
-
-	const manifest = await getDocsManifest()
-	const allEntries: Array<{ locale: string; slug: string }> = []
-
-	for (const locale of manifest.locales) {
-		const localeManifest = manifest.byLocale[locale]
-		for (const doc of localeManifest?.docs ?? []) {
-			allEntries.push({ locale, slug: doc.slug })
-		}
-	}
-
-	return allEntries
-}
-
 export async function load({
 	params,
 	parent
@@ -47,10 +27,6 @@ export async function load({
 	canonicalUrl: string
 	xDefaultUrl: string
 }> {
-	if (!clientConfig.docsEnabled) {
-		error(404, 'DOC_NOT_FOUND')
-	}
-
 	const layoutData = await parent()
 	const origin = clientConfig.webBaseUrl
 	const manifest = await getDocsManifest()

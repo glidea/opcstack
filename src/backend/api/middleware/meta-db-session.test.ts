@@ -48,17 +48,17 @@ describe('resolveSessionBookmark', () => {
 			}
 		},
 		{
-			scenario: 'fallback to first-primary',
+			scenario: 'read from the nearest replica without a bookmark',
 			given: 'header and cookie are both missing',
 			when: 'resolving bookmark',
-			then: 'returns first-primary',
+			then: 'returns first-unconstrained',
 			givenDetail: {
 				headerBookmark: undefined,
 				cookieBookmark: undefined
 			},
 			whenDetail: {},
 			thenExpected: {
-				bookmark: 'first-primary'
+				bookmark: 'first-unconstrained'
 			}
 		}
 	]

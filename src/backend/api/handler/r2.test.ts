@@ -463,8 +463,8 @@ describe('uploadR2ObjectHandler', () => {
 		body: string
 		contentLength?: string
 		contentType?: string
-		allowedContentTypes?: string
-		maxBytes?: string
+		allowedContentTypes?: string[]
+		maxBytes?: number
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -570,7 +570,7 @@ describe('uploadR2ObjectHandler', () => {
 				body: 'text',
 				contentLength: '4',
 				contentType: 'text/plain',
-				allowedContentTypes: 'image/png',
+				allowedContentTypes: ['image/png']
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -592,7 +592,7 @@ describe('uploadR2ObjectHandler', () => {
 				body: 'image',
 				contentLength: '101',
 				contentType: 'image/png',
-				maxBytes: '100',
+				maxBytes: 100
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -607,19 +607,12 @@ describe('uploadR2ObjectHandler', () => {
 
 	runCases(cases, async (given) => {
 		const env = createEnv()
-		if (given.allowedContentTypes) {
-			const writableEnv = env as unknown as { R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: string }
-			writableEnv.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES = given.allowedContentTypes
-		}
-		if (given.maxBytes) {
-			const writableEnv = env as unknown as { R2_USER_UPLOAD_MAX_BYTES: string }
-			writableEnv.R2_USER_UPLOAD_MAX_BYTES = given.maxBytes
-		}
-
 		const response = await uploadR2ObjectHandler(
 			createUploadContext(given.path, given.userId, given.body, env, {
 				contentLength: given.contentLength,
-				contentType: given.contentType
+				contentType: given.contentType,
+				allowedContentTypes: given.allowedContentTypes,
+				maxBytes: given.maxBytes
 			})
 		)
 		const payload = (await response.json()) as {
@@ -751,8 +744,6 @@ function createEnvWithR2(r2: R2Bucket): Env & { R2: R2Bucket } {
 			APP_NAME: 'opcstack',
 			APP_BASE_URL: 'http://localhost:5173',
 			R2_ACCOUNT_ID: 'abc',
-			R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
-			R2_USER_UPLOAD_MAX_BYTES: '5242880',
 		R2_ORIGIN_SIGNING_SECRET: 'test-secret',
 		R2: r2
 	} as unknown as Env & { R2: R2Bucket }
@@ -802,6 +793,8 @@ function createContext(
 type CreateUploadContextOptions = {
 	contentLength?: string
 	contentType?: string
+	allowedContentTypes?: string[]
+	maxBytes?: number
 }
 
 function createUploadContext(
@@ -835,6 +828,25 @@ function createUploadContext(
 		get: (key: string): unknown => {
 			if (key === 'userId') {
 				return userId
+			}
+			if (key === 'metaDb') {
+				return {
+					query: {
+						systemSettings: {
+							findFirst: async (): Promise<Record<string, unknown>> => ({
+								storageConfig: {
+									allowedContentTypes: options.allowedContentTypes ?? [
+										'image/png',
+										'image/jpeg',
+										'image/webp'
+									],
+									maxUploadBytes: options.maxBytes ?? 5_242_880
+								},
+								storageVersion: 1
+							})
+						}
+					}
+				}
 			}
 			return undefined
 		},

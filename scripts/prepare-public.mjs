@@ -139,8 +139,6 @@ export function buildClientConfig(vars) {
 		apiBaseUrl: vars.APP_BASE_URL,
 		webBaseUrl: vars.APP_BASE_URL,
 		supportEmail: vars.SYSTEM_EMAIL,
-		designSystem: vars.DESIGN_SYSTEM,
-		docsEnabled: parseConfigBoolean(vars.DOCS_ENABLED),
 		emailSignupEnabled: parseConfigBoolean(vars.EMAIL_SIGNUP_ENABLED),
 		emailRequireVerification: parseConfigBoolean(vars.EMAIL_REQUIRE_VERIFICATION),
 		emailUserActionCooldownSeconds: Number(vars.EMAIL_USER_ACTION_COOLDOWN_SECONDS),
@@ -162,8 +160,6 @@ function validatePublicConfig(vars) {
 		'APP_VERSION',
 		'APP_BASE_URL',
 		'SYSTEM_EMAIL',
-		'DESIGN_SYSTEM',
-		'DOCS_ENABLED',
 		'EMAIL_SIGNUP_ENABLED',
 		'EMAIL_REQUIRE_VERIFICATION',
 		'EMAIL_USER_ACTION_COOLDOWN_SECONDS',
@@ -193,8 +189,6 @@ export function writeClientConfig(vars) {
 	apiBaseUrl: string
 	webBaseUrl: string
 	supportEmail: string
-	designSystem: string
-	docsEnabled: boolean
 	emailSignupEnabled: boolean
 	emailRequireVerification: boolean
 	emailUserActionCooldownSeconds: number

@@ -1,3 +1,10 @@
+import type { RequestEvent } from '@sveltejs/kit'
+import { getMetaDb } from '$backend/db'
+import { getPublicRuntimeConfig, type PublicRuntimeConfig } from '$backend/config'
+import {
+	META_DB_BOOKMARK_COOKIE,
+	resolveSessionBookmark
+} from '$backend/api/middleware/meta-db-session'
 import { supportedLocales } from '$frontend/i18n/locales'
 import { clientConfig } from '$frontend/config/client'
 import { buildDocsManifest } from '../../lib/docs/docs'
@@ -11,16 +18,33 @@ const pageModules = import.meta.glob('/src/frontend/web/routes/**/+page.svelte')
 const ROUTES_DIR_PREFIX = '/src/frontend/web/routes'
 const PAGE_FILE_SUFFIX = '/+page.svelte'
 
-export const prerender = true
-
-export async function GET(): Promise<Response> {
+export async function GET(event: RequestEvent): Promise<Response> {
+	const env: Env | undefined = event.platform?.env as Env | undefined
+	if (!env) {
+		throw new Error('CONFIG_UNAVAILABLE')
+	}
+	const bookmark: D1SessionBookmark | D1SessionConstraint = resolveSessionBookmark(
+		undefined,
+		event.cookies.get(META_DB_BOOKMARK_COOKIE)
+	)
+	const session: D1DatabaseSession = env.META_DB.withSession(bookmark)
+	const publicRuntimeConfig: PublicRuntimeConfig = await getPublicRuntimeConfig(getMetaDb(session))
+	const nextBookmark: D1SessionBookmark | null = session.getBookmark()
+	if (nextBookmark) {
+		event.cookies.set(META_DB_BOOKMARK_COOKIE, nextBookmark, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			secure: env.APP_BASE_URL.startsWith('https://')
+		})
+	}
 	const urls = new Set<string>()
 
 	for (const path of listPublicRoutePaths()) {
 		urls.add(path)
 	}
 
-	if (clientConfig.docsEnabled) {
+	if (publicRuntimeConfig.docs_enabled) {
 		const manifest = await buildDocsManifest(rawDocModules)
 		for (const locale of manifest.locales) {
 			const localeManifest = manifest.byLocale[locale]

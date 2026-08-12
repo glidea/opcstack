@@ -127,7 +127,7 @@ Source of Truth 边界：
 
 状态：已确认
 
-删除 ENV `ADMIN_API_TOKEN`，不保留长期全权 Token 或失败回退。Agent、CLI 和自动化工具统一通过 OAuth API Access 获得有限、可撤销的业务权限。
+保留固定 secret ENV `ADMIN_API_TOKEN`，供受信任的管理员脚本和运维调用使用，但不把它交给 Agent。Agent、CLI 和其他委托客户端统一通过 OAuth API Access 获得有限、可撤销的业务权限。
 
 - OAuth Client 通过 `opc auth connect` 发起授权，请求当前操作需要的业务 scope
 - 管理员使用 `SYSTEM_EMAIL` 对应的浏览器 Session 显式批准
@@ -213,7 +213,7 @@ Source of Truth 边界：
 
 首次配置不依赖 OAuth API Access。固定 ENV 只负责让系统和管理员认证先运行起来，OAuth 负责系统运行后把有限、可撤销的管理权限授予 Agent。
 
-本地环境也应在项目启动后使用同一套设备授权流程，授权 URL 指向本地应用。设备授权不依赖浏览器回调到 Agent，用户确认后由 Agent 轮询取 Token，因此本地与 Cloudflare 可以保持同一用户流程。项目启动前不授权，也不增加本地 `ADMIN_API_TOKEN` 绕过路径。
+本地环境中的 Agent 也在项目启动后使用同一套设备授权流程，授权 URL 指向本地应用。设备授权不依赖浏览器回调到 Agent，用户确认后由 Agent 轮询取 Token，因此本地与 Cloudflare 可以保持同一用户流程。固定 `ADMIN_API_TOKEN` 仍可供管理员直接调用 API，但不进入 Agent 的安装和授权流程。
 
 ### 1.8 初始业务配置状态
 
@@ -722,6 +722,7 @@ AI 通用设置：
 | --- | --- |
 | `BETTER_AUTH_SECRET` | Session、Token 和 OAuth Provider 的根签名密钥 |
 | `SUPER_ADMIN_PASSWORD` | 初始化及同步根管理员账号所需凭据 |
+| `ADMIN_API_TOKEN` | 受信任管理员脚本的固定 API 凭据，不提供给 Agent |
 | `CONFIG_ENCRYPTION_KEY` | D1 敏感配置的 AES-GCM 根密钥 |
 | `R2_ORIGIN_SIGNING_SECRET` | Worker 内部图片 Origin URL 签名根密钥 |
 
@@ -753,7 +754,6 @@ Web 端的 D1 公开配置由服务端 Layout 读取并随页面数据下发；�
 
 #### 删除项
 
-- 删除 `ADMIN_API_TOKEN`，不进入 D1，也不保留 ENV
 - 删除所有已迁入 D1 的业务 ENV 与 Worker vars/secrets
 - 删除异步 AI Channel ENV 自动发现和默认 Channel 注入逻辑
 - 删除 `PAYMENT_PRODUCTS`、`PAYMENT_PROVIDER_COUNTRY_OVERRIDES` 等 JSON 字符串解析路径，改为结构化 D1 数据
@@ -995,7 +995,7 @@ Browser Session or OAuth Bearer Token
   -> conditional D1 update by expected_version
 ```
 
-浏览器 Session 不检查 OAuth scope。OAuth Token 必须同时满足管理员身份和当前路由声明的 scope。配置 API 不再接受 `ADMIN_API_TOKEN`。
+浏览器 Session 和 `ADMIN_API_TOKEN` 不检查 OAuth scope。OAuth Token 必须同时满足管理员身份和当前路由声明的 scope。Agent 不读取或保存 `ADMIN_API_TOKEN`。
 
 单例业务域使用一组读取和更新接口：
 
@@ -1147,7 +1147,7 @@ flowchart LR
     AgentContract["src/api-contract/agent-auth.ts"]
     AgentHandler["src/backend/api/handler/agent-auth.ts"]
     AgentPages["src/frontend/web/routes/agent/"]
-    OldConfig["business ENV parsing<br/>ADMIN_API_TOKEN path<br/>single-project CLI credentials"]
+    OldConfig["business ENV parsing<br/>Agent-named authorization<br/>single-project CLI credentials"]
   end
 
   ConfigContract --> ConfigHandler
@@ -1166,7 +1166,7 @@ flowchart LR
 
 目录只按真实职责增加两个组件：`config` 和 `oauth`。不新增 Repository 层、Provider Registry、配置事件总线或前后端共享表单元数据。Zod API 契约负责输入输出类型，Drizzle Schema 负责持久化约束，配置组件负责跨字段业务校验，三者不互相替代。
 
-`QUICK_START.md` 和 `CREATE_OPCSTACK_APP.md` 是产品初始化流程，不是普通说明文档，必须与代码在同一次迁移中修改。`README.md`、`template-docs/` 和 `public-docs/` 同步删除动态配置写入 ENV、`ADMIN_API_TOKEN` 和旧 Agent OAuth 路径的示例。迁移完成后，任何用户入口都不能继续把同一配置引导到 ENV 和 D1 两个来源。
+`QUICK_START.md` 和 `CREATE_OPCSTACK_APP.md` 是产品初始化流程，不是普通说明文档，必须与代码在同一次迁移中修改。`README.md`、`template-docs/` 和 `public-docs/` 同步删除动态配置写入 ENV 和旧 Agent OAuth 路径的示例，并明确 `ADMIN_API_TOKEN` 只用于受信任管理员脚本。迁移完成后，任何用户入口都不能继续把同一配置引导到 ENV 和 D1 两个来源。
 
 ### 2.9 用户流程影响
 
@@ -1189,7 +1189,7 @@ flowchart LR
   -> 返回写入结果并验证
 ```
 
-用户不再接触 `ADMIN_API_TOKEN`，也不需要重新部署来修改业务配置。代价是首次运行只有可登录的项目壳子，AI、支付、外部登录等能力必须在后台或授权后由 OAuth Client 明确配置并启用。
+用户只在初始化固定 secret ENV 时设置一次 `ADMIN_API_TOKEN`，日常业务配置不再接触它，也不需要重新部署。Agent 通过 OAuth 获得有限权限。代价是首次运行只有可登录的项目壳子，AI、支付、外部登录等能力必须在后台或授权后由 OAuth Client 明确配置并启用。
 
 ## 3. 关键流程
 

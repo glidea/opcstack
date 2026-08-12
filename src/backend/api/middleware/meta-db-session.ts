@@ -4,7 +4,7 @@ import type { ApiEnv } from '..'
 
 export const META_DB_BOOKMARK_HEADER = 'x-d1-meta-bookmark'
 export const META_DB_BOOKMARK_COOKIE = 'd1_meta_bookmark'
-export const META_DB_BOOKMARK_DEFAULT: D1SessionConstraint = 'first-primary'
+export const META_DB_BOOKMARK_DEFAULT: D1SessionConstraint = 'first-unconstrained'
 
 export const metaDbSessionMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,

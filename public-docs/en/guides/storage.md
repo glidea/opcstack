@@ -130,8 +130,8 @@ const upload = await apiClient.uploadR2PublicObject({
 The upload API enforces the real rules:
 
 - Upload paths cannot contain `..`
-- `Content-Length` is required and must not exceed `R2_USER_UPLOAD_MAX_BYTES`
-- `Content-Type` must be listed in `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES`
+- `Content-Length` is required and must not exceed the Storage domain `max_upload_bytes`
+- `Content-Type` must be listed in the Storage domain `allowed_content_types`
 - User uploads may only write `private/<userId>/*` or `tmp/private/<userId>/*`
 - Admin public uploads write `public/*`
 
@@ -251,8 +251,8 @@ The main storage settings are:
 | Key | Purpose |
 | --- | --- |
 | `R2_ENABLED` | Enables R2 provisioning and binding |
-| `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` | Semicolon-separated upload MIME allowlist |
-| `R2_USER_UPLOAD_MAX_BYTES` | Max user upload size |
+| Storage `allowed_content_types` | Upload MIME allowlist saved in Meta D1 |
+| Storage `max_upload_bytes` | Max user upload size saved in Meta D1 |
 | `R2_TMP_LIFECYCLE_RULES` | Temporary object deletion rules |
 | `R2_ORIGIN_SIGNING_SECRET` | Signs internal image origin reads |
 

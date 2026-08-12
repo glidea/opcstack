@@ -239,10 +239,10 @@ Global styles live in `src/frontend/lib/styles/app.css`. The root layout imports
 import '$frontend/styles/app.css'
 ```
 
-The active design system comes from public config:
+The active design system comes from the General configuration saved in Meta D1:
 
-```bash
-DESIGN_SYSTEM=apple-saas
+```json
+{"design_system":"apple-saas","docs_enabled":true}
 ```
 
 Supported values in CSS:
@@ -365,10 +365,10 @@ Docs route:
 /:locale/docs/[...slug]
 ```
 
-Docs are enabled by:
+Docs are enabled by the General configuration in Meta D1:
 
-```bash
-DOCS_ENABLED=true
+```json
+{"docs_enabled":true}
 ```
 
 Markdown files use frontmatter:

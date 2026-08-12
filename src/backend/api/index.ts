@@ -54,6 +54,12 @@ import {
 } from './handler/admin-ai-tasks'
 import { getAdminOverviewHandler } from './handler/admin-overview'
 import { listAdminUsersHandler } from './handler/admin-users'
+import {
+	getGeneralConfigHandler,
+	getStorageConfigHandler,
+	updateGeneralConfigHandler,
+	updateStorageConfigHandler
+} from './handler/configuration'
 import { authCore } from './auth'
 import { logError } from '../lib/log'
 import type { ApiErrorResponse } from '../../api-contract/common'
@@ -129,6 +135,10 @@ adminApi.post('/admin/list_payment_transactions', listAdminPaymentTransactionsHa
 adminApi.post('/admin/list_ai_tasks', listAdminAiTasksHandler)
 adminApi.post('/admin/get_ai_task', getAdminAiTaskHandler)
 adminApi.post('/admin/get_overview', getAdminOverviewHandler)
+adminApi.post('/admin/get_general_config', getGeneralConfigHandler)
+adminApi.post('/admin/update_general_config', updateGeneralConfigHandler)
+adminApi.post('/admin/get_storage_config', getStorageConfigHandler)
+adminApi.post('/admin/update_storage_config', updateStorageConfigHandler)
 adminApi.put('/admin/r2/public/*', uploadR2PublicObjectHandler)
 adminApi.get('/admin/ai_realtime_connect', aiRealtimeConnectHandler)
 

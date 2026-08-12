@@ -1,12 +1,14 @@
 import { error } from '@sveltejs/kit'
-import { clientConfig } from '$frontend/config/client'
+import type { PublicRuntimeConfig } from '$backend/config'
 import type { SystemLocale } from '$frontend/i18n/locales'
 import { loadDocsLayoutData } from '../../../lib/docs/manifest.server'
 
-export const prerender = true
-
-export async function load(event: { params: { locale: string } }) {
-	if (!clientConfig.docsEnabled) {
+export async function load(event: {
+	params: { locale: string }
+	parent: () => Promise<{ publicRuntimeConfig: PublicRuntimeConfig }>
+}): Promise<Awaited<ReturnType<typeof loadDocsLayoutData>>> {
+	const parentData = await event.parent()
+	if (!parentData.publicRuntimeConfig.docs_enabled) {
 		error(404, 'DOC_NOT_FOUND')
 	}
 
