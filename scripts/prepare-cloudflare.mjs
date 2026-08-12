@@ -37,11 +37,6 @@ const SECRET_KEYS = [
 	'CONFIG_ENCRYPTION_KEY',
 	'SUPER_ADMIN_PASSWORD',
 	'ADMIN_API_TOKEN',
-	'TURNSTILE_SECRET_KEY',
-	'GOOGLE_CLIENT_SECRET',
-	'GITHUB_CLIENT_SECRET',
-	'LINUXDO_CLIENT_SECRET',
-	'EMAIL_RESEND_API_KEY',
 	'PAYMENT_DODO_API_KEY',
 	'PAYMENT_DODO_WEBHOOK_SECRET',
 	'PAYMENT_CREEM_API_KEY',
@@ -170,34 +165,6 @@ function localD1DatabaseId(index) {
 	return `00000000-0000-0000-0000-${String(index).padStart(12, '0')}`
 }
 
-function resolveTurnstileConfig(input) {
-	if (input.enabled !== 'true') {
-		return {
-			enabled: 'false',
-			siteKey: '',
-			secretKey: ''
-		}
-	}
-
-	if (!input.isRemote) {
-		return {
-			enabled: 'true',
-			siteKey: input.siteKey,
-			secretKey: TURNSTILE_TEST_SECRET_KEY
-		}
-	}
-
-	if (!input.widget) {
-		throw new Error('TURNSTILE_WIDGET_MISSING')
-	}
-
-	return {
-		enabled: 'true',
-		siteKey: input.widget.sitekey,
-		secretKey: input.widget.secret
-	}
-}
-
 export function resolveTurnstileInitializationConfig(input) {
 	if (!input.isRemote) {
 		return {
@@ -263,21 +230,6 @@ export function buildRequiredSecretKeys(env) {
 
 	if (String(env.ADMIN_API_TOKEN ?? '').trim() !== '') {
 		keys.push('ADMIN_API_TOKEN')
-	}
-	if (env.TURNSTILE_ENABLED === 'true') {
-		keys.push('TURNSTILE_SECRET_KEY')
-	}
-	if (env.GOOGLE_AUTH_ENABLED === 'true') {
-		keys.push('GOOGLE_CLIENT_SECRET')
-	}
-	if (env.GITHUB_AUTH_ENABLED === 'true') {
-		keys.push('GITHUB_CLIENT_SECRET')
-	}
-	if (env.LINUXDO_AUTH_ENABLED === 'true') {
-		keys.push('LINUXDO_CLIENT_SECRET')
-	}
-	if (env.EMAIL_PROVIDER === 'resend') {
-		keys.push('EMAIL_RESEND_API_KEY')
 	}
 	if (env.R2_ENABLED === 'true') {
 		keys.push('R2_ORIGIN_SIGNING_SECRET')
@@ -436,59 +388,7 @@ function renderTemplate(template, env) {
 	})
 }
 
-function validateEmailConfig(env) {
-	const requiredKeys = [
-		'EMAIL_PROVIDER',
-		'EMAIL_SIGNUP_ENABLED',
-		'EMAIL_REQUIRE_VERIFICATION',
-		'EMAIL_USER_ACTION_COOLDOWN_SECONDS',
-		'EMAIL_RESEND_API_KEY',
-		'SYSTEM_EMAIL',
-		'EMAIL_SIGNUP_DOMAIN_ALLOWLIST'
-	]
-	for (const key of requiredKeys) {
-		if (!Object.prototype.hasOwnProperty.call(env, key)) {
-			console.error(`Error: EMAIL_CONFIG_MISSING_${key}`)
-			process.exit(1)
-		}
-	}
-
-	const booleanKeys = [
-		'EMAIL_SIGNUP_ENABLED',
-		'EMAIL_REQUIRE_VERIFICATION'
-	]
-	for (const key of booleanKeys) {
-		if (env[key] !== 'true' && env[key] !== 'false') {
-			console.error(`Error: EMAIL_CONFIG_BOOLEAN_INVALID_${key}`)
-			process.exit(1)
-		}
-	}
-
-	const emailProvider = env.EMAIL_PROVIDER
-	const cooldown = Number(env.EMAIL_USER_ACTION_COOLDOWN_SECONDS)
-	const cooldownValid = Number.isInteger(cooldown) && cooldown > 0
-	if (!cooldownValid) {
-		console.error('Error: EMAIL_COOLDOWN_CONFIG_INVALID')
-		process.exit(1)
-	}
-
-	if (emailProvider !== 'resend' && emailProvider !== 'cloudflare') {
-		console.error('Error: EMAIL_PROVIDER_CONFIG_INVALID')
-		process.exit(1)
-	}
-
-	if (!env.SYSTEM_EMAIL) {
-		console.error('Error: EMAIL_PROVIDER_CONFIG_MISSING')
-		process.exit(1)
-	}
-
-	if (emailProvider === 'resend' && !env.EMAIL_RESEND_API_KEY) {
-		console.error('Error: EMAIL_PROVIDER_CONFIG_MISSING')
-		process.exit(1)
-	}
-}
-
-export function validateRuntimeConfig(env, options = {}) {
+export function validateRuntimeConfig(env) {
 	requireSecret(env, 'BETTER_AUTH_SECRET')
 	requireSecret(env, 'CONFIG_ENCRYPTION_KEY')
 	validateConfigEncryptionKey(env.CONFIG_ENCRYPTION_KEY)
@@ -497,13 +397,6 @@ export function validateRuntimeConfig(env, options = {}) {
 		requireSecret(env, 'R2_ORIGIN_SIGNING_SECRET')
 	}
 
-	if (env.TURNSTILE_ENABLED === 'true' && options.isRemote !== true) {
-		requireSecret(env, 'TURNSTILE_SITE_KEY')
-	}
-
-	validateEnabledAuthProvider(env, 'GOOGLE')
-	validateEnabledAuthProvider(env, 'GITHUB')
-	validateEnabledAuthProvider(env, 'LINUXDO')
 	validatePaymentRuntimeConfig(env)
 	validateAIRoutingConfig(env)
 	collectAIChannels(env)
@@ -617,15 +510,6 @@ function requireConfigValue(env, key) {
 	if (String(env[key] ?? '').trim() === '') {
 		throw new Error(`${key}_MISSING`)
 	}
-}
-
-function validateEnabledAuthProvider(env, provider) {
-	if (env[`${provider}_AUTH_ENABLED`] !== 'true') {
-		return
-	}
-
-	requireSecret(env, `${provider}_CLIENT_ID`)
-	requireSecret(env, `${provider}_CLIENT_SECRET`)
 }
 
 function validatePaymentRuntimeConfig(env) {
@@ -1676,8 +1560,7 @@ async function main() {
 	resolveAppBase(env, mode)
 	resolveAppCnDomain(env)
 	resolveAppCnCnameTarget(env)
-	validateEmailConfig(env)
-	validateRuntimeConfig(env, { isRemote })
+	validateRuntimeConfig(env)
 	const queueNames = parseQueueNames(env.QUEUE_NAMES)
 	const durableObjectNames = parseDurableObjectNames(env.DO_NAMES)
 	const cronExpressions = parseCronExpressions(env.CRONS)
@@ -1859,16 +1742,6 @@ async function main() {
 		isRemote,
 		widget: turnstileWidget
 	})
-
-	const turnstileConfig = resolveTurnstileConfig({
-		enabled: env.TURNSTILE_ENABLED,
-		siteKey: env.TURNSTILE_SITE_KEY,
-		isRemote,
-		widget: turnstileWidget
-	})
-	env.TURNSTILE_ENABLED = turnstileConfig.enabled
-	env.TURNSTILE_SITE_KEY = turnstileConfig.siteKey
-	env.TURNSTILE_SECRET_KEY = turnstileConfig.secretKey
 
 	console.log('\nRendering configuration...')
 	env.D1_DATABASE_UUID = databaseId

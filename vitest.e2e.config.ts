@@ -9,17 +9,8 @@ const appDomain = readConfig('APP_DOMAIN') ?? 'localhost'
 const appBaseUrl = resolveAppBaseUrl(appDomain, isRemote)
 const adminApiToken = readConfig('ADMIN_API_TOKEN') ?? 'admin-token'
 const betterAuthSecret = readConfig('BETTER_AUTH_SECRET') ?? ''
-const betaEnabled = readConfig('BETA_CODE_ENABLED') ?? 'true'
-const googleEnabled = readConfig('GOOGLE_AUTH_ENABLED') ?? 'true'
 const r2Enabled = readConfig('R2_ENABLED') ?? 'false'
-const emailSignupEnabled = readConfig('EMAIL_SIGNUP_ENABLED') ?? 'false'
-const emailRequireVerification = readConfig('EMAIL_REQUIRE_VERIFICATION') ?? 'true'
-const emailUserActionCooldownSeconds =
-	readConfig('EMAIL_USER_ACTION_COOLDOWN_SECONDS') ?? '50'
-const emailSignupDomainAllowlist = readConfig('EMAIL_SIGNUP_DOMAIN_ALLOWLIST') ?? ''
-const emailResendApiKey = readConfig('EMAIL_RESEND_API_KEY') ?? ''
 const systemEmail = readConfig('SYSTEM_EMAIL') ?? ''
-const turnstileEnabled = readConfig('TURNSTILE_ENABLED') ?? 'false'
 const paymentEnabled = readConfig('PAYMENT_ENABLED') ?? 'false'
 const paymentProvider = readConfig('PAYMENT_PROVIDER') ?? ''
 const paymentProducts = readConfig('PAYMENT_PRODUCTS') ?? ''
@@ -39,16 +30,8 @@ export default defineConfig({
 			E2E_REMOTE: isRemote ? '1' : '0',
 			E2E_ADMIN_API_TOKEN: adminApiToken,
 			E2E_BETTER_AUTH_SECRET: betterAuthSecret,
-			E2E_BETA_CODE_ENABLED: betaEnabled,
-			E2E_GOOGLE_AUTH_ENABLED: googleEnabled,
 			E2E_R2_ENABLED: r2Enabled,
-			E2E_EMAIL_SIGNUP_ENABLED: emailSignupEnabled,
-			E2E_EMAIL_REQUIRE_VERIFICATION: emailRequireVerification,
-			E2E_EMAIL_USER_ACTION_COOLDOWN_SECONDS: emailUserActionCooldownSeconds,
-			E2E_EMAIL_SIGNUP_DOMAIN_ALLOWLIST: emailSignupDomainAllowlist,
-			E2E_EMAIL_RESEND_API_KEY: emailResendApiKey,
 			E2E_SYSTEM_EMAIL: systemEmail,
-			E2E_TURNSTILE_ENABLED: turnstileEnabled,
 			E2E_PAYMENT_ENABLED: paymentEnabled,
 			E2E_PAYMENT_PROVIDER: paymentProvider,
 			E2E_PAYMENT_PRODUCTS: paymentProducts,

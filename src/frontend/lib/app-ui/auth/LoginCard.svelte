@@ -14,7 +14,7 @@
 	let {
 		onSuccess,
 		registerHref = '/register',
-		forgotPasswordHref = '/forgot-password',
+		forgotPasswordHref,
 		googleAuthEnabled,
 		githubAuthEnabled,
 		linuxdoAuthEnabled,
@@ -169,9 +169,11 @@
 	</form>
 
 	<div class="flex items-center justify-between text-sm">
-		<a href={forgotPasswordHref} class="text-muted-foreground hover:text-foreground">
-			{$_('auth.login.forgotPassword')}
-		</a>
+		{#if forgotPasswordHref}
+			<a href={forgotPasswordHref} class="text-muted-foreground hover:text-foreground">
+				{$_('auth.login.forgotPassword')}
+			</a>
+		{/if}
 		{#if googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || emailSignupEnabled}
 			<a href={registerHref} class="text-primary hover:text-primary/80">
 				{$_('auth.login.createAccount')}

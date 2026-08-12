@@ -6,6 +6,7 @@ import { bearer, captcha, emailOTP, genericOAuth, jwt } from 'better-auth/plugin
 import { oauthProvider } from '@better-auth/oauth-provider'
 import { createEmailClients, type EmailSimpleSendInput } from '../../email'
 import type { Resend } from 'resend'
+import type { AuthRuntimeConfig } from '../../config'
 
 const creditServiceMocks = vi.hoisted(() => {
 	return {
@@ -106,6 +107,7 @@ describe('authCore email config mapping', () => {
 	})
 
 	type GivenDetail = {
+		emailEnabled: boolean
 		emailSignupEnabled: string
 		emailRequireVerification: string
 		cooldownSeconds: string
@@ -129,6 +131,7 @@ describe('authCore email config mapping', () => {
 			when: 'building auth core',
 			then: 'email config is mapped to better auth options',
 			givenDetail: {
+				emailEnabled: true,
 				emailSignupEnabled: 'true',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
@@ -151,6 +154,7 @@ describe('authCore email config mapping', () => {
 			when: 'building auth core',
 			then: 'email auth config is still built',
 			givenDetail: {
+				emailEnabled: false,
 				emailSignupEnabled: 'false',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
@@ -162,7 +166,30 @@ describe('authCore email config mapping', () => {
 				error: '',
 				emailAndPasswordEnabled: true,
 				disableSignUp: true,
-				requireEmailVerification: true,
+				requireEmailVerification: false,
+				hasEmailOtpPlugin: true,
+				hasSendResetPassword: false
+			}
+		},
+		{
+			scenario: 'disable signup when email delivery is disabled',
+			given: 'signup switch enabled without an email provider',
+			when: 'building auth core',
+			then: 'email password login remains enabled but signup is disabled',
+			givenDetail: {
+				emailEnabled: false,
+				emailSignupEnabled: 'true',
+				emailRequireVerification: 'true',
+				cooldownSeconds: '50',
+				emailResendApiKey: '',
+				emailFrom: ''
+			},
+			whenDetail: {},
+			thenExpected: {
+				error: '',
+				emailAndPasswordEnabled: true,
+				disableSignUp: true,
+				requireEmailVerification: false,
 				hasEmailOtpPlugin: true,
 				hasSendResetPassword: false
 			}
@@ -173,6 +200,7 @@ describe('authCore email config mapping', () => {
 			when: 'building auth core',
 			then: 'auth core still builds email auth options',
 			givenDetail: {
+				emailEnabled: true,
 				emailSignupEnabled: 'false',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '0',
@@ -192,10 +220,10 @@ describe('authCore email config mapping', () => {
 	]
 
 	runCases(cases, async (given) => {
-		const env = createEnv(given)
+		const env = createEnv()
 
 		try {
-			authCore(env, {} as never)
+			authCore(env, {} as never, createAuthRuntimeConfig(given))
 		} catch (error) {
 			return {
 				error: error instanceof Error ? error.message : '',
@@ -242,15 +270,9 @@ describe('authCore agent OAuth provider', () => {
 	})
 
 	it('configures the official Agent OAuth boundary', () => {
-		const env = createEnv({
-			emailSignupEnabled: 'false',
-			emailRequireVerification: 'false',
-			cooldownSeconds: '50',
-			emailResendApiKey: '',
-			emailFrom: ''
-		})
+		const env = createEnv()
 
-		authCore(env, {} as never)
+		authCore(env, {} as never, createAuthRuntimeConfig())
 
 		const options = vi.mocked(oauthProvider).mock.calls[0]?.[0]
 		const authOptions = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
@@ -283,13 +305,7 @@ describe('authCore agent OAuth provider', () => {
 	})
 
 	it('binds OAuth tokens to the active Agent grant and its application scopes', async () => {
-		const env = createEnv({
-			emailSignupEnabled: 'false',
-			emailRequireVerification: 'false',
-			cooldownSeconds: '50',
-			emailResendApiKey: '',
-			emailFrom: ''
-		})
+		const env = createEnv()
 		const grant = {
 			id: 'grant-1',
 			userId: 'user-1',
@@ -309,7 +325,7 @@ describe('authCore agent OAuth provider', () => {
 			}
 		} as never
 
-		authCore(env, db)
+		authCore(env, db, createAuthRuntimeConfig())
 		const options = vi.mocked(oauthProvider).mock.calls[0]?.[0] as {
 			postLogin?: {
 				consentReferenceId: (input: { user: { id: string } }) => Promise<string>
@@ -400,27 +416,21 @@ describe('authCore turnstile config mapping', () => {
 	]
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
-		const env: Env = createEnv({
+		const config = createAuthRuntimeConfig({
+			emailEnabled: true,
 			emailSignupEnabled: 'true',
 			emailRequireVerification: 'true',
 			cooldownSeconds: '50',
 			emailResendApiKey: 'resend-api-key',
 			emailFrom: 'auth@mg.example.com'
 		})
-		type TurnstileTestEnv = Omit<
-			Env,
-			'TURNSTILE_ENABLED' | 'TURNSTILE_SITE_KEY' | 'TURNSTILE_SECRET_KEY'
-		> & {
-			TURNSTILE_ENABLED: string
-			TURNSTILE_SITE_KEY: string
-			TURNSTILE_SECRET_KEY: string
+		config.authentication.turnstile = {
+			enabled: given.turnstileEnabled === 'true',
+			siteKey: given.turnstileSiteKey || null,
+			secretKey: given.turnstileSecretKey || null
 		}
-		const testEnv = env as TurnstileTestEnv
-		testEnv.TURNSTILE_ENABLED = given.turnstileEnabled
-		testEnv.TURNSTILE_SITE_KEY = given.turnstileSiteKey
-		testEnv.TURNSTILE_SECRET_KEY = given.turnstileSecretKey
 
-		authCore(testEnv as unknown as Env, {} as never)
+		authCore(createEnv(), {} as never, config)
 		const options = vi.mocked(captcha).mock.calls[0]?.[0] as
 			| {
 					provider: string
@@ -449,6 +459,7 @@ describe('authCore email callbacks', () => {
 	})
 
 	type GivenDetail = {
+		emailEnabled: boolean
 		emailSignupEnabled: string
 		emailRequireVerification: string
 		cooldownSeconds: string
@@ -480,6 +491,7 @@ describe('authCore email callbacks', () => {
 			when: 'calling sendVerificationOTP callbacks',
 			then: 'email client send is called with otp email subjects',
 			givenDetail: {
+				emailEnabled: true,
 				emailSignupEnabled: 'true',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
@@ -516,7 +528,7 @@ describe('authCore email callbacks', () => {
 			return options as never
 		})
 
-		const auth = authCore(createEnv(given), {} as never) as unknown as {
+		const auth = authCore(createEnv(), {} as never, createAuthRuntimeConfig(given)) as unknown as {
 			plugins: Array<{ id: string }>
 		}
 
@@ -650,13 +662,7 @@ describe('authCore user create hook', () => {
 	]
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
-		const env: Env = createEnv({
-			emailSignupEnabled: 'true',
-			emailRequireVerification: 'false',
-			cooldownSeconds: '50',
-			emailResendApiKey: 'resend-api-key',
-			emailFrom: 'auth@mg.example.com'
-		})
+		const env: Env = createEnv()
 		type CreditSignupTestEnv = Omit<Env, 'CREDITS_SIGNUP_ENABLED' | 'CREDITS_SIGNUP_AMOUNT'> & {
 			CREDITS_SIGNUP_ENABLED: string
 			CREDITS_SIGNUP_AMOUNT: string
@@ -665,7 +671,18 @@ describe('authCore user create hook', () => {
 		testEnv.CREDITS_SIGNUP_ENABLED = given.creditsSignupEnabled
 		testEnv.CREDITS_SIGNUP_AMOUNT = given.creditsSignupAmount
 
-		const auth = authCore(testEnv as unknown as Env, {} as never) as unknown as {
+		const auth = authCore(
+			testEnv as unknown as Env,
+			{} as never,
+			createAuthRuntimeConfig({
+				emailEnabled: true,
+				emailSignupEnabled: 'true',
+				emailRequireVerification: 'false',
+				cooldownSeconds: '50',
+				emailResendApiKey: 'resend-api-key',
+				emailFrom: 'auth@mg.example.com'
+			})
+		) as unknown as {
 			databaseHooks: {
 				user: {
 					create: {
@@ -728,20 +745,22 @@ describe('authCore registration attribution', () => {
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
 		const auth = authCore(
-			createEnv({
-				emailSignupEnabled: 'true',
-				emailRequireVerification: 'false',
-				cooldownSeconds: '50',
-				emailResendApiKey: 'resend-api-key',
-				emailFrom: 'auth@mg.example.com'
-			}),
+			createEnv(),
 			{
 				query: {
 					user: {
 						findFirst: async (): Promise<undefined> => undefined
 					}
 				}
-			} as never
+			} as never,
+			createAuthRuntimeConfig({
+				emailEnabled: true,
+				emailSignupEnabled: 'true',
+				emailRequireVerification: 'false',
+				cooldownSeconds: '50',
+				emailResendApiKey: 'resend-api-key',
+				emailFrom: 'auth@mg.example.com'
+			})
 		) as unknown as {
 			databaseHooks: {
 				user: {
@@ -869,24 +888,19 @@ describe('authCore social provider config mapping', () => {
 	]
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
-		const env = createEnv({
-			emailSignupEnabled: 'false',
-			emailRequireVerification: 'true',
-			cooldownSeconds: '50',
-			emailResendApiKey: '',
-			emailFrom: ''
-		})
-		const testEnv = {
-			...env,
-			GOOGLE_AUTH_ENABLED: given.googleAuthEnabled,
-			GOOGLE_CLIENT_ID: given.googleClientId,
-			GOOGLE_CLIENT_SECRET: given.googleClientSecret,
-			GITHUB_AUTH_ENABLED: given.githubAuthEnabled,
-			GITHUB_CLIENT_ID: given.githubClientId,
-			GITHUB_CLIENT_SECRET: given.githubClientSecret
-		} as unknown as Env
+		const config = createAuthRuntimeConfig()
+		config.authentication.providers.google = {
+			enabled: given.googleAuthEnabled === 'true',
+			clientId: given.googleClientId || null,
+			clientSecret: given.googleClientSecret || null
+		}
+		config.authentication.providers.github = {
+			enabled: given.githubAuthEnabled === 'true',
+			clientId: given.githubClientId || null,
+			clientSecret: given.githubClientSecret || null
+		}
 
-		authCore(testEnv, {} as never)
+		authCore(createEnv(), {} as never, config)
 		const options = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
 			socialProviders?: {
 				google?: {
@@ -1003,21 +1017,14 @@ describe('authCore linuxdo oauth config mapping', () => {
 	]
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
-		const env = createEnv({
-			emailSignupEnabled: 'false',
-			emailRequireVerification: 'true',
-			cooldownSeconds: '50',
-			emailResendApiKey: '',
-			emailFrom: ''
-		})
-		const testEnv = {
-			...env,
-			LINUXDO_AUTH_ENABLED: given.linuxdoAuthEnabled,
-			LINUXDO_CLIENT_ID: given.linuxdoClientId,
-			LINUXDO_CLIENT_SECRET: given.linuxdoClientSecret
-		} as unknown as Env
+		const config = createAuthRuntimeConfig()
+		config.authentication.providers.linuxdo = {
+			enabled: given.linuxdoAuthEnabled === 'true',
+			clientId: given.linuxdoClientId || null,
+			clientSecret: given.linuxdoClientSecret || null
+		}
 
-		authCore(testEnv, {} as never)
+		authCore(createEnv(), {} as never, config)
 		const authOptions = vi.mocked(betterAuth).mock.calls[0]?.[0] as {
 			plugins?: Array<{ id?: string }>
 		}
@@ -1041,9 +1048,9 @@ describe('authCore linuxdo oauth config mapping', () => {
 					}>
 			  }
 			| undefined
-		const config = genericOAuthOptions?.config[0]
+		const oauthConfig = genericOAuthOptions?.config[0]
 		const mappedUser =
-			config?.mapProfileToUser({
+			oauthConfig?.mapProfileToUser({
 				id: 123,
 				username: 'demo',
 				name: 'Linux DO User',
@@ -1054,13 +1061,13 @@ describe('authCore linuxdo oauth config mapping', () => {
 			hasGenericOAuthPlugin:
 				authOptions.plugins?.some((plugin: { id?: string }) => plugin.id === 'generic-oauth') ??
 				false,
-			providerId: config?.providerId ?? '',
-			clientId: config?.clientId ?? '',
-			clientSecret: config?.clientSecret ?? '',
-			authorizationUrl: config?.authorizationUrl ?? '',
-			tokenUrl: config?.tokenUrl ?? '',
-			userInfoUrl: config?.userInfoUrl ?? '',
-			authentication: config?.authentication ?? '',
+			providerId: oauthConfig?.providerId ?? '',
+			clientId: oauthConfig?.clientId ?? '',
+			clientSecret: oauthConfig?.clientSecret ?? '',
+			authorizationUrl: oauthConfig?.authorizationUrl ?? '',
+			tokenUrl: oauthConfig?.tokenUrl ?? '',
+			userInfoUrl: oauthConfig?.userInfoUrl ?? '',
+			authentication: oauthConfig?.authentication ?? '',
 			mappedId: mappedUser.id ?? '',
 			mappedEmail: mappedUser.email ?? '',
 			mappedEmailVerified: mappedUser.emailVerified ?? false,
@@ -1088,33 +1095,48 @@ function readEmailAutoSignInAfterVerification(): boolean {
 	return options.emailVerification?.autoSignInAfterVerification ?? false
 }
 
-function createEnv(input: {
+function createEnv(): Env {
+	const env = {
+		APP_BASE_URL: 'http://localhost:5173',
+		BETTER_AUTH_SECRET: 'secret',
+		CREDITS_SIGNUP_ENABLED: 'false',
+		CREDITS_SIGNUP_AMOUNT: '0'
+	}
+	return env as unknown as Env
+}
+
+function createAuthRuntimeConfig(input?: {
+	emailEnabled: boolean
 	emailSignupEnabled: string
 	emailRequireVerification: string
 	cooldownSeconds: string
 	emailResendApiKey: string
 	emailFrom: string
-}): Env {
-	const env = {
-		APP_BASE_URL: 'http://localhost:5173',
-		BETTER_AUTH_SECRET: 'secret',
-		GOOGLE_AUTH_ENABLED: 'false',
-		GOOGLE_CLIENT_ID: '',
-		GOOGLE_CLIENT_SECRET: '',
-		LINUXDO_AUTH_ENABLED: 'false',
-		LINUXDO_CLIENT_ID: '',
-		LINUXDO_CLIENT_SECRET: '',
-		EMAIL_SIGNUP_ENABLED: input.emailSignupEnabled,
-		EMAIL_REQUIRE_VERIFICATION: input.emailRequireVerification,
-		EMAIL_USER_ACTION_COOLDOWN_SECONDS: input.cooldownSeconds,
-		EMAIL_RESEND_API_KEY: input.emailResendApiKey,
-		SYSTEM_EMAIL: input.emailFrom,
-		EMAIL_SIGNUP_DOMAIN_ALLOWLIST: '',
-		BETA_CODE_ENABLED: 'false',
-		CREDITS_SIGNUP_ENABLED: 'false',
-		CREDITS_SIGNUP_AMOUNT: '0'
+}): AuthRuntimeConfig {
+	return {
+		authentication: {
+			betaCodeEnabled: false,
+			emailSignupEnabled: input?.emailSignupEnabled === 'true',
+			emailSignupDomainAllowlist: [],
+			emailRequireVerification: input?.emailRequireVerification === 'true',
+			emailUserActionCooldownSeconds: Number(input?.cooldownSeconds ?? '50'),
+			turnstile: {
+				enabled: false,
+				siteKey: null,
+				secretKey: null
+			},
+			providers: {
+				google: { enabled: false, clientId: null, clientSecret: null },
+				github: { enabled: false, clientId: null, clientSecret: null },
+				linuxdo: { enabled: false, clientId: null, clientSecret: null }
+			}
+		},
+		email: {
+			enabled: input?.emailEnabled ?? false,
+			provider: input?.emailResendApiKey ? 'resend' : null,
+			resendApiKey: input?.emailResendApiKey || null
+		}
 	}
-	return env as unknown as Env
 }
 
 function createSendMock() {

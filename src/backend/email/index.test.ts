@@ -66,18 +66,18 @@ describe('createEmailClients', () => {
 	]
 
 	runCases(cases, (given) => {
-		try {
-			const clients = createEmailClients({
-				APP_NAME: 'opcstack',
-				EMAIL_PROVIDER: given.provider,
-				EMAIL_RESEND_API_KEY: 'rk-test',
-				SYSTEM_EMAIL: 'noreply@example.com',
-				SEND_EMAIL: {
-					send: async (_message: unknown): Promise<void> => {
-						return
-					}
-				}
-			} as unknown as Env)
+			try {
+				const clients = createEmailClients({
+					provider: given.provider,
+					resendApiKey: 'rk-test',
+					appName: 'opcstack',
+					sender: 'noreply@example.com',
+					sendEmailBinding: {
+						send: async (_message: unknown): Promise<void> => {
+							return
+						}
+					} as unknown as SendEmail
+				})
 			return {
 				error: '',
 				hasSimpleClient: typeof clients.simple.send === 'function',

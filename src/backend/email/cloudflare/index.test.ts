@@ -32,9 +32,7 @@ describe('createCloudflareNativeEmailClient', () => {
 				return
 			}
 		} as unknown as SendEmail
-		const client = createCloudflareNativeEmailClient({
-			SEND_EMAIL: binding
-		} as unknown as Env)
+		const client = createCloudflareNativeEmailClient(binding)
 		return {
 			sameBinding: client === binding
 		}
@@ -88,13 +86,11 @@ describe('createCloudflareSimpleEmailClient.send', () => {
 		const send = vi.fn(async (_message: unknown): Promise<void> => {
 			return
 		})
-		const client = createCloudflareSimpleEmailClient({
-			APP_NAME: given.appName,
-			SYSTEM_EMAIL: given.emailFrom,
-			SEND_EMAIL: {
-				send
-			}
-		} as unknown as Env)
+		const client = createCloudflareSimpleEmailClient(
+			{ send } as unknown as SendEmail,
+			given.appName,
+			given.emailFrom
+		)
 
 		await client.send({
 			to: when.to,

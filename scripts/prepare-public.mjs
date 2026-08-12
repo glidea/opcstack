@@ -139,14 +139,6 @@ export function buildClientConfig(vars) {
 		apiBaseUrl: vars.APP_BASE_URL,
 		webBaseUrl: vars.APP_BASE_URL,
 		supportEmail: vars.SYSTEM_EMAIL,
-		emailSignupEnabled: parseConfigBoolean(vars.EMAIL_SIGNUP_ENABLED),
-		emailRequireVerification: parseConfigBoolean(vars.EMAIL_REQUIRE_VERIFICATION),
-		emailUserActionCooldownSeconds: Number(vars.EMAIL_USER_ACTION_COOLDOWN_SECONDS),
-		googleAuthEnabled: parseConfigBoolean(vars.GOOGLE_AUTH_ENABLED),
-		githubAuthEnabled: parseConfigBoolean(vars.GITHUB_AUTH_ENABLED),
-		linuxdoAuthEnabled: parseConfigBoolean(vars.LINUXDO_AUTH_ENABLED),
-		turnstileEnabled: parseConfigBoolean(vars.TURNSTILE_ENABLED),
-		turnstileSiteKey: vars.TURNSTILE_SITE_KEY || '',
 		paymentEnabled: parseConfigBoolean(vars.PAYMENT_ENABLED),
 		extension: {
 			hostPermissions: parseList(vars.EXTENSION_HOST_PERMISSIONS)
@@ -160,13 +152,6 @@ function validatePublicConfig(vars) {
 		'APP_VERSION',
 		'APP_BASE_URL',
 		'SYSTEM_EMAIL',
-		'EMAIL_SIGNUP_ENABLED',
-		'EMAIL_REQUIRE_VERIFICATION',
-		'EMAIL_USER_ACTION_COOLDOWN_SECONDS',
-		'GOOGLE_AUTH_ENABLED',
-		'GITHUB_AUTH_ENABLED',
-		'LINUXDO_AUTH_ENABLED',
-		'TURNSTILE_ENABLED',
 		'PAYMENT_ENABLED',
 		'EXTENSION_HOST_PERMISSIONS'
 	]
@@ -189,14 +174,6 @@ export function writeClientConfig(vars) {
 	apiBaseUrl: string
 	webBaseUrl: string
 	supportEmail: string
-	emailSignupEnabled: boolean
-	emailRequireVerification: boolean
-	emailUserActionCooldownSeconds: number
-	googleAuthEnabled: boolean
-	githubAuthEnabled: boolean
-	linuxdoAuthEnabled: boolean
-	turnstileEnabled: boolean
-	turnstileSiteKey: string
 	paymentEnabled: boolean
 	extension: {
 		hostPermissions: string[]

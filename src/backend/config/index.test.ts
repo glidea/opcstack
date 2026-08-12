@@ -3,9 +3,13 @@ import type { MetaDb } from '../db'
 import type { SystemSettings } from '../db/schema.meta'
 import {
 	ConfigStoreError,
+	getAuthenticationConfig,
+	getEmailConfig,
 	getPublicRuntimeConfig,
 	getStorageConfig,
 	readSystemSettingsSnapshot,
+	updateAuthenticationConfig,
+	updateEmailConfig,
 	updateStorageConfig,
 	updateSystemSettingsDomain
 } from './index'
@@ -81,13 +85,101 @@ describe('system configuration store', () => {
 
 		const result = await getPublicRuntimeConfig(db)
 
-		expect({ result, reads }).toEqual({
+			expect({ result, reads }).toEqual({
 			result: {
 				design_system: 'apple-saas',
-				docs_enabled: true
+				docs_enabled: true,
+				email_enabled: false,
+				email_signup_enabled: false,
+				email_require_verification: false,
+				email_user_action_cooldown_seconds: 50,
+				google_auth_enabled: false,
+				github_auth_enabled: false,
+				linuxdo_auth_enabled: false,
+				turnstile_enabled: false,
+				turnstile_site_key: null
 			},
 			reads: 1
 		})
+	})
+
+	it('reads Authentication and Email without exposing secret values', async (): Promise<void> => {
+		const row: SystemSettings = createSettingsRow(1)
+		row.authenticationConfig.providers.google.clientSecret = {
+			ciphertext: 'ciphertext',
+			iv: 'iv'
+		}
+		row.emailConfig.resendApiKey = { ciphertext: 'ciphertext', iv: 'iv' }
+		const db: MetaDb = createConfigDb({ row })
+
+		const authentication = await getAuthenticationConfig(db)
+		const email = await getEmailConfig(db)
+
+		expect({ authentication, email }).toEqual({
+			authentication: {
+				...row.authenticationConfig,
+				version: 1
+			},
+			email: {
+				...row.emailConfig,
+				version: 1
+			}
+		})
+	})
+
+	it('rejects enabling an OAuth provider without complete credentials before writing', async (): Promise<void> => {
+		let writes: number = 0
+		const db: MetaDb = createConfigDb({
+			row: createSettingsRow(1),
+			onWrite: (): void => {
+				writes += 1
+			}
+		})
+
+		await expect(
+			updateAuthenticationConfig(db, TEST_ENCRYPTION_KEY, {
+				betaCodeEnabled: false,
+				emailSignupEnabled: false,
+				emailSignupDomainAllowlist: [],
+				emailRequireVerification: false,
+				emailUserActionCooldownSeconds: 50,
+				turnstile: { enabled: false, siteKey: null, secretKey: { action: 'keep' } },
+				providers: {
+					google: { enabled: true, clientId: null, clientSecret: { action: 'keep' } },
+					github: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
+					linuxdo: { enabled: false, clientId: null, clientSecret: { action: 'keep' } }
+				},
+				expectedVersion: 1,
+				nowMs: 2000
+			})
+		).rejects.toEqual(
+			new ConfigStoreError(
+				'INVALID_UPDATE',
+				'providers.google.clientId is required when Google authentication is enabled'
+			)
+		)
+		expect(writes).toBe(0)
+	})
+
+	it('replaces an Email secret and validates the resulting provider atomically', async (): Promise<void> => {
+		const updated: SystemSettings = createSettingsRow(1)
+		updated.emailConfig = {
+			enabled: true,
+			provider: 'resend',
+			resendApiKey: { ciphertext: 'saved', iv: 'saved-iv' }
+		}
+		updated.emailVersion = 2
+		const db: MetaDb = createConfigDb({ row: createSettingsRow(1), updated })
+
+		const result = await updateEmailConfig(db, TEST_ENCRYPTION_KEY, {
+			enabled: true,
+			provider: 'resend',
+			resendApiKey: { action: 'replace', value: 'resend-secret' },
+			expectedVersion: 1,
+			nowMs: 2000
+		})
+
+		expect(result).toEqual({ ...updated.emailConfig, version: 2 })
 	})
 
 	it('reads Storage as a validated operation snapshot', async (): Promise<void> => {
@@ -139,6 +231,7 @@ type ConfigDbInput = {
 	row: SystemSettings | undefined
 	updated?: SystemSettings | undefined
 	onRead?: () => void
+	onWrite?: () => void
 }
 
 function createConfigDb(input: ConfigDbInput): MetaDb {
@@ -157,6 +250,7 @@ function createConfigDb(input: ConfigDbInput): MetaDb {
 			set: () => ({
 				where: () => ({
 					returning: async (): Promise<SystemSettings[]> => {
+						input.onWrite?.()
 						return input.updated ? [input.updated] : []
 					}
 				})
@@ -170,11 +264,33 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 		id: 1,
 		generalVersion,
 		generalUpdatedAt: 1000,
+		authenticationVersion: 1,
+		authenticationUpdatedAt: 1000,
+		emailVersion: 1,
+		emailUpdatedAt: 1000,
 		storageVersion,
 		storageUpdatedAt: 1000,
 		generalConfig: {
 			designSystem: generalVersion === 1 ? 'apple-saas' : 'brutalism',
 			docsEnabled: generalVersion === 1
+		},
+		authenticationConfig: {
+			betaCodeEnabled: false,
+			emailSignupEnabled: false,
+			emailSignupDomainAllowlist: [],
+			emailRequireVerification: false,
+			emailUserActionCooldownSeconds: 50,
+			turnstile: { enabled: false, siteKey: null, secretKey: null },
+			providers: {
+				google: { enabled: false, clientId: null, clientSecret: null },
+				github: { enabled: false, clientId: null, clientSecret: null },
+				linuxdo: { enabled: false, clientId: null, clientSecret: null }
+			}
+		},
+		emailConfig: {
+			enabled: false,
+			provider: null,
+			resendApiKey: null
 		},
 		storageConfig: {
 			allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
@@ -182,3 +298,5 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 		}
 	} as unknown as SystemSettings
 }
+
+const TEST_ENCRYPTION_KEY: string = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='

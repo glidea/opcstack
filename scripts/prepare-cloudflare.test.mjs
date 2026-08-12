@@ -414,11 +414,8 @@ describe('prepare cloudflare runtime config validation', () => {
 		})
 	})
 
-	it('requires enabled feature secrets', () => {
+	it('requires enabled payment secrets', () => {
 		const env = createRuntimeEnv({
-			GOOGLE_AUTH_ENABLED: 'true',
-			GOOGLE_CLIENT_ID: 'google-client',
-			GOOGLE_CLIENT_SECRET: 'google-secret',
 			PAYMENT_ENABLED: 'true',
 			PAYMENT_PROVIDER: 'creem',
 			PAYMENT_PRODUCTS:
@@ -435,7 +432,6 @@ describe('prepare cloudflare runtime config validation', () => {
 			keys: [
 				'BETTER_AUTH_SECRET',
 				'CONFIG_ENCRYPTION_KEY',
-				'GOOGLE_CLIENT_SECRET',
 				'PAYMENT_CREEM_API_KEY',
 				'PAYMENT_CREEM_WEBHOOK_SECRET'
 			]
@@ -451,18 +447,6 @@ describe('prepare cloudflare runtime config validation', () => {
 		expect(() => {
 			validateRuntimeConfig(env, { isRemote: false })
 		}).toThrow('R2_ORIGIN_SIGNING_SECRET_MISSING')
-	})
-
-	it('rejects enabled google auth without client secret', () => {
-		const env = createRuntimeEnv({
-			GOOGLE_AUTH_ENABLED: 'true',
-			GOOGLE_CLIENT_ID: 'google-client',
-			GOOGLE_CLIENT_SECRET: ''
-		})
-
-		expect(() => {
-			validateRuntimeConfig(env, { isRemote: false })
-		}).toThrow('GOOGLE_CLIENT_SECRET_MISSING')
 	})
 
 	it('rejects enabled payment without selected provider secrets', () => {
@@ -488,18 +472,6 @@ function createRuntimeEnv(overrides = {}) {
 		ADMIN_API_TOKEN: '',
 		R2_ENABLED: 'false',
 		R2_ORIGIN_SIGNING_SECRET: '',
-		TURNSTILE_ENABLED: 'false',
-		TURNSTILE_SITE_KEY: '',
-		TURNSTILE_SECRET_KEY: '',
-		GOOGLE_AUTH_ENABLED: 'false',
-		GOOGLE_CLIENT_ID: '',
-		GOOGLE_CLIENT_SECRET: '',
-		GITHUB_AUTH_ENABLED: 'false',
-		GITHUB_CLIENT_ID: '',
-		GITHUB_CLIENT_SECRET: '',
-		LINUXDO_AUTH_ENABLED: 'false',
-		LINUXDO_CLIENT_ID: '',
-		LINUXDO_CLIENT_SECRET: '',
 		PAYMENT_ENABLED: 'false',
 		PAYMENT_PROVIDER: 'creem',
 		PAYMENT_PROVIDER_COUNTRY_OVERRIDES: '',

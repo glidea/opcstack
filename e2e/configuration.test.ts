@@ -12,6 +12,39 @@ type StorageConfig = {
 	version: number
 }
 
+type SecretMutation = { action: 'keep' } | { action: 'remove' }
+
+type AuthenticationConfig = {
+	beta_code_enabled: boolean
+	email_signup_enabled: boolean
+	email_signup_domain_allowlist: string[]
+	email_require_verification: boolean
+	email_user_action_cooldown_seconds: number
+	turnstile_enabled: boolean
+	turnstile_site_key: string | null
+	turnstile_secret_key_configured: boolean
+	google_auth_enabled: boolean
+	google_client_id: string | null
+	google_client_secret_configured: boolean
+	google_callback_url: string
+	github_auth_enabled: boolean
+	github_client_id: string | null
+	github_client_secret_configured: boolean
+	github_callback_url: string
+	linuxdo_auth_enabled: boolean
+	linuxdo_client_id: string | null
+	linuxdo_client_secret_configured: boolean
+	linuxdo_callback_url: string
+	version: number
+}
+
+type EmailConfig = {
+	enabled: boolean
+	provider: 'cloudflare' | 'resend' | null
+	resend_api_key_configured: boolean
+	version: number
+}
+
 const appBaseUrl: string = process.env['APP_BASE_URL'] ?? 'http://localhost:5173'
 const adminApiToken: string = process.env['E2E_ADMIN_API_TOKEN'] ?? 'admin-token'
 const remote: boolean = process.env['E2E_REMOTE'] === '1'
@@ -98,26 +131,232 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 			})
 		}
 	})
+
+	test('saved Authentication and Email configuration affects the next auth request', async (): Promise<void> => {
+		const originalAuthentication: AuthenticationConfig =
+			await readConfig<AuthenticationConfig>('get_authentication_config')
+		const originalEmail: EmailConfig = await readConfig<EmailConfig>('get_email_config')
+		let authenticationVersion: number = originalAuthentication.version
+		let emailVersion: number = originalEmail.version
+		let bookmark: string | undefined
+
+		try {
+			const emailResponse: Response = await callAdminConfig(
+				'update_email_config',
+				{
+					enabled: true,
+					provider: 'cloudflare',
+					resend_api_key: { action: 'keep' },
+					expected_version: emailVersion
+				},
+				bookmark
+			)
+			const enabledEmail: EmailConfig = await readJson<EmailConfig>(emailResponse)
+			emailVersion = enabledEmail.version
+			bookmark = requireBookmark(emailResponse)
+
+			const authenticationResponse: Response = await callAdminConfig(
+				'update_authentication_config',
+				buildAuthenticationUpdate(originalAuthentication, authenticationVersion, {
+					emailSignupEnabled: true
+				}),
+				bookmark
+			)
+			const enabledAuthentication: AuthenticationConfig =
+				await readJson<AuthenticationConfig>(authenticationResponse)
+			authenticationVersion = enabledAuthentication.version
+			bookmark = requireBookmark(authenticationResponse)
+
+			expect({
+				google: enabledAuthentication.google_callback_url,
+				github: enabledAuthentication.github_callback_url,
+				linuxdo: enabledAuthentication.linuxdo_callback_url
+			}).toEqual({
+				google: `${appBaseUrl}/api/auth/callback/google`,
+				github: `${appBaseUrl}/api/auth/callback/github`,
+				linuxdo: `${appBaseUrl}/api/auth/oauth2/callback/linuxdo`
+			})
+
+			const enabledLoginHtml: string = await readPage('/en/login', bookmark)
+			expect(enabledLoginHtml).toContain('href="/en/register"')
+			expect(enabledLoginHtml).toContain('href="/en/forgot-password"')
+
+			const disabledAuthenticationResponse: Response = await callAdminConfig(
+				'update_authentication_config',
+				buildAuthenticationUpdate(enabledAuthentication, authenticationVersion, {
+					emailSignupEnabled: false,
+					disableSocialProviders: true
+				}),
+				bookmark
+			)
+			const disabledAuthentication: AuthenticationConfig =
+				await readJson<AuthenticationConfig>(disabledAuthenticationResponse)
+			authenticationVersion = disabledAuthentication.version
+			bookmark = requireBookmark(disabledAuthenticationResponse)
+
+			const disabledEmailResponse: Response = await callAdminConfig(
+				'update_email_config',
+				{
+					enabled: false,
+					provider: null,
+					resend_api_key: { action: 'keep' },
+					expected_version: emailVersion
+				},
+				bookmark
+			)
+			const disabledEmail: EmailConfig = await readJson<EmailConfig>(disabledEmailResponse)
+			emailVersion = disabledEmail.version
+			bookmark = requireBookmark(disabledEmailResponse)
+
+			const disabledLoginHtml: string = await readPage('/en/login', bookmark)
+			expect(disabledLoginHtml).not.toContain('href="/en/register"')
+			expect(disabledLoginHtml).not.toContain('href="/en/forgot-password"')
+
+			const resetResponse: Response = await fetch(
+				`${appBaseUrl}/api/auth/email-otp/request-password-reset`,
+				{
+					method: 'POST',
+					headers: {
+						'content-type': 'application/json',
+						'x-d1-meta-bookmark': bookmark
+					},
+					body: JSON.stringify({ email: 'configuration-e2e@example.com' })
+				}
+			)
+			expect({ status: resetResponse.status, body: await resetResponse.json() }).toEqual({
+				status: 400,
+				body: { code: 'EMAIL_DISABLED', message: 'Email is disabled' }
+			})
+
+			const invalidResponse: Response = await callAdminConfigRaw(
+				'update_authentication_config',
+				buildAuthenticationUpdate(disabledAuthentication, authenticationVersion, {
+					enableGoogleWithoutCredentials: true
+				}),
+				bookmark
+			)
+			expect({ status: invalidResponse.status, body: await invalidResponse.json() }).toEqual({
+				status: 400,
+				body: {
+					code: 'INVALID_REQUEST',
+					message: 'providers.google.clientId is required when Google authentication is enabled'
+				}
+			})
+
+			const unchangedAuthentication: AuthenticationConfig = await readConfig<AuthenticationConfig>(
+				'get_authentication_config',
+				bookmark
+			)
+			expect({
+				version: unchangedAuthentication.version,
+				googleAuthEnabled: unchangedAuthentication.google_auth_enabled
+			}).toEqual({ version: authenticationVersion, googleAuthEnabled: false })
+		} finally {
+			const authenticationResponse: Response = await callAdminConfig(
+				'update_authentication_config',
+				buildAuthenticationUpdate(originalAuthentication, authenticationVersion, {}),
+				bookmark
+			)
+			bookmark = requireBookmark(authenticationResponse)
+			await callAdminConfig(
+				'update_email_config',
+				{
+					enabled: originalEmail.enabled,
+					provider: originalEmail.provider,
+					resend_api_key: { action: 'keep' },
+					expected_version: emailVersion
+				},
+				bookmark
+			)
+		}
+	})
 })
 
-async function readConfig<TConfig>(endpoint: string): Promise<TConfig> {
-	const response: Response = await callAdminConfig(endpoint, {})
+async function readConfig<TConfig>(endpoint: string, bookmark?: string): Promise<TConfig> {
+	const response: Response = await callAdminConfig(endpoint, {}, bookmark)
 	return readJson<TConfig>(response)
 }
 
-async function callAdminConfig(endpoint: string, body: unknown): Promise<Response> {
-	const response: Response = await fetch(`${appBaseUrl}/api/admin/${endpoint}`, {
-		method: 'POST',
-		headers: {
-			authorization: `Bearer ${adminApiToken}`,
-			'content-type': 'application/json'
-		},
-		body: JSON.stringify(body)
-	})
+async function callAdminConfig(
+	endpoint: string,
+	body: unknown,
+	bookmark?: string
+): Promise<Response> {
+	const response: Response = await callAdminConfigRaw(endpoint, body, bookmark)
 	if (!response.ok) {
 		throw new Error(`${endpoint} failed with ${response.status}: ${await response.text()}`)
 	}
 	return response
+}
+
+async function callAdminConfigRaw(
+	endpoint: string,
+	body: unknown,
+	bookmark?: string
+): Promise<Response> {
+	const headers: Record<string, string> = {
+		authorization: `Bearer ${adminApiToken}`,
+		'content-type': 'application/json'
+	}
+	if (bookmark) {
+		headers['x-d1-meta-bookmark'] = bookmark
+	}
+	const response: Response = await fetch(`${appBaseUrl}/api/admin/${endpoint}`, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify(body)
+	})
+	return response
+}
+
+async function readPage(path: string, bookmark: string): Promise<string> {
+	const response: Response = await fetch(`${appBaseUrl}${path}`, {
+		headers: {
+			cookie: `d1_meta_bookmark=${encodeURIComponent(bookmark)}`
+		}
+	})
+	if (!response.ok) {
+		throw new Error(`${path} failed with ${response.status}`)
+	}
+	return response.text()
+}
+
+function buildAuthenticationUpdate(
+	config: AuthenticationConfig,
+	expectedVersion: number,
+	overrides: {
+		emailSignupEnabled?: boolean
+		disableSocialProviders?: boolean
+		enableGoogleWithoutCredentials?: boolean
+	}
+): Record<string, boolean | number | string | string[] | null | SecretMutation> {
+	const disableSocialProviders: boolean = overrides.disableSocialProviders ?? false
+	const enableGoogleWithoutCredentials: boolean =
+		overrides.enableGoogleWithoutCredentials ?? false
+	return {
+		beta_code_enabled: config.beta_code_enabled,
+		email_signup_enabled: overrides.emailSignupEnabled ?? config.email_signup_enabled,
+		email_signup_domain_allowlist: config.email_signup_domain_allowlist,
+		email_require_verification: config.email_require_verification,
+		email_user_action_cooldown_seconds: config.email_user_action_cooldown_seconds,
+		turnstile_enabled: config.turnstile_enabled,
+		turnstile_site_key: config.turnstile_site_key,
+		turnstile_secret_key: { action: 'keep' },
+		google_auth_enabled: enableGoogleWithoutCredentials
+			? true
+			: disableSocialProviders
+				? false
+				: config.google_auth_enabled,
+		google_client_id: enableGoogleWithoutCredentials ? null : config.google_client_id,
+		google_client_secret: enableGoogleWithoutCredentials ? { action: 'remove' } : { action: 'keep' },
+		github_auth_enabled: disableSocialProviders ? false : config.github_auth_enabled,
+		github_client_id: config.github_client_id,
+		github_client_secret: { action: 'keep' },
+		linuxdo_auth_enabled: disableSocialProviders ? false : config.linuxdo_auth_enabled,
+		linuxdo_client_id: config.linuxdo_client_id,
+		linuxdo_client_secret: { action: 'keep' },
+		expected_version: expectedVersion
+	}
 }
 
 async function readJson<T>(response: Response): Promise<T> {

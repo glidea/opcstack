@@ -10,6 +10,7 @@ import type { Resend } from 'resend'
 
 export type EmailErrorCode =
 	| 'UNSUPPORTED_EMAIL_PROVIDER'
+	| 'EMAIL_DISABLED'
 	| 'EMAIL_SEND_FAILED'
 
 export class EmailError extends Error {
@@ -26,6 +27,8 @@ function emailErrorMessage(code: EmailErrorCode): string {
 	switch (code) {
 		case 'UNSUPPORTED_EMAIL_PROVIDER':
 			return 'Email provider is unsupported'
+		case 'EMAIL_DISABLED':
+			return 'Email is disabled'
 		case 'EMAIL_SEND_FAILED':
 			return 'Email send failed'
 	}
@@ -37,22 +40,35 @@ export interface EmailClients {
 	cloudflare?: SendEmail
 }
 
-export function createEmailClients(
-	env: Env
-): EmailClients {
-	const provider = env.EMAIL_PROVIDER || 'resend'
+export type EmailClientConfig = {
+	provider: string
+	resendApiKey: string | null
+	appName: string
+	sender: string
+	sendEmailBinding: SendEmail
+}
+
+export function createEmailClients(config: EmailClientConfig): EmailClients {
+	const provider: string = config.provider
 	if (provider === 'resend') {
-		const resend = createResendNativeEmailClient(env)
+		if (!config.resendApiKey) {
+			throw new EmailError('EMAIL_DISABLED')
+		}
+		const resend = createResendNativeEmailClient(config.resendApiKey)
 		return {
-			simple: createResendSimpleEmailClient(env, resend),
+			simple: createResendSimpleEmailClient(resend, config.appName, config.sender),
 			resend
 		}
 	}
 
 	if (provider === 'cloudflare') {
-		const cloudflare = createCloudflareNativeEmailClient(env)
+		const cloudflare = createCloudflareNativeEmailClient(config.sendEmailBinding)
 		return {
-			simple: createCloudflareSimpleEmailClient(env),
+			simple: createCloudflareSimpleEmailClient(
+				config.sendEmailBinding,
+				config.appName,
+				config.sender
+			),
 			cloudflare
 		}
 	}

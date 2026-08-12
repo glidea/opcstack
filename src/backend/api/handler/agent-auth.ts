@@ -24,6 +24,7 @@ import {
 	updateActiveGrantScopes
 } from '../../agent-auth'
 import { authCore } from '../auth'
+import { getRequestAuthRuntimeConfig } from '../middleware/auth'
 import { parseRequest } from '../../lib/request'
 import { eq } from 'drizzle-orm'
 import { agentGrant } from '../../db/schema'
@@ -141,7 +142,8 @@ export async function authorizationCallbackHandler(ctx: Context<ApiEnv>): Promis
 	if (!code) {
 		return htmlResponse('Authorization failed', 400)
 	}
-	const session = await authCore(ctx.env, ctx.get('metaDb')).api.getSession({
+	const config = await getRequestAuthRuntimeConfig(ctx)
+	const session = await authCore(ctx.env, ctx.get('metaDb'), config).api.getSession({
 		headers: ctx.req.raw.headers
 	})
 	if (!session) {

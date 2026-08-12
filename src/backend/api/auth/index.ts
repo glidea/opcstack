@@ -10,7 +10,7 @@ import {
 	resolveD1ShardRegion,
 	type WorkerRegionSource
 } from '../../db/shard-router'
-import { createEmailClients, type EmailClients } from '../../email'
+import { createEmailClients, EmailError, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
 import { parseDecimal } from '../../lib/decimal'
@@ -21,14 +21,22 @@ import {
 	getOrCreateActiveGrant,
 	parseCanonicalScopes
 } from '../../agent-auth'
+import type {
+	AuthenticationRuntimeConfig,
+	AuthenticationRuntimeProviderConfig,
+	AuthRuntimeConfig,
+	EmailRuntimeConfig
+} from '../../config'
 
 const REGISTRATION_UTM_SOURCE_COOKIE = 'registration_utm_source'
 
-export function authCore(env: Env, db: MetaDb) {
+export function authCore(env: Env, db: MetaDb, config: AuthRuntimeConfig) {
   const aff = new AffService(db)
-  const emailOtpPlugin = buildEmailOtp(env)
-  const captchaPlugin = buildTurnstileCaptcha(env)
-  const linuxDoOAuthPlugin: ReturnType<typeof genericOAuth> | undefined = buildLinuxDoOAuth(env)
+  const emailOtpPlugin = buildEmailOtp(env, config.email)
+  const captchaPlugin = buildTurnstileCaptcha(config.authentication)
+  const linuxDoOAuthPlugin: ReturnType<typeof genericOAuth> | undefined = buildLinuxDoOAuth(
+		config.authentication.providers.linuxdo
+	)
   const plugins: AuthPlugin[] = [bearer(), jwt(), emailOtpPlugin, buildAgentOAuthProvider(env, db)]
   if (captchaPlugin) {
     plugins.push(captchaPlugin)
@@ -110,8 +118,8 @@ export function authCore(env: Env, db: MetaDb) {
       sendOnSignUp: false,
       autoSignInAfterVerification: true
     },
-    emailAndPassword: buildEmailAndPassword(env),
-    socialProviders: buildSocialProviders(env),
+    emailAndPassword: buildEmailAndPassword(config),
+    socialProviders: buildSocialProviders(config.authentication),
     session: {
       expiresIn: 30 * 24 * 60 * 60,
       updateAge: 27 * 24 * 60 * 60
@@ -184,14 +192,12 @@ function readCreditsSignupEnabled(env: Env): boolean {
   return env.CREDITS_SIGNUP_ENABLED === 'true'
 }
 
-function buildEmailAndPassword(env: Env): AuthEmailAndPasswordConfig {
-  const emailRequireVerification = env.EMAIL_REQUIRE_VERIFICATION === 'true'
-  const emailSignupEnabled = env.EMAIL_SIGNUP_ENABLED === 'true'
-
+function buildEmailAndPassword(config: AuthRuntimeConfig): AuthEmailAndPasswordConfig {
   return {
     enabled: true,
-    disableSignUp: !emailSignupEnabled,
-    requireEmailVerification: emailRequireVerification,
+    disableSignUp: !config.email.enabled || !config.authentication.emailSignupEnabled,
+    requireEmailVerification:
+      config.email.enabled && config.authentication.emailRequireVerification,
     // Use runtime native scrypt in Workers to avoid CPU-heavy pure JS fallback.
     password: buildPasswordHasher()
   }
@@ -238,8 +244,8 @@ function bytesToHex(bytes: Uint8Array): string {
   return output
 }
 
-function buildEmailOtp(env: Env): ReturnType<typeof emailOTP> {
-  const emailClient = buildEmailClient(env)
+function buildEmailOtp(env: Env, config: EmailRuntimeConfig): ReturnType<typeof emailOTP> {
+  const emailClient = buildEmailClient(env, config)
 
   return emailOTP({
     otpLength: 6,
@@ -259,29 +265,39 @@ function buildEmailOtp(env: Env): ReturnType<typeof emailOTP> {
   })
 }
 
-function buildTurnstileCaptcha(env: Env): ReturnType<typeof captcha> | undefined {
-  if (String(env.TURNSTILE_ENABLED) !== 'true') {
+function buildTurnstileCaptcha(
+  config: AuthenticationRuntimeConfig
+): ReturnType<typeof captcha> | undefined {
+  if (!config.turnstile.enabled) {
     return undefined
+  }
+  if (!config.turnstile.secretKey) {
+    throw new Error('Turnstile secret is unavailable')
   }
 
   return captcha({
     provider: 'cloudflare-turnstile',
-    secretKey: env.TURNSTILE_SECRET_KEY,
+    secretKey: config.turnstile.secretKey,
     endpoints: ['/sign-up/email', '/sign-in/email', '/email-otp/request-password-reset']
   })
 }
 
-function buildLinuxDoOAuth(env: Env): ReturnType<typeof genericOAuth> | undefined {
-  if (String(env.LINUXDO_AUTH_ENABLED) !== 'true') {
+function buildLinuxDoOAuth(
+  provider: AuthenticationRuntimeProviderConfig
+): ReturnType<typeof genericOAuth> | undefined {
+  if (!provider.enabled) {
     return undefined
+  }
+  if (!provider.clientId || !provider.clientSecret) {
+    throw new Error('LinuxDO authentication configuration is unavailable')
   }
 
   return genericOAuth({
     config: [
       {
         providerId: 'linuxdo',
-        clientId: env.LINUXDO_CLIENT_ID,
-        clientSecret: env.LINUXDO_CLIENT_SECRET,
+        clientId: provider.clientId,
+        clientSecret: provider.clientSecret,
         authorizationUrl: 'https://connect.linux.do/oauth2/authorize',
         tokenUrl: 'https://connect.linux.do/oauth2/token',
         userInfoUrl: 'https://connect.linux.do/api/user',
@@ -311,28 +327,47 @@ function buildLinuxDoAvatarUrl(avatarTemplate: string | undefined): string | und
   return `https://connect.linux.do${avatarTemplate.replace('{size}', '96')}`
 }
 
-function buildEmailClient(env: Env): EmailClients['simple'] {
-  return createEmailClients(env).simple
+function buildEmailClient(env: Env, config: EmailRuntimeConfig): EmailClients['simple'] {
+  if (!config.enabled || !config.provider) {
+    return {
+      send: async (): Promise<void> => {
+        throw new EmailError('EMAIL_DISABLED')
+      }
+    }
+  }
+  return createEmailClients({
+    provider: config.provider,
+    resendApiKey: config.resendApiKey,
+    appName: env.APP_NAME,
+    sender: env.SYSTEM_EMAIL,
+    sendEmailBinding: env.SEND_EMAIL
+  }).simple
 }
 
-function buildSocialProviders(env: Env): AuthSocialProvidersConfig {
-	const providers: Exclude<AuthSocialProvidersConfig, undefined> = {}
-	if (String(env.GOOGLE_AUTH_ENABLED) === 'true') {
-		providers.google = {
-			clientId: env.GOOGLE_CLIENT_ID,
-			clientSecret: env.GOOGLE_CLIENT_SECRET
-		}
-	}
-	if (String(env.GITHUB_AUTH_ENABLED) === 'true') {
-		providers.github = {
-			clientId: env.GITHUB_CLIENT_ID,
-			clientSecret: env.GITHUB_CLIENT_SECRET
-		}
-	}
-	if (!providers.google && !providers.github) {
-		return undefined
-	}
-	return providers
+function buildSocialProviders(config: AuthenticationRuntimeConfig): AuthSocialProvidersConfig {
+  const providers: Exclude<AuthSocialProvidersConfig, undefined> = {}
+  if (config.providers.google.enabled) {
+    if (!config.providers.google.clientId || !config.providers.google.clientSecret) {
+      throw new Error('Google authentication configuration is unavailable')
+    }
+    providers.google = {
+      clientId: config.providers.google.clientId,
+      clientSecret: config.providers.google.clientSecret
+    }
+  }
+  if (config.providers.github.enabled) {
+    if (!config.providers.github.clientId || !config.providers.github.clientSecret) {
+      throw new Error('GitHub authentication configuration is unavailable')
+    }
+    providers.github = {
+      clientId: config.providers.github.clientId,
+      clientSecret: config.providers.github.clientSecret
+    }
+  }
+  if (!providers.google && !providers.github) {
+    return undefined
+  }
+  return providers
 }
 
 function buildOtpEmailSubject(type: EmailOtpInput['type']): string {

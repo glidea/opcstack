@@ -1,16 +1,11 @@
-import { execFileSync } from 'node:child_process'
-import { readdirSync } from 'node:fs'
 import { beforeAll, describe } from 'vitest'
 import { runCases, type TestCase } from '../src/backend/testing/bdd'
+import { createLocalTestUser, type LocalTestUser } from './support/auth'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
-	E2E_REMOTE?: string
 	E2E_AFF_ENABLED?: string
-	E2E_EMAIL_SIGNUP_ENABLED?: string
-	E2E_EMAIL_REQUIRE_VERIFICATION?: string
-	E2E_SYSTEM_EMAIL?: string
-	E2E_TURNSTILE_ENABLED?: string
+	E2E_ADMIN_API_TOKEN?: string
 }
 
 interface AffSummaryResponse {
@@ -25,15 +20,8 @@ const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const affEnabled: boolean = e2eEnv.E2E_AFF_ENABLED === 'true'
-const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
-const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
-const systemEmail: string = e2eEnv.E2E_SYSTEM_EMAIL ?? ''
-const turnstileEnabled: boolean = e2eEnv.E2E_TURNSTILE_ENABLED === 'true'
-const canUseDummyCaptcha: boolean = !isRemote || !turnstileEnabled
-const canCreateUser: boolean =
-	emailSignupEnabled && !emailRequireVerification && canUseDummyCaptcha
-const canCreateLocalUser: boolean = !isRemote
-const canRunAffFlow: boolean = affEnabled && (canCreateUser || canCreateLocalUser)
+const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
+const canRunAffFlow: boolean = affEnabled && !isRemote
 
 describe('aff api e2e', () => {
 	beforeAll(async () => {
@@ -263,92 +251,8 @@ describe('aff api e2e', () => {
 })
 
 async function createUserToken(tag: string): Promise<string> {
-	if (!canCreateUser) {
-		return createLocalUserSession(tag)
-	}
-
-	const email: string = buildScenarioEmail(tag)
-	const password: string = 'Password123'
-	const signupRes: Response = await postJson('/api/auth/sign-up/email', {
-		name: 'e2e-user',
-		email,
-		password
-	})
-	if (!signupRes.ok) {
-		throw new Error(`failed to sign up test user: ${signupRes.status}`)
-	}
-
-	const signInRes: Response = await postJson('/api/auth/sign-in/email', {
-		email,
-		password
-	})
-	const payload = (await signInRes.json()) as { token?: string }
-	if (!signInRes.ok || !payload.token) {
-		throw new Error(`failed to sign in test user: ${signInRes.status}`)
-	}
-	return payload.token
-}
-
-function createLocalUserSession(tag: string): string {
-	const now: number = Date.now()
-	const userId: string = `u_${tag}_${now}`.replace(/[^a-zA-Z0-9_]/g, '_')
-	const sessionId: string = `s_${tag}_${now}`.replace(/[^a-zA-Z0-9_]/g, '_')
-	const token: string = `t_${tag}_${now}`.replace(/[^a-zA-Z0-9_]/g, '_')
-	const affCodePrefix: string = tag.includes('invitee') ? 'I' : 'A'
-	const affCode: string = `${affCodePrefix}${String(now).slice(-7)}`
-	const email: string = `${userId}@example.com`
-	const expiresAt: number = now + 30 * 24 * 60 * 60 * 1000
-	const sql: string = [
-		'PRAGMA busy_timeout=5000;',
-		`INSERT INTO user (id, name, email, aff_code, email_verified, image, created_at, updated_at) VALUES ('${userId}', 'e2e-user', '${email}', '${affCode}', 1, NULL, ${now}, ${now});`,
-		`INSERT INTO session (id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id) VALUES ('${sessionId}', ${expiresAt}, '${token}', ${now}, ${now}, NULL, 'e2e', '${userId}');`
-	].join(' ')
-	execFileSync('sqlite3', [readLocalD1SqlitePath(), sql], {
-		stdio: 'ignore'
-	})
-	return token
-}
-
-function readLocalD1SqlitePath(): string {
-	const dir: string = '.wrangler/state/v3/d1/miniflare-D1DatabaseObject'
-	const files: string[] = readdirSync(dir).filter((file: string): boolean => {
-		return file.endsWith('.sqlite') && file !== 'metadata.sqlite'
-	})
-	for (const file of files) {
-		const path: string = `${dir}/${file}`
-		const output: string = execFileSync(
-			'sqlite3',
-			[path, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'user';"],
-			{ encoding: 'utf-8' }
-		)
-		if (output.trim() === 'user') {
-			return path
-		}
-	}
-	throw new Error('LOCAL_META_D1_SQLITE_NOT_FOUND')
-}
-
-function buildScenarioEmail(tag: string): string {
-	const domain: string = extractEmailDomain(systemEmail) || 'example.com'
-	const cleanTag: string = tag.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-	return `e2e-${cleanTag}@${domain}`
-}
-
-function extractEmailDomain(value: string): string {
-	const email: string = extractEmailAddress(value)
-	const at: number = email.lastIndexOf('@')
-	if (at < 0) {
-		return ''
-	}
-	return email.slice(at + 1)
-}
-
-function extractEmailAddress(value: string): string {
-	const match: RegExpMatchArray | null = value.match(/<([^>]+)>/)
-	if (match?.[1]) {
-		return match[1].trim()
-	}
-	return value.trim()
+	const user: LocalTestUser = await createLocalTestUser({ appBaseUrl, adminApiToken, tag })
+	return user.token
 }
 
 function buildHeaders(extra?: Record<string, string>): Headers {

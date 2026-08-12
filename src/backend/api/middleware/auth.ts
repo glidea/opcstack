@@ -1,10 +1,11 @@
-import type { MiddlewareHandler } from 'hono'
+import type { Context, MiddlewareHandler } from 'hono'
 import type { ApiEnv } from '..'
 import { authCore } from '../auth'
 import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
 import { eq } from 'drizzle-orm'
 import { user } from '../../db/schema.auth'
 import { AGENT_CLIENT_ID, getAgentGrant } from '../../agent-auth'
+import { getAuthRuntimeConfig, type AuthRuntimeConfig } from '../../config'
 
 export type AgentAuthorization = {
 	userId: string
@@ -13,11 +14,33 @@ export type AgentAuthorization = {
 	scopes: string[]
 }
 
+export async function getRequestAuthRuntimeConfig(ctx: Context<ApiEnv>): Promise<AuthRuntimeConfig> {
+	const current: AuthRuntimeConfig | undefined = ctx.get('authRuntimeConfig')
+	if (current) {
+		return current
+	}
+	const config: AuthRuntimeConfig = await getAuthRuntimeConfig(
+		ctx.get('metaDb'),
+		ctx.env.CONFIG_ENCRYPTION_KEY
+	)
+	ctx.set('authRuntimeConfig', config)
+	return config
+}
+
+export const authConfigMiddleware: MiddlewareHandler<ApiEnv> = async (
+	ctx,
+	next
+): Promise<Response | void> => {
+	await getRequestAuthRuntimeConfig(ctx)
+	return next()
+}
+
 export const authMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
-	const auth = authCore(ctx.env, ctx.get('metaDb'))
+	const config: AuthRuntimeConfig = await getRequestAuthRuntimeConfig(ctx)
+	const auth = authCore(ctx.env, ctx.get('metaDb'), config)
 	const session = await auth.api.getSession({
 		headers: ctx.req.raw.headers
 	})
@@ -120,7 +143,8 @@ export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
 		return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
 	}
 
-	const session = await authCore(ctx.env, ctx.get('metaDb')).api.getSession({
+	const config: AuthRuntimeConfig = await getRequestAuthRuntimeConfig(ctx)
+	const session = await authCore(ctx.env, ctx.get('metaDb'), config).api.getSession({
 		headers: ctx.req.raw.headers
 	})
 	if (!session || session.user.email !== adminEmail) {

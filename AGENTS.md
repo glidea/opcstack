@@ -211,7 +211,8 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - `CONFIG_ENCRYPTION_KEY` is a fixed 32-byte Base64 ENV secret. It encrypts sensitive D1 configuration values and must fail validation before startup when invalid.
 - Dynamic configuration storage lives in `src/backend/config/` and the Meta DB `system_settings` row. Each business domain owns one JSON document, version, and update timestamp.
 - Configuration documents use code-side camelCase and are fully validated on every read and write. Admin API contracts remain snake_case.
-- General and Storage runtime configuration is read from the nearest Meta D1 replica. Admin writes return a D1 bookmark that subsequent browser and API reads use for immediate consistency.
+- General, Authentication, Email, and Storage runtime configuration is read from the nearest Meta D1 replica. Admin writes return a D1 bookmark that subsequent browser and API reads use for immediate consistency.
+- Better Auth, beta gate, Turnstile, social OAuth, and email delivery share one request-scoped Authentication and Email snapshot. Disabled email delivery keeps password login available but disables signup, verification, and password-reset email actions.
 - Migrate one business domain atomically: after its runtime reads D1, delete the same ENV keys and parsers in that change. Never keep ENV fallback for a migrated setting.
 - Async AI channels are discovered from complete `<AREA>_<PROVIDER>_<CHANNEL>_{BASE_URL,MODELS,PRICE_MULTIPLIER,API_KEY}` ENV groups. ENV is the single channel registry; do not add channel ids, adapter registries, or parallel endpoint config.
 - `AI_ROUTING_ERROR_WEIGHT`, `AI_ROUTING_LATENCY_WEIGHT`, `AI_ROUTING_PRICE_WEIGHT`, and `AI_TASK_RETENTION_DAYS` are required and strictly validated during Cloudflare preparation.

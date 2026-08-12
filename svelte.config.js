@@ -22,8 +22,8 @@ const config = {
 		adapter: adapter({
 			config: 'wrangler.svelte.jsonc',
 			platformProxy: {
-				configPath: 'wrangler.svelte.jsonc',
-				envFiles: []
+				configPath: 'wrangler.jsonc',
+				envFiles: ['.wrangler/runtime-secrets.env']
 			}
 		}),
 		files: {

@@ -15,6 +15,7 @@ import {
 	type ListBetaCodesResponse,
 	type ListBetaCodesResponseCode
 } from '../../../api-contract/beta'
+import { getRequestAuthRuntimeConfig } from '../middleware/auth'
 
 export type {
 	BindBetaCodeRequest,
@@ -24,7 +25,8 @@ export type {
 } from '../../../api-contract/beta'
 
 export async function bindBetaCodeHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	if (String(ctx.env.BETA_CODE_ENABLED) !== 'true') {
+	const config = await getRequestAuthRuntimeConfig(ctx)
+	if (!config.authentication.betaCodeEnabled) {
 		return ctx.json({})
 	}
 

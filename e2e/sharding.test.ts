@@ -1,8 +1,6 @@
-import { execFileSync } from 'node:child_process'
-import { readdirSync } from 'node:fs'
 import { beforeAll, describe } from 'vitest'
-import { Resend } from 'resend'
 import { runCases, type TestCase } from '../src/backend/testing/bdd'
+import { createLocalTestUser } from './support/auth'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
@@ -10,11 +8,6 @@ type E2EEnv = {
 	E2E_ADMIN_API_TOKEN?: string
 	E2E_D1_SHARD_COUNT?: string
 	E2E_CREDITS_DAILY_CHECKIN_ENABLED?: string
-	E2E_EMAIL_SIGNUP_ENABLED?: string
-	E2E_EMAIL_REQUIRE_VERIFICATION?: string
-	E2E_EMAIL_RESEND_API_KEY?: string
-	E2E_SYSTEM_EMAIL?: string
-	E2E_TURNSTILE_ENABLED?: string
 }
 
 type AuthToken = {
@@ -81,12 +74,6 @@ const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? ''
 const d1ShardCount: number = Number(e2eEnv.E2E_D1_SHARD_COUNT ?? '1')
 const creditsDailyCheckinEnabled: boolean =
 	e2eEnv.E2E_CREDITS_DAILY_CHECKIN_ENABLED === 'true'
-const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
-const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
-const emailResendApiKey: string = e2eEnv.E2E_EMAIL_RESEND_API_KEY ?? ''
-const systemEmail: string = e2eEnv.E2E_SYSTEM_EMAIL ?? ''
-const turnstileEnabled: boolean = e2eEnv.E2E_TURNSTILE_ENABLED === 'true'
-const canUseDummyCaptcha: boolean = !isRemote || !turnstileEnabled
 
 describe('tenant sharding e2e', () => {
 	beforeAll(async (): Promise<void> => {
@@ -153,7 +140,7 @@ describe('tenant sharding e2e', () => {
 		}
 	]
 
-	describe.skipIf(isRemote && !canUseDummyCaptcha)('authenticated shard flow', () => {
+	describe.skipIf(isRemote)('authenticated shard flow', () => {
 		runCases(cases, async (): Promise<FlowThen> => {
 			assertShardE2EConfig()
 			const runId: string = String(Date.now())
@@ -304,181 +291,10 @@ function assertShardE2EConfig(): void {
 	if (adminApiToken === '') {
 		throw new Error('E2E_ADMIN_API_TOKEN_REQUIRED')
 	}
-	if (!isRemote) {
-		return
-	}
-	if (!emailSignupEnabled) {
-		throw new Error('REMOTE_E2E_EMAIL_SIGNUP_REQUIRED')
-	}
-	if (!canUseDummyCaptcha) {
-		throw new Error('REMOTE_E2E_TURNSTILE_BLOCKS_SIGNUP')
-	}
-	if (emailRequireVerification && (emailResendApiKey === '' || systemEmail === '')) {
-		throw new Error('REMOTE_E2E_EMAIL_OTP_READER_REQUIRED')
-	}
 }
 
 async function createUserAuthToken(tag: string): Promise<AuthToken> {
-	if (!isRemote) {
-		return createLocalUserSession(tag)
-	}
-
-	const email: string = buildScenarioEmail(tag)
-	const password: string = 'Password123'
-	const signupStartedAt: number = Date.now() - 1000
-	const signupRes: Response = await postJson('/api/auth/sign-up/email', {
-		name: 'e2e-user',
-		email,
-		password
-	})
-	if (!signupRes.ok) {
-		throw new Error(`failed to sign up test user: ${signupRes.status}`)
-	}
-
-	if (emailRequireVerification) {
-		const otp: string = await readEmailOtp(email, 'Verify your email', signupStartedAt)
-		const verifyRes: Response = await postJson('/api/auth/email-otp/verify-email', {
-			email,
-			otp
-		})
-		if (!verifyRes.ok) {
-			throw new Error(`failed to verify test user: ${verifyRes.status}`)
-		}
-	}
-
-	const signInRes: Response = await postJson('/api/auth/sign-in/email', {
-		email,
-		password
-	})
-	const payload = (await signInRes.json()) as { token?: string; user?: { id?: string } }
-	if (!signInRes.ok || !payload.token || !payload.user?.id) {
-		throw new Error(`failed to sign in test user: ${signInRes.status}`)
-	}
-	return {
-		token: payload.token,
-		userId: payload.user.id
-	}
-}
-
-function createLocalUserSession(tag: string): AuthToken {
-	const now: number = Date.now()
-	const userId: string = `u_${tag}_${now}`.replace(/[^a-zA-Z0-9_]/g, '_')
-	const sessionId: string = `s_${tag}_${now}`.replace(/[^a-zA-Z0-9_]/g, '_')
-	const token: string = `t_${tag}_${now}`.replace(/[^a-zA-Z0-9_]/g, '_')
-	const email: string = `${userId}@example.com`
-	const expiresAt: number = now + 30 * 24 * 60 * 60 * 1000
-	const sql: string = [
-		'PRAGMA busy_timeout=5000;',
-		`INSERT INTO user (id, name, email, aff_code, email_verified, image, created_at, updated_at) VALUES ('${userId}', 'e2e-user', '${email}', NULL, 1, NULL, ${now}, ${now});`,
-		`INSERT INTO session (id, expires_at, token, created_at, updated_at, ip_address, user_agent, user_id) VALUES ('${sessionId}', ${expiresAt}, '${token}', ${now}, ${now}, NULL, 'e2e', '${userId}');`
-	].join(' ')
-	execFileSync('sqlite3', [readLocalD1SqlitePath(), sql], {
-		stdio: 'ignore'
-	})
-	return {
-		token,
-		userId
-	}
-}
-
-async function readEmailOtp(
-	email: string,
-	subject: string,
-	startedAt: number
-): Promise<string> {
-	const resend: Resend = new Resend(emailResendApiKey)
-	let attempt: number = 0
-	while (attempt < 30) {
-		const otp: string = await findEmailOtp(resend, email, subject, startedAt)
-		if (otp !== '') {
-			return otp
-		}
-		await sleep(1000)
-		attempt += 1
-	}
-	throw new Error(`failed to read email otp: ${email} ${subject}`)
-}
-
-async function findEmailOtp(
-	resend: Resend,
-	email: string,
-	subject: string,
-	startedAt: number
-): Promise<string> {
-	const listRes = await resend.emails.list({ limit: 100 })
-	const lowerEmail: string = email.toLowerCase()
-	const item = listRes.data?.data.find((candidate): boolean => {
-		const createdAt: number = Date.parse(candidate.created_at)
-		if (!Number.isFinite(createdAt) || createdAt < startedAt) {
-			return false
-		}
-		if (!candidate.subject.includes(subject)) {
-			return false
-		}
-		return candidate.to.some((to: string): boolean => {
-			return to.toLowerCase() === lowerEmail
-		})
-	})
-	if (!item) {
-		return ''
-	}
-
-	const detailRes = await resend.emails.get(item.id)
-	const body: string = detailRes.data?.html ?? detailRes.data?.text ?? ''
-	const htmlMatch: RegExpMatchArray | null = body.match(/>(\d{6})<\/div>/)
-	if (htmlMatch?.[1]) {
-		return htmlMatch[1]
-	}
-	const textMatch: RegExpMatchArray | null = body.match(/\b\d{6}\b/)
-	return textMatch?.[0] ?? ''
-}
-
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve: () => void): void => {
-		setTimeout(resolve, ms)
-	})
-}
-
-function readLocalD1SqlitePath(): string {
-	const dir: string = '.wrangler/state/v3/d1/miniflare-D1DatabaseObject'
-	const files: string[] = readdirSync(dir).filter((file: string): boolean => {
-		return file.endsWith('.sqlite') && file !== 'metadata.sqlite'
-	})
-	for (const file of files) {
-		const path: string = `${dir}/${file}`
-		const output: string = execFileSync(
-			'sqlite3',
-			[path, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'user';"],
-			{ encoding: 'utf-8' }
-		)
-		if (output.trim() === 'user') {
-			return path
-		}
-	}
-	throw new Error('LOCAL_META_D1_SQLITE_NOT_FOUND')
-}
-
-function buildScenarioEmail(tag: string): string {
-	const domain: string = extractEmailDomain(systemEmail) || 'example.com'
-	const cleanTag: string = tag.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-	return `e2e-${cleanTag}@${domain}`
-}
-
-function extractEmailDomain(value: string): string {
-	const email: string = extractEmailAddress(value)
-	const at: number = email.lastIndexOf('@')
-	if (at < 0) {
-		return ''
-	}
-	return email.slice(at + 1)
-}
-
-function extractEmailAddress(value: string): string {
-	const match: RegExpMatchArray | null = value.match(/<([^>]+)>/)
-	if (match?.[1]) {
-		return match[1].trim()
-	}
-	return value.trim()
+	return createLocalTestUser({ appBaseUrl, adminApiToken, tag })
 }
 
 function buildHeaders(extra?: Record<string, string>): Headers {

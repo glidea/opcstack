@@ -10,6 +10,7 @@ import { authCore } from '../auth'
 import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
+import type { AuthRuntimeConfig } from '../../config'
 
 vi.mock('../auth', () => {
 	return {
@@ -561,17 +562,36 @@ function createContextState(
 		env: {
 			SYSTEM_EMAIL: 'admin@example.com',
 			ADMIN_API_TOKEN: 'admin-token',
-			BETA_CODE_ENABLED: 'true',
 			BETTER_AUTH_SECRET: 'secret',
 			APP_BASE_URL: 'http://localhost:5173'
 		},
 		values: {
-			metaDb: {}
+			metaDb: {},
+			authRuntimeConfig: createAuthRuntimeConfig()
 		},
 		nextCalled: false,
 		next: async (): Promise<void> => {
 			return
 		}
+	}
+}
+
+function createAuthRuntimeConfig(): AuthRuntimeConfig {
+	return {
+		authentication: {
+			betaCodeEnabled: true,
+			emailSignupEnabled: false,
+			emailSignupDomainAllowlist: [],
+			emailRequireVerification: false,
+			emailUserActionCooldownSeconds: 50,
+			turnstile: { enabled: false, siteKey: null, secretKey: null },
+			providers: {
+				google: { enabled: false, clientId: null, clientSecret: null },
+				github: { enabled: false, clientId: null, clientSecret: null },
+				linuxdo: { enabled: false, clientId: null, clientSecret: null }
+			}
+		},
+		email: { enabled: false, provider: null, resendApiKey: null }
 	}
 }
 

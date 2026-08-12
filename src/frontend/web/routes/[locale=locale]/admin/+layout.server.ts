@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit'
 import { authCore } from '$backend/api/auth'
 import { getMetaDb } from '$backend/db'
+import { getAuthRuntimeConfig } from '$backend/config'
 import { createCloudflareWorkerUrl } from './admin-cloudflare'
 
 type AdminSession = {
@@ -57,7 +58,8 @@ async function readAdminSession(event: AdminLayoutEvent): Promise<AdminSession |
 	const env: Env | undefined = event.platform?.env
 	if (env?.META_DB) {
 		const metaDb = getMetaDb(env.META_DB.withSession('first-primary'))
-		return authCore(env, metaDb).api.getSession({ headers: event.request.headers })
+		const config = await getAuthRuntimeConfig(metaDb, env.CONFIG_ENCRYPTION_KEY)
+		return authCore(env, metaDb, config).api.getSession({ headers: event.request.headers })
 	}
 
 	const response: Response = await event.fetch('/api/auth/get-session')

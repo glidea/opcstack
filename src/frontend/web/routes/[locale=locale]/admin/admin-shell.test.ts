@@ -19,6 +19,12 @@ vi.mock('$backend/db', () => {
 	return { getMetaDb: (db: unknown): unknown => db }
 })
 
+vi.mock('$backend/config', () => {
+	return {
+		getAuthRuntimeConfig: async (): Promise<Record<string, never>> => ({})
+	}
+})
+
 type SessionPayload = {
 	user: {
 		id: string

@@ -3,6 +3,7 @@ import { runCases, type TestCase } from '../../testing/bdd'
 import { emailAuthMiddleware } from './email-auth'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
+import type { AuthRuntimeConfig } from '../../config'
 
 describe('emailAuthMiddleware', () => {
 	beforeEach(() => {
@@ -15,6 +16,7 @@ describe('emailAuthMiddleware', () => {
 			email?: string
 			type?: string
 		}
+		emailEnabled: boolean
 		emailSignupEnabled: string
 		emailSignupDomainAllowlist: string
 		cooldownSeconds: string
@@ -38,6 +40,7 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-in/email',
 				body: { email: 'u1@example.com' },
+				emailEnabled: false,
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -60,6 +63,7 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-in/email-otp',
 				body: { email: 'u-login@example.com', type: 'sign-in' },
+				emailEnabled: true,
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -82,6 +86,7 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/send-verification-otp',
 				body: { email: 'u-login@example.com', type: 'sign-in' },
+				emailEnabled: true,
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -104,6 +109,7 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-up/email',
 				body: { email: 'u-signup-disabled@example.com' },
+				emailEnabled: true,
 				emailSignupEnabled: 'false',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -119,6 +125,29 @@ describe('emailAuthMiddleware', () => {
 			}
 		},
 		{
+			scenario: 'reject email action when email delivery is disabled',
+			given: 'password reset endpoint and email delivery off',
+			when: 'running middleware',
+			then: 'returns email disabled',
+			givenDetail: {
+				path: '/api/auth/email-otp/request-password-reset',
+				body: { email: 'u-email-disabled@example.com' },
+				emailEnabled: false,
+				emailSignupEnabled: 'true',
+				emailSignupDomainAllowlist: '',
+				cooldownSeconds: '50',
+				kvGetValue: null
+			},
+			whenDetail: {},
+			thenExpected: {
+				status: 400,
+				code: 'EMAIL_DISABLED',
+				nextCalled: false,
+				kvGetCalled: false,
+				kvPutCalled: false
+			}
+		},
+		{
 			scenario: 'reject signup email domain outside allowlist',
 			given: 'signup endpoint and email domain not in allowlist',
 			when: 'running middleware',
@@ -126,6 +155,7 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-up/email',
 				body: { email: 'u1@gmail.com' },
+				emailEnabled: true,
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: 'example.com;corp.com',
 				cooldownSeconds: '50',
@@ -148,6 +178,7 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/request-password-reset',
 				body: { email: 'u-rate@example.com' },
+				emailEnabled: true,
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -170,6 +201,7 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/request-password-reset',
 				body: { email: 'u-allow@example.com' },
+				emailEnabled: true,
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -192,6 +224,7 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/send-verification-otp',
 				body: { email: 'u-otp@example.com' },
+				emailEnabled: true,
 				emailSignupEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
@@ -241,6 +274,7 @@ type ContextState = {
 		type?: string
 	}
 	env: Record<string, unknown>
+	values: Record<string, unknown>
 	nextCalled: boolean
 	kvGetCalled: boolean
 	kvPutCalled: boolean
@@ -253,6 +287,7 @@ function createContextState(given: {
 		email?: string
 		type?: string
 	}
+	emailEnabled: boolean
 	emailSignupEnabled: string
 	emailSignupDomainAllowlist: string
 	cooldownSeconds: string
@@ -271,13 +306,10 @@ function createContextState(given: {
 		path: given.path,
 		body: given.body,
 		env: {
-			EMAIL_SIGNUP_ENABLED: given.emailSignupEnabled,
-			EMAIL_REQUIRE_VERIFICATION: 'true',
-			EMAIL_SIGNUP_DOMAIN_ALLOWLIST: given.emailSignupDomainAllowlist,
-			EMAIL_USER_ACTION_COOLDOWN_SECONDS: given.cooldownSeconds,
-			EMAIL_RESEND_API_KEY: 'resend-api-key',
-			SYSTEM_EMAIL: 'auth@mg.example.com',
 			KV: kv
+		},
+		values: {
+			authRuntimeConfig: createAuthRuntimeConfig(given)
 		},
 		nextCalled: false,
 		kvGetCalled: false,
@@ -339,6 +371,12 @@ function createContext(state: ContextState): Context<ApiEnv> {
 			path: state.path,
 			raw: req
 		},
+		get: (key: string): unknown => {
+			return state.values[key]
+		},
+		set: (key: string, value: unknown): void => {
+			state.values[key] = value
+		},
 		json: (payload: unknown, status?: number): Response => {
 			return new Response(JSON.stringify(payload), {
 				status: status ?? 200,
@@ -350,4 +388,34 @@ function createContext(state: ContextState): Context<ApiEnv> {
 	}
 
 	return ctx as unknown as Context<ApiEnv>
+}
+
+function createAuthRuntimeConfig(input: {
+	emailEnabled: boolean
+	emailSignupEnabled: string
+	emailSignupDomainAllowlist: string
+	cooldownSeconds: string
+}): AuthRuntimeConfig {
+	return {
+		authentication: {
+			betaCodeEnabled: false,
+			emailSignupEnabled: input.emailSignupEnabled === 'true',
+			emailSignupDomainAllowlist: input.emailSignupDomainAllowlist
+				.split(';')
+				.filter((domain: string): boolean => domain !== ''),
+			emailRequireVerification: true,
+			emailUserActionCooldownSeconds: Number(input.cooldownSeconds),
+			turnstile: { enabled: false, siteKey: null, secretKey: null },
+			providers: {
+				google: { enabled: false, clientId: null, clientSecret: null },
+				github: { enabled: false, clientId: null, clientSecret: null },
+				linuxdo: { enabled: false, clientId: null, clientSecret: null }
+			}
+		},
+		email: {
+			enabled: input.emailEnabled,
+			provider: input.emailEnabled ? 'resend' : null,
+			resendApiKey: input.emailEnabled ? 'resend-api-key' : null
+		}
+	}
 }

@@ -14,7 +14,16 @@ describe('web public runtime configuration', () => {
 		vi.clearAllMocks()
 		vi.mocked(getPublicRuntimeConfig).mockResolvedValue({
 			design_system: 'brutalism',
-			docs_enabled: false
+			docs_enabled: false,
+			email_enabled: false,
+			email_signup_enabled: false,
+			email_require_verification: false,
+			email_user_action_cooldown_seconds: 50,
+			google_auth_enabled: false,
+			github_auth_enabled: false,
+			linuxdo_auth_enabled: false,
+			turnstile_enabled: false,
+			turnstile_site_key: null
 		})
 	})
 
@@ -63,7 +72,16 @@ describe('web public runtime configuration', () => {
 		expect(getPublicRuntimeConfig).toHaveBeenCalledOnce()
 		expect(locals['publicRuntimeConfig']).toEqual({
 			design_system: 'brutalism',
-			docs_enabled: false
+			docs_enabled: false,
+			email_enabled: false,
+			email_signup_enabled: false,
+			email_require_verification: false,
+			email_user_action_cooldown_seconds: 50,
+			google_auth_enabled: false,
+			github_auth_enabled: false,
+			linuxdo_auth_enabled: false,
+			turnstile_enabled: false,
+			turnstile_site_key: null
 		})
 		expect(cookiesSet).toHaveBeenCalledWith(
 			'd1_meta_bookmark',

@@ -3,6 +3,7 @@ import { runCases, type TestCase } from '../../testing/bdd'
 import { betaGateMiddleware } from './beta-gate'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
+import type { AuthRuntimeConfig } from '../../config'
 
 describe('betaGateMiddleware', () => {
 	beforeEach(() => {
@@ -140,16 +141,35 @@ function createContextState(
 	return {
 		path,
 		env: {
-			BETA_CODE_ENABLED: betaCodeEnabled
 		},
 		values: {
 			userId,
-			metaDb: db
+			metaDb: db,
+			authRuntimeConfig: createAuthRuntimeConfig(betaCodeEnabled === 'true')
 		},
 		nextCalled: false,
 		next: async (): Promise<void> => {
 			return
 		}
+	}
+}
+
+function createAuthRuntimeConfig(betaCodeEnabled: boolean): AuthRuntimeConfig {
+	return {
+		authentication: {
+			betaCodeEnabled,
+			emailSignupEnabled: false,
+			emailSignupDomainAllowlist: [],
+			emailRequireVerification: false,
+			emailUserActionCooldownSeconds: 50,
+			turnstile: { enabled: false, siteKey: null, secretKey: null },
+			providers: {
+				google: { enabled: false, clientId: null, clientSecret: null },
+				github: { enabled: false, clientId: null, clientSecret: null },
+				linuxdo: { enabled: false, clientId: null, clientSecret: null }
+			}
+		},
+		email: { enabled: false, provider: null, resendApiKey: null }
 	}
 }
 

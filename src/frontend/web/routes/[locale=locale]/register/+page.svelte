@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
 	import { clientConfig } from '$frontend/config/client'
+	import type { PublicRuntimeConfig } from '$backend/config'
 	import AppHeader from '$frontend/app-ui/shell/AppHeader.svelte'
 	import RegisterCard from '$frontend/app-ui/auth/RegisterCard.svelte'
 	import OtpCard from '$frontend/app-ui/auth/OtpCard.svelte'
@@ -10,13 +11,14 @@
 	}: {
 		data: {
 			locale: string
+			publicRuntimeConfig: PublicRuntimeConfig
 		}
 	} = $props()
 
 	let pendingEmail = $state('')
 
 	function handleRegisterSuccess(email: string): void {
-		if (!clientConfig.emailRequireVerification) {
+		if (!data.publicRuntimeConfig.email_require_verification) {
 			goto(`/${data.locale}`)
 			return
 		}
@@ -35,21 +37,21 @@
 		<OtpCard
 			email={pendingEmail}
 			onSuccess={handleOtpSuccess}
-			emailUserActionCooldownSeconds={clientConfig.emailUserActionCooldownSeconds}
+			emailUserActionCooldownSeconds={data.publicRuntimeConfig.email_user_action_cooldown_seconds}
 		/>
 	{:else}
 		<RegisterCard
 			onSuccess={handleRegisterSuccess}
 			loginHref={`/${data.locale}/login`}
-			googleAuthEnabled={clientConfig.googleAuthEnabled}
-			githubAuthEnabled={clientConfig.githubAuthEnabled}
-			linuxdoAuthEnabled={clientConfig.linuxdoAuthEnabled}
-			emailSignupEnabled={clientConfig.emailSignupEnabled}
-			emailRequireVerification={clientConfig.emailRequireVerification}
-			emailUserActionCooldownSeconds={clientConfig.emailUserActionCooldownSeconds}
+			googleAuthEnabled={data.publicRuntimeConfig.google_auth_enabled}
+			githubAuthEnabled={data.publicRuntimeConfig.github_auth_enabled}
+			linuxdoAuthEnabled={data.publicRuntimeConfig.linuxdo_auth_enabled}
+			emailSignupEnabled={data.publicRuntimeConfig.email_enabled && data.publicRuntimeConfig.email_signup_enabled}
+			emailRequireVerification={data.publicRuntimeConfig.email_require_verification}
+			emailUserActionCooldownSeconds={data.publicRuntimeConfig.email_user_action_cooldown_seconds}
 			refundHref={clientConfig.paymentEnabled ? '/refund-policy' : undefined}
-			turnstileEnabled={clientConfig.turnstileEnabled}
-			turnstileSiteKey={clientConfig.turnstileSiteKey}
+			turnstileEnabled={data.publicRuntimeConfig.turnstile_enabled}
+			turnstileSiteKey={data.publicRuntimeConfig.turnstile_site_key ?? ''}
 		/>
 	{/if}
 </main>

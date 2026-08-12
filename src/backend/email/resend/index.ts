@@ -1,16 +1,16 @@
 import { EmailError, type EmailSimpleClient, type EmailSimpleSendInput } from '..'
 import { Resend } from 'resend'
 
-export function createResendNativeEmailClient(env: Env): Resend {
-	return new Resend(env.EMAIL_RESEND_API_KEY)
+export function createResendNativeEmailClient(apiKey: string): Resend {
+	return new Resend(apiKey)
 }
 
 export function createResendSimpleEmailClient(
-	env: Env,
-	nativeClient?: Resend
+	client: Resend,
+	appName: string,
+	sender: string
 ): EmailSimpleClient {
-	const client = nativeClient ?? createResendNativeEmailClient(env)
-	return new resendSimpleEmailClient(client, env.APP_NAME, env.SYSTEM_EMAIL)
+	return new resendSimpleEmailClient(client, appName, sender)
 }
 
 class resendSimpleEmailClient implements EmailSimpleClient {

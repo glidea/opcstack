@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
-	import { clientConfig } from '$frontend/config/client'
+	import type { PublicRuntimeConfig } from '$backend/config'
 	import AppHeader from '$frontend/app-ui/shell/AppHeader.svelte'
 	import ForgotPasswordCard from '$frontend/app-ui/auth/ForgotPasswordCard.svelte'
 	import ResetPasswordCard from '$frontend/app-ui/auth/ResetPasswordCard.svelte'
@@ -10,6 +10,7 @@
 	}: {
 		data: {
 			locale: string
+			publicRuntimeConfig: PublicRuntimeConfig
 		}
 	} = $props()
 
@@ -38,9 +39,9 @@
 		<ForgotPasswordCard
 			onSuccess={handleSentSuccess}
 			loginHref={`/${data.locale}/login`}
-			emailUserActionCooldownSeconds={clientConfig.emailUserActionCooldownSeconds}
-			turnstileEnabled={clientConfig.turnstileEnabled}
-			turnstileSiteKey={clientConfig.turnstileSiteKey}
+			emailUserActionCooldownSeconds={data.publicRuntimeConfig.email_user_action_cooldown_seconds}
+			turnstileEnabled={data.publicRuntimeConfig.turnstile_enabled}
+			turnstileSiteKey={data.publicRuntimeConfig.turnstile_site_key ?? ''}
 		/>
 	{/if}
 </main>

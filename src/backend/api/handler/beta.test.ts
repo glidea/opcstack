@@ -11,6 +11,7 @@ import {
 } from './beta'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
+import type { AuthRuntimeConfig } from '../../config'
 
 type UUID = `${string}-${string}-${string}-${string}-${string}`
 
@@ -32,7 +33,7 @@ describe('bindBetaCodeHandler', () => {
 	})
 
 	type GivenDetail = {
-		betaEnabled: string
+		betaEnabled: boolean
 		userId: string
 		reqBody: BindBetaCodeRequest | null
 		updateChanges: number
@@ -51,7 +52,7 @@ describe('bindBetaCodeHandler', () => {
 			when: 'binding beta code',
 			then: 'returns empty response',
 			givenDetail: {
-				betaEnabled: 'false',
+				betaEnabled: false,
 				userId: 'u1',
 				reqBody: { beta_code: 'AAAA1111' },
 				updateChanges: 0,
@@ -69,7 +70,7 @@ describe('bindBetaCodeHandler', () => {
 			when: 'binding beta code',
 			then: 'returns invalid request',
 			givenDetail: {
-				betaEnabled: 'true',
+				betaEnabled: true,
 				userId: 'u1',
 				reqBody: null,
 				updateChanges: 0,
@@ -87,7 +88,7 @@ describe('bindBetaCodeHandler', () => {
 			when: 'binding beta code',
 			then: 'returns empty response',
 			givenDetail: {
-				betaEnabled: 'true',
+				betaEnabled: true,
 				userId: 'u1',
 				reqBody: { beta_code: 'AAAA1111' },
 				updateChanges: 1,
@@ -105,7 +106,7 @@ describe('bindBetaCodeHandler', () => {
 			when: 'binding beta code',
 			then: 'returns beta code already bound',
 			givenDetail: {
-				betaEnabled: 'true',
+				betaEnabled: true,
 				userId: 'u1',
 				reqBody: { beta_code: 'AAAA1111' },
 				updateChanges: 0,
@@ -123,7 +124,7 @@ describe('bindBetaCodeHandler', () => {
 			when: 'binding beta code',
 			then: 'returns invalid beta code',
 			givenDetail: {
-				betaEnabled: 'true',
+				betaEnabled: true,
 				userId: 'u1',
 				reqBody: { beta_code: 'AAAA1111' },
 				updateChanges: 0,
@@ -152,9 +153,7 @@ describe('bindBetaCodeHandler', () => {
 			given.alreadyBound ? { id: 'bound-id' } : null
 		)
 		const ctx = createJsonContext({
-			env: {
-				BETA_CODE_ENABLED: given.betaEnabled
-			},
+			betaCodeEnabled: given.betaEnabled,
 			userId: given.userId,
 			db,
 			body: given.reqBody
@@ -262,9 +261,7 @@ describe('generateBetaCodesHandler', () => {
 		}
 
 		const ctx = createJsonContext({
-			env: {
-				BETA_CODE_ENABLED: 'true'
-			},
+			betaCodeEnabled: true,
 			userId: 'u1',
 			db,
 			body: given.body
@@ -346,9 +343,7 @@ describe('listBetaCodesHandler', () => {
 		db.query.betaCode.findMany.mockResolvedValue(given.rows)
 
 		const ctx = createJsonContext({
-			env: {
-				BETA_CODE_ENABLED: 'true'
-			},
+			betaCodeEnabled: true,
 			userId: 'u1',
 			db,
 			body: {}
@@ -389,7 +384,7 @@ function createMockDb(): MockDb {
 }
 
 function createJsonContext(input: {
-	env: Record<string, string>
+	betaCodeEnabled: boolean
 	userId: string
 	db: unknown
 	body: unknown
@@ -404,11 +399,14 @@ function createJsonContext(input: {
 	}
 
 	const ctx = {
-		env: input.env,
+		env: {},
 		req,
 		get: (key: string): unknown => {
 			if (key === 'userId') {
 				return input.userId
+			}
+			if (key === 'authRuntimeConfig') {
+				return createAuthRuntimeConfig(input.betaCodeEnabled)
 			}
 			return input.db
 		},
@@ -423,4 +421,23 @@ function createJsonContext(input: {
 	}
 
 	return ctx as unknown as Context<ApiEnv>
+}
+
+function createAuthRuntimeConfig(betaCodeEnabled: boolean): AuthRuntimeConfig {
+	return {
+		authentication: {
+			betaCodeEnabled,
+			emailSignupEnabled: false,
+			emailSignupDomainAllowlist: [],
+			emailRequireVerification: false,
+			emailUserActionCooldownSeconds: 50,
+			turnstile: { enabled: false, siteKey: null, secretKey: null },
+			providers: {
+				google: { enabled: false, clientId: null, clientSecret: null },
+				github: { enabled: false, clientId: null, clientSecret: null },
+				linuxdo: { enabled: false, clientId: null, clientSecret: null }
+			}
+		},
+		email: { enabled: false, provider: null, resendApiKey: null }
+	}
 }

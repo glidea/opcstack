@@ -52,11 +52,11 @@
 - 不实现后台配置页面
 
 ## TODO 清单
-- [ ] 1. 先增加启用条件、派生 Callback URL、密钥操作和邮件 Provider 的失败测试
-- [ ] 2. 实现 Authentication、Email API 契约、Handler 和脱敏响应
-- [ ] 3. 将 Better Auth、注册流程、Turnstile 和外部 OAuth 切换到请求内 D1 配置快照
-- [ ] 4. 将邮件模块切换到 D1 Provider 配置，保持 `SEND_EMAIL` 为固定 Binding
-- [ ] 5. 调整 Cloudflare 初始化并删除对应业务 ENV、Secret 和旧读取逻辑
+- [x] 1. 先增加启用条件、派生 Callback URL、密钥操作和邮件 Provider 的失败测试
+- [x] 2. 实现 Authentication、Email API 契约、Handler 和脱敏响应
+- [x] 3. 将 Better Auth、注册流程、Turnstile 和外部 OAuth 切换到请求内 D1 配置快照
+- [x] 4. 将邮件模块切换到 D1 Provider 配置，保持 `SEND_EMAIL` 为固定 Binding
+- [x] 5. 调整 Cloudflare 初始化并删除对应业务 ENV、Secret 和旧读取逻辑
 
 ## 验收测试步骤
 1. 在禁用状态启动项目并使用固定管理员身份登录，确认未配置的注册和第三方登录入口隐藏

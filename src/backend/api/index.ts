@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono'
 import {
 	adminUserMiddleware,
+	authConfigMiddleware,
 	authMiddleware,
 	browserSessionOnlyMiddleware
 } from './middleware/auth'
@@ -55,8 +56,12 @@ import {
 import { getAdminOverviewHandler } from './handler/admin-overview'
 import { listAdminUsersHandler } from './handler/admin-users'
 import {
+	getAuthenticationConfigHandler,
+	getEmailConfigHandler,
 	getGeneralConfigHandler,
 	getStorageConfigHandler,
+	updateAuthenticationConfigHandler,
+	updateEmailConfigHandler,
 	updateGeneralConfigHandler,
 	updateStorageConfigHandler
 } from './handler/configuration'
@@ -86,12 +91,13 @@ export type ApiEnv = {
 		} | undefined
 		metaDb: MetaDb
 		tenantDb: TenantShardDb
-		tenantShardId: string
+			tenantShardId: string
+			authRuntimeConfig: import('../config').AuthRuntimeConfig | undefined
 	}
 }
 
 const publicApi: Hono<ApiEnv> = new Hono<ApiEnv>()
-publicApi.use('/auth/*', emailAuthMiddleware)
+publicApi.use('/auth/*', authConfigMiddleware, emailAuthMiddleware)
 
 publicApi.get('/health', (ctx): Response => {
 	return ctx.json({})
@@ -104,7 +110,7 @@ publicApi.post('/agent/get_authorization_details', getAgentAuthorizationDetailsH
 publicApi.get('/agent/authorization_callback', authorizationCallbackHandler)
 
 publicApi.all('/auth/*', async (ctx): Promise<Response> => {
-	const h = authCore(ctx.env, ctx.get('metaDb')).handler
+	const h = authCore(ctx.env, ctx.get('metaDb'), ctx.get('authRuntimeConfig')!).handler
 	return h(ctx.req.raw)
 })
 
@@ -137,6 +143,10 @@ adminApi.post('/admin/get_ai_task', getAdminAiTaskHandler)
 adminApi.post('/admin/get_overview', getAdminOverviewHandler)
 adminApi.post('/admin/get_general_config', getGeneralConfigHandler)
 adminApi.post('/admin/update_general_config', updateGeneralConfigHandler)
+adminApi.post('/admin/get_authentication_config', getAuthenticationConfigHandler)
+adminApi.post('/admin/update_authentication_config', updateAuthenticationConfigHandler)
+adminApi.post('/admin/get_email_config', getEmailConfigHandler)
+adminApi.post('/admin/update_email_config', updateEmailConfigHandler)
 adminApi.post('/admin/get_storage_config', getStorageConfigHandler)
 adminApi.post('/admin/update_storage_config', updateStorageConfigHandler)
 adminApi.put('/admin/r2/public/*', uploadR2PublicObjectHandler)

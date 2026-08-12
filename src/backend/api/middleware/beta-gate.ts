@@ -2,12 +2,14 @@ import { eq } from 'drizzle-orm'
 import type { MiddlewareHandler } from 'hono'
 import { betaCode } from '../../db/schema'
 import type { ApiEnv } from '..'
+import { getRequestAuthRuntimeConfig } from './auth'
 
 export const betaGateMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
-	if (String(ctx.env.BETA_CODE_ENABLED) !== 'true') {
+	const config = await getRequestAuthRuntimeConfig(ctx)
+	if (!config.authentication.betaCodeEnabled) {
 		return next()
 	}
 

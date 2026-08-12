@@ -1,14 +1,10 @@
 import { beforeAll, describe } from 'vitest'
 import { runCases, type TestCase } from '../src/backend/testing/bdd'
+import { createLocalTestUser, type LocalTestUser } from './support/auth'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
-	E2E_REMOTE?: string
 	E2E_ADMIN_API_TOKEN?: string
-	E2E_EMAIL_SIGNUP_ENABLED?: string
-	E2E_EMAIL_REQUIRE_VERIFICATION?: string
-	E2E_SYSTEM_EMAIL?: string
-	E2E_TURNSTILE_ENABLED?: string
 }
 
 const e2eEnv =
@@ -17,13 +13,7 @@ const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
 const isRemote: boolean = appOrigin !== 'http://localhost:5173'
 const adminApiToken: string = e2eEnv.E2E_ADMIN_API_TOKEN ?? 'admin-token'
-const emailSignupEnabled: boolean = e2eEnv.E2E_EMAIL_SIGNUP_ENABLED === 'true'
-const emailRequireVerification: boolean = e2eEnv.E2E_EMAIL_REQUIRE_VERIFICATION === 'true'
-const systemEmail: string = e2eEnv.E2E_SYSTEM_EMAIL ?? ''
-const turnstileEnabled: boolean = e2eEnv.E2E_TURNSTILE_ENABLED === 'true'
-const canUseDummyCaptcha: boolean = !isRemote || !turnstileEnabled
-const canCreateUser: boolean =
-	emailSignupEnabled && !emailRequireVerification && canUseDummyCaptcha
+const canCreateUser: boolean = !isRemote
 
 describe('feedback api e2e', () => {
 	beforeAll(async () => {
@@ -167,49 +157,8 @@ describe('feedback api e2e', () => {
 })
 
 async function createUserToken(tag: string): Promise<string> {
-	const email = buildScenarioEmail(tag)
-	const password = 'Password123'
-	const signupRes = await postJson('/api/auth/sign-up/email', {
-		name: 'e2e-user',
-		email,
-		password
-	})
-	if (!signupRes.ok) {
-		throw new Error(`failed to sign up test user: ${signupRes.status}`)
-	}
-
-	const signInRes = await postJson('/api/auth/sign-in/email', {
-		email,
-		password
-	})
-	const payload = (await signInRes.json()) as { token?: string }
-	if (!signInRes.ok || !payload.token) {
-		throw new Error(`failed to sign in test user: ${signInRes.status}`)
-	}
-	return payload.token
-}
-
-function buildScenarioEmail(tag: string): string {
-	const domain = extractEmailDomain(systemEmail) || 'example.com'
-	const cleanTag = tag.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
-	return `e2e-${cleanTag}@${domain}`
-}
-
-function extractEmailDomain(value: string): string {
-	const email = extractEmailAddress(value)
-	const at = email.lastIndexOf('@')
-	if (at < 0) {
-		return ''
-	}
-	return email.slice(at + 1)
-}
-
-function extractEmailAddress(value: string): string {
-	const match = value.match(/<([^>]+)>/)
-	if (match?.[1]) {
-		return match[1].trim()
-	}
-	return value.trim()
+	const user: LocalTestUser = await createLocalTestUser({ appBaseUrl, adminApiToken, tag })
+	return user.token
 }
 
 function buildHeaders(extra?: Record<string, string>): Headers {

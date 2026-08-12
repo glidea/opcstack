@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from 'hono'
 import type { ApiEnv } from '..'
+import { getRequestAuthRuntimeConfig } from './auth'
 
 type EmailActionScene = 'signup' | 'request_password_reset' | 'send_verification_email'
 
@@ -41,17 +42,18 @@ export const emailAuthMiddleware: MiddlewareHandler<ApiEnv> = async (
 		return ctx.json({ code: 'EMAIL_OTP_SIGN_IN_DISABLED', message: 'Email OTP sign-in is disabled' }, 400)
 	}
 
-	const emailSignupEnabled = ctx.env.EMAIL_SIGNUP_ENABLED === 'true'
+	const config = await getRequestAuthRuntimeConfig(ctx)
+	if (!config.email.enabled) {
+		return ctx.json({ code: 'EMAIL_DISABLED', message: 'Email is disabled' }, 400)
+	}
+	const emailSignupEnabled: boolean = config.authentication.emailSignupEnabled
 	if (scene === 'signup' && !emailSignupEnabled) {
 		return ctx.json({ code: 'EMAIL_SIGNUP_DISABLED', message: 'Email signup is disabled' }, 400)
 	}
 
-	const signupDomainAllowlist = ctx.env.EMAIL_SIGNUP_DOMAIN_ALLOWLIST
-		.split(';')
-		.map((item: string) => item.trim().toLowerCase())
-		.filter((item: string) => item !== '')
-
-	const userActionCooldownSeconds = Number(ctx.env.EMAIL_USER_ACTION_COOLDOWN_SECONDS)
+	const signupDomainAllowlist: string[] = config.authentication.emailSignupDomainAllowlist
+	const userActionCooldownSeconds: number =
+		config.authentication.emailUserActionCooldownSeconds
 
 	const email = normalizeEmail(body.email)
 

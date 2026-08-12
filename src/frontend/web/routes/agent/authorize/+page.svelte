@@ -3,11 +3,13 @@
 	import { page } from '$app/stores'
 	import { client } from '$apiContract/client'
 	import { clientConfig } from '$frontend/config/client'
+	import type { PublicRuntimeConfig } from '$backend/config'
 	import LoginCard from '$frontend/app-ui/auth/LoginCard.svelte'
 	import { Alert, AlertDescription } from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
 
 	const session = client.auth.useSession()
+	let { data }: { data: { publicRuntimeConfig: PublicRuntimeConfig } } = $props()
 	let status = $state('Preparing authorization')
 	let error = $state('')
 	let completed = $state(false)
@@ -81,13 +83,13 @@
 			<LoginCard
 				onSuccess={continueOAuth}
 				registerHref="/en/register"
-				forgotPasswordHref="/en/forgot-password"
-				googleAuthEnabled={clientConfig.googleAuthEnabled}
-				githubAuthEnabled={clientConfig.githubAuthEnabled}
-				linuxdoAuthEnabled={clientConfig.linuxdoAuthEnabled}
-				emailSignupEnabled={clientConfig.emailSignupEnabled}
-				turnstileEnabled={clientConfig.turnstileEnabled}
-				turnstileSiteKey={clientConfig.turnstileSiteKey}
+				forgotPasswordHref={data.publicRuntimeConfig.email_enabled ? '/en/forgot-password' : undefined}
+				googleAuthEnabled={data.publicRuntimeConfig.google_auth_enabled}
+				githubAuthEnabled={data.publicRuntimeConfig.github_auth_enabled}
+				linuxdoAuthEnabled={data.publicRuntimeConfig.linuxdo_auth_enabled}
+				emailSignupEnabled={data.publicRuntimeConfig.email_enabled && data.publicRuntimeConfig.email_signup_enabled}
+				turnstileEnabled={data.publicRuntimeConfig.turnstile_enabled}
+				turnstileSiteKey={data.publicRuntimeConfig.turnstile_site_key ?? ''}
 			/>
 		{:else}
 			<Button disabled>Loading</Button>
