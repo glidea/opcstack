@@ -70,8 +70,16 @@ import type {
 	UploadR2PublicObjectResponse
 } from '../r2'
 import type {
+	AffiliateConfig,
+	AuthenticationConfig,
+	CreditsConfig,
+	EmailConfig,
 	GeneralConfig,
 	StorageConfig,
+	UpdateAffiliateConfigRequest,
+	UpdateAuthenticationConfigRequest,
+	UpdateCreditsConfigRequest,
+	UpdateEmailConfigRequest,
 	UpdateGeneralConfigRequest,
 	UpdateStorageConfigRequest
 } from '../configuration'
@@ -144,6 +152,10 @@ type ApiMethods = {
 	getAffSummary(): Promise<GetAffSummaryResponse>
 	getAdminAiTask(input: GetAdminAiTaskRequest): Promise<GetAdminAiTaskResponse>
 	getAdminOverview(): Promise<GetAdminOverviewResponse>
+	getAffiliateConfig(): Promise<AffiliateConfig>
+	getAuthenticationConfig(): Promise<AuthenticationConfig>
+	getCreditsConfig(): Promise<CreditsConfig>
+	getEmailConfig(): Promise<EmailConfig>
 	getGeneralConfig(): Promise<GeneralConfig>
 	getStorageConfig(): Promise<StorageConfig>
 	getCreditSummary(): Promise<GetCreditSummaryResponse>
@@ -174,6 +186,10 @@ type ApiMethods = {
 	uploadR2Object(input: UploadR2ObjectRequest): Promise<UploadR2ObjectResponse>
 	uploadR2PublicObject(input: UploadR2PublicObjectRequest): Promise<UploadR2PublicObjectResponse>
 	updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig>
+	updateAffiliateConfig(input: UpdateAffiliateConfigRequest): Promise<AffiliateConfig>
+	updateAuthenticationConfig(input: UpdateAuthenticationConfigRequest): Promise<AuthenticationConfig>
+	updateCreditsConfig(input: UpdateCreditsConfigRequest): Promise<CreditsConfig>
+	updateEmailConfig(input: UpdateEmailConfigRequest): Promise<EmailConfig>
 	updateAdministratorEmail(
 		input: UpdateAdministratorEmailRequest
 	): Promise<UpdateAdministratorEmailResponse>
@@ -380,6 +396,18 @@ function createApiMethods(
 		getAdminOverview(): Promise<GetAdminOverviewResponse> {
 			return call({ path: '/api/admin/get_overview', body: {} })
 		},
+		getAffiliateConfig(): Promise<AffiliateConfig> {
+			return call({ path: '/api/admin/get_affiliate_config', body: {} })
+		},
+		getAuthenticationConfig(): Promise<AuthenticationConfig> {
+			return call({ path: '/api/admin/get_authentication_config', body: {} })
+		},
+		getCreditsConfig(): Promise<CreditsConfig> {
+			return call({ path: '/api/admin/get_credits_config', body: {} })
+		},
+		getEmailConfig(): Promise<EmailConfig> {
+			return call({ path: '/api/admin/get_email_config', body: {} })
+		},
 		getGeneralConfig(): Promise<GeneralConfig> {
 			return call({ path: '/api/admin/get_general_config', body: {} })
 		},
@@ -453,6 +481,18 @@ function createApiMethods(
 		},
 		updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig> {
 			return call({ path: '/api/admin/update_general_config', body: input })
+		},
+		updateAffiliateConfig(input: UpdateAffiliateConfigRequest): Promise<AffiliateConfig> {
+			return call({ path: '/api/admin/update_affiliate_config', body: input })
+		},
+		updateAuthenticationConfig(input: UpdateAuthenticationConfigRequest): Promise<AuthenticationConfig> {
+			return call({ path: '/api/admin/update_authentication_config', body: input })
+		},
+		updateCreditsConfig(input: UpdateCreditsConfigRequest): Promise<CreditsConfig> {
+			return call({ path: '/api/admin/update_credits_config', body: input })
+		},
+		updateEmailConfig(input: UpdateEmailConfigRequest): Promise<EmailConfig> {
+			return call({ path: '/api/admin/update_email_config', body: input })
 		},
 		updateAdministratorEmail(
 			input: UpdateAdministratorEmailRequest

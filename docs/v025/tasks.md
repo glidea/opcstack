@@ -196,11 +196,11 @@
 - 不增加自动保存、统一 Save All 或移动端吸底保存栏
 
 ## TODO 清单
-- [ ] 1. 先增加路由、Tab、显式保存、脏状态和配置错误的前端失败测试
-- [ ] 2. 实现 Configuration 布局、水平 Tab、默认重定向和 Admin 导航入口，并从管理员账号入口明确链接到 Account / Security
-- [ ] 3. 实现六个单例域表单，复用现有 UI Primitive 和 API Contract 类型
-- [ ] 4. 实现 Secret 的 keep、replace、remove 交互及脱敏配置状态
-- [ ] 5. 补齐英文 UI 文案、i18n、SEO 和 Admin Console 文档
+- [x] 1. 先增加路由、Tab、显式保存、脏状态和配置错误的前端失败测试
+- [x] 2. 实现 Configuration 布局、水平 Tab、默认重定向和 Admin 导航入口，并从管理员账号入口明确链接到 Account / Security
+- [x] 3. 实现六个单例域表单，复用现有 UI Primitive 和 API Contract 类型
+- [x] 4. 实现 Secret 的 keep、replace、remove 交互及脱敏配置状态
+- [x] 5. 补齐英文 UI 文案、i18n、SEO 和 Admin Console 文档
 
 ## 验收测试步骤
 1. 登录后台进入 Configuration，逐个切换六个 Tab，确认路由稳定且当前业务域清晰

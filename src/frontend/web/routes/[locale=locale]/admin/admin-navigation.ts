@@ -5,6 +5,7 @@ export type AdminSection =
 	| 'credit-codes'
 	| 'feedback'
 	| 'notifications'
+	| 'configuration'
 	| 'payments'
 	| 'ai-tasks'
 
@@ -21,6 +22,7 @@ const ADMIN_SECTIONS: AdminSection[] = [
 	'credit-codes',
 	'feedback',
 	'notifications',
+	'configuration',
 	'payments',
 	'ai-tasks'
 ]

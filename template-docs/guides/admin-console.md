@@ -7,7 +7,7 @@ order: 10
 
 # Admin Console
 
-The admin console turns the existing Admin APIs into one operator workspace. It covers users, credits, access codes, announcements, feedback, payments, and AI tasks. Cloudflare remains the place for infrastructure logs, queue backlog, database inspection, and object storage.
+The admin console turns the existing Admin APIs into one operator workspace. It covers users, credits, access codes, announcements, feedback, payments, AI tasks, and dynamic business configuration. Cloudflare remains the place for infrastructure logs, queue backlog, database inspection, and object storage.
 
 ## Access
 
@@ -29,10 +29,19 @@ Programmatic clients use OAuth grants with explicit scopes. There is no static a
 | Credit codes | `/{locale}/admin/credit-codes` | Generate credit codes and inspect claim or grant state |
 | Feedback | `/{locale}/admin/feedback` | Search feedback and inspect full submissions |
 | Notifications | `/{locale}/admin/notifications` | Publish global or targeted announcements and review history |
+| Configuration | `/{locale}/admin/configuration` | Manage D1-backed business configuration by domain |
 | Payments | `/{locale}/admin/payments` | Inspect transactions and disputed payments |
 | AI tasks | `/{locale}/admin/ai-tasks` | Inspect image, TTS, and video tasks across users |
 
 The locale can be `en` or `zh`. Language switching keeps the current admin path and query state.
+
+## Manage configuration
+
+Open **Configuration** and use the horizontal business tabs. General, Authentication, Email, Storage, Credits, and Affiliate each have one explicit form. Saving one tab immediately changes subsequent requests in that domain. An operation already in progress keeps the snapshot it started with.
+
+Changing a field marks only the current tab as unsaved. Switching tabs or leaving the page requires choosing whether to discard the changes or keep editing. **Discard** restores the last saved values. There is no draft, publish step, automatic save, or cross-domain Save All.
+
+Authentication and Email reveal dependent settings only after the feature is enabled. Missing required fields are shown beside the affected control and the old configuration remains active. Secret fields never display plaintext. Choose **Keep current value**, **Replace value**, or **Remove value** before saving. Provider callback URLs are derived from the application URL and are read-only.
 
 ## Find a user and grant credits
 

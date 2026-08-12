@@ -109,7 +109,7 @@ describe('admin navigation', () => {
 		})
 	})
 
-	test('defines eight localized module paths', (): void => {
+	test('defines nine localized module paths', (): void => {
 		const items = createAdminNavigation('zh')
 
 		expect(items.map((item) => ({ id: item.id, href: item.href }))).toEqual([
@@ -119,6 +119,7 @@ describe('admin navigation', () => {
 			{ id: 'credit-codes', href: '/zh/admin/credit-codes' },
 			{ id: 'feedback', href: '/zh/admin/feedback' },
 			{ id: 'notifications', href: '/zh/admin/notifications' },
+			{ id: 'configuration', href: '/zh/admin/configuration' },
 			{ id: 'payments', href: '/zh/admin/payments' },
 			{ id: 'ai-tasks', href: '/zh/admin/ai-tasks' }
 		])

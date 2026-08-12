@@ -10,6 +10,7 @@
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round'
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard'
 	import MessageSquareTextIcon from '@lucide/svelte/icons/message-square-text'
+	import Settings2Icon from '@lucide/svelte/icons/settings-2'
 	import TicketCheckIcon from '@lucide/svelte/icons/ticket-check'
 	import UsersIcon from '@lucide/svelte/icons/users'
 	import AppHeader from '$frontend/app-ui/shell/AppHeader.svelte'
@@ -40,7 +41,7 @@
 	} = $props()
 
 	const navigation: AdminNavigationItem[] = $derived(createAdminNavigation(data.locale))
-	const currentItem: AdminNavigationItem = $derived(navigation.find((item: AdminNavigationItem): boolean => item.href === page.url.pathname) ?? navigation[0]!)
+	const currentItem: AdminNavigationItem = $derived(navigation.find((item: AdminNavigationItem): boolean => page.url.pathname === item.href || page.url.pathname.startsWith(`${item.href}/`)) ?? navigation[0]!)
 	const navigationGroups: AdminNavigationGroup[] = $derived([
 		{
 			labelKey: null,
@@ -48,7 +49,11 @@
 		},
 		{
 			labelKey: 'admin.nav.management',
-			items: navigation.filter((item: AdminNavigationItem): boolean => item.id !== 'overview' && item.id !== 'ai-tasks')
+			items: navigation.filter((item: AdminNavigationItem): boolean => item.id !== 'overview' && item.id !== 'configuration' && item.id !== 'ai-tasks')
+		},
+		{
+			labelKey: 'admin.nav.system',
+			items: navigation.filter((item: AdminNavigationItem): boolean => item.id === 'configuration')
 		},
 		{
 			labelKey: 'admin.nav.operations',
@@ -62,6 +67,7 @@
 		'credit-codes': TicketCheckIcon,
 		feedback: MessageSquareTextIcon,
 		notifications: BellIcon,
+		configuration: Settings2Icon,
 		payments: CreditCardIcon,
 		'ai-tasks': BotIcon
 	}
@@ -103,7 +109,7 @@
 							<Sidebar.Menu class="gap-0.5">
 								{#each group.items as item}
 									{@const Icon: Component = sectionIcons[item.id]}
-									{@const isActive: boolean = item.href === page.url.pathname}
+					{@const isActive: boolean = item.id === currentItem.id}
 									<Sidebar.MenuItem>
 										<Sidebar.MenuButton {isActive} class="h-9 px-2.5 data-active:bg-sidebar-primary data-active:text-sidebar-primary-foreground">
 											{#snippet child({ props })}
