@@ -493,6 +493,8 @@ Video 仅在创建新的远程 provider 任务时选择渠道。Provider 返回 
 
 配置保存后对下一个请求、Queue 消息、WebSocket 连接或 Cron 触发生效。已经开始的操作继续使用启动时的快照。已经取得远程任务 ID 的 Video 任务即使对应 Channel 后来被停用，也继续使用持久化的 Channel。
 
+在**后台 > Configuration > AI** 保存路由权重、任务保留期和九个固定 Provider。启用的 Provider 必须填写 Base URL、默认模型和 API Key。异步 Channel 在下方独立管理，新建、编辑、删除成功后只更新目标行。版本过期时需要显式刷新。页面只显示 API Key 是否已配置。
+
 任何 AI 业务设置或凭据都不应写入 `.env.dev`、`.env.prod`、`.env.secret.*` 或 `wrangler.jsonc`。
 
 ## 添加 Provider

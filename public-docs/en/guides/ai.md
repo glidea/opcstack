@@ -493,6 +493,8 @@ Video selects a channel only when creating a new remote provider task. After the
 
 Configuration saves take effect for the next request, queue message, WebSocket connection, or cron trigger. One operation keeps the snapshot it started with. A Video task that already has a remote task id keeps its persisted channel even if that channel is later disabled.
 
+Open **Admin > Configuration > AI** to save routing weights, task retention, and the nine fixed Providers. Enabled Providers require a base URL, default model, and API key. Manage async Channels independently below that form. Channel create, edit, and delete operations update only the target row. Stale versions require an explicit refresh. The page shows only whether an API key is configured.
+
 No AI business setting or credential belongs in `.env.dev`, `.env.prod`, `.env.secret.*`, or `wrangler.jsonc`.
 
 ## Add A Provider

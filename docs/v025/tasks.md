@@ -217,11 +217,11 @@
 - 不展示任何密钥明文、密文或 IV
 
 ## TODO 清单
-- [ ] 1. 先增加 Product、Channel 新建编辑删除、版本冲突和 Secret 操作的前端失败测试
-- [ ] 2. 实现 Payment Provider 配置、派生 Webhook URL 和 Product 管理界面
-- [ ] 3. 实现 AI 路由配置、固定 Provider 配置和 Channel 管理界面
-- [ ] 4. 处理实体级 loading、empty、error、冲突刷新和删除确认状态
-- [ ] 5. 同步 Admin Console、Payment 和 AI 操作文档
+- [x] 1. 先增加 Product、Channel 新建编辑删除、版本冲突和 Secret 操作的前端失败测试
+- [x] 2. 实现 Payment Provider 配置、派生 Webhook URL 和 Product 管理界面
+- [x] 3. 实现 AI 路由配置、固定 Provider 配置和 Channel 管理界面
+- [x] 4. 处理实体级 loading、empty、error、冲突刷新和删除确认状态
+- [x] 5. 同步 Admin Console、Payment 和 AI 操作文档
 
 ## 验收测试步骤
 1. 在 Payment Tab 保存 Provider 后新建、编辑和删除 Product，确认每次只更新目标实体

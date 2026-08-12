@@ -17,3 +17,5 @@ For each enabled provider, add its API key and webhook signing secret. Copy the 
 Product edits use optimistic versions. A stale update or deletion of a product referenced by an effective subscription is rejected instead of overwriting current state.
 
 Payment secrets are never displayed after saving. Replacing a webhook secret affects the next webhook request.
+
+Provider settings and Products save independently. A successful Product operation updates only that Product in the current page. Deletion requires confirmation. When another browser has already changed the same Product, refresh the current data before editing again.

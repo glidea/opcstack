@@ -329,17 +329,22 @@ export const UpdatePaymentConfigRequestSchema = z.object({
 	creem_webhook_secret: SecretMutationSchema,
 	expected_version: z.number().int().min(1)
 })
+export type UpdatePaymentConfigRequest = z.infer<typeof UpdatePaymentConfigRequestSchema>
 
 const PaymentProductFieldsSchema = PaymentProductSchema.omit({ version: true })
 export const CreatePaymentProductRequestSchema = PaymentProductFieldsSchema
+export type CreatePaymentProductRequest = z.infer<typeof CreatePaymentProductRequestSchema>
 export const UpdatePaymentProductRequestSchema = PaymentProductFieldsSchema.extend({
 	expected_version: z.number().int().min(1)
 })
+export type UpdatePaymentProductRequest = z.infer<typeof UpdatePaymentProductRequestSchema>
 export const DeletePaymentProductRequestSchema = z.object({
 	product_id: z.string().trim().min(1),
 	expected_version: z.number().int().min(1)
 })
+export type DeletePaymentProductRequest = z.infer<typeof DeletePaymentProductRequestSchema>
 export const DeletePaymentProductResponseSchema = z.object({ product_id: z.string() })
+export type DeletePaymentProductResponse = z.infer<typeof DeletePaymentProductResponseSchema>
 
 export const GetPaymentConfigApi = {
 	request: GetPaymentConfigRequestSchema,
@@ -372,7 +377,9 @@ export const DeletePaymentProductApi = {
 }
 
 export const AIAreaSchema = z.enum(['chat', 'image', 'tts', 'realtime', 'video'])
+export type AIArea = z.infer<typeof AIAreaSchema>
 export const AIChannelAreaSchema = z.enum(['image', 'tts', 'video'])
+export type AIChannelArea = z.infer<typeof AIChannelAreaSchema>
 export const AIProviderIdSchema = z.enum([
 	'chat_openai',
 	'image_gemini',
@@ -384,6 +391,7 @@ export const AIProviderIdSchema = z.enum([
 	'realtime_doubao',
 	'video_seedance'
 ])
+export type AIProviderId = z.infer<typeof AIProviderIdSchema>
 
 export const AIProviderConfigSchema = z.object({
 	id: AIProviderIdSchema,
@@ -426,6 +434,7 @@ export const UpdateAIProviderConfigSchema = AIProviderConfigSchema.omit({
 	provider: true,
 	api_key_configured: true
 }).extend({ api_key: SecretMutationSchema })
+export type UpdateAIProviderConfig = z.infer<typeof UpdateAIProviderConfigSchema>
 
 export const GetAIConfigRequestSchema = z.object({})
 export const UpdateAIConfigRequestSchema = z.object({
@@ -436,6 +445,7 @@ export const UpdateAIConfigRequestSchema = z.object({
 	providers: z.array(UpdateAIProviderConfigSchema).length(9),
 	expected_version: z.number().int().min(1)
 })
+export type UpdateAIConfigRequest = z.infer<typeof UpdateAIConfigRequestSchema>
 
 const AIChannelWriteFieldsSchema = AIChannelSchema.omit({
 	api_key_configured: true,
@@ -444,6 +454,7 @@ const AIChannelWriteFieldsSchema = AIChannelSchema.omit({
 export const CreateAIChannelRequestSchema = AIChannelWriteFieldsSchema.extend({
 	api_key: z.string().min(1)
 })
+export type CreateAIChannelRequest = z.infer<typeof CreateAIChannelRequestSchema>
 export const UpdateAIChannelRequestSchema = AIChannelWriteFieldsSchema.extend({
 	api_key: z.discriminatedUnion('action', [
 		z.object({ action: z.literal('keep') }),
@@ -451,11 +462,14 @@ export const UpdateAIChannelRequestSchema = AIChannelWriteFieldsSchema.extend({
 	]),
 	expected_version: z.number().int().min(1)
 })
+export type UpdateAIChannelRequest = z.infer<typeof UpdateAIChannelRequestSchema>
 export const DeleteAIChannelRequestSchema = z.object({
 	id: z.string().min(1),
 	expected_version: z.number().int().min(1)
 })
+export type DeleteAIChannelRequest = z.infer<typeof DeleteAIChannelRequestSchema>
 export const DeleteAIChannelResponseSchema = z.object({ id: z.string() })
+export type DeleteAIChannelResponse = z.infer<typeof DeleteAIChannelResponseSchema>
 
 export const GetAIConfigApi = {
 	request: GetAIConfigRequestSchema,

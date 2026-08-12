@@ -70,17 +70,31 @@ import type {
 	UploadR2PublicObjectResponse
 } from '../r2'
 import type {
+	AIChannel,
+	AIConfig,
 	AffiliateConfig,
 	AuthenticationConfig,
+	CreateAIChannelRequest,
+	CreatePaymentProductRequest,
 	CreditsConfig,
+	DeleteAIChannelRequest,
+	DeleteAIChannelResponse,
+	DeletePaymentProductRequest,
+	DeletePaymentProductResponse,
 	EmailConfig,
 	GeneralConfig,
+	PaymentConfig,
+	PaymentProduct,
 	StorageConfig,
+	UpdateAIChannelRequest,
+	UpdateAIConfigRequest,
 	UpdateAffiliateConfigRequest,
 	UpdateAuthenticationConfigRequest,
 	UpdateCreditsConfigRequest,
 	UpdateEmailConfigRequest,
 	UpdateGeneralConfigRequest,
+	UpdatePaymentConfigRequest,
+	UpdatePaymentProductRequest,
 	UpdateStorageConfigRequest
 } from '../configuration'
 import type { ApiErrorResponse } from '../common'
@@ -145,6 +159,8 @@ type ApiMethods = {
 	bindBetaCode(input: BindBetaCodeRequest): Promise<Record<string, never>>
 	cancelSubscription(): Promise<CancelSubscriptionResponse>
 	createNotification(input: CreateNotificationRequest): Promise<CreateNotificationResponse>
+	createAIChannel(input: CreateAIChannelRequest): Promise<AIChannel>
+	createPaymentProduct(input: CreatePaymentProductRequest): Promise<PaymentProduct>
 	createPaymentCheckout(input: CreatePaymentCheckoutRequest): Promise<CreatePaymentCheckoutResponse>
 	dailyCheckin(): Promise<DailyCheckinResponse>
 	generateBetaCodes(input: GenerateBetaCodesRequest): Promise<GenerateBetaCodesResponse>
@@ -152,11 +168,13 @@ type ApiMethods = {
 	getAffSummary(): Promise<GetAffSummaryResponse>
 	getAdminAiTask(input: GetAdminAiTaskRequest): Promise<GetAdminAiTaskResponse>
 	getAdminOverview(): Promise<GetAdminOverviewResponse>
+	getAIConfig(): Promise<AIConfig>
 	getAffiliateConfig(): Promise<AffiliateConfig>
 	getAuthenticationConfig(): Promise<AuthenticationConfig>
 	getCreditsConfig(): Promise<CreditsConfig>
 	getEmailConfig(): Promise<EmailConfig>
 	getGeneralConfig(): Promise<GeneralConfig>
+	getPaymentConfig(): Promise<PaymentConfig>
 	getStorageConfig(): Promise<StorageConfig>
 	getCreditSummary(): Promise<GetCreditSummaryResponse>
 	getSubscription(): Promise<GetSubscriptionResponse>
@@ -181,15 +199,21 @@ type ApiMethods = {
 		input: ListPaymentTransactionsRequest
 	): Promise<ListPaymentTransactionsResponse>
 	readNotification(input: ReadNotificationRequest): Promise<Record<string, never>>
+	deleteAIChannel(input: DeleteAIChannelRequest): Promise<DeleteAIChannelResponse>
+	deletePaymentProduct(input: DeletePaymentProductRequest): Promise<DeletePaymentProductResponse>
 	redeemCreditCode(input: RedeemCreditCodeRequest): Promise<RedeemCreditCodeResponse>
 	submitFeedback(input: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse>
 	uploadR2Object(input: UploadR2ObjectRequest): Promise<UploadR2ObjectResponse>
 	uploadR2PublicObject(input: UploadR2PublicObjectRequest): Promise<UploadR2PublicObjectResponse>
 	updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig>
+	updateAIChannel(input: UpdateAIChannelRequest): Promise<AIChannel>
+	updateAIConfig(input: UpdateAIConfigRequest): Promise<AIConfig>
 	updateAffiliateConfig(input: UpdateAffiliateConfigRequest): Promise<AffiliateConfig>
 	updateAuthenticationConfig(input: UpdateAuthenticationConfigRequest): Promise<AuthenticationConfig>
 	updateCreditsConfig(input: UpdateCreditsConfigRequest): Promise<CreditsConfig>
 	updateEmailConfig(input: UpdateEmailConfigRequest): Promise<EmailConfig>
+	updatePaymentConfig(input: UpdatePaymentConfigRequest): Promise<PaymentConfig>
+	updatePaymentProduct(input: UpdatePaymentProductRequest): Promise<PaymentProduct>
 	updateAdministratorEmail(
 		input: UpdateAdministratorEmailRequest
 	): Promise<UpdateAdministratorEmailResponse>
@@ -375,6 +399,12 @@ function createApiMethods(
 		createNotification(input: CreateNotificationRequest): Promise<CreateNotificationResponse> {
 			return call({ path: '/api/admin/create_notification', body: input })
 		},
+		createAIChannel(input: CreateAIChannelRequest): Promise<AIChannel> {
+			return call({ path: '/api/admin/create_ai_channel', body: input })
+		},
+		createPaymentProduct(input: CreatePaymentProductRequest): Promise<PaymentProduct> {
+			return call({ path: '/api/admin/create_payment_product', body: input })
+		},
 		createPaymentCheckout(input: CreatePaymentCheckoutRequest): Promise<CreatePaymentCheckoutResponse> {
 			return call({ path: '/api/create_payment_checkout', body: input })
 		},
@@ -396,6 +426,9 @@ function createApiMethods(
 		getAdminOverview(): Promise<GetAdminOverviewResponse> {
 			return call({ path: '/api/admin/get_overview', body: {} })
 		},
+		getAIConfig(): Promise<AIConfig> {
+			return call({ path: '/api/admin/get_ai_config', body: {} })
+		},
 		getAffiliateConfig(): Promise<AffiliateConfig> {
 			return call({ path: '/api/admin/get_affiliate_config', body: {} })
 		},
@@ -410,6 +443,9 @@ function createApiMethods(
 		},
 		getGeneralConfig(): Promise<GeneralConfig> {
 			return call({ path: '/api/admin/get_general_config', body: {} })
+		},
+		getPaymentConfig(): Promise<PaymentConfig> {
+			return call({ path: '/api/admin/get_payment_config', body: {} })
 		},
 		getStorageConfig(): Promise<StorageConfig> {
 			return call({ path: '/api/admin/get_storage_config', body: {} })
@@ -467,6 +503,12 @@ function createApiMethods(
 		readNotification(input: ReadNotificationRequest): Promise<Record<string, never>> {
 			return call({ path: '/api/read_notification', body: input })
 		},
+		deleteAIChannel(input: DeleteAIChannelRequest): Promise<DeleteAIChannelResponse> {
+			return call({ path: '/api/admin/delete_ai_channel', body: input })
+		},
+		deletePaymentProduct(input: DeletePaymentProductRequest): Promise<DeletePaymentProductResponse> {
+			return call({ path: '/api/admin/delete_payment_product', body: input })
+		},
 		redeemCreditCode(input: RedeemCreditCodeRequest): Promise<RedeemCreditCodeResponse> {
 			return call({ path: '/api/redeem_credit_code', body: input })
 		},
@@ -482,6 +524,12 @@ function createApiMethods(
 		updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig> {
 			return call({ path: '/api/admin/update_general_config', body: input })
 		},
+		updateAIChannel(input: UpdateAIChannelRequest): Promise<AIChannel> {
+			return call({ path: '/api/admin/update_ai_channel', body: input })
+		},
+		updateAIConfig(input: UpdateAIConfigRequest): Promise<AIConfig> {
+			return call({ path: '/api/admin/update_ai_config', body: input })
+		},
 		updateAffiliateConfig(input: UpdateAffiliateConfigRequest): Promise<AffiliateConfig> {
 			return call({ path: '/api/admin/update_affiliate_config', body: input })
 		},
@@ -493,6 +541,12 @@ function createApiMethods(
 		},
 		updateEmailConfig(input: UpdateEmailConfigRequest): Promise<EmailConfig> {
 			return call({ path: '/api/admin/update_email_config', body: input })
+		},
+		updatePaymentConfig(input: UpdatePaymentConfigRequest): Promise<PaymentConfig> {
+			return call({ path: '/api/admin/update_payment_config', body: input })
+		},
+		updatePaymentProduct(input: UpdatePaymentProductRequest): Promise<PaymentProduct> {
+			return call({ path: '/api/admin/update_payment_product', body: input })
 		},
 		updateAdministratorEmail(
 			input: UpdateAdministratorEmailRequest

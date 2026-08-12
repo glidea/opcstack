@@ -61,3 +61,9 @@ POST /api/admin/delete_payment_product
 ```
 
 Provider secrets use `keep`, `replace`, and `remove` mutations. Read responses only expose whether a secret is configured.
+
+## Admin workflow
+
+Open **Admin > Configuration > Payment**. Enable payment, select the default provider, and optionally add `COUNTRY:provider` overrides. Each provider section exposes test mode, secret operations, and the derived read-only webhook URL. Saving this form changes only the Payment singleton.
+
+Products are managed below the provider form. Create, edit, and delete one Product at a time. A successful response replaces only that Product in the page. Deletion requires confirmation. When another page has changed the same Product, `CONFIG_CONFLICT` keeps the newer value and offers an explicit refresh.
