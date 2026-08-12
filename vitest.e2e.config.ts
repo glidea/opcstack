@@ -10,10 +10,6 @@ const appBaseUrl = resolveAppBaseUrl(appDomain, isRemote)
 const r2Enabled = readConfig('R2_ENABLED') ?? 'false'
 const adminEmail = process.env.E2E_ADMIN_EMAIL ?? ''
 const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? ''
-const paymentEnabled = readConfig('PAYMENT_ENABLED') ?? 'false'
-const paymentProvider = readConfig('PAYMENT_PROVIDER') ?? ''
-const paymentProducts = readConfig('PAYMENT_PRODUCTS') ?? ''
-const paymentCreemWebhookSecret = readConfig('PAYMENT_CREEM_WEBHOOK_SECRET') ?? ''
 const d1ShardCount = readConfig('D1_SHARD_COUNT') ?? '1'
 const runAffiliateFlow = process.env.E2E_RUN_AFFILIATE_FLOW ?? 'false'
 const runDailyCheckinFlow = process.env.E2E_RUN_DAILY_CHECKIN_FLOW ?? 'false'
@@ -30,10 +26,6 @@ export default defineConfig({
 			E2E_R2_ENABLED: r2Enabled,
 			E2E_ADMIN_EMAIL: adminEmail,
 			E2E_ADMIN_PASSWORD: adminPassword,
-			E2E_PAYMENT_ENABLED: paymentEnabled,
-			E2E_PAYMENT_PROVIDER: paymentProvider,
-			E2E_PAYMENT_PRODUCTS: paymentProducts,
-			E2E_PAYMENT_CREEM_WEBHOOK_SECRET: paymentCreemWebhookSecret,
 			E2E_RUN_AFFILIATE_FLOW: runAffiliateFlow,
 			E2E_D1_SHARD_COUNT: d1ShardCount,
 			E2E_RUN_DAILY_CHECKIN_FLOW: runDailyCheckinFlow

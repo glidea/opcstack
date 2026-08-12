@@ -544,12 +544,12 @@ describe('prepare cloudflare runtime config validation', () => {
 
 		expect({
 			runtimeKeys: config.secrets.required,
-			typeHasPaymentSecret: typesConfig.secrets.required.includes('PAYMENT_DODO_API_KEY'),
+			typeHasPaymentSecret: typesConfig.secrets.required.some((key) => key.startsWith('PAYMENT_')),
 			typeHasGeneratedSystemSecret:
 				typesConfig.secrets.required.includes('CONFIG_ENCRYPTION_KEY')
 		}).toEqual({
 			runtimeKeys: ['BETTER_AUTH_SECRET'],
-			typeHasPaymentSecret: true,
+			typeHasPaymentSecret: false,
 			typeHasGeneratedSystemSecret: true
 		})
 	})
@@ -572,45 +572,6 @@ describe('prepare cloudflare runtime config validation', () => {
 		})
 	})
 
-	it('requires enabled payment secrets', () => {
-		const env = createRuntimeEnv({
-			PAYMENT_ENABLED: 'true',
-			PAYMENT_PROVIDER: 'creem',
-			PAYMENT_PRODUCTS:
-				'[{"product_id":"credits_100","type":"one_time","credits_amount":"100","providers":{"creem":{"kind":"remote_product","product_id":"prod_1"}}}]',
-			PAYMENT_CREEM_API_KEY: 'creem-key',
-			PAYMENT_CREEM_WEBHOOK_SECRET: 'creem-webhook'
-		})
-
-		const keys = buildRequiredSecretKeys(env)
-
-		expect({
-			keys
-		}).toEqual({
-			keys: [
-				'BETTER_AUTH_SECRET',
-				'CONFIG_ENCRYPTION_KEY',
-				'R2_ORIGIN_SIGNING_SECRET',
-				'PAYMENT_CREEM_API_KEY',
-				'PAYMENT_CREEM_WEBHOOK_SECRET'
-			]
-		})
-	})
-
-	it('rejects enabled payment without selected provider secrets', () => {
-		const env = createRuntimeEnv({
-			PAYMENT_ENABLED: 'true',
-			PAYMENT_PROVIDER: 'creem',
-			PAYMENT_PRODUCTS:
-				'[{"product_id":"credits_100","type":"one_time","credits_amount":"100","providers":{"creem":{"kind":"remote_product","product_id":"prod_1"}}}]',
-			PAYMENT_CREEM_API_KEY: '',
-			PAYMENT_CREEM_WEBHOOK_SECRET: 'whsec'
-		})
-
-		expect(() => {
-			validateRuntimeConfig(env, { isRemote: false })
-		}).toThrow('PAYMENT_CREEM_API_KEY_MISSING')
-	})
 })
 
 function createRuntimeEnv(overrides = {}) {
@@ -619,14 +580,6 @@ function createRuntimeEnv(overrides = {}) {
 		CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 		R2_ENABLED: 'false',
 		R2_ORIGIN_SIGNING_SECRET: 'r2-secret',
-		PAYMENT_ENABLED: 'false',
-		PAYMENT_PROVIDER: 'creem',
-		PAYMENT_PROVIDER_COUNTRY_OVERRIDES: '',
-		PAYMENT_PRODUCTS: '[]',
-		PAYMENT_DODO_API_KEY: '',
-		PAYMENT_DODO_WEBHOOK_SECRET: '',
-		PAYMENT_CREEM_API_KEY: '',
-		PAYMENT_CREEM_WEBHOOK_SECRET: '',
 		AI_ROUTING_ERROR_WEIGHT: '1',
 		AI_ROUTING_LATENCY_WEIGHT: '0.8',
 		AI_ROUTING_PRICE_WEIGHT: '0.2',

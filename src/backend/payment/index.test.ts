@@ -70,7 +70,7 @@ describe('createPaymentService', () => {
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
 			scenario: 'skip provider clients when payment is disabled without products',
-			given: 'PAYMENT_ENABLED=false and PAYMENT_PRODUCTS=[]',
+			given: 'D1 Payment configuration is disabled with no products',
 			when: 'creating payment service',
 			then: 'does not initialize payment providers',
 			givenDetail: {},
@@ -83,11 +83,8 @@ describe('createPaymentService', () => {
 	]
 
 	runCases(cases, async () => {
-		createPaymentService({} as unknown as MetaDb, {
-			PAYMENT_ENABLED: 'false',
-			PAYMENT_PROVIDER: 'creem',
-			PAYMENT_PROVIDER_COUNTRY_OVERRIDES: '',
-			PAYMENT_PRODUCTS: '[]'
+		await createPaymentService(createDisabledPaymentDb(), {
+			CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
 		} as unknown as Env)
 		return {
 			dodoFactoryCalls: providerFactoryMocks.createDodoPayment.mock.calls.length,
@@ -95,6 +92,30 @@ describe('createPaymentService', () => {
 		}
 	})
 })
+
+function createDisabledPaymentDb(): MetaDb {
+	return {
+		query: {
+			systemSettings: {
+				findFirst: async (): Promise<unknown> => ({
+					paymentConfig: {
+						enabled: false,
+						defaultProvider: null,
+						providerCountryOverrides: [],
+						providers: {
+							dodo: { testMode: true, apiKey: null, webhookSecret: null },
+							creem: { testMode: true, apiKey: null, webhookSecret: null }
+						}
+					},
+					paymentVersion: 1
+				})
+			},
+			paymentProduct: {
+				findMany: async (): Promise<unknown[]> => []
+			}
+		}
+	} as unknown as MetaDb
+}
 
 describe('PaymentService.listPaymentProducts', () => {
 	beforeEach(() => {
@@ -114,7 +135,7 @@ describe('PaymentService.listPaymentProducts', () => {
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
 			scenario: 'return empty items when payment is disabled',
-			given: 'PAYMENT_ENABLED is false',
+			given: 'D1 Payment configuration is disabled',
 			when: 'listing products',
 			then: 'returns empty list',
 			givenDetail: {

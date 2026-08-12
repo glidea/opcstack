@@ -281,7 +281,7 @@ pnpm test:e2e:remote
 
 ## E2E 配置
 
-`vitest.e2e.config.ts` 读取公共环境变量和部分密钥值，然后将其作为 `E2E_*` 测试环境变量暴露出去。
+`vitest.e2e.config.ts` 派生应用地址和基础设施测试开关，然后将其作为 `E2E_*` 测试环境变量暴露。业务功能状态通过 HTTP API 读取。
 
 重要的派生值：
 
@@ -292,7 +292,6 @@ pnpm test:e2e:remote
 | `E2E_ADMIN_EMAIL` | 管理员 Session 测试使用的管理员邮箱 |
 | `E2E_ADMIN_PASSWORD` | 管理员 Session 测试使用的管理员密码 |
 | `E2E_R2_ENABLED` | R2 测试是否可以运行 |
-| `E2E_PAYMENT_ENABLED` | 支付测试是否可以运行 |
 | `E2E_D1_SHARD_COUNT` | 分片测试预期的分片数量 |
 
 功能被禁用时，测试应跳过该功能相关的流程。功能被禁用不等于部署失败。

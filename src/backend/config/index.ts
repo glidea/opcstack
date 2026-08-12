@@ -98,6 +98,7 @@ export type PublicRuntimeConfig = {
 	support_email: string
 	design_system: GeneralSettingsDocument['designSystem']
 	docs_enabled: boolean
+	payment_enabled: boolean
 	email_enabled: boolean
 	email_signup_enabled: boolean
 	email_require_verification: boolean
@@ -472,6 +473,7 @@ export async function getPublicRuntimeConfig(db: MetaDb): Promise<PublicRuntimeC
 		support_email: administrator.email,
 		design_system: general.designSystem,
 		docs_enabled: general.docsEnabled,
+		payment_enabled: parsePaymentEnabled(settings.paymentConfig),
 		email_enabled: email.enabled,
 		email_signup_enabled: authentication.emailSignupEnabled,
 		email_require_verification: authentication.emailRequireVerification,
@@ -731,6 +733,16 @@ function parseAffiliateSettings(value: unknown): AffiliateSettingsDocument {
 		throw new ConfigStoreError('SETTINGS_INVALID', 'Affiliate settings are invalid')
 	}
 	return result.data
+}
+
+function parsePaymentEnabled(value: unknown): boolean {
+	const result: z.ZodSafeParseResult<{ enabled: boolean }> = z
+		.object({ enabled: z.boolean() })
+		.safeParse(value)
+	if (!result.success) {
+		throw new ConfigStoreError('SETTINGS_INVALID', 'Payment settings are invalid')
+	}
+	return result.data.enabled
 }
 
 function validateCreditsDependencies(config: CreditsSettingsDocument): void {

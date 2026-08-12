@@ -374,6 +374,26 @@ describe('CreemPaymentProvider.unwrapWebhook', () => {
 				providerSubscriptionId: '',
 				checkoutOrderId: ''
 			}
+		},
+		{
+			scenario: 'reject webhook signed with the replaced secret',
+			given: 'signature created with the previous secret',
+			when: 'unwrapping with the current provider snapshot',
+			then: 'returns signature error',
+			givenDetail: {
+				signature: signBody(validBody, 'previous-secret'),
+				rawBody: validBody
+			},
+			whenDetail: {},
+			thenExpected: {
+				errorCode: 'CREEM_WEBHOOK_SIGNATURE_INVALID',
+				eventType: '',
+				providerPaymentId: '',
+				providerRefundId: '',
+				providerDisputeId: '',
+				providerSubscriptionId: '',
+				checkoutOrderId: ''
+			}
 		}
 	]
 
@@ -424,7 +444,7 @@ describe('createCreemPayment', () => {
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
 			scenario: 'use test server in test mode',
-			given: 'PAYMENT_CREEM_TEST_MODE=true',
+			given: 'D1 Creem test mode is enabled',
 			when: 'creating creem provider',
 			then: 'uses test server index',
 			givenDetail: {
@@ -441,10 +461,10 @@ describe('createCreemPayment', () => {
 		let serverIdx: number = -1
 		createCreemPayment(
 			{
-				PAYMENT_CREEM_API_KEY: 'api-key',
-				PAYMENT_CREEM_WEBHOOK_SECRET: 'whsec',
-				PAYMENT_CREEM_TEST_MODE: given.testMode
-			} as unknown as Env,
+				apiKey: 'api-key',
+				webhookSecret: 'whsec',
+				testMode: given.testMode === 'true'
+			},
 			(options: CreemClientOptions): CreemClient => {
 				serverIdx = options.serverIdx
 				return createMockClient()

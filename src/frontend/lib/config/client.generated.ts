@@ -3,7 +3,6 @@ export type ClientConfig = {
 	appVersion: string
 	apiBaseUrl: string
 	webBaseUrl: string
-	paymentEnabled: boolean
 	extension: {
 		hostPermissions: string[]
 	}
@@ -12,9 +11,8 @@ export type ClientConfig = {
 export const clientConfig: ClientConfig = {
 	"appName": "opcstack",
 	"appVersion": "0.1.0",
-	"apiBaseUrl": "https://opcstack.glidea.app",
-	"webBaseUrl": "https://opcstack.glidea.app",
-	"paymentEnabled": false,
+	"apiBaseUrl": "http://localhost:5173",
+	"webBaseUrl": "http://localhost:5173",
 	"extension": {
 		"hostPermissions": [
 			"http://localhost:5173/*"

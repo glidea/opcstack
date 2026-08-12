@@ -136,10 +136,6 @@ export class DodoPaymentProvider implements PaymentProvider {
 	}
 
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
-		if (input.providerConfig.kind !== 'remote_product') {
-			throw new PaymentProviderError('PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID')
-		}
-
 		const session: DodoCheckoutSessionResponse = await this.client.checkoutSessions.create({
 			product_cart: [{ product_id: input.providerConfig.productId, quantity: 1 }],
 			customer: { email: input.customerEmail },
@@ -197,12 +193,12 @@ export class DodoPaymentProvider implements PaymentProvider {
 }
 
 export function createDodoPayment(
-	env: Env,
+	config: { apiKey: string; webhookSecret: string; testMode: boolean },
 	createClient: (options: DodoClientOptions) => DodoClient = defaultCreateDodoClient
 ): DodoPaymentProvider {
-	const bearerToken: string = env.PAYMENT_DODO_API_KEY
-	const webhookKey: string = env.PAYMENT_DODO_WEBHOOK_SECRET
-	const environment: DodoEnvironment = resolveDodoEnvironment(env.PAYMENT_DODO_TEST_MODE)
+	const bearerToken: string = config.apiKey
+	const webhookKey: string = config.webhookSecret
+	const environment: DodoEnvironment = resolveDodoEnvironment(config.testMode)
 
 	const client: DodoClient = createClient({
 		bearerToken,
@@ -213,8 +209,8 @@ export function createDodoPayment(
 	return new DodoPaymentProvider(client, webhookKey)
 }
 
-export function resolveDodoEnvironment(rawTestMode: string | undefined): DodoEnvironment {
-	return rawTestMode === 'true' ? DODO_ENV_TEST_MODE : DODO_ENV_LIVE_MODE
+export function resolveDodoEnvironment(testMode: boolean): DodoEnvironment {
+	return testMode ? DODO_ENV_TEST_MODE : DODO_ENV_LIVE_MODE
 }
 
 function defaultCreateDodoClient(options: DodoClientOptions): DodoClient {

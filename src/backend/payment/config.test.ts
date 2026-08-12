@@ -1,239 +1,109 @@
-import { describe } from 'vitest'
-import { runCases, type TestCase } from '../testing/bdd'
+import { describe, expect, test } from 'vitest'
+import type { MetaDb } from '../db'
+import type { PaymentSettingsDocument } from '../db/schema.meta'
 import {
-	parsePaymentConfig,
+	createPaymentProduct,
+	deletePaymentProduct,
 	PaymentConfigError,
 	PaymentProviderRouter,
-	type PaymentProviderName
+	validatePaymentSettings
 } from './config'
 
-describe('parsePaymentConfig', () => {
-	type GivenDetail = {
-		paymentEnabled: string
-		provider: string
-		overrides: string
-		products: string
-	}
-	type WhenDetail = {
-		country: string | null
-	}
-	type ThenExpected = {
-		errorCode: string
-		paymentEnabled: boolean
-		selectedProvider: PaymentProviderName | ''
-		providerCount: number
-		firstCreditsAmount: number
-		firstDodoKind: string
-	}
+describe('Payment D1 configuration', (): void => {
+	test('routes a country to its configured provider', (): void => {
+		const router: PaymentProviderRouter = new PaymentProviderRouter({
+			defaultProvider: 'creem',
+			providerCountryOverrides: [{ country: 'CN', provider: 'dodo' }]
+		})
 
-	const remoteProducts = JSON.stringify([
-		{
-			product_id: 'p1',
-			type: 'one_time',
-			credits_amount: '1.23',
-			providers: {
-				creem: {
-					kind: 'remote_product',
-					product_id: 'prod_1'
-				}
-			}
-		}
-	])
-	const mixedProducts = JSON.stringify([
-		{
-			product_id: 'p1',
-			type: 'one_time',
-			credits_amount: '1.23',
-			providers: {
-				dodo: {
-					kind: 'inline_product',
-					name: '100 Credits',
-					description: '',
-					amount: 990,
-					currency: 'cny',
-					pay_type: 'native'
-				},
-				creem: {
-					kind: 'remote_product',
-					product_id: 'prod_1'
-				}
-			}
-		}
-	])
+		expect({ provider: router.select({ country: 'cn' }) }).toEqual({ provider: 'dodo' })
+	})
 
-	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
-		{
-			scenario: 'select configured provider when country is missing',
-			given: 'PAYMENT_PROVIDER is creem',
-			when: 'router selects provider',
-			then: 'returns configured provider',
-			givenDetail: {
-				paymentEnabled: 'true',
-				provider: 'creem',
-				overrides: '[{"country":"CN","provider":"dodo"}]',
-				products: mixedProducts
-			},
-			whenDetail: {
-				country: null
-			},
-			thenExpected: {
-				errorCode: '',
-				paymentEnabled: true,
-				selectedProvider: 'creem',
-				providerCount: 2,
-				firstCreditsAmount: 1_230_000,
-				firstDodoKind: 'inline_product'
-			}
-		},
-		{
-			scenario: 'select country override provider',
-			given: 'CN override is dodo',
-			when: 'router selects with country CN',
-			then: 'returns dodo',
-			givenDetail: {
-				paymentEnabled: 'true',
-				provider: 'creem',
-				overrides: '[{"country":"CN","provider":"dodo"}]',
-				products: mixedProducts
-			},
-			whenDetail: {
-				country: 'CN'
-			},
-			thenExpected: {
-				errorCode: '',
-				paymentEnabled: true,
-				selectedProvider: 'dodo',
-				providerCount: 2,
-				firstCreditsAmount: 1_230_000,
-				firstDodoKind: 'inline_product'
-			}
-		},
-		{
-			scenario: 'allow disabled payment without products',
-			given: 'PAYMENT_ENABLED is false and products are empty',
-			when: 'config is parsed',
-			then: 'payment disabled config is valid',
-			givenDetail: {
-				paymentEnabled: 'false',
-				provider: 'creem',
-				overrides: '[{"country":"CN","provider":"dodo"}]',
-				products: '[]'
-			},
-			whenDetail: {
-				country: null
-			},
-			thenExpected: {
-				errorCode: '',
-				paymentEnabled: false,
-				selectedProvider: 'creem',
-				providerCount: 0,
-				firstCreditsAmount: 0,
-				firstDodoKind: ''
-			}
-		},
-		{
-			scenario: 'reject provider not present in product providers',
-			given: 'PAYMENT_PROVIDER is dodo but products only contain creem',
-			when: 'config is parsed',
-			then: 'returns provider invalid error',
-			givenDetail: {
-				paymentEnabled: 'true',
-				provider: 'dodo',
-				overrides: '[]',
-				products: remoteProducts
-			},
-			whenDetail: {
-				country: null
-			},
-			thenExpected: {
-				errorCode: 'PAYMENT_PROVIDER_INVALID',
-				paymentEnabled: false,
-				selectedProvider: '',
-				providerCount: 0,
-				firstCreditsAmount: 0,
-				firstDodoKind: ''
-			}
-		},
-		{
-			scenario: 'reject override provider not present in product providers',
-			given: 'CN override is dodo but products only contain creem',
-			when: 'config is parsed',
-			then: 'returns country override invalid error',
-			givenDetail: {
-				paymentEnabled: 'true',
-				provider: 'creem',
-				overrides: '[{"country":"CN","provider":"dodo"}]',
-				products: remoteProducts
-			},
-			whenDetail: {
-				country: null
-			},
-			thenExpected: {
-				errorCode: 'PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID',
-				paymentEnabled: false,
-				selectedProvider: '',
-				providerCount: 0,
-				firstCreditsAmount: 0,
-				firstDodoKind: ''
-			}
-		},
-		{
-			scenario: 'reject unknown product provider',
-			given: 'PAYMENT_PRODUCTS contains unknown provider',
-			when: 'config is parsed',
-			then: 'returns provider invalid error',
-			givenDetail: {
-				paymentEnabled: 'true',
-				provider: 'creem',
-				overrides: '[]',
-				products:
-					'[{"product_id":"p1","type":"one_time","providers":{"bad":{"kind":"remote_product","product_id":"prod_1"}}}]'
-			},
-			whenDetail: {
-				country: null
-			},
-			thenExpected: {
-				errorCode: 'PAYMENT_PROVIDER_INVALID',
-				paymentEnabled: false,
-				selectedProvider: '',
-				providerCount: 0,
-				firstCreditsAmount: 0,
-				firstDodoKind: ''
-			}
-		}
-	]
+	test('rejects enabling payment without provider credentials', (): void => {
+		const settings: PaymentSettingsDocument = createPaymentSettings()
+		settings.enabled = true
+		settings.defaultProvider = 'dodo'
 
-	runCases(cases, async (given, when) => {
-		try {
-			const config = parsePaymentConfig({
-				PAYMENT_ENABLED: given.paymentEnabled,
-				PAYMENT_PROVIDER: given.provider,
-				PAYMENT_PROVIDER_COUNTRY_OVERRIDES: given.overrides,
-				PAYMENT_PRODUCTS: given.products
-			} as unknown as Env)
-			const router = new PaymentProviderRouter({
-				defaultProvider: config.defaultProvider,
-				providerCountryOverrides: config.providerCountryOverrides
+		expect((): void => validatePaymentSettings(settings, [createProductRow()])).toThrowError(
+			new PaymentConfigError('PAYMENT_PROVIDER_CREDENTIALS_MISSING')
+		)
+	})
+
+	test('rejects one-time products without credits', async (): Promise<void> => {
+		await expect(
+			createPaymentProduct({} as MetaDb, {
+				id: 'credits-100',
+				type: 'one_time',
+				creditsAmount: null,
+				subscriptionPlan: null,
+				upgradeRank: null,
+				periodCreditsAmount: null,
+				dodoProductId: 'prod-1',
+				creemProductId: null,
+				nowMs: 1000
 			})
-			return {
-				errorCode: '',
-				paymentEnabled: config.enabled,
-				selectedProvider: router.select({
-					country: when.country
-				}),
-				providerCount: config.providers.length,
-				firstCreditsAmount: config.products[0]?.creditsAmount ?? 0,
-				firstDodoKind: config.products[0]?.providers.dodo?.kind ?? ''
+		).rejects.toEqual(new PaymentConfigError('PAYMENT_PRODUCTS_INVALID'))
+	})
+
+	test('returns conflict when an active subscription references a product', async (): Promise<void> => {
+		const db: MetaDb = {
+			delete: (): Record<string, unknown> => ({
+				where: (): Record<string, unknown> => ({
+					returning: async (): Promise<unknown[]> => []
+				})
+			}),
+			query: {
+				paymentProduct: {
+					findFirst: async (): Promise<unknown> => createProductRow()
+				},
+				userSubscription: {
+					findFirst: async (): Promise<unknown> => ({ userId: 'user-1' })
+				}
 			}
-		} catch (error) {
-			return {
-				errorCode: error instanceof PaymentConfigError ? error.code : 'UNKNOWN',
-				paymentEnabled: false,
-				selectedProvider: '',
-				providerCount: 0,
-				firstCreditsAmount: 0,
-				firstDodoKind: ''
-			}
-		}
+		} as unknown as MetaDb
+
+		await expect(
+			deletePaymentProduct(db, { id: 'credits-100', expectedVersion: 1 })
+		).rejects.toEqual(new PaymentConfigError('PAYMENT_PRODUCT_REFERENCED'))
 	})
 })
+
+function createPaymentSettings(): PaymentSettingsDocument {
+	return {
+		enabled: false,
+		defaultProvider: null,
+		providerCountryOverrides: [],
+		providers: {
+			dodo: { testMode: true, apiKey: null, webhookSecret: null },
+			creem: { testMode: true, apiKey: null, webhookSecret: null }
+		}
+	}
+}
+
+function createProductRow(): {
+	id: string
+	type: string
+	creditsAmount: number
+	subscriptionPlan: null
+	upgradeRank: null
+	periodCreditsAmount: null
+	dodoProductId: string
+	creemProductId: null
+	version: number
+	createdAt: number
+	updatedAt: number
+} {
+	return {
+		id: 'credits-100',
+		type: 'one_time',
+		creditsAmount: 100_000_000,
+		subscriptionPlan: null,
+		upgradeRank: null,
+		periodCreditsAmount: null,
+		dodoProductId: 'prod-1',
+		creemProductId: null,
+		version: 1,
+		createdAt: 1000,
+		updatedAt: 1000
+	}
+}

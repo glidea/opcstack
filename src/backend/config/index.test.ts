@@ -89,11 +89,12 @@ describe('system configuration store', () => {
 
 		const result = await getPublicRuntimeConfig(db)
 
-			expect({ result, reads }).toEqual({
+		expect({ result, reads }).toEqual({
 			result: {
 				support_email: 'admin@opcstack.local',
 				design_system: 'apple-saas',
 				docs_enabled: true,
+				payment_enabled: false,
 				email_enabled: false,
 				email_signup_enabled: false,
 				email_require_verification: false,
@@ -407,11 +408,20 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 			dailyCheckinAmount: 10_000_000,
 			historyRetentionDays: 90
 		},
-		affiliateConfig: {
-			enabled: false,
-			inviterCreditAmount: 50_000_000,
-			inviteeCreditAmount: 20_000_000
-		}
+			affiliateConfig: {
+				enabled: false,
+				inviterCreditAmount: 50_000_000,
+				inviteeCreditAmount: 20_000_000
+			},
+			paymentConfig: {
+				enabled: false,
+				defaultProvider: null,
+				providerCountryOverrides: [],
+				providers: {
+					dodo: { testMode: false, apiKey: null, webhookSecret: null },
+					creem: { testMode: false, apiKey: null, webhookSecret: null }
+				}
+			}
 	} as unknown as SystemSettings
 }
 

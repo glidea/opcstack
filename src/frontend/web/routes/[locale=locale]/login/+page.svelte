@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
-	import { clientConfig } from '$frontend/config/client'
 	import type { PublicRuntimeConfig } from '$backend/config'
 	import AppHeader from '$frontend/app-ui/shell/AppHeader.svelte'
 	import LoginCard from '$frontend/app-ui/auth/LoginCard.svelte'
@@ -38,7 +37,7 @@
 		githubAuthEnabled={data.publicRuntimeConfig.github_auth_enabled}
 		linuxdoAuthEnabled={data.publicRuntimeConfig.linuxdo_auth_enabled}
 		emailSignupEnabled={data.publicRuntimeConfig.email_enabled && data.publicRuntimeConfig.email_signup_enabled}
-		refundHref={clientConfig.paymentEnabled ? '/refund-policy' : undefined}
+		refundHref={data.publicRuntimeConfig.payment_enabled ? '/refund-policy' : undefined}
 		turnstileEnabled={data.publicRuntimeConfig.turnstile_enabled}
 		turnstileSiteKey={data.publicRuntimeConfig.turnstile_site_key ?? ''}
 	/>

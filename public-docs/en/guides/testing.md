@@ -281,7 +281,7 @@ If a remote test needs admin behavior, call the public admin API with configured
 
 ## E2E Config
 
-`vitest.e2e.config.ts` reads public env and selected secret values, then exposes them as `E2E_*` test env vars.
+`vitest.e2e.config.ts` derives the application address and infrastructure test switches, then exposes them as `E2E_*` test env vars. Business feature state is read through HTTP APIs.
 
 Important derived values:
 
@@ -292,7 +292,6 @@ Important derived values:
 | `E2E_ADMIN_EMAIL` | Administrator email used for admin session tests |
 | `E2E_ADMIN_PASSWORD` | Administrator password used for admin session tests |
 | `E2E_R2_ENABLED` | Whether R2 tests can run |
-| `E2E_PAYMENT_ENABLED` | Whether payment tests can run |
 | `E2E_D1_SHARD_COUNT` | Expected shard count for sharding tests |
 
 Tests should skip feature-specific flows when the feature is disabled. A disabled feature is not a failing deployment.

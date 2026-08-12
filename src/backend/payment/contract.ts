@@ -28,7 +28,6 @@ export type PaymentEventType =
 	| typeof PAYMENT_EVENT_TYPE_SUBSCRIPTION_ENDED
 
 export type PaymentProviderErrorCode =
-	| 'PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID'
 	| 'DODO_WEBHOOK_SIGNATURE_INVALID'
 	| 'DODO_EVENT_TYPE_UNSUPPORTED'
 	| 'CREEM_WEBHOOK_SIGNATURE_INVALID'
@@ -45,8 +44,6 @@ export class PaymentProviderError extends Error {
 
 function paymentProviderErrorMessage(code: PaymentProviderErrorCode): string {
 	switch (code) {
-		case 'PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID':
-			return 'Payment provider product config is invalid'
 		case 'DODO_WEBHOOK_SIGNATURE_INVALID':
 			return 'Dodo webhook signature is invalid'
 		case 'DODO_EVENT_TYPE_UNSUPPORTED':

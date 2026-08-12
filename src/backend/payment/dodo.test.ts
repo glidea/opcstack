@@ -379,7 +379,7 @@ describe('createDodoPayment', () => {
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
 			scenario: 'use test_mode in test env',
-			given: 'PAYMENT_DODO_TEST_MODE=true',
+			given: 'D1 Dodo test mode is enabled',
 			when: 'creating dodo provider',
 			then: 'sdk client uses test_mode',
 			givenDetail: {
@@ -396,10 +396,10 @@ describe('createDodoPayment', () => {
 		let environment: string = ''
 		createDodoPayment(
 			{
-				PAYMENT_DODO_API_KEY: 'api-key',
-				PAYMENT_DODO_WEBHOOK_SECRET: 'webhook-secret',
-				PAYMENT_DODO_TEST_MODE: given.testMode
-			} as unknown as Env,
+				apiKey: 'api-key',
+				webhookSecret: 'webhook-secret',
+				testMode: given.testMode === 'true'
+			},
 			(input: DodoClientOptions): DodoClient => {
 				environment = input.environment
 				return createMockClient()

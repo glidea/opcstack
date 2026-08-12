@@ -177,10 +177,6 @@ export class CreemPaymentProvider implements PaymentProvider {
 	}
 
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
-		if (input.providerConfig.kind !== 'remote_product') {
-			throw new PaymentProviderError('PAYMENT_PROVIDER_PRODUCT_CONFIG_INVALID')
-		}
-
 		const checkout: CreemCheckout = await this.client.checkouts.create({
 			requestId: input.checkoutOrderId,
 			productId: input.providerConfig.productId,
@@ -234,12 +230,12 @@ export class CreemPaymentProvider implements PaymentProvider {
 }
 
 export function createCreemPayment(
-	env: Env,
+	config: { apiKey: string; webhookSecret: string; testMode: boolean },
 	createClient: (options: CreemClientOptions) => CreemClient = defaultCreateCreemClient
 ): CreemPaymentProvider {
-	const apiKey: string = env.PAYMENT_CREEM_API_KEY
-	const webhookSecret: string = env.PAYMENT_CREEM_WEBHOOK_SECRET
-	const serverIdx: CreemServerIndex = resolveCreemServerIndex(env.PAYMENT_CREEM_TEST_MODE)
+	const apiKey: string = config.apiKey
+	const webhookSecret: string = config.webhookSecret
+	const serverIdx: CreemServerIndex = resolveCreemServerIndex(config.testMode)
 
 	const client: CreemClient = createClient({
 		apiKey,
@@ -249,8 +245,8 @@ export function createCreemPayment(
 	return new CreemPaymentProvider(client, webhookSecret)
 }
 
-export function resolveCreemServerIndex(rawTestMode: string | undefined): CreemServerIndex {
-	return rawTestMode === 'true' ? CREEM_TEST_SERVER_INDEX : CREEM_PRODUCTION_SERVER_INDEX
+export function resolveCreemServerIndex(testMode: boolean): CreemServerIndex {
+	return testMode ? CREEM_TEST_SERVER_INDEX : CREEM_PRODUCTION_SERVER_INDEX
 }
 
 function defaultCreateCreemClient(options: CreemClientOptions): CreemClient {

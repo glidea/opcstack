@@ -40,10 +40,6 @@ const AI_ASYNC_PROVIDER_CONFIGS = [
 const SECRET_KEYS = [
 	'BETTER_AUTH_SECRET',
 	'CONFIG_ENCRYPTION_KEY',
-	'PAYMENT_DODO_API_KEY',
-	'PAYMENT_DODO_WEBHOOK_SECRET',
-	'PAYMENT_CREEM_API_KEY',
-	'PAYMENT_CREEM_WEBHOOK_SECRET',
 	'CHAT_OPENAI_API_KEY',
 	'IMAGE_GEMINI_API_KEY',
 	'IMAGE_OPENAI_API_KEY',
@@ -230,17 +226,6 @@ function formatEnvValue(value) {
 
 export function buildRequiredSecretKeys(env) {
 	const keys = [...SYSTEM_SECRET_KEYS]
-	if (env.PAYMENT_ENABLED === 'true') {
-		const providers = collectPaymentProviders(parsePaymentProducts(env.PAYMENT_PRODUCTS))
-		if (providers.includes('dodo')) {
-			keys.push('PAYMENT_DODO_API_KEY')
-			keys.push('PAYMENT_DODO_WEBHOOK_SECRET')
-		}
-		if (providers.includes('creem')) {
-			keys.push('PAYMENT_CREEM_API_KEY')
-			keys.push('PAYMENT_CREEM_WEBHOOK_SECRET')
-		}
-	}
 
 	for (const key of aiPrimarySecretKeys()) {
 		if (String(env[key] ?? '').trim() !== '') {
@@ -477,7 +462,6 @@ export function validateRuntimeConfig(env) {
 		validateConfigEncryptionKey(env.CONFIG_ENCRYPTION_KEY)
 	}
 
-	validatePaymentRuntimeConfig(env)
 	validateAIRoutingConfig(env)
 	collectAIChannels(env)
 }
@@ -589,85 +573,6 @@ function collectAIChannels(env) {
 function requireConfigValue(env, key) {
 	if (String(env[key] ?? '').trim() === '') {
 		throw new Error(`${key}_MISSING`)
-	}
-}
-
-function validatePaymentRuntimeConfig(env) {
-	if (env.PAYMENT_ENABLED !== 'true') {
-		return
-	}
-
-	const products = parsePaymentProducts(env.PAYMENT_PRODUCTS)
-	if (products.length === 0) {
-		throw new Error('PAYMENT_PRODUCTS_MISSING')
-	}
-
-	const providers = collectPaymentProviders(products)
-	if (!providers.includes(env.PAYMENT_PROVIDER)) {
-		throw new Error('PAYMENT_PROVIDER_INVALID')
-	}
-
-	validatePaymentCountryOverrides(env.PAYMENT_PROVIDER_COUNTRY_OVERRIDES, providers)
-
-	if (providers.includes('dodo')) {
-		requireSecret(env, 'PAYMENT_DODO_API_KEY')
-		requireSecret(env, 'PAYMENT_DODO_WEBHOOK_SECRET')
-	}
-	if (providers.includes('creem')) {
-		requireSecret(env, 'PAYMENT_CREEM_API_KEY')
-		requireSecret(env, 'PAYMENT_CREEM_WEBHOOK_SECRET')
-	}
-}
-
-function parsePaymentProducts(raw) {
-	const text = String(raw ?? '').trim()
-	if (text === '') {
-		return []
-	}
-
-	const products = JSON.parse(text)
-	if (!Array.isArray(products)) {
-		throw new Error('PAYMENT_PRODUCTS_INVALID')
-	}
-	return products
-}
-
-function collectPaymentProviders(products) {
-	const providers = []
-	for (const product of products) {
-		const productProviders = product?.providers
-		if (typeof productProviders !== 'object' || productProviders === null || Array.isArray(productProviders)) {
-			throw new Error('PAYMENT_PRODUCTS_INVALID')
-		}
-		for (const provider of Object.keys(productProviders)) {
-			if (provider !== 'dodo' && provider !== 'creem') {
-				throw new Error('PAYMENT_PROVIDER_INVALID')
-			}
-			if (!providers.includes(provider)) {
-				providers.push(provider)
-			}
-		}
-	}
-	return providers
-}
-
-function validatePaymentCountryOverrides(raw, providers) {
-	const text = String(raw ?? '').trim()
-	if (text === '') {
-		return
-	}
-
-	const overrides = JSON.parse(text)
-	if (!Array.isArray(overrides)) {
-		throw new Error('PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID')
-	}
-
-	for (const override of overrides) {
-		const provider = String(override?.provider ?? '').trim()
-		const country = String(override?.country ?? '').trim()
-		if (country === '' || !providers.includes(provider)) {
-			throw new Error('PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID')
-		}
 	}
 }
 

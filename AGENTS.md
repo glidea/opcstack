@@ -304,7 +304,7 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - User upload URLs may only write `private/<userId>/*` or `tmp/private/<userId>/*`; the request uses `is_tmp` to choose lifecycle.
 - Admin public upload URLs may only write `public/*`; do not use the admin public upload API for user-owned private files.
 - Use a single R2 bucket by default.
-- Payment is controlled by `PAYMENT_ENABLED`; enabled providers are Dodo and Creem via `src/backend/payment/`.
+- Payment settings, provider credentials, country routing, and products are read from Meta D1. Enabled providers are Dodo and Creem via `src/backend/payment/`.
 - AI providers live under `src/backend/ai/`; async AI queue payloads carry only task id and user id.
 - Only Image, TTS, and Video async consumers use Channel Router. Task creation still stores provider and model only; the consumer selects a matching ENV channel at execution time.
 - Image and TTS may try ranked channels within one queue attempt. Video selects a channel only when creating a remote task and polls that task through the persisted channel until the provider reports a terminal failure.

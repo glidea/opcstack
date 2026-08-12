@@ -278,7 +278,7 @@ Import it through:
 import { clientConfig } from '$frontend/config/client'
 ```
 
-`scripts/prepare-public.mjs` generates the file from `.env.dev`, `.env.prod`, `.env`, and process env. It also prepares web logo and extension icons.
+`scripts/prepare-public.mjs` generates the file from long-lived deployment env. It also prepares web logo and extension icons. Business settings are loaded from `PublicRuntimeConfig` after the Worker starts.
 
 Common fields:
 
@@ -288,18 +288,9 @@ Common fields:
 | `appVersion` | Extension manifest |
 | `apiBaseUrl` | Extension API client |
 | `webBaseUrl` | Canonical URLs and extension navigation |
-| `supportEmail` | Legal and support pages |
-| `designSystem` | CSS design variant |
-| `docsEnabled` | Docs route enablement |
-| `emailSignupEnabled` | Auth UI |
-| `googleAuthEnabled` | Auth UI |
-| `githubAuthEnabled` | Auth UI |
-| `linuxdoAuthEnabled` | Auth UI |
-| `turnstileEnabled` | Auth UI |
-| `paymentEnabled` | Legal refund link and payment UI |
 | `extension.hostPermissions` | WXT manifest and content script matches |
 
-Frontend code must not read secret env files.
+Runtime settings such as support email, design system, auth switches, docs, Turnstile, and payment are loaded from D1 through `PublicRuntimeConfig`. Frontend code must not read secret env files or add an env fallback for these fields.
 
 ## Prerender
 
@@ -428,6 +419,6 @@ The extension imports `$frontend` from `src/frontend/lib/`. Keep extension-only 
 
 **Prerendering authenticated pages.** Anything depending on session or user-specific data should not set `prerender = true`.
 
-**Hardcoding public config.** Use `clientConfig`. If a new public value is needed, add it to public env and `prepare-public.mjs`; do not read secret env files in frontend code.
+**Hardcoding public config.** Use `clientConfig` only for deployment identity and extension packaging. Add user-managed runtime values to D1 and `PublicRuntimeConfig`; do not add an env fallback or read secret env files in frontend code.
 
 **Duplicating UI primitives.** If `Button`, `Dialog`, `Alert`, `Empty`, `Field`, `Input`, or table primitives already exist, use them.

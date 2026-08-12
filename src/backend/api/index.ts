@@ -56,17 +56,22 @@ import {
 import { getAdminOverviewHandler } from './handler/admin-overview'
 import { listAdminUsersHandler, updateAdministratorEmailHandler } from './handler/admin-users'
 import {
+	createPaymentProductHandler,
+	deletePaymentProductHandler,
 	getAuthenticationConfigHandler,
 	getAffiliateConfigHandler,
 	getCreditsConfigHandler,
 	getEmailConfigHandler,
 	getGeneralConfigHandler,
+	getPaymentConfigHandler,
 	getStorageConfigHandler,
 	updateAuthenticationConfigHandler,
 	updateAffiliateConfigHandler,
 	updateCreditsConfigHandler,
 	updateEmailConfigHandler,
 	updateGeneralConfigHandler,
+	updatePaymentConfigHandler,
+	updatePaymentProductHandler,
 	updateStorageConfigHandler
 } from './handler/configuration'
 import { authCore } from './auth'
@@ -158,6 +163,11 @@ adminApi.post('/admin/get_credits_config', getCreditsConfigHandler)
 adminApi.post('/admin/update_credits_config', updateCreditsConfigHandler)
 adminApi.post('/admin/get_affiliate_config', getAffiliateConfigHandler)
 adminApi.post('/admin/update_affiliate_config', updateAffiliateConfigHandler)
+adminApi.post('/admin/get_payment_config', getPaymentConfigHandler)
+adminApi.post('/admin/update_payment_config', updatePaymentConfigHandler)
+adminApi.post('/admin/create_payment_product', createPaymentProductHandler)
+adminApi.post('/admin/update_payment_product', updatePaymentProductHandler)
+adminApi.post('/admin/delete_payment_product', deletePaymentProductHandler)
 adminApi.put('/admin/r2/public/*', uploadR2PublicObjectHandler)
 adminApi.get('/admin/ai_realtime_connect', aiRealtimeConnectHandler)
 

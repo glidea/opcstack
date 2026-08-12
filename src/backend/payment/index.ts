@@ -9,7 +9,7 @@ import {
 	CreditsService
 } from '../credits'
 import {
-	parsePaymentConfig,
+	getPaymentRuntimeConfig,
 	PaymentProviderRouter,
 	type PaymentConfig,
 	type PaymentProductConfig,
@@ -1295,17 +1295,6 @@ export class PaymentService {
 					billingMode: providerProduct.billingMode
 				}
 			}
-			case 'inline_product':
-				return {
-					product,
-					providerConfig,
-					providerProductId: product.productId,
-					name: providerConfig.name,
-					description: providerConfig.description,
-					priceAmount: providerConfig.amount,
-					currency: providerConfig.currency,
-					billingMode: product.type
-				}
 		}
 	}
 
@@ -1323,22 +1312,23 @@ export class PaymentService {
 	}
 }
 
-export function createPaymentService(
+export async function createPaymentService(
 	db: MetaDb,
 	env: Env
-): PaymentService {
-	const config = parsePaymentConfig(env)
+): Promise<PaymentService> {
+	const config = await getPaymentRuntimeConfig(db, env.CONFIG_ENCRYPTION_KEY)
 	const providerRouter = new PaymentProviderRouter({
 		defaultProvider: config.defaultProvider,
 		providerCountryOverrides: config.providerCountryOverrides
 	})
 
-	const providers: PaymentProviderMap = config.enabled
-		? {
-			dodo: createDodoPayment(env),
-			creem: createCreemPayment(env)
-		}
-		: {}
+	const providers: PaymentProviderMap = {}
+	if (config.providerConfigs.dodo) {
+		providers.dodo = createDodoPayment(config.providerConfigs.dodo)
+	}
+	if (config.providerConfigs.creem) {
+		providers.creem = createCreemPayment(config.providerConfigs.creem)
+	}
 
 	return new PaymentService(db, config, providerRouter, providers, async (userId: string) => {
 		const tenant = await createTenantShardAccess(db, env).openUserDb(userId)

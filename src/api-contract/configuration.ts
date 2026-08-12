@@ -277,3 +277,96 @@ export const UpdateAffiliateConfigApi = {
 	response: AffiliateConfigSchema,
 	errors: ConfigurationErrors
 }
+
+export const PaymentProviderNameSchema = z.enum(['dodo', 'creem'])
+export type PaymentProviderName = z.infer<typeof PaymentProviderNameSchema>
+
+export const PaymentProductSchema = z.object({
+	product_id: z.string().trim().min(1),
+	type: z.enum(['one_time', 'subscription']),
+	credits_amount: CreditConfigAmountSchema.nullable(),
+	subscription_plan: z.string().trim().min(1).nullable(),
+	upgrade_rank: z.number().int().nonnegative().nullable(),
+	period_credits_amount: CreditConfigAmountSchema.nullable(),
+	dodo_product_id: z.string().trim().min(1).nullable(),
+	creem_product_id: z.string().trim().min(1).nullable(),
+	version: z.number().int().min(1)
+})
+export type PaymentProduct = z.infer<typeof PaymentProductSchema>
+
+const PaymentProviderConfigSchema = z.object({
+	test_mode: z.boolean(),
+	api_key_configured: z.boolean(),
+	webhook_secret_configured: z.boolean(),
+	webhook_url: z.string().url()
+})
+
+export const PaymentConfigSchema = z.object({
+	enabled: z.boolean(),
+	default_provider: PaymentProviderNameSchema.nullable(),
+	country_provider_overrides: z.array(
+		z.object({ country: z.string().length(2), provider: PaymentProviderNameSchema })
+	),
+	dodo: PaymentProviderConfigSchema,
+	creem: PaymentProviderConfigSchema,
+	products: z.array(PaymentProductSchema),
+	version: z.number().int().min(1)
+})
+export type PaymentConfig = z.infer<typeof PaymentConfigSchema>
+
+export const GetPaymentConfigRequestSchema = z.object({})
+export const UpdatePaymentConfigRequestSchema = z.object({
+	enabled: z.boolean(),
+	default_provider: PaymentProviderNameSchema.nullable(),
+	country_provider_overrides: z.array(
+		z.object({ country: z.string().trim().length(2), provider: PaymentProviderNameSchema })
+	),
+	dodo_test_mode: z.boolean(),
+	dodo_api_key: SecretMutationSchema,
+	dodo_webhook_secret: SecretMutationSchema,
+	creem_test_mode: z.boolean(),
+	creem_api_key: SecretMutationSchema,
+	creem_webhook_secret: SecretMutationSchema,
+	expected_version: z.number().int().min(1)
+})
+
+const PaymentProductFieldsSchema = PaymentProductSchema.omit({ version: true })
+export const CreatePaymentProductRequestSchema = PaymentProductFieldsSchema
+export const UpdatePaymentProductRequestSchema = PaymentProductFieldsSchema.extend({
+	expected_version: z.number().int().min(1)
+})
+export const DeletePaymentProductRequestSchema = z.object({
+	product_id: z.string().trim().min(1),
+	expected_version: z.number().int().min(1)
+})
+export const DeletePaymentProductResponseSchema = z.object({ product_id: z.string() })
+
+export const GetPaymentConfigApi = {
+	request: GetPaymentConfigRequestSchema,
+	response: PaymentConfigSchema,
+	errors: ConfigurationErrors
+}
+
+export const UpdatePaymentConfigApi = {
+	request: UpdatePaymentConfigRequestSchema,
+	response: PaymentConfigSchema,
+	errors: ConfigurationErrors
+}
+
+export const CreatePaymentProductApi = {
+	request: CreatePaymentProductRequestSchema,
+	response: PaymentProductSchema,
+	errors: ConfigurationErrors
+}
+
+export const UpdatePaymentProductApi = {
+	request: UpdatePaymentProductRequestSchema,
+	response: PaymentProductSchema,
+	errors: ConfigurationErrors
+}
+
+export const DeletePaymentProductApi = {
+	request: DeletePaymentProductRequestSchema,
+	response: DeletePaymentProductResponseSchema,
+	errors: ConfigurationErrors
+}

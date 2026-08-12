@@ -397,14 +397,7 @@ Generated once by `prepare-cloudflare` and always required:
 | `CONFIG_ENCRYPTION_KEY` |
 | `R2_ORIGIN_SIGNING_SECRET` |
 
-Conditionally required:
-
-| Feature | Secrets |
-| --- | --- |
-| Dodo | `PAYMENT_DODO_API_KEY`, `PAYMENT_DODO_WEBHOOK_SECRET` |
-| Creem | `PAYMENT_CREEM_API_KEY`, `PAYMENT_CREEM_WEBHOOK_SECRET` |
-| AI providers | Provider API keys when configured |
-| AI channels | API keys for discovered async channels |
+Payment credentials are encrypted in D1 and managed through the admin Configuration page. They are not Worker secrets.
 
 `.wrangler/wrangler.types.jsonc` may include the full secret schema so generated `Env` stays stable. That does not mean every secret is required at runtime.
 
@@ -419,8 +412,8 @@ External services must point back to the deployed Worker origin.
 | LinuxDO OAuth | OAuth id and secret, callback URL using `APP_DOMAIN` |
 | Resend | API key and verified sender domain for the D1 administrator email |
 | Cloudflare Email | Paid Worker plan and `SEND_EMAIL` binding |
-| Dodo | API key, webhook secret, product ids, webhook to Worker |
-| Creem | API key, webhook secret, product ids, webhook to Worker |
+| Dodo | Configuration > Payment credentials, product ids, webhook to Worker |
+| Creem | Configuration > Payment credentials, product ids, webhook to Worker |
 | AI providers | API keys in secret env, base URLs and model names in public env |
 
 If a feature is disabled, do not configure fake production credentials. Keep the feature switch false.

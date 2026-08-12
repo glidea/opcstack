@@ -133,11 +133,11 @@
 - 不实现 Payment 后台页面
 
 ## TODO 清单
-- [ ] 1. 先增加 Provider 启用、国家路由、商品约束、Webhook 和删除冲突的失败测试
-- [ ] 2. 实现 Payment 配置及 Product CRUD 契约、Handler 和版本冲突处理
-- [ ] 3. 将支付 Service、Checkout 和 Webhook 切换到 D1 快照与加密凭据
-- [ ] 4. 删除 Payment ENV 商品解析、Provider Secret 和所有回退逻辑
-- [ ] 5. 更新支付模块文档与测试数据构造方式
+- [x] 1. 先增加 Provider 启用、国家路由、商品约束、Webhook 和删除冲突的失败测试
+- [x] 2. 实现 Payment 配置及 Product CRUD 契约、Handler 和版本冲突处理
+- [x] 3. 将支付 Service、Checkout 和 Webhook 切换到 D1 快照与加密凭据
+- [x] 4. 删除 Payment ENV 商品解析、Provider Secret 和所有回退逻辑
+- [x] 5. 更新支付模块文档与测试数据构造方式
 
 ## 验收测试步骤
 1. 创建商品并启用一个支付 Provider，确认 Checkout 使用 D1 商品和 Provider 配置

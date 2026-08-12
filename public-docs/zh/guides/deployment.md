@@ -398,14 +398,7 @@ Binding 和类命名：
 | `CONFIG_ENCRYPTION_KEY` |
 | `R2_ORIGIN_SIGNING_SECRET` |
 
-条件需要：
-
-| 功能 | 密钥 |
-| --- | --- |
-| Dodo | `PAYMENT_DODO_API_KEY`、`PAYMENT_DODO_WEBHOOK_SECRET` |
-| Creem | `PAYMENT_CREEM_API_KEY`、`PAYMENT_CREEM_WEBHOOK_SECRET` |
-| AI providers | 配置时需要 provider API keys |
-| 异步 AI 渠道 | 配置渠道公共字段时需要对应渠道 API key |
+支付凭据加密保存在 D1，通过后台 Configuration 页面管理，不是 Worker Secret。
 
 `.wrangler/wrangler.types.jsonc` 可能包含完整密钥 schema，以保持生成的 `Env` 类型稳定。这不意味着每个密钥在运行时都是必需的。
 
@@ -420,8 +413,8 @@ Binding 和类命名：
 | LinuxDO OAuth | OAuth id 和密钥，使用 `APP_DOMAIN` 的回调 URL |
 | Resend | API key 和 D1 管理员邮箱的已验证发件人域名 |
 | Cloudflare Email | 付费 Worker 方案和 `SEND_EMAIL` binding |
-| Dodo | API key、webhook 密钥、产品 id、指向 Worker 的 webhook |
-| Creem | API key、webhook 密钥、产品 id、指向 Worker 的 webhook |
+| Dodo | Configuration > Payment 中的凭据、产品 id、指向 Worker 的 webhook |
+| Creem | Configuration > Payment 中的凭据、产品 id、指向 Worker 的 webhook |
 | AI providers | secret env 中的 API keys，public env 中的 base URL 和模型名 |
 
 如果某功能被禁用，不要配置假的生产凭据。保持功能开关为 false。

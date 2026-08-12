@@ -1,23 +1,30 @@
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
+	CreatePaymentProductApi,
+	DeletePaymentProductApi,
 	GetAuthenticationConfigApi,
 	GetAffiliateConfigApi,
 	GetCreditsConfigApi,
 	GetEmailConfigApi,
 	GetGeneralConfigApi,
+	GetPaymentConfigApi,
 	GetStorageConfigApi,
 	UpdateAuthenticationConfigApi,
 	UpdateAffiliateConfigApi,
 	UpdateCreditsConfigApi,
 	UpdateEmailConfigApi,
 	UpdateGeneralConfigApi,
+	UpdatePaymentConfigApi,
+	UpdatePaymentProductApi,
 	UpdateStorageConfigApi,
 	type AuthenticationConfig as AuthenticationConfigResponse,
 	type AffiliateConfig as AffiliateConfigResponse,
 	type CreditsConfig as CreditsConfigResponse,
 	type EmailConfig as EmailConfigResponse,
 	type GeneralConfig as GeneralConfigResponse,
+	type PaymentConfig as PaymentConfigResponse,
+	type PaymentProduct as PaymentProductResponse,
 	type StorageConfig as StorageConfigResponse
 } from '../../../api-contract/configuration'
 import {
@@ -41,6 +48,18 @@ import {
 	type GeneralConfig,
 	type StorageConfig
 } from '../../config'
+
+import {
+	createPaymentProduct,
+	deletePaymentProduct,
+	getPaymentConfig,
+	PaymentConfigError,
+	updatePaymentConfig,
+	updatePaymentProduct,
+	type PaymentConfigView,
+	type WritePaymentProductInput
+} from '../../payment/config'
+import type { PaymentProduct } from '../../db/schema.meta'
 
 import { formatDecimal, parseDecimal } from '../../lib/decimal'
 import { logError } from '../../lib/log'
@@ -298,6 +317,198 @@ export async function updateAffiliateConfigHandler(ctx: Context<ApiEnv>): Promis
 	}
 }
 
+export async function getPaymentConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, GetPaymentConfigApi.request)
+	if (!request.success) {
+		const error = GetPaymentConfigApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		const config: PaymentConfigView = await getPaymentConfig(ctx.get('metaDb'))
+		return ctx.json(toPaymentConfigResponse(config, ctx.env.APP_BASE_URL) as PaymentConfigResponse)
+	} catch (error) {
+		return mapPaymentConfigurationError(ctx, error)
+	}
+}
+
+export async function updatePaymentConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, UpdatePaymentConfigApi.request)
+	if (!request.success) {
+		const error = UpdatePaymentConfigApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		const config: PaymentConfigView = await updatePaymentConfig(
+			ctx.get('metaDb'),
+			ctx.env.CONFIG_ENCRYPTION_KEY,
+			{
+				enabled: request.data.enabled,
+				defaultProvider: request.data.default_provider,
+				providerCountryOverrides: request.data.country_provider_overrides,
+				providers: {
+					dodo: {
+						testMode: request.data.dodo_test_mode,
+						apiKey: request.data.dodo_api_key,
+						webhookSecret: request.data.dodo_webhook_secret
+					},
+					creem: {
+						testMode: request.data.creem_test_mode,
+						apiKey: request.data.creem_api_key,
+						webhookSecret: request.data.creem_webhook_secret
+					}
+				},
+				expectedVersion: request.data.expected_version,
+				nowMs: Date.now()
+			}
+		)
+		return ctx.json(toPaymentConfigResponse(config, ctx.env.APP_BASE_URL) as PaymentConfigResponse)
+	} catch (error) {
+		return mapPaymentConfigurationError(ctx, error)
+	}
+}
+
+export async function createPaymentProductHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, CreatePaymentProductApi.request)
+	if (!request.success) {
+		const error = CreatePaymentProductApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		const product: PaymentProduct = await createPaymentProduct(ctx.get('metaDb'), {
+			...toPaymentProductInput(request.data),
+			nowMs: Date.now()
+		})
+		return ctx.json(toPaymentProductResponse(product) as PaymentProductResponse)
+	} catch (error) {
+		return mapPaymentConfigurationError(ctx, error)
+	}
+}
+
+export async function updatePaymentProductHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, UpdatePaymentProductApi.request)
+	if (!request.success) {
+		const error = UpdatePaymentProductApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		const product: PaymentProduct = await updatePaymentProduct(ctx.get('metaDb'), {
+			...toPaymentProductInput(request.data),
+			expectedVersion: request.data.expected_version,
+			nowMs: Date.now()
+		})
+		return ctx.json(toPaymentProductResponse(product) as PaymentProductResponse)
+	} catch (error) {
+		return mapPaymentConfigurationError(ctx, error)
+	}
+}
+
+export async function deletePaymentProductHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, DeletePaymentProductApi.request)
+	if (!request.success) {
+		const error = DeletePaymentProductApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		await deletePaymentProduct(ctx.get('metaDb'), {
+			id: request.data.product_id,
+			expectedVersion: request.data.expected_version
+		})
+		return ctx.json({ product_id: request.data.product_id })
+	} catch (error) {
+		return mapPaymentConfigurationError(ctx, error)
+	}
+}
+
+function toPaymentConfigResponse(config: PaymentConfigView, baseUrl: string): PaymentConfigResponse {
+	return {
+		enabled: config.enabled,
+		default_provider: config.defaultProvider,
+		country_provider_overrides: config.providerCountryOverrides,
+		dodo: {
+			test_mode: config.providers.dodo.testMode,
+			api_key_configured: config.providers.dodo.apiKey !== null,
+			webhook_secret_configured: config.providers.dodo.webhookSecret !== null,
+			webhook_url: new URL('/api/webhook/dodo', baseUrl).toString()
+		},
+		creem: {
+			test_mode: config.providers.creem.testMode,
+			api_key_configured: config.providers.creem.apiKey !== null,
+			webhook_secret_configured: config.providers.creem.webhookSecret !== null,
+			webhook_url: new URL('/api/webhook/creem', baseUrl).toString()
+		},
+		products: config.products.map(toPaymentProductResponse),
+		version: config.version
+	}
+}
+
+function toPaymentProductResponse(product: PaymentProduct): PaymentProductResponse {
+	return {
+		product_id: product.id,
+		type: product.type as 'one_time' | 'subscription',
+		credits_amount: product.creditsAmount === null ? null : formatDecimal(product.creditsAmount),
+		subscription_plan: product.subscriptionPlan,
+		upgrade_rank: product.upgradeRank,
+		period_credits_amount:
+			product.periodCreditsAmount === null ? null : formatDecimal(product.periodCreditsAmount),
+		dodo_product_id: product.dodoProductId,
+		creem_product_id: product.creemProductId,
+		version: product.version
+	}
+}
+
+function toPaymentProductInput(product: {
+	product_id: string
+	type: 'one_time' | 'subscription'
+	credits_amount: string | null
+	subscription_plan: string | null
+	upgrade_rank: number | null
+	period_credits_amount: string | null
+	dodo_product_id: string | null
+	creem_product_id: string | null
+}): Omit<WritePaymentProductInput, 'nowMs'> {
+	return {
+		id: product.product_id,
+		type: product.type,
+		creditsAmount:
+			product.credits_amount === null ? null : parseConfigCreditAmount(product.credits_amount),
+		subscriptionPlan: product.subscription_plan,
+		upgradeRank: product.upgrade_rank,
+		periodCreditsAmount:
+			product.period_credits_amount === null
+				? null
+				: parseConfigCreditAmount(product.period_credits_amount),
+		dodoProductId: product.dodo_product_id,
+		creemProductId: product.creem_product_id
+	}
+}
+
+function mapPaymentConfigurationError(ctx: Context<ApiEnv>, error: unknown): Response {
+	if (error instanceof ConfigStoreError) {
+		return mapConfigurationError(ctx, error, 'payment')
+	}
+	if (!(error instanceof PaymentConfigError)) {
+		throw error
+	}
+	switch (error.code) {
+		case 'PAYMENT_PRODUCT_NOT_FOUND': {
+			const response = GetPaymentConfigApi.errors.CONFIG_NOT_FOUND()
+			return ctx.json(response.body, response.status)
+		}
+		case 'PAYMENT_PRODUCT_CONFLICT':
+		case 'PAYMENT_PRODUCT_REFERENCED': {
+			const response = GetPaymentConfigApi.errors.CONFIG_CONFLICT()
+			return ctx.json(response.body, response.status)
+		}
+		case 'PAYMENT_PROVIDER_INVALID':
+		case 'PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID':
+		case 'PAYMENT_PROVIDER_CREDENTIALS_MISSING':
+		case 'PAYMENT_PRODUCTS_INVALID': {
+			const response = GetPaymentConfigApi.errors.INVALID_REQUEST(error.message)
+			return ctx.json(response.body, response.status)
+		}
+	}
+}
+
 function toGeneralConfigResponse(config: GeneralConfig): GeneralConfigResponse {
 	return {
 		design_system: config.designSystem,
@@ -382,7 +593,7 @@ function parseConfigCreditAmount(raw: string): number {
 function mapConfigurationError(
 	ctx: Context<ApiEnv>,
 	error: unknown,
-	domain: 'general' | 'authentication' | 'email' | 'storage' | 'credits' | 'affiliate'
+	domain: 'general' | 'authentication' | 'email' | 'storage' | 'credits' | 'affiliate' | 'payment'
 ): Response {
 	if (!(error instanceof ConfigStoreError)) {
 		throw error

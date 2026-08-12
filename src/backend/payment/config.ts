@@ -1,4 +1,17 @@
-import { parseDecimal } from '../lib/decimal'
+import { and, eq, inArray, sql } from 'drizzle-orm'
+import { z } from 'zod'
+import type { MetaDb } from '../db'
+import {
+	paymentProduct,
+	userSubscription,
+	type PaymentProduct,
+	type PaymentSettingsDocument
+} from '../db/schema.meta'
+import {
+	readSystemSettingsSnapshot,
+	updateSystemSettingsDomain
+} from '../config'
+import { decryptConfigSecret, mutateConfigSecret, type SecretMutation } from '../config/crypto'
 
 export const PAYMENT_PROVIDER_DODO = 'dodo'
 export const PAYMENT_PROVIDER_CREEM = 'creem'
@@ -11,24 +24,10 @@ export interface PaymentProviderCountryOverride {
 	provider: PaymentProviderName
 }
 
-export interface RemotePaymentProviderProductConfig {
+export interface PaymentProviderProductConfig {
 	kind: 'remote_product'
 	productId: string
 }
-
-export interface InlinePaymentProviderProductConfig {
-	kind: 'inline_product'
-	name: string
-	description: string | null
-	amount: number
-	currency: string
-	payType: string | null
-	productCode: string | null
-}
-
-export type PaymentProviderProductConfig =
-	| RemotePaymentProviderProductConfig
-	| InlinePaymentProviderProductConfig
 
 export interface PaymentProductConfig {
 	productId: string
@@ -40,24 +39,39 @@ export interface PaymentProductConfig {
 	providers: Partial<Record<PaymentProviderName, PaymentProviderProductConfig>>
 }
 
+export interface PaymentProviderRuntimeConfig {
+	testMode: boolean
+	apiKey: string
+	webhookSecret: string
+}
+
 export interface PaymentConfig {
 	enabled: boolean
 	providers: PaymentProviderName[]
-	defaultProvider: PaymentProviderName
+	defaultProvider: PaymentProviderName | null
 	providerCountryOverrides: PaymentProviderCountryOverride[]
 	products: PaymentProductConfig[]
+}
+
+export interface PaymentRuntimeConfig extends PaymentConfig {
+	providerConfigs: Partial<Record<PaymentProviderName, PaymentProviderRuntimeConfig>>
 }
 
 export type PaymentConfigErrorCode =
 	| 'PAYMENT_PROVIDER_INVALID'
 	| 'PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID'
+	| 'PAYMENT_PROVIDER_CREDENTIALS_MISSING'
 	| 'PAYMENT_PRODUCTS_INVALID'
+	| 'PAYMENT_PRODUCT_NOT_FOUND'
+	| 'PAYMENT_PRODUCT_CONFLICT'
+	| 'PAYMENT_PRODUCT_REFERENCED'
 
 export class PaymentConfigError extends Error {
 	public readonly code: PaymentConfigErrorCode
 
 	constructor(code: PaymentConfigErrorCode, message?: string) {
 		super(message ?? paymentConfigErrorMessage(code))
+		this.name = 'PaymentConfigError'
 		this.code = code
 	}
 }
@@ -68,8 +82,16 @@ function paymentConfigErrorMessage(code: PaymentConfigErrorCode): string {
 			return 'Payment provider config is invalid'
 		case 'PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID':
 			return 'Payment provider country overrides are invalid'
+		case 'PAYMENT_PROVIDER_CREDENTIALS_MISSING':
+			return 'Payment provider credentials are missing'
 		case 'PAYMENT_PRODUCTS_INVALID':
-			return 'Payment products config is invalid'
+			return 'Payment product is invalid'
+		case 'PAYMENT_PRODUCT_NOT_FOUND':
+			return 'Payment product was not found'
+		case 'PAYMENT_PRODUCT_CONFLICT':
+			return 'Payment product has changed'
+		case 'PAYMENT_PRODUCT_REFERENCED':
+			return 'Payment product is referenced by an effective subscription'
 	}
 }
 
@@ -78,256 +100,359 @@ export interface SelectPaymentProviderInput {
 }
 
 export class PaymentProviderRouter {
-	private readonly defaultProvider: PaymentProviderName
+	private readonly defaultProvider: PaymentProviderName | null
 	private readonly providerByCountry: Map<string, PaymentProviderName>
 
 	constructor(config: {
-		defaultProvider: PaymentProviderName
+		defaultProvider: PaymentProviderName | null
 		providerCountryOverrides: PaymentProviderCountryOverride[]
 	}) {
 		this.defaultProvider = config.defaultProvider
 		this.providerByCountry = new Map<string, PaymentProviderName>()
-
 		for (const item of config.providerCountryOverrides) {
 			this.providerByCountry.set(item.country, item.provider)
 		}
 	}
 
 	select(input: SelectPaymentProviderInput): PaymentProviderName {
-		if (!input.country) {
-			return this.defaultProvider
+		const country: string = input.country?.trim().toUpperCase() ?? ''
+		const provider: PaymentProviderName | null =
+			this.providerByCountry.get(country) ?? this.defaultProvider
+		if (provider === null) {
+			throw new PaymentConfigError('PAYMENT_PROVIDER_INVALID')
 		}
-
-		const country = input.country.trim().toUpperCase()
-		if (country === '') {
-			return this.defaultProvider
-		}
-
-		return this.providerByCountry.get(country) ?? this.defaultProvider
+		return provider
 	}
 }
 
-export function parsePaymentConfig(env: Env): PaymentConfig {
-	const enabled = String(env.PAYMENT_ENABLED) === 'true'
-	const products = parseProducts(env.PAYMENT_PRODUCTS)
-	const providers = collectProviders(products)
-	if (!enabled && providers.length === 0) {
-		return {
-			enabled,
-			providers,
-			defaultProvider: toProviderName(env.PAYMENT_PROVIDER),
-			providerCountryOverrides: [],
-			products
-		}
+export interface PaymentConfigView extends PaymentSettingsDocument {
+	products: PaymentProduct[]
+	version: number
+}
+
+export interface UpdatePaymentConfigInput {
+	enabled: boolean
+	defaultProvider: PaymentProviderName | null
+	providerCountryOverrides: PaymentProviderCountryOverride[]
+	providers: {
+		dodo: PaymentProviderUpdate
+		creem: PaymentProviderUpdate
 	}
+	expectedVersion: number
+	nowMs: number
+}
 
-	const defaultProvider = parseDefaultProvider(env.PAYMENT_PROVIDER, providers)
-	const providerCountryOverrides = parseCountryOverrides(
-		env.PAYMENT_PROVIDER_COUNTRY_OVERRIDES,
-		providers
-	)
+export interface PaymentProviderUpdate {
+	testMode: boolean
+	apiKey: SecretMutation
+	webhookSecret: SecretMutation
+}
 
+export interface WritePaymentProductInput {
+	id: string
+	type: PaymentProductType
+	creditsAmount: number | null
+	subscriptionPlan: string | null
+	upgradeRank: number | null
+	periodCreditsAmount: number | null
+	dodoProductId: string | null
+	creemProductId: string | null
+	nowMs: number
+}
+
+export async function getPaymentConfig(db: MetaDb): Promise<PaymentConfigView> {
+	const settings = await readSystemSettingsSnapshot(db)
+	const values: PaymentSettingsDocument = parsePaymentSettings(settings.paymentConfig)
+	const products: PaymentProduct[] = await db.query.paymentProduct.findMany()
+	return { ...values, products, version: settings.paymentVersion }
+}
+
+export async function updatePaymentConfig(
+	db: MetaDb,
+	encryptionKey: string,
+	input: UpdatePaymentConfigInput
+): Promise<PaymentConfigView> {
+	const current: PaymentConfigView = await getPaymentConfig(db)
+	const values: PaymentSettingsDocument = parsePaymentSettings({
+		enabled: input.enabled,
+		defaultProvider: input.defaultProvider,
+		providerCountryOverrides: input.providerCountryOverrides,
+		providers: {
+			dodo: await mutateProvider(encryptionKey, current.providers.dodo, input.providers.dodo),
+			creem: await mutateProvider(encryptionKey, current.providers.creem, input.providers.creem)
+		}
+	})
+	validatePaymentSettings(values, current.products)
+	const settings = await updateSystemSettingsDomain(db, {
+		domain: 'payment',
+		expectedVersion: input.expectedVersion,
+		values,
+		nowMs: input.nowMs
+	})
 	return {
-		enabled,
-		providers,
-		defaultProvider,
-		providerCountryOverrides,
-		products
+		...parsePaymentSettings(settings.paymentConfig),
+		products: current.products,
+		version: settings.paymentVersion
 	}
 }
 
-function parseDefaultProvider(
-	raw: string,
-	providers: PaymentProviderName[]
-): PaymentProviderName {
-	const value = toProviderName(raw.trim())
-	if (!providers.includes(value)) {
-		throw new PaymentConfigError('PAYMENT_PROVIDER_INVALID')
-	}
-	return value
-}
-
-function parseCountryOverrides(
-	raw: string,
-	providers: PaymentProviderName[]
-): PaymentProviderCountryOverride[] {
-	if (raw.trim() === '') {
-		return []
-	}
-
-	const value = JSON.parse(raw) as Array<{ country?: string; provider?: string }>
-	const result: PaymentProviderCountryOverride[] = []
-	for (const item of value) {
-		const country = String(item.country ?? '').trim().toUpperCase()
-		const provider = toProviderName(String(item.provider ?? ''))
-		if (country === '') {
-			throw new PaymentConfigError('PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID')
-		}
-		if (!providers.includes(provider)) {
-			throw new PaymentConfigError('PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID')
-		}
-		result.push({
-			country,
-			provider
-		})
-	}
-
-	return result
-}
-
-function parseProducts(raw: string): PaymentProductConfig[] {
-	if (raw.trim() === '') {
-		return []
-	}
-
-	const value = JSON.parse(raw) as Array<{
-		product_id?: string
-		type?: string
-		credits_amount?: string
-		subscription_plan?: string
-		upgrade_rank?: number
-		period_credits_amount?: string
-		providers?: Record<string, unknown>
-	}>
-	const products: PaymentProductConfig[] = []
-
-	for (const item of value) {
-		const productId = String(item.product_id ?? '').trim()
-		if (productId === '') {
-			throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
-		}
-
-		products.push({
-			productId,
-			type: parseProductType(item.type),
-			creditsAmount: toNullableCreditUnits(item.credits_amount),
-			subscriptionPlan: toNullableText(item.subscription_plan),
-			upgradeRank: toNullableInt(item.upgrade_rank),
-			periodCreditsAmount: toNullableCreditUnits(item.period_credits_amount),
-			providers: parseProductProviders(item.providers)
-		})
-	}
-
-	return products
-}
-
-function parseProductProviders(
-	input: Record<string, unknown> | undefined
-): Partial<Record<PaymentProviderName, PaymentProviderProductConfig>> {
-	const source = input ?? {}
-	const result: Partial<Record<PaymentProviderName, PaymentProviderProductConfig>> = {}
-	for (const key in source) {
-		const provider = toProviderName(key)
-		const value = source[key]
-		if (!isRecord(value)) {
-			throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
-		}
-		result[provider] = parseProviderProductConfig(value)
-	}
-	return result
-}
-
-function parseProviderProductConfig(input: Record<string, unknown>): PaymentProviderProductConfig {
-	const kind = String(input['kind'] ?? '').trim()
-	switch (kind) {
-		case 'remote_product':
-			return {
-				kind,
-				productId: requireText(input['product_id'])
-			}
-		case 'inline_product':
-			return {
-				kind,
-				name: requireText(input['name']),
-				description: toNullableText(input['description']),
-				amount: requireInt(input['amount']),
-				currency: requireText(input['currency']).toUpperCase(),
-				payType: toNullableText(input['pay_type']),
-				productCode: toNullableText(input['product_code'])
-			}
-		default:
-			throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
-	}
-}
-
-function collectProviders(products: PaymentProductConfig[]): PaymentProviderName[] {
+export async function getPaymentRuntimeConfig(
+	db: MetaDb,
+	encryptionKey: string
+): Promise<PaymentRuntimeConfig> {
+	const view: PaymentConfigView = await getPaymentConfig(db)
+	validatePaymentSettings(view, view.products)
+	const providerConfigs: Partial<Record<PaymentProviderName, PaymentProviderRuntimeConfig>> = {}
 	const providers: PaymentProviderName[] = []
-	for (const product of products) {
-		for (const key in product.providers) {
-			const provider = toProviderName(key)
-			if (!providers.includes(provider)) {
-				providers.push(provider)
-			}
+	for (const provider of [PAYMENT_PROVIDER_DODO, PAYMENT_PROVIDER_CREEM] as const) {
+		const config = view.providers[provider]
+		if (config.apiKey === null || config.webhookSecret === null) {
+			continue
 		}
+		providerConfigs[provider] = {
+			testMode: config.testMode,
+			apiKey: await decryptConfigSecret(encryptionKey, config.apiKey),
+			webhookSecret: await decryptConfigSecret(encryptionKey, config.webhookSecret)
+		}
+		providers.push(provider)
 	}
-	return providers
+	return {
+		enabled: view.enabled,
+		defaultProvider: view.defaultProvider,
+		providerCountryOverrides: view.providerCountryOverrides,
+		providers,
+		providerConfigs,
+		products: view.products.map(toRuntimeProduct)
+	}
 }
 
-function parseProductType(value: string | undefined): PaymentProductType {
-	switch (value) {
-		case 'one_time':
-		case 'subscription':
-			return value
-		default:
-			throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
+export function validatePaymentSettings(
+	settings: PaymentSettingsDocument,
+	products: PaymentProduct[]
+): void {
+	parsePaymentSettings(settings)
+	if (!settings.enabled) {
+		return
 	}
-}
-
-function toProviderName(raw: string): PaymentProviderName {
-	const value = raw.trim().toLowerCase()
-	if (value !== PAYMENT_PROVIDER_DODO && value !== PAYMENT_PROVIDER_CREEM) {
+	if (settings.defaultProvider === null) {
 		throw new PaymentConfigError('PAYMENT_PROVIDER_INVALID')
 	}
-	return value
+	const selected: PaymentProviderName[] = [settings.defaultProvider]
+	for (const override of settings.providerCountryOverrides) {
+		if (!selected.includes(override.provider)) {
+			selected.push(override.provider)
+		}
+	}
+	for (const provider of selected) {
+		const credentials = settings.providers[provider]
+		if (credentials.apiKey === null || credentials.webhookSecret === null) {
+			throw new PaymentConfigError('PAYMENT_PROVIDER_CREDENTIALS_MISSING')
+		}
+		const hasProduct: boolean = products.some((product: PaymentProduct): boolean => {
+			return provider === 'dodo' ? product.dodoProductId !== null : product.creemProductId !== null
+		})
+		if (!hasProduct) {
+			throw new PaymentConfigError('PAYMENT_PROVIDER_INVALID')
+		}
+	}
 }
 
-function toNullableInt(value: number | undefined): number | null {
-	if (value === undefined) {
-		return null
+export async function createPaymentProduct(
+	db: MetaDb,
+	input: WritePaymentProductInput
+): Promise<PaymentProduct> {
+	validatePaymentProduct(input)
+	const rows: PaymentProduct[] = await db
+		.insert(paymentProduct)
+		.values({
+			id: input.id,
+			type: input.type,
+			creditsAmount: input.creditsAmount,
+			subscriptionPlan: input.subscriptionPlan,
+			upgradeRank: input.upgradeRank,
+			periodCreditsAmount: input.periodCreditsAmount,
+			dodoProductId: input.dodoProductId,
+			creemProductId: input.creemProductId,
+			version: 1,
+			createdAt: input.nowMs,
+			updatedAt: input.nowMs
+		})
+		.onConflictDoNothing()
+		.returning()
+	const row: PaymentProduct | undefined = rows[0]
+	if (!row) {
+		throw new PaymentConfigError('PAYMENT_PRODUCT_CONFLICT')
 	}
-	if (!Number.isInteger(value)) {
+	return row
+}
+
+export async function updatePaymentProduct(
+	db: MetaDb,
+	input: WritePaymentProductInput & { expectedVersion: number }
+): Promise<PaymentProduct> {
+	validatePaymentProduct(input)
+	const rows: PaymentProduct[] = await db
+		.update(paymentProduct)
+		.set({
+			type: input.type,
+			creditsAmount: input.creditsAmount,
+			subscriptionPlan: input.subscriptionPlan,
+			upgradeRank: input.upgradeRank,
+			periodCreditsAmount: input.periodCreditsAmount,
+			dodoProductId: input.dodoProductId,
+			creemProductId: input.creemProductId,
+			version: sql`${paymentProduct.version} + 1`,
+			updatedAt: input.nowMs
+		})
+		.where(and(eq(paymentProduct.id, input.id), eq(paymentProduct.version, input.expectedVersion)))
+		.returning()
+	const row: PaymentProduct | undefined = rows[0]
+	if (row) {
+		return row
+	}
+	const existing: PaymentProduct | undefined = await db.query.paymentProduct.findFirst({
+		where: eq(paymentProduct.id, input.id)
+	})
+	throw new PaymentConfigError(existing ? 'PAYMENT_PRODUCT_CONFLICT' : 'PAYMENT_PRODUCT_NOT_FOUND')
+}
+
+export async function deletePaymentProduct(
+	db: MetaDb,
+	input: { id: string; expectedVersion: number }
+): Promise<void> {
+	const existing: PaymentProduct | undefined = await db.query.paymentProduct.findFirst({
+		where: eq(paymentProduct.id, input.id)
+	})
+	if (!existing) {
+		throw new PaymentConfigError('PAYMENT_PRODUCT_NOT_FOUND')
+	}
+	if (existing.version !== input.expectedVersion) {
+		throw new PaymentConfigError('PAYMENT_PRODUCT_CONFLICT')
+	}
+	const referenced = await db.query.userSubscription.findFirst({
+		columns: { userId: true },
+		where: and(
+			eq(userSubscription.productId, input.id),
+			inArray(userSubscription.status, ['active', 'cancel_at_period_end', 'past_due'])
+		)
+	})
+	if (referenced) {
+		throw new PaymentConfigError('PAYMENT_PRODUCT_REFERENCED')
+	}
+	const rows: PaymentProduct[] = await db
+		.delete(paymentProduct)
+		.where(and(eq(paymentProduct.id, input.id), eq(paymentProduct.version, input.expectedVersion)))
+		.returning()
+	if (rows.length === 0) {
+		throw new PaymentConfigError('PAYMENT_PRODUCT_CONFLICT')
+	}
+}
+
+function parsePaymentSettings(value: unknown): PaymentSettingsDocument {
+	const result: z.ZodSafeParseResult<PaymentSettingsDocument> = PaymentSettingsSchema.safeParse(value)
+	if (!result.success) {
+		throw new PaymentConfigError('PAYMENT_PROVIDER_INVALID')
+	}
+	return result.data
+}
+
+function validatePaymentProduct(input: WritePaymentProductInput): void {
+	const result = PaymentProductInputSchema.safeParse(input)
+	if (!result.success) {
 		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
 	}
-	return value
-}
-
-function requireInt(value: unknown): number {
-	if (!Number.isInteger(value)) {
+	if (input.dodoProductId === null && input.creemProductId === null) {
 		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
 	}
-	return value as number
-}
-
-function requireText(value: unknown): string {
-	const text = String(value ?? '').trim()
-	if (text === '') {
-		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
+	if (input.type === 'one_time') {
+		if (
+			input.creditsAmount === null ||
+			input.creditsAmount <= 0 ||
+			input.subscriptionPlan !== null ||
+			input.upgradeRank !== null ||
+			input.periodCreditsAmount !== null
+		) {
+			throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
+		}
+		return
 	}
-	return text
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function toNullableCreditUnits(value: string | undefined): number | null {
-	if (value === undefined) {
-		return null
-	}
-	try {
-		return parseDecimal(value)
-	} catch {
+	if (
+		input.creditsAmount !== null ||
+		input.subscriptionPlan === null ||
+		input.upgradeRank === null ||
+		input.periodCreditsAmount === null ||
+		input.periodCreditsAmount <= 0
+	) {
 		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
 	}
 }
 
-function toNullableText(value: unknown): string | null {
-	if (value === undefined) {
-		return null
+function toRuntimeProduct(row: PaymentProduct): PaymentProductConfig {
+	const providers: Partial<Record<PaymentProviderName, PaymentProviderProductConfig>> = {}
+	if (row.dodoProductId !== null) {
+		providers.dodo = { kind: 'remote_product', productId: row.dodoProductId }
 	}
-	const text = String(value).trim()
-	if (text === '') {
-		return null
+	if (row.creemProductId !== null) {
+		providers.creem = { kind: 'remote_product', productId: row.creemProductId }
 	}
-	return text
+	return {
+		productId: row.id,
+		type: row.type as PaymentProductType,
+		creditsAmount: row.creditsAmount,
+		subscriptionPlan: row.subscriptionPlan,
+		upgradeRank: row.upgradeRank,
+		periodCreditsAmount: row.periodCreditsAmount,
+		providers
+	}
 }
+
+async function mutateProvider(
+	encryptionKey: string,
+	current: PaymentSettingsDocument['providers']['dodo'],
+	input: PaymentProviderUpdate
+): Promise<PaymentSettingsDocument['providers']['dodo']> {
+	return {
+		testMode: input.testMode,
+		apiKey: await mutateConfigSecret(encryptionKey, current.apiKey, input.apiKey),
+		webhookSecret: await mutateConfigSecret(
+			encryptionKey,
+			current.webhookSecret,
+			input.webhookSecret
+		)
+	}
+}
+
+const EncryptedSecretSchema = z.object({ ciphertext: z.string().min(1), iv: z.string().min(1) })
+const ProviderSchema = z.object({
+	testMode: z.boolean(),
+	apiKey: EncryptedSecretSchema.nullable(),
+	webhookSecret: EncryptedSecretSchema.nullable()
+})
+const PaymentSettingsSchema = z.object({
+	enabled: z.boolean(),
+	defaultProvider: z.enum(['dodo', 'creem']).nullable(),
+	providerCountryOverrides: z
+		.array(
+			z.object({
+				country: z.string().trim().length(2).transform((value: string): string => value.toUpperCase()),
+				provider: z.enum(['dodo', 'creem'])
+			})
+		)
+		.refine(
+			(items: PaymentProviderCountryOverride[]): boolean =>
+				new Set(items.map((item: PaymentProviderCountryOverride): string => item.country)).size ===
+				items.length
+		),
+	providers: z.object({ dodo: ProviderSchema, creem: ProviderSchema })
+})
+const PaymentProductInputSchema = z.object({
+	id: z.string().trim().min(1),
+	type: z.enum(['one_time', 'subscription']),
+	creditsAmount: z.number().int().positive().safe().nullable(),
+	subscriptionPlan: z.string().trim().min(1).nullable(),
+	upgradeRank: z.number().int().nonnegative().nullable(),
+	periodCreditsAmount: z.number().int().positive().safe().nullable(),
+	dodoProductId: z.string().trim().min(1).nullable(),
+	creemProductId: z.string().trim().min(1).nullable(),
+	nowMs: z.number().int().nonnegative()
+})

@@ -119,10 +119,6 @@ export function resolveAppCnCnameTarget(env) {
 	env.APP_CN_CNAME_TARGET = domain
 }
 
-function parseConfigBoolean(value) {
-	return String(value) === 'true'
-}
-
 function parseList(value) {
 	return String(value || '')
 		.split(';')
@@ -138,7 +134,6 @@ export function buildClientConfig(vars) {
 		appVersion: vars.APP_VERSION,
 		apiBaseUrl: vars.APP_BASE_URL,
 		webBaseUrl: vars.APP_BASE_URL,
-		paymentEnabled: parseConfigBoolean(vars.PAYMENT_ENABLED),
 		extension: {
 			hostPermissions: parseList(vars.EXTENSION_HOST_PERMISSIONS)
 		}
@@ -150,7 +145,6 @@ function validatePublicConfig(vars) {
 		'APP_NAME',
 		'APP_VERSION',
 		'APP_BASE_URL',
-		'PAYMENT_ENABLED',
 		'EXTENSION_HOST_PERMISSIONS'
 	]
 
@@ -171,7 +165,6 @@ export function writeClientConfig(vars) {
 	appVersion: string
 	apiBaseUrl: string
 	webBaseUrl: string
-	paymentEnabled: boolean
 	extension: {
 		hostPermissions: string[]
 	}
