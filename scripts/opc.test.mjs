@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { buildApiUrl, createPkcePair, injectAccessToken, parseScopes, resolveSameOriginUrl } from './opc.mjs'
+import {
+	buildApiUrl,
+	createRefreshTokenRequest,
+	createEmptyCredentialStore,
+	createPkcePair,
+	getConnection,
+	injectAccessToken,
+	parseScopes,
+	removeConnection,
+	resolveSameOriginUrl,
+	setConnection
+} from './opc.mjs'
 
 describe('opc cli protocol helpers', () => {
 	it('creates a PKCE verifier and matching challenge shape', () => {
@@ -21,13 +32,58 @@ describe('opc cli protocol helpers', () => {
 
 	it('rejects cross-origin token requests', () => {
 		expect(() => resolveSameOriginUrl('https://app.example.com', 'https://evil.example.com/data')).toThrow(
-			'Only same-origin URLs can receive an Agent token'
+			'Only relative API paths can receive an access token'
+		)
+	})
+
+	it('rejects same-origin absolute URLs', () => {
+		expect(() => resolveSameOriginUrl('https://app.example.com', 'https://app.example.com/api/data')).toThrow(
+			'Only relative API paths can receive an access token'
 		)
 	})
 
 	it('does not allow callers to provide Authorization', () => {
-		expect(() => injectAccessToken({ Authorization: 'Bearer user-token' }, 'agent-token')).toThrow(
+		expect(() => injectAccessToken({ Authorization: 'Bearer user-token' }, 'access-token')).toThrow(
 			'Authorization header is managed by opc'
 		)
+	})
+
+	it('stores and removes named project connections independently', () => {
+		const emptyStore = createEmptyCredentialStore()
+		const withLocal = setConnection(emptyStore, 'shop-local', {
+			server: 'http://localhost:5173',
+			access_token: 'local-access',
+			refresh_token: 'local-refresh',
+			expires_at: 1000,
+			scopes: ['config:ai:read']
+		})
+		const withBoth = setConnection(withLocal, 'shop-prod', {
+			server: 'https://shop.example.com',
+			access_token: 'prod-access',
+			refresh_token: 'prod-refresh',
+			expires_at: 2000,
+			scopes: ['config:ai:write']
+		})
+
+		expect(getConnection(withBoth, 'shop-local').server).toBe('http://localhost:5173')
+		expect(getConnection(withBoth, 'shop-prod').server).toBe('https://shop.example.com')
+		expect(removeConnection(withBoth, 'shop-local')).toEqual({
+			connections: {
+				'shop-prod': getConnection(withBoth, 'shop-prod')
+			}
+		})
+	})
+
+	it('refreshes against the named connection server and token', () => {
+		const request = createRefreshTokenRequest({
+			server: 'https://shop.example.com',
+			access_token: 'access-token',
+			refresh_token: 'refresh-token',
+			expires_at: 1000,
+			scopes: ['config:ai:read']
+		})
+
+		expect(request.url).toBe('https://shop.example.com/api/auth/oauth2/token')
+		expect(request.body.get('refresh_token')).toBe('refresh-token')
 	})
 })

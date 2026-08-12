@@ -1144,10 +1144,10 @@ flowchart LR
   end
 
   subgraph Delete["删除"]
-    AgentModule["src/backend/agent-auth/"]
-    AgentContract["src/api-contract/agent-auth.ts"]
-    AgentHandler["src/backend/api/handler/agent-auth.ts"]
-    AgentPages["src/frontend/web/routes/agent/"]
+    OldOAuthModule["旧 Agent OAuth 模块"]
+    OldOAuthContract["旧 Agent OAuth 契约"]
+    OldOAuthHandler["旧 Agent OAuth Handler"]
+    OldOAuthPages["旧 Agent OAuth 页面"]
     OldConfig["business ENV parsing<br/>Agent-named authorization<br/>single-project CLI credentials"]
   end
 
@@ -1158,8 +1158,8 @@ flowchart LR
   OAuthContract --> OAuthHandler
   OAuthHandler --> OAuthModule
   OAuthModule --> MetaSchema
-  AgentModule --> OAuthModule
-  AgentPages --> OAuthPages
+  OldOAuthModule --> OAuthModule
+  OldOAuthPages --> OAuthPages
   Domains --> ConfigModule
   PrepareScripts --> MetaSchema
   CreateGuides --> PrepareScripts
@@ -1967,6 +1967,7 @@ Token Response 为标准 `{access_token, refresh_token, token_type:'Bearer', exp
 | `payment:write` | `POST /api/create_payment_checkout`、`POST /api/cancel_subscription`、`POST /api/upgrade_subscription` |
 | `admin:overview:read` | `POST /api/admin/get_overview` |
 | `admin:users:read` | `POST /api/admin/list_users` |
+| `admin:users:write` | `POST /api/admin/update_administrator_email` |
 | `admin:beta:read` | `POST /api/admin/list_beta_codes` |
 | `admin:beta:write` | `POST /api/admin/generate_beta_codes` |
 | `admin:credits:read` | `POST /api/admin/list_credit_codes` |

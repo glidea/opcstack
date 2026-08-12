@@ -47,7 +47,7 @@ Better Auth handler (/api/auth/*)
   -- validates session, sets userId, checks beta code, attaches tenantDb
 ```
 
-The public API chain (`publicApi`) only mounts `emailAuthMiddleware` for `/api/auth/*` paths. The authenticated user API chain (`userApi`) mounts `authMiddleware`, `betaGateMiddleware`, and `tenantDbMiddleware` in that order. The admin API chain (`adminApi`) uses `adminUserMiddleware` instead of the user chain.
+The public API chain (`publicApi`) only mounts `emailAuthMiddleware` for `/api/auth/*` paths. Protected JSON routes accept either a Better Auth browser session or an OAuth Bearer token and validate their registered business scope. Administrator routes also run `administratorMiddleware` against the current D1 role.
 
 ## Auth Data Ownership
 
@@ -86,70 +86,24 @@ POST /api/auth/email-otp/verify-email
 
 The password hasher in `buildPasswordHasher` uses `crypto.subtle.digest('SHA-1', ...)` with a random 8-byte salt. The hash format is `saltHex:keyHex`.
 
-## Agent Delegated Authorization
+## OAuth API Access
 
-The template includes a fixed public OAuth client for headless Agents. The CLI owns PKCE, relay polling, token exchange, refresh rotation, and the local credential file. Tokens are never passed to the language model or printed by the CLI.
+The template includes one fixed public OAuth client, `opc-cli`. It uses Authorization Code with PKCE, so it has no client secret. The CLI owns device authorization polling, code exchange, refresh rotation, and credentials stored by connection name.
 
-### Expose an API to Agents
-
-Business scopes are application-owned strings. The template does not ship a scope registry or typed business API client. Add `requireAgentScope(scope)` only to routes that may be called by an Agent:
-
-Register the route in `src/backend/api/index.ts`:
-
-```ts
-import { Hono } from 'hono'
-import { authMiddleware, requireAgentScope } from './middleware/auth'
-import { betaGateMiddleware } from './middleware/beta-gate'
-import { tenantDbMiddleware } from './middleware/tenant-db'
-
-const agentApi: Hono<ApiEnv> = new Hono<ApiEnv>()
-
-agentApi.post(
-	'/reports/query',
-	authMiddleware,
-	requireAgentScope('reports:read'),
-	betaGateMiddleware,
-	tenantDbMiddleware,
-	reportsQueryHandler
-)
-
-api.route('/api', agentApi)
-```
-
-The handler keeps using the same user identity:
-
-```ts
-const userId: string = ctx.get('userId')
-const agentAuthorization = ctx.get('agentAuthorization')
-```
-
-Do not add `browserSessionOnlyMiddleware` to an Agent-enabled route. Keep `browserSessionOnlyMiddleware` on every route that is not explicitly opened to Agents.
-
-### Connect From an Agent Host
+Every protected JSON route is registered in `src/backend/api/scopes.ts` with one business scope. `authMiddleware` accepts a browser session or OAuth Bearer token. `requireApiScope(scope)` lets browser sessions pass and requires OAuth grants to contain the route scope. Administrator and configuration scopes also run `administratorMiddleware` against the current D1 role.
 
 ```text
-opc auth connect --server https://app.example.com --scopes reports:read,reports:write
-opc api request --method POST --url /api/reports/query --body '{"range":"7d"}'
+opc auth connect --name shop-prod --server https://app.example.com --scopes config:ai:read,config:ai:write
+opc api request --name shop-prod --method POST --url /api/admin/get_ai_config --body '{}'
+opc auth status --name shop-prod
+opc auth disconnect --name shop-prod
 ```
 
-The generic request command injects the Bearer token, rejects caller-supplied `Authorization`, refreshes once on expiry, and sends the token only to the configured server origin. Query parameters, JSON body, and ordinary headers are supplied by the caller:
+`opc api request` only accepts relative paths, injects the Bearer token, rejects caller-supplied `Authorization`, and refreshes the named connection when required. A failed refresh removes only that connection.
 
-```text
-opc api request \\
-  --method POST \\
-  --url /api/reports/query \\
-  --query '{"page":1}' \\
-  --body '{"range":"7d"}' \\
-  --header 'x-request-id:demo'
-```
+`/oauth/authorize` and `/oauth/consent` are the browser authorization pages. Consent shows the client name, target project origin, and requested business scopes. The fixed transport scopes `api_access offline_access` are protocol details.
 
-### User-Facing Pages
-
-`/agent/authorize` is the browser entry opened by the CLI. It resolves the `user_code`, asks the user to sign in if needed, and continues the OAuth authorization flow.
-
-`/agent/consent` shows the application scopes stored on the Agent authorization request, such as `reports:read`. The fixed OAuth transport scopes `agent offline_access` are internal and are not shown as business permissions.
-
-`/{locale}/settings/agents` lists connected Agent grants and lets the user revoke one grant without logging out their browser session. Revocation stops refresh immediately, and API middleware rejects already issued Agent access tokens because it checks the grant on every request.
+`/{locale}/settings/api-access` lists grants and revokes one grant without signing the browser out. Revocation blocks existing access tokens through the D1 grant check and revokes every refresh token tied to the grant.
 
 ### Email OTP
 
@@ -423,7 +377,7 @@ Session expiry is 30 days. Better Auth refreshes the session after 27 days of ac
 
 ## Admin Access
 
-`adminUserMiddleware` in `src/backend/api/middleware/auth.ts` resolves the Better Auth browser session. If the session user has the D1 `admin` role, it sets `userId`; otherwise it returns 403 `FORBIDDEN`. Programmatic clients use OAuth grants with explicit scopes rather than a static admin token.
+`administratorMiddleware` in `src/backend/api/middleware/auth.ts` checks the authenticated user's current D1 role for browser sessions and OAuth access. If the user is not the administrator, it returns 403 `FORBIDDEN`.
 
 ## Frontend Integration
 

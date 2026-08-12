@@ -1,30 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import type { MetaDb } from '../db'
 import {
-	AgentAuthError,
+	OAuthApiAccessError,
 	POLL_INTERVAL_SECONDS,
 	canonicalizeScopes,
-	completeRelay,
+	completeAuthorization,
+	createAuthorizationRequest,
 	createProtocolSecret,
-	createRelayRequest,
-	getRelayStatus,
-	pollRelay
+	getAuthorizationStatus,
+	pollAuthorization
 } from './index'
 
-describe('agent authorization domain', () => {
-	it('sorts and removes duplicate scopes', () => {
-		expect(canonicalizeScopes(['reports:write', 'profile:read', 'reports:write'])).toBe(
-			'profile:read reports:write'
+describe('OAuth API access domain', () => {
+	it('sorts and removes duplicate registered scopes', () => {
+		expect(canonicalizeScopes(['credits:write', 'credits:read', 'credits:write'])).toEqual([
+			'credits:read',
+			'credits:write'
+		])
+	})
+
+	it('rejects unknown scopes', () => {
+		expect(() => canonicalizeScopes(['reports:read'])).toThrowError(
+			new OAuthApiAccessError('INVALID_SCOPE', 'Invalid API scope: reports:read')
 		)
 	})
 
-	it('rejects malformed scopes', () => {
-		expect(() => canonicalizeScopes(['reports read'])).toThrowError(
-			new AgentAuthError('INVALID_SCOPE', 'Invalid scope')
-		)
-	})
-
-	it('creates a secret with a hash and never returns the hash as the secret', async () => {
+	it('creates a protocol secret whose hash cannot be used as the secret', async () => {
 		const secret = await createProtocolSecret()
 
 		expect(secret.value).toMatch(/^[A-Za-z0-9_-]{32,}$/)
@@ -32,37 +33,46 @@ describe('agent authorization domain', () => {
 		expect(secret.hash).toMatch(/^[A-Za-z0-9_-]{43}$/)
 	})
 
-	it('expires pending relay requests after the expiry time', () => {
-		expect(getRelayStatus('pending', 1000, 1001)).toBe('expired')
-		expect(getRelayStatus('pending', 1000, 1000)).toBe('pending')
+	it('expires pending authorization requests at the expiry time', () => {
+		expect(getAuthorizationStatus('pending', 1000, 1001)).toBe('expired')
+		expect(getAuthorizationStatus('pending', 1000, 1000)).toBe('pending')
 	})
 
 	it('publishes the fixed polling interval', () => {
 		expect(POLL_INTERVAL_SECONDS).toBe(5)
 	})
 
-	it('consumes an authorized relay only once', async () => {
-		const db = createRelayDb()
-		const relay = await createRelayRequest(db, {
-			codeChallenge: 'A'.repeat(43),
-			codeChallengeMethod: 'S256',
-			scopes: ['reports:write']
-		}, 1000)
+	it('consumes an authorization code only once', async () => {
+		const db = createAuthorizationDb()
+		const authorization = await createAuthorizationRequest(
+			db,
+			{
+				clientId: 'opc-cli',
+				codeChallenge: 'A'.repeat(43),
+				codeChallengeMethod: 'S256',
+				scopes: ['credits:read']
+			},
+			1000
+		)
 
-		await completeRelay(db, { state: relay.state, authorizationCode: 'oauth-code' }, 2000)
-		const first = await pollRelay(db, relay.deviceCode, 2001)
-		const second = await pollRelay(db, relay.deviceCode, 2002)
+		await completeAuthorization(
+			db,
+			{ state: authorization.state, authorizationCode: 'oauth-code' },
+			2000
+		)
+		const first = await pollAuthorization(db, authorization.deviceCode, 2001)
+		const second = await pollAuthorization(db, authorization.deviceCode, 2002)
 
 		expect(first).toEqual({
 			status: 'authorized',
 			code: 'oauth-code',
-			redirectUri: '/api/agent/authorization_callback'
+			redirectUri: '/api/oauth/authorization_callback'
 		})
 		expect(second).toEqual({ status: 'consumed' })
 	})
 })
 
-function createRelayDb(): MetaDb {
+function createAuthorizationDb(): MetaDb {
 	let row: Record<string, unknown> | undefined
 	return {
 		insert: () => ({
@@ -79,7 +89,7 @@ function createRelayDb(): MetaDb {
 			})
 		}),
 		query: {
-			agentAuthorizationRequest: {
+			oauthAuthorizationRequest: {
 				findFirst: async (): Promise<Record<string, unknown> | undefined> => row
 			}
 		},

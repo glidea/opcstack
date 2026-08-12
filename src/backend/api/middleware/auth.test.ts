@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
-	adminUserMiddleware,
+	administratorMiddleware,
 	authMiddleware,
 	browserSessionOnlyMiddleware,
-	requireAgentScope
+	requireApiScope
 } from './auth'
 import { authCore } from '../auth'
 import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
@@ -162,7 +162,7 @@ describe('authMiddleware', () => {
 	})
 })
 
-describe('adminUserMiddleware', () => {
+describe('administratorMiddleware', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 	})
@@ -183,26 +183,10 @@ describe('adminUserMiddleware', () => {
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'reject bearer token without agent authorization',
-			given: 'a bearer token without a browser session',
-			when: 'running admin user middleware',
-			then: 'returns unauthorized',
-			givenDetail: {
-				authorization: 'Bearer static-token'
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 401,
-				code: 'UNAUTHORIZED',
-				nextCalled: false,
-				setUserId: ''
-			}
-		},
-		{
-			scenario: 'accept super admin session',
-			given: 'a session for configured super admin email',
-			when: 'running admin user middleware',
-			then: 'sets session user id',
+			scenario: 'accept administrator identity',
+			given: 'an authenticated administrator identity',
+			when: 'running administrator middleware',
+			then: 'calls next',
 			givenDetail: {
 				sessionUserId: 'admin-user',
 				sessionUserEmail: 'owner@example.com',
@@ -217,10 +201,10 @@ describe('adminUserMiddleware', () => {
 			}
 		},
 		{
-			scenario: 'reject non admin session',
-			given: 'a session for another email',
-			when: 'running admin user middleware',
-			then: 'returns unauthorized',
+			scenario: 'reject non administrator identity',
+			given: 'an authenticated regular user identity',
+			when: 'running administrator middleware',
+			then: 'returns forbidden',
 			givenDetail: {
 				authorization: 'Bearer wrong',
 				sessionUserId: 'user-1',
@@ -231,53 +215,21 @@ describe('adminUserMiddleware', () => {
 				status: 403,
 				code: 'FORBIDDEN',
 				nextCalled: false,
-				setUserId: ''
-			}
-		},
-		{
-			scenario: 'reject missing admin identity',
-			given: 'no admin token and no session',
-			when: 'running admin user middleware',
-			then: 'returns unauthorized',
-			givenDetail: {
-				authorization: 'Bearer wrong'
-			},
-			whenDetail: {},
-			thenExpected: {
-				status: 401,
-				code: 'UNAUTHORIZED',
-				nextCalled: false,
-				setUserId: ''
+				setUserId: 'user-1'
 			}
 		}
 	]
 
 	runCases(cases, async (given) => {
-		const getSession = vi.fn(async () => {
-			if (!given.sessionUserId || !given.sessionUserEmail) {
-				return null
-			}
-			return {
-				user: {
-					id: given.sessionUserId,
-					email: given.sessionUserEmail
-				}
-			}
-		})
-		vi.mocked(authCore).mockReturnValue({
-			api: {
-				getSession
-			}
-		} as never)
-
 		const state = createContextState(
 			'/api/admin/generate_beta_codes',
 			given.authorization,
 			given.sessionUserId ? 'better-auth.session_token=test' : undefined
 		)
+		state.values['userId'] = given.sessionUserId
 		const ctx = createContext(state)
 		vi.mocked(isAdministrator).mockResolvedValue(given.administrator ?? false)
-		const res = await adminUserMiddleware(ctx, state.next)
+		const res = await administratorMiddleware(ctx, state.next)
 
 		if (!res) {
 			return {
@@ -297,47 +249,46 @@ describe('adminUserMiddleware', () => {
 	})
 })
 
-describe('Agent JWT authorization', () => {
-	it('rejects an Agent request without the required scope', async () => {
-		const state = createContextState('/api/agent/reports')
-		state.values['agentAuthorization'] = {
+describe('OAuth API authorization', () => {
+	it('rejects an OAuth request without the required scope', async () => {
+		const state = createContextState('/api/get_credit_summary')
+		state.values['oauthAuthorization'] = {
 			userId: 'user-1',
-			clientId: 'opcstack-agent',
+			clientId: 'opc-cli',
 			grantId: 'grant-1',
-			scopes: ['reports:read']
+			scopes: ['credits:read']
 		}
-		const response = await requireAgentScope('reports:write')(createContext(state), state.next)
+		const response = await requireApiScope('credits:write')(createContext(state), state.next)
 		expect(response?.status).toBe(403)
 		expect(state.nextCalled).toBe(false)
 	})
 
-	it('allows a browser session through the Agent scope middleware', async () => {
-		const state = createContextState('/api/agent/reports')
-		const response = await requireAgentScope('reports:write')(createContext(state), state.next)
+	it('allows a browser session through API scope middleware', async () => {
+		const state = createContextState('/api/get_credit_summary')
+		const response = await requireApiScope('credits:read')(createContext(state), state.next)
 		expect(response).toBeUndefined()
 		expect(state.nextCalled).toBe(true)
 	})
 
-	it('rejects Agent JWTs from browser-only routes', async () => {
+	it('rejects OAuth tokens from browser-only routes', async () => {
 		const state = createContextState('/api/settings')
-		state.values['agentAuthorization'] = {
+		state.values['oauthAuthorization'] = {
 			userId: 'user-1',
-			clientId: 'opcstack-agent',
+			clientId: 'opc-cli',
 			grantId: 'grant-1',
-			scopes: ['reports:read']
+			scopes: ['credits:read']
 		}
 		const response = await browserSessionOnlyMiddleware(createContext(state), state.next)
 		expect(response?.status).toBe(403)
 		expect(state.nextCalled).toBe(false)
 	})
 
-	it('accepts a verified Agent JWT and exposes its grant scopes', async () => {
+	it('accepts a verified OAuth token and exposes its grant scopes', async () => {
 		const verifyAccessToken = vi.fn(async () => ({
 			sub: 'user-1',
-			azp: 'opcstack-agent',
+			azp: 'opc-cli',
 			grant_id: 'grant-1',
-			agent_scopes: ['reports:read'],
-			agent_grant_status: 'active'
+			api_scopes: ['credits:read']
 		}))
 		vi.mocked(oauthProviderResourceClient).mockReturnValue({
 			getActions: () => ({ verifyAccessToken })
@@ -346,15 +297,15 @@ describe('Agent JWT authorization', () => {
 			api: { getSession: vi.fn(async () => null) }
 		} as never)
 
-		const state = createContextState('/api/agent/reports', 'Bearer agent-token')
+		const state = createContextState('/api/get_credit_summary', 'Bearer access-token')
 		state.values['metaDb'] = {
 			query: {
-				agentGrant: {
+				oauthGrant: {
 					findFirst: vi.fn(async () => ({
 						id: 'grant-1',
 						userId: 'user-1',
-						clientId: 'opcstack-agent',
-						scopes: 'reports:read',
+						clientId: 'opc-cli',
+						scopes: ['credits:read'],
 						status: 'active',
 						createdAt: 1,
 						approvedAt: 1,
@@ -370,38 +321,37 @@ describe('Agent JWT authorization', () => {
 		expect(result).toBeUndefined()
 		expect(state.nextCalled).toBe(true)
 		expect(state.values['userId']).toBe('user-1')
-		expect(state.values['agentAuthorization']).toEqual({
+		expect(state.values['oauthAuthorization']).toEqual({
 			userId: 'user-1',
-			clientId: 'opcstack-agent',
+			clientId: 'opc-cli',
 			grantId: 'grant-1',
-			scopes: ['reports:read']
+			scopes: ['credits:read']
 		})
 	})
 
-	it('rejects an Agent JWT after its grant is revoked', async () => {
+	it('rejects an OAuth token after its grant is revoked', async () => {
 		vi.mocked(oauthProviderResourceClient).mockReturnValue({
 			getActions: () => ({
 				verifyAccessToken: vi.fn(async () => ({
 					sub: 'user-1',
-					azp: 'opcstack-agent',
+					azp: 'opc-cli',
 					grant_id: 'grant-1',
-					agent_scopes: ['reports:read'],
-					agent_grant_status: 'active'
+					api_scopes: ['credits:read']
 				}))
 			})
 		} as never)
 		vi.mocked(authCore).mockReturnValue({
 			api: { getSession: vi.fn(async () => null) }
 		} as never)
-		const state = createContextState('/api/agent/reports', 'Bearer agent-token')
+		const state = createContextState('/api/get_credit_summary', 'Bearer access-token')
 		state.values['metaDb'] = {
 			query: {
-				agentGrant: {
+				oauthGrant: {
 					findFirst: vi.fn(async () => ({
 						id: 'grant-1',
 						userId: 'user-1',
-						clientId: 'opcstack-agent',
-						scopes: 'reports:read',
+						clientId: 'opc-cli',
+						scopes: ['credits:read'],
 						status: 'revoked',
 						createdAt: 1,
 						approvedAt: 1,

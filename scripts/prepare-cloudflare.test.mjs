@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { decryptConfigSecret } from '../src/backend/config/crypto.ts'
 import {
-	buildAgentOAuthClientUpsertSql,
 	buildDnsCnameRecordPayload,
 	buildOAuthClientUpsertSql,
 	buildInitialAdministratorInsertSql,
@@ -59,17 +58,6 @@ describe('prepare cloudflare dns config', () => {
 		expect(sql).toContain("'admin'")
 		expect(sql).not.toContain('ON CONFLICT')
 		expect(sql).not.toContain('UPDATE account')
-	})
-
-	it('seeds the fixed agent oauth client with the deployment callback', () => {
-		const sql = buildAgentOAuthClientUpsertSql({
-			baseUrl: 'https://app.example.com',
-			nowMs: 123
-		})
-
-		expect(sql).toContain("'opcstack-agent', 'opcstack-agent'")
-		expect(sql).toContain('https://app.example.com/api/agent/authorization_callback')
-		expect(sql).toContain('authorization_code')
 	})
 
 	it('seeds the fixed opc cli public client with pkce', () => {

@@ -5,8 +5,6 @@ import {
 	checkoutOrder,
 	creditRedemptionCode,
 	d1Shard,
-	agentAuthorizationRequest,
-	agentGrant,
 	aiChannel,
 	oauthAuthorizationRequest,
 	oauthGrant,
@@ -85,16 +83,7 @@ describe('schema.meta', () => {
 			thenExpected: { result: true }
 		},
 		{
-			scenario: 'agent authorization ownership',
-			given: 'meta schema',
-			when: 'checking agent authorization tables',
-			then: 'relay and grant state stay in meta',
-			givenDetail: { schema: 'meta' },
-			whenDetail: { check: 'agent-authorization-tables' },
-			thenExpected: { result: true }
-		},
-		{
-			scenario: 'agent jwt key ownership',
+			scenario: 'oauth jwt key ownership',
 			given: 'auth schema',
 			when: 'checking jwt key table',
 			then: 'jwt signing keys stay in meta',
@@ -160,11 +149,6 @@ describe('schema.meta', () => {
 			case 'd1-shard-region':
 				return {
 					result: d1Shard.region !== undefined
-				}
-			case 'agent-authorization-tables':
-				return {
-					result:
-						agentAuthorizationRequest !== undefined && agentGrant !== undefined
 				}
 			case 'jwt-keys':
 				return {

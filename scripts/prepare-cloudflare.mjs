@@ -706,22 +706,6 @@ export function buildSystemSettingsInitializationSql(input) {
 	].join(' ')
 }
 
-export function buildAgentOAuthClientUpsertSql(input) {
-	const redirectUri = new URL('/api/agent/authorization_callback', input.baseUrl).toString()
-	const scopes = JSON.stringify(['agent', 'offline_access'])
-	const redirectUris = JSON.stringify([redirectUri])
-	const grantTypes = JSON.stringify(['authorization_code', 'refresh_token'])
-	const responseTypes = JSON.stringify(['code'])
-	return [
-		'INSERT INTO oauth_client',
-		'(id, client_id, disabled, skip_consent, scopes, created_at, updated_at, name, redirect_uris, token_endpoint_auth_method, grant_types, response_types, public, type, require_pkce)',
-		'VALUES',
-		`('opcstack-agent', 'opcstack-agent', 0, 0, ${sqlString(scopes)}, ${input.nowMs}, ${input.nowMs}, 'OPCStack Agent', ${sqlString(redirectUris)}, 'none', ${sqlString(grantTypes)}, ${sqlString(responseTypes)}, 1, 'user-agent-based', 1)`,
-		'ON CONFLICT(client_id) DO UPDATE SET',
-		`disabled = 0, skip_consent = 0, scopes = ${sqlString(scopes)}, updated_at = ${input.nowMs}, redirect_uris = ${sqlString(redirectUris)}, token_endpoint_auth_method = 'none', grant_types = ${sqlString(grantTypes)}, response_types = ${sqlString(responseTypes)}, public = 1, type = 'user-agent-based', require_pkce = 1`
-	].join(' ')
-}
-
 export function buildOAuthClientUpsertSql(input) {
 	const redirectUri = new URL('/api/oauth/authorization_callback', input.baseUrl).toString()
 	const scopes = JSON.stringify(['api_access', 'offline_access'])
@@ -1739,12 +1723,6 @@ async function main() {
 			json: false
 		}))
 	}
-	run(buildD1ExecuteCommand({
-		databaseName: metaDbName,
-		migrateFlag,
-		sql: buildAgentOAuthClientUpsertSql({ baseUrl: env.APP_BASE_URL, nowMs }),
-		json: false
-	}))
 	run(buildD1ExecuteCommand({
 		databaseName: metaDbName,
 		migrateFlag,

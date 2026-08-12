@@ -292,9 +292,9 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 
 - Better Auth lives in `src/backend/api/auth/index.ts`.
 - `authMiddleware` injects `userId` into `ctx.variables`.
-- Authenticated API routes accept Better Auth browser sessions from Cookie or `Authorization: Bearer <token>`. Agent JWTs are verified by the OAuth Provider resource client and expose `agentAuthorization`; existing browser-only routes reject them. Agent-enabled routes must explicitly use `requireAgentScope(scope)`.
+- Protected JSON API routes accept Better Auth browser sessions or OAuth Bearer tokens. Every route is registered in `src/backend/api/scopes.ts`; OAuth access must pass `requireApiScope(scope)`, while protocol and byte-stream routes reject OAuth tokens.
 - The generic credential client is `opc auth connect` plus `opc api request`; it injects tokens and must not contain business API types or route-specific methods.
-- `adminUserMiddleware` accepts only a Better Auth browser session whose user has the unique D1 `admin` role. Automated API access uses scoped OAuth rather than a static admin token.
+- `administratorMiddleware` verifies the authenticated user's current D1 `admin` role for browser sessions and OAuth access. Admin and configuration scopes never bypass the role check.
 - The unique D1 administrator email is also the public support contact and outbound email sender. Initialization creates `admin@opcstack.local`; change it under Account / Security before enabling email delivery.
 - Credits use integer units where `1 credit = 1_000_000 units`; API credit amounts use decimal strings.
 - Payment `price_amount` is provider minor currency units and must not be mixed with credit units.

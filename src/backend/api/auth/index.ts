@@ -14,12 +14,13 @@ import { createEmailClients, EmailError, type EmailClients } from '../../email'
 import { AffService } from '../../aff'
 import { CreditsService } from '../../credits'
 import {
-	AGENT_CLIENT_ID,
-	AgentAuthError,
-	getAgentGrant,
-	getOrCreateActiveGrant,
-	parseCanonicalScopes
-} from '../../agent-auth'
+	OAUTH_API_CLIENT_ID,
+	OAuthApiAccessError,
+	getOAuthGrant,
+	getPendingOAuthGrant
+} from '../../oauth-api-access'
+import { isAdministratorScope } from '../scopes'
+import { isAdministrator } from '../../auth/administrator'
 import {
 	getCreditsConfig,
 	type CreditsConfig,
@@ -38,7 +39,7 @@ export function authCore(env: Env, db: MetaDb, config: AuthRuntimeConfig) {
   const linuxDoOAuthPlugin: ReturnType<typeof genericOAuth> | undefined = buildLinuxDoOAuth(
 		config.authentication.providers.linuxdo
 	)
-  const plugins: AuthPlugin[] = [bearer(), jwt(), emailOtpPlugin, buildAgentOAuthProvider(env, db)]
+  const plugins: AuthPlugin[] = [bearer(), jwt(), emailOtpPlugin, buildApiAccessOAuthProvider(env, db)]
   if (captchaPlugin) {
     plugins.push(captchaPlugin)
   }
@@ -129,25 +130,30 @@ export function authCore(env: Env, db: MetaDb, config: AuthRuntimeConfig) {
   })
 }
 
-function buildAgentOAuthProvider(env: Env, db: MetaDb): ReturnType<typeof oauthProvider> {
+function buildApiAccessOAuthProvider(env: Env, db: MetaDb): ReturnType<typeof oauthProvider> {
   return oauthProvider({
-    scopes: ['agent', 'offline_access'],
+    scopes: ['api_access', 'offline_access'],
     validAudiences: [env.APP_BASE_URL],
     grantTypes: ['authorization_code', 'refresh_token'],
     accessTokenExpiresIn: 15 * 60,
     refreshTokenExpiresIn: 30 * 24 * 60 * 60,
-    loginPage: '/agent/authorize',
-    consentPage: '/agent/consent',
+    loginPage: '/oauth/authorize',
+    consentPage: '/oauth/consent',
     storeTokens: 'hashed',
     postLogin: {
-			page: '/agent/authorize',
+			page: '/oauth/authorize',
 			shouldRedirect: async (): Promise<boolean> => false,
 			consentReferenceId: async ({ user }): Promise<string> => {
-				const grant = await getOrCreateActiveGrant(db, {
-					userId: user.id,
-					clientId: AGENT_CLIENT_ID,
-					scopes: []
-				})
+				const grant = await getPendingOAuthGrant(db, user.id, OAUTH_API_CLIENT_ID)
+				if (
+					grant.scopes.some(isAdministratorScope) &&
+					!(await isAdministrator(db, user.id))
+				) {
+					throw new OAuthApiAccessError(
+						'INVALID_SCOPE',
+						'Administrator access is required for the requested scopes'
+					)
+				}
 				return grant.id
 			}
 		},
@@ -155,14 +161,13 @@ function buildAgentOAuthProvider(env: Env, db: MetaDb): ReturnType<typeof oauthP
 			if (!user || !referenceId) {
 				return {}
 			}
-			const grant = await getAgentGrant(db, referenceId)
+			const grant = await getOAuthGrant(db, referenceId)
 			if (grant.status !== 'active') {
-				throw new AgentAuthError('GRANT_REVOKED', 'Agent grant is revoked')
+				throw new OAuthApiAccessError('GRANT_REVOKED', 'OAuth grant is revoked')
 			}
 			return {
 				grant_id: grant.id,
-				agent_scopes: parseCanonicalScopes(grant.scopes),
-				agent_grant_status: grant.status
+				api_scopes: grant.scopes
 			}
 		}
   })

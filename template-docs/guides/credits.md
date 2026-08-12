@@ -443,7 +443,7 @@ Errors:
 
 ## Admin API
 
-Admin endpoints require `adminUserMiddleware`, which accepts the unique D1 administrator session.
+Admin endpoints require `administratorMiddleware`, which verifies the authenticated user's current D1 administrator role for browser sessions and OAuth access.
 
 For generating credit codes or granting credits through the browser, see [Admin Console](admin-console.md).
 

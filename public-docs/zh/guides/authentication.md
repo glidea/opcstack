@@ -47,7 +47,7 @@ Better Auth handler (/api/auth/*)
   -- 验证会话，设置 userId，检查内测码，挂载 tenantDb
 ```
 
-公开 API 链（`publicApi`）只为 `/api/auth/*` 路径挂载 `emailAuthMiddleware`。认证用户 API 链（`userApi`）按顺序挂载 `authMiddleware`、`betaGateMiddleware` 和 `tenantDbMiddleware`。管理员 API 链（`adminApi`）使用 `adminUserMiddleware` 代替用户链。
+公开 API 链（`publicApi`）只为 `/api/auth/*` 路径挂载 `emailAuthMiddleware`。受保护 JSON 路由接受 Better Auth 浏览器 Session 或 OAuth Bearer Token，并校验路由注册的业务 scope。管理员路由还通过 `administratorMiddleware` 复核当前用户的 D1 管理员角色。
 
 ## 认证数据归属
 
@@ -86,70 +86,24 @@ POST /api/auth/email-otp/verify-email
 
 `buildPasswordHasher` 中的密码哈希器使用 `crypto.subtle.digest('SHA-1', ...)` 配合随机 8 字节盐。哈希格式为 `saltHex:keyHex`。
 
-## Agent 委托授权
+## OAuth API 访问
 
-模板内置一个给无头 Agent 使用的固定 public OAuth client。CLI 负责 PKCE、relay 轮询、授权码交换、refresh rotation 和本地凭据文件。Token 不会传入模型上下文，也不会由 CLI 打印。
+模板内置一个固定公共 OAuth Client：`opc-cli`。它使用 Authorization Code + PKCE，没有 Client Secret。CLI 负责设备授权轮询、授权码交换、Refresh Token 轮换，并按连接名称保存凭据。
 
-### 开放一个 Agent API
-
-业务 scope 是应用自己定义的字符串。模板不提供 scope 注册表，也不生成具体业务 API client。只有允许 Agent 调用的路由才加 `requireAgentScope(scope)`：
-
-在 `src/backend/api/index.ts` 注册路由：
-
-```ts
-import { Hono } from 'hono'
-import { authMiddleware, requireAgentScope } from './middleware/auth'
-import { betaGateMiddleware } from './middleware/beta-gate'
-import { tenantDbMiddleware } from './middleware/tenant-db'
-
-const agentApi: Hono<ApiEnv> = new Hono<ApiEnv>()
-
-agentApi.post(
-	'/reports/query',
-	authMiddleware,
-	requireAgentScope('reports:read'),
-	betaGateMiddleware,
-	tenantDbMiddleware,
-	reportsQueryHandler
-)
-
-api.route('/api', agentApi)
-```
-
-Handler 继续读取同一个用户身份：
-
-```ts
-const userId: string = ctx.get('userId')
-const agentAuthorization = ctx.get('agentAuthorization')
-```
-
-Agent 可调用的路由不要加 `browserSessionOnlyMiddleware`。没有显式开放给 Agent 的路由，都应该保留 `browserSessionOnlyMiddleware`。
-
-### 在 Agent 主机连接
+每个受保护 JSON 路由都必须在 `src/backend/api/scopes.ts` 注册一个业务 scope。`authMiddleware` 接受浏览器 Session 或 OAuth Bearer Token。`requireApiScope(scope)` 允许浏览器 Session 直接通过，并要求 OAuth Grant 包含对应 scope。管理员和配置 scope 还会通过 `administratorMiddleware` 复核当前 D1 角色。
 
 ```text
-opc auth connect --server https://app.example.com --scopes reports:read,reports:write
-opc api request --method POST --url /api/reports/query --body '{"range":"7d"}'
+opc auth connect --name shop-prod --server https://app.example.com --scopes config:ai:read,config:ai:write
+opc api request --name shop-prod --method POST --url /api/admin/get_ai_config --body '{}'
+opc auth status --name shop-prod
+opc auth disconnect --name shop-prod
 ```
 
-通用请求命令自动注入 Bearer Token，拒绝调用方传入 `Authorization`，Token 过期时 refresh 一次，并且只向配置的同源地址发送 Token。query、JSON body 和普通 header 都由调用方传入：
+`opc api request` 只接受相对路径，自动注入 Bearer Token，拒绝调用方传入 `Authorization`，并在需要时刷新指定连接。刷新失败只删除该连接。
 
-```text
-opc api request \\
-  --method POST \\
-  --url /api/reports/query \\
-  --query '{"page":1}' \\
-  --body '{"range":"7d"}' \\
-  --header 'x-request-id:demo'
-```
+`/oauth/authorize` 和 `/oauth/consent` 是浏览器授权页面。确认页展示 Client 名称、目标项目地址和申请的业务 scope。固定传输 scope `api_access offline_access` 只是协议细节。
 
-### 用户看到的页面
-
-`/agent/authorize` 是 CLI 打开的浏览器入口。它解析 `user_code`，在需要时让用户登录，然后继续 OAuth 授权流程。
-
-`/agent/consent` 展示 Agent 授权请求里保存的应用 scope，例如 `reports:read`。固定 OAuth 传输 scope `agent offline_access` 是内部细节，不作为业务权限展示给用户。
-
-`/{locale}/settings/agents` 展示已连接的 Agent grant，用户可以撤销某一个 grant，不会退出浏览器登录。撤销后 refresh 立即失败；API 中间件每次请求都会检查 grant，因此已签发的 Agent access token 也会立即被拒绝。
+`/{locale}/settings/api-access` 展示 Grant 列表。撤销一个 Grant 不会退出浏览器登录，但会通过 D1 Grant 检查立即阻止已有 Access Token，并撤销该 Grant 关联的全部 Refresh Token。
 
 ### 邮件 OTP
 
@@ -423,7 +377,7 @@ Handler 读写 Meta DB
 
 ## 管理员访问
 
-`src/backend/api/middleware/auth.ts` 中的 `adminUserMiddleware` 解析 Better Auth 浏览器会话。会话用户具有 D1 `admin` 角色时设置 `userId`，否则返回 403 `FORBIDDEN`。程序化客户端通过明确 scope 的 OAuth Grant 调用 API，不使用静态管理员 Token。
+`src/backend/api/middleware/auth.ts` 中的 `administratorMiddleware` 会对浏览器 Session 和 OAuth 访问统一检查当前用户的 D1 角色。用户不是管理员时返回 403 `FORBIDDEN`。
 
 ## 前端集成
 

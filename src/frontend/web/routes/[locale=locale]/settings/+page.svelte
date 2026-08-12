@@ -112,8 +112,8 @@
 			</p>
 		</div>
 
-		<Button variant="outline" href={`/${data.locale}/settings/agents`}>
-			{$_('settings.agents.title')}
+		<Button variant="outline" href={`/${data.locale}/settings/api-access`}>
+			{$_('settings.apiAccess.title')}
 		</Button>
 
 		{#if ($session.data?.user as SessionUser | undefined)?.role === 'admin'}

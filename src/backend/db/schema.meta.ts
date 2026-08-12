@@ -512,68 +512,6 @@ export const paymentWebhookEvent = sqliteTable(
 	]
 )
 
-export const agentAuthorizationRequest = sqliteTable(
-	'agent_authorization_requests',
-	{
-		id: text('id').primaryKey(),
-		deviceCodeHash: text('device_code_hash').notNull().unique(),
-		userCodeHash: text('user_code_hash').notNull().unique(),
-		stateHash: text('state_hash').notNull().unique(),
-		codeChallenge: text('code_challenge').notNull(),
-		codeChallengeMethod: text('code_challenge_method').notNull().default('S256'),
-		scopes: text('scopes').notNull(),
-		status: text('status').notNull().default('pending'),
-		authorizationCode: text('authorization_code'),
-		expiresAt: integer('expires_at').notNull(),
-		codeExpiresAt: integer('code_expires_at'),
-		lastPolledAt: integer('last_polled_at'),
-		createdAt: integer('created_at').notNull(),
-		consumedAt: integer('consumed_at')
-	},
-	(table) => [
-		index('agent_authorization_requests_status_expires_at_idx').on(
-			table.status,
-			table.expiresAt
-		),
-		check(
-			'agent_authorization_requests_code_challenge_method_check',
-			sql`${table.codeChallengeMethod} = 'S256'`
-		),
-		check(
-			'agent_authorization_requests_status_check',
-			sql`${table.status} in ('pending', 'authorized', 'denied', 'expired', 'consumed')`
-		),
-		check(
-			'agent_authorization_requests_expiry_check',
-			sql`${table.expiresAt} > ${table.createdAt}`
-		)
-	]
-)
-
-export const agentGrant = sqliteTable(
-	'agent_grants',
-	{
-		id: text('id').primaryKey(),
-		userId: text('user_id')
-			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
-		clientId: text('client_id').notNull(),
-		scopes: text('scopes').notNull(),
-		status: text('status').notNull().default('active'),
-		createdAt: integer('created_at').notNull(),
-		approvedAt: integer('approved_at').notNull(),
-		revokedAt: integer('revoked_at')
-	},
-	(table) => [
-		index('agent_grants_user_id_status_idx').on(table.userId, table.status),
-		index('agent_grants_client_id_status_idx').on(table.clientId, table.status),
-		check(
-			'agent_grants_status_check',
-			sql`${table.status} in ('active', 'revoked')`
-		)
-	]
-)
-
 export type BetaCode = typeof betaCode.$inferSelect
 export type NewBetaCode = typeof betaCode.$inferInsert
 export type SystemSettings = typeof systemSettings.$inferSelect
@@ -604,7 +542,3 @@ export type UserSubscription = typeof userSubscription.$inferSelect
 export type NewUserSubscription = typeof userSubscription.$inferInsert
 export type PaymentWebhookEvent = typeof paymentWebhookEvent.$inferSelect
 export type NewPaymentWebhookEvent = typeof paymentWebhookEvent.$inferInsert
-export type AgentAuthorizationRequest = typeof agentAuthorizationRequest.$inferSelect
-export type NewAgentAuthorizationRequest = typeof agentAuthorizationRequest.$inferInsert
-export type AgentGrant = typeof agentGrant.$inferSelect
-export type NewAgentGrant = typeof agentGrant.$inferInsert

@@ -269,7 +269,7 @@ describe('authCore email config mapping', () => {
 	})
 })
 
-describe('authCore agent OAuth provider', () => {
+describe('authCore API access OAuth provider', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		vi.mocked(betterAuth).mockReturnValue({} as never)
@@ -281,7 +281,7 @@ describe('authCore agent OAuth provider', () => {
 		})
 	})
 
-	it('configures the official Agent OAuth boundary', () => {
+	it('configures the public API access OAuth client boundary', () => {
 		const env = createEnv()
 
 		authCore(env, {} as never, createAuthRuntimeConfig())
@@ -305,25 +305,25 @@ describe('authCore agent OAuth provider', () => {
 		}).toEqual({
 			hasPlugin: true,
 			hasJwtPlugin: true,
-			scopes: ['agent', 'offline_access'],
+			scopes: ['api_access', 'offline_access'],
 			validAudiences: ['http://localhost:5173'],
 			grantTypes: ['authorization_code', 'refresh_token'],
 			accessTokenExpiresIn: 15 * 60,
 			refreshTokenExpiresIn: 30 * 24 * 60 * 60,
-			loginPage: '/agent/authorize',
-			consentPage: '/agent/consent',
+			loginPage: '/oauth/authorize',
+			consentPage: '/oauth/consent',
 			storeTokens: 'hashed'
 		})
 	})
 
-	it('binds OAuth tokens to the active Agent grant and its application scopes', async () => {
+	it('binds OAuth tokens to the active API access grant and its scopes', async () => {
 		const env = createEnv()
 		const grant = {
 			id: 'grant-1',
 			userId: 'user-1',
-			clientId: 'opcstack-agent',
-			scopes: 'reports:read',
-			status: 'active',
+			clientId: 'opc-cli',
+			scopes: ['credits:read'],
+			status: 'pending',
 			createdAt: 1,
 			approvedAt: 2,
 			revokedAt: null
@@ -331,7 +331,7 @@ describe('authCore agent OAuth provider', () => {
 		const db = {
 			run: vi.fn().mockResolvedValue(undefined),
 			query: {
-				agentGrant: {
+				oauthGrant: {
 					findFirst: vi.fn().mockResolvedValue(grant)
 				}
 			}
@@ -349,6 +349,7 @@ describe('authCore agent OAuth provider', () => {
 		}
 
 		const referenceId = await options.postLogin?.consentReferenceId({ user: { id: 'user-1' } })
+		grant.status = 'active'
 		const claims = await options.customAccessTokenClaims?.({
 			user: { id: 'user-1' },
 			referenceId: 'grant-1'
@@ -357,8 +358,7 @@ describe('authCore agent OAuth provider', () => {
 		expect(referenceId).toBe('grant-1')
 		expect(claims).toEqual({
 			grant_id: 'grant-1',
-			agent_scopes: ['reports:read'],
-			agent_grant_status: 'active'
+			api_scopes: ['credits:read']
 		})
 	})
 })

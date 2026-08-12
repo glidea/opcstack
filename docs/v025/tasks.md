@@ -175,11 +175,11 @@
 - 不保留旧路由、表、类型、页面或凭据文件兼容读取
 
 ## TODO 清单
-- [ ] 1. 先增加设备授权、PKCE、Grant 撤销、Scope Registry 完整性和多项目 CLI 的失败测试
-- [ ] 2. 实现 OAuth Authorization Request、Grant、Token Claim 和撤销流程
-- [ ] 3. 为所有受保护 JSON 业务路由显式注册 scope，并统一 Session 与 Bearer Token 授权；`admin:*` 和 `config:*` 同时校验 Grant 所属用户当前仍是 D1 管理员
-- [ ] 4. 实现 `opc auth connect/status/disconnect` 与 `opc api request` 的新连接存储和同源限制
-- [ ] 5. 删除旧 Agent Schema、路由、中间件、Context、页面、CLI 和文档
+- [x] 1. 先增加设备授权、PKCE、Grant 撤销、Scope Registry 完整性和多项目 CLI 的失败测试
+- [x] 2. 实现 OAuth Authorization Request、Grant、Token Claim 和撤销流程
+- [x] 3. 为所有受保护 JSON 业务路由显式注册 scope，并统一 Session 与 Bearer Token 授权；`admin:*` 和 `config:*` 同时校验 Grant 所属用户当前仍是 D1 管理员
+- [x] 4. 实现 `opc auth connect/status/disconnect` 与 `opc api request` 的新连接存储和同源限制
+- [x] 5. 删除旧 Agent Schema、路由、中间件、Context、页面、CLI 和文档
 
 ## 验收测试步骤
 1. 分别对两个本地项目连接执行 `opc auth connect`，在浏览器批准不同 scope，确认凭据互不覆盖

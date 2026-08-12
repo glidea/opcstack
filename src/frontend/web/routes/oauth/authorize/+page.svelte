@@ -19,9 +19,9 @@
 	})
 
 	async function startAuthorization(): Promise<void> {
-		const userCode = $page.url.searchParams.get('user_code')
+		const userCode: string | null = $page.url.searchParams.get('user_code')
 		if (userCode) {
-			const response = await fetch('/api/agent/resolve_authorization', {
+			const response: Response = await fetch('/api/oauth/resolve_authorization', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ user_code: userCode })
@@ -42,13 +42,12 @@
 			}
 			return
 		}
-
 		error = 'Missing authorization request'
 	}
 
 	async function continueOAuth(): Promise<void> {
 		status = 'Completing authorization'
-		const response = await fetch('/api/auth/oauth2/continue', {
+		const response: Response = await fetch('/api/auth/oauth2/continue', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ postLogin: true })
@@ -63,16 +62,16 @@
 </script>
 
 <svelte:head>
-	<title>Authorize Agent</title>
-	<meta name="description" content={`Authorize an Agent to access ${clientConfig.appName}`} />
+	<title>Authorize API access</title>
+	<meta name="description" content={`Authorize API access to ${clientConfig.appName}`} />
 </svelte:head>
 
 <main class="mx-auto flex min-h-svh w-full max-w-lg items-center px-6 py-16">
 	<div class="w-full space-y-6">
 		<div>
 			<p class="text-sm text-muted-foreground">{status}</p>
-			<h1 class="mt-2 text-display-md">Authorize Agent</h1>
-			<p class="mt-3 text-muted-foreground">Sign in to approve this connection</p>
+			<h1 class="mt-2 text-display-md">Authorize API access</h1>
+			<p class="mt-3 text-muted-foreground">Sign in to review this connection</p>
 		</div>
 
 		{#if error}

@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { page } from '$app/stores'
-	import type { GetAgentAuthorizationDetailsResponse } from '$apiContract/agent-auth'
+	import type { GetOAuthAuthorizationDetailsResponse } from '$apiContract/oauth-api-access'
 	import { Alert, AlertDescription } from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
 
 	let loading = $state(false)
 	let detailsLoading = $state(true)
 	let error = $state('')
-	let clientId = $state('opcstack-agent')
+	let clientName = $state('OPC CLI')
+	let targetOrigin = $state('')
 	let requestedScopes = $state<string[]>([])
 	let expiresIn = $state(0)
 
@@ -17,14 +18,13 @@
 	})
 
 	async function loadDetails(): Promise<void> {
-		const state = $page.url.searchParams.get('state')
+		const state: string | null = $page.url.searchParams.get('state')
 		if (!state) {
 			error = 'Missing authorization request'
 			detailsLoading = false
 			return
 		}
-
-		const response = await fetch('/api/agent/get_authorization_details', {
+		const response: Response = await fetch('/api/oauth/get_authorization_details', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ state })
@@ -34,8 +34,9 @@
 			detailsLoading = false
 			return
 		}
-		const body = (await response.json()) as GetAgentAuthorizationDetailsResponse
-		clientId = body.client_id
+		const body = (await response.json()) as GetOAuthAuthorizationDetailsResponse
+		clientName = body.client_name
+		targetOrigin = body.target_origin
 		requestedScopes = body.scopes
 		expiresIn = body.expires_in
 		detailsLoading = false
@@ -43,7 +44,7 @@
 
 	async function submit(accept: boolean): Promise<void> {
 		loading = true
-		const response = await fetch('/api/auth/oauth2/consent', {
+		const response: Response = await fetch('/api/auth/oauth2/consent', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ accept })
@@ -58,27 +59,26 @@
 </script>
 
 <svelte:head>
-	<title>Agent Consent</title>
-	<meta name="description" content="Review Agent access" />
+	<title>API access consent</title>
+	<meta name="description" content="Review requested API access" />
 </svelte:head>
 
 <main class="mx-auto flex min-h-svh w-full max-w-lg items-center px-6 py-16">
 	<div class="w-full space-y-6">
-		<p class="text-sm text-muted-foreground">Connected Agent</p>
+		<p class="text-sm text-muted-foreground">API access request</p>
 		<h1 class="text-display-md">Allow access</h1>
 		{#if detailsLoading}
 			<p class="text-muted-foreground">Loading authorization request</p>
 		{:else}
-			<p class="text-muted-foreground">{clientId} requests access to these application permissions</p>
-			{#if requestedScopes.length === 0}
-				<p class="text-sm text-muted-foreground">No application permissions requested</p>
-			{:else}
-				<ul class="list-disc space-y-2 pl-6">
-					{#each requestedScopes as scope}
-						<li>{scope}</li>
-					{/each}
-				</ul>
-			{/if}
+			<div class="space-y-2">
+				<p><span class="text-muted-foreground">Client</span> {clientName}</p>
+				<p><span class="text-muted-foreground">Project</span> {targetOrigin}</p>
+			</div>
+			<ul class="list-disc space-y-2 pl-6">
+				{#each requestedScopes as scope}
+					<li>{scope}</li>
+				{/each}
+			</ul>
 			<p class="text-xs text-muted-foreground">Request expires in {expiresIn} seconds</p>
 		{/if}
 		{#if error}

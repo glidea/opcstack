@@ -444,7 +444,7 @@ POST /api/redeem_credit_code
 
 ## 管理员 API
 
-管理员端点需要 `adminUserMiddleware`，只接受唯一 D1 管理员会话。
+管理员端点需要 `administratorMiddleware`，对浏览器 Session 和 OAuth 访问统一检查当前用户的 D1 管理员角色。
 
 在浏览器中生成兑换码或为用户发放积分的流程参阅[管理控制台](admin-console.md)。
 

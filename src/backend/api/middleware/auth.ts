@@ -2,15 +2,16 @@ import type { Context, MiddlewareHandler } from 'hono'
 import type { ApiEnv } from '..'
 import { authCore } from '../auth'
 import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
-import { AGENT_CLIENT_ID, getAgentGrant } from '../../agent-auth'
+import { OAUTH_API_CLIENT_ID, getOAuthGrant } from '../../oauth-api-access'
 import { getAuthRuntimeConfig, type AuthRuntimeConfig } from '../../config'
 import { isAdministrator } from '../../auth/administrator'
+import type { ApiScope } from '../scopes'
 
-export type AgentAuthorization = {
+export type OAuthAuthorization = {
 	userId: string
 	clientId: string
 	grantId: string
-	scopes: string[]
+	scopes: ApiScope[]
 }
 
 export async function getRequestAuthRuntimeConfig(ctx: Context<ApiEnv>): Promise<AuthRuntimeConfig> {
@@ -45,7 +46,7 @@ export const authMiddleware: MiddlewareHandler<ApiEnv> = async (
 	})
 	if (session) {
 		ctx.set('userId', session.user.id)
-		ctx.set('agentAuthorization', undefined)
+		ctx.set('oauthAuthorization', undefined)
 		return next()
 	}
 
@@ -58,23 +59,28 @@ export const authMiddleware: MiddlewareHandler<ApiEnv> = async (
 	try {
 		const payload = await oauthProviderResourceClient(auth).getActions().verifyAccessToken(token, {
 			verifyOptions: { audience: ctx.env.APP_BASE_URL },
-			scopes: ['agent']
+			scopes: ['api_access']
 		})
 		const userId = payload.sub
 		const grantId = readStringClaim(payload['grant_id'])
 		const clientId = readStringClaim(payload['azp'] ?? payload['client_id'])
-		const scopes = readScopesClaim(payload['agent_scopes'])
-		if (!userId || !grantId || clientId !== AGENT_CLIENT_ID || !scopes || payload['agent_grant_status'] !== 'active') {
+		const scopes = readScopesClaim(payload['api_scopes'])
+		if (!userId || !grantId || clientId !== OAUTH_API_CLIENT_ID || !scopes) {
 			return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
 		}
 
-		const grant = await getAgentGrant(ctx.get('metaDb'), grantId)
-		if (grant.status !== 'active' || grant.userId !== userId || grant.clientId !== clientId) {
+		const grant = await getOAuthGrant(ctx.get('metaDb'), grantId)
+		if (
+			grant.status !== 'active' ||
+			grant.userId !== userId ||
+			grant.clientId !== clientId ||
+			grant.scopes.join(' ') !== scopes.join(' ')
+		) {
 			return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
 		}
 
 		ctx.set('userId', userId)
-		ctx.set('agentAuthorization', { userId, clientId, grantId, scopes })
+		ctx.set('oauthAuthorization', { userId, clientId, grantId, scopes: grant.scopes })
 		return next()
 	} catch {
 		return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
@@ -85,20 +91,20 @@ export const browserSessionOnlyMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
-	if (ctx.get('agentAuthorization')) {
-		return ctx.json({ code: 'FORBIDDEN', message: 'Agent access is not allowed' }, 403)
+	if (ctx.get('oauthAuthorization')) {
+		return ctx.json({ code: 'FORBIDDEN', message: 'OAuth access is not allowed' }, 403)
 	}
 	return next()
 }
 
-export function requireAgentScope(scope: string): MiddlewareHandler<ApiEnv> {
+export function requireApiScope(scope: ApiScope): MiddlewareHandler<ApiEnv> {
 	return async (ctx, next): Promise<Response | void> => {
-		const authorization = ctx.get('agentAuthorization')
+		const authorization = ctx.get('oauthAuthorization')
 		if (!authorization) {
 			return next()
 		}
 		if (!authorization.scopes.includes(scope)) {
-			return ctx.json({ code: 'FORBIDDEN', message: 'Required Agent scope is missing' }, 403)
+			return ctx.json({ code: 'FORBIDDEN', message: 'Required API scope is missing' }, 403)
 		}
 		return next()
 	}
@@ -108,32 +114,19 @@ function readStringClaim(value: unknown): string | undefined {
 	return typeof value === 'string' && value !== '' ? value : undefined
 }
 
-function readScopesClaim(value: unknown): string[] | undefined {
+function readScopesClaim(value: unknown): ApiScope[] | undefined {
 	if (!Array.isArray(value) || value.some((scope) => typeof scope !== 'string')) {
 		return undefined
 	}
-	return value as string[]
+	return value as ApiScope[]
 }
 
-export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
+export const administratorMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
-	if (!ctx.req.header('cookie')) {
-		return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
-	}
-
-	const config: AuthRuntimeConfig = await getRequestAuthRuntimeConfig(ctx)
-	const session = await authCore(ctx.env, ctx.get('metaDb'), config).api.getSession({
-		headers: ctx.req.raw.headers
-	})
-	if (!session) {
-		return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
-	}
-	if (!(await isAdministrator(ctx.get('metaDb'), session.user.id))) {
+	if (!(await isAdministrator(ctx.get('metaDb'), ctx.get('userId')))) {
 		return ctx.json({ code: 'FORBIDDEN', message: 'Forbidden' }, 403)
 	}
-
-	ctx.set('userId', session.user.id)
 	return next()
 }
