@@ -88,7 +88,7 @@ A few things to notice:
 - There is only **one Worker deployment**. Web pages, API, webhooks, cron, and queue consumers all live in the same codebase and ship together. You do not run separate services.
 - The **edge** is Cloudflare's global network. DNS and TLS terminate there, and the request is routed to the nearest Worker instance automatically.
 - **Clients** are the web app (browser) and the Chrome extension. They share most of the frontend code in `src/frontend/lib/`.
-- **External SaaS** are third-party providers. You only pay for what you enable via env vars.
+- **External SaaS** are third-party providers. Enable and configure them by business domain in Admin / Configuration after the application starts.
 
 ## Request Flow
 
@@ -109,18 +109,18 @@ The API is split into four route groups in `src/backend/api/index.ts`:
 
 | Group         | Auth level            | Purpose                                                     |
 | ------------- | --------------------- | ----------------------------------------------------------- |
-| `publicApi`   | None                  | Health check, auth login, payment webhooks, R2 public reads |
-| `authOnlyApi` | Logged in             | Routes that only need identity (e.g. bind beta code)        |
-| `userApi`     | Logged in + beta gate | All authenticated user endpoints                            |
-| `adminApi`    | Super admin           | Admin operations                                            |
+| `publicApi`   | None                                               | Health check, auth login, payment webhooks, R2 public reads |
+| `authOnlyApi` | Session or scoped OAuth token                      | Routes that only need identity                              |
+| `userApi`     | Session or scoped OAuth token + beta gate          | Authenticated user JSON endpoints                           |
+| `adminApi`    | Session or scoped OAuth token + D1 administrator role | Admin JSON endpoints                                      |
 
-The important idea: public routes skip auth entirely, user routes run the full middleware chain (auth, beta gate, tenant DB), admin routes replace normal auth with admin auth. You pick the group when you register a route.
+Protected JSON routes declare one scope in the central scope registry. Browser sessions satisfy that route scope directly. OAuth access tokens must contain it. Admin routes additionally require the current user to retain the D1 administrator role. Browser-only streaming and object routes explicitly reject OAuth tokens.
 
 ## Data Architecture
 
 Two database tiers with different ownership:
 
-**Meta DB** (`META_DB`): global control state. One database for the whole product. Holds shard registry, user-to-shard mapping, auth, payments, subscriptions, webhooks, notifications. Accessed via `ctx.get('metaDb')`.
+**Meta DB** (`META_DB`): global control state. One database for the whole product. Holds shard registry, user-to-shard mapping, dynamic system configuration, OAuth API access, auth, payments, AI channels, subscriptions, webhooks, and notifications. Accessed via `ctx.get('metaDb')`.
 
 **Tenant Shard DB**: user-scoped runtime data. Sharded across multiple D1 databases by region. Holds credit balances, credit transactions, feedbacks, notification reads, AI async task tables. Accessed via `ctx.get('tenantDb')`.
 
@@ -150,7 +150,7 @@ Meta DB and Tenant Shard DB each maintain independent bookmark flows, because th
 
 `system_settings` is the singleton source for dynamic product configuration. Its business domains have independent versions so the admin API can reject stale writes without coupling unrelated settings. `payment_products` and `ai_channels` are separate versioned collections.
 
-Sensitive values are stored as AES-GCM ciphertext and IV pairs. `prepare-cloudflare` generates `CONFIG_ENCRYPTION_KEY` once and stores it in local secret state or Cloudflare Worker Secrets; it is never stored in D1 or replaced after D1 initialization. Runtime modules move to this source one complete business domain at a time; once a domain reads D1, its old ENV keys and fallback paths are removed in the same change.
+Sensitive values are stored as AES-GCM ciphertext and IV pairs. `prepare-cloudflare` generates `CONFIG_ENCRYPTION_KEY` once and stores it in local generated secret state or Cloudflare Worker Secrets; it is never stored in D1 or replaced after D1 initialization. Every runtime business domain reads D1 as its only configuration source. There are no business ENV fallbacks.
 
 ## prepare-cloudflare Automation
 
@@ -167,4 +167,4 @@ pnpm dev / pnpm deploy:cloudflare
 
 Local mode uses placeholder UUIDs and applies migrations locally. Remote mode creates real Cloudflare resources, enables read replication, and applies migrations remotely.
 
-This is an architectural decision, not just a convenience: the infrastructure is code-generated from env vars, not hand-configured in a dashboard. Adding a queue, a shard, or a Durable Object is an env var change, not a manual session.
+This is an architectural decision, not just a convenience: fixed deployment topology is code-generated from env vars, while runtime business settings live in D1. Adding a queue, shard, or Durable Object changes fixed topology. Enabling a provider or changing product behavior does not.

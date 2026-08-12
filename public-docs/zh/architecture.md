@@ -88,7 +88,7 @@ flowchart TB
 - 只有**一个 Worker 部署**。Web 页面、API、Webhook、Cron 和队列消费者都在同一个代码库里，一起发布。不需要运行独立服务。
 - **边缘**是 Cloudflare 的全球网络。DNS 和 TLS 在那里终结，请求自动路由到最近的 Worker 实例。
 - **客户端**是 Web 应用（浏览器）和 Chrome 扩展。它们共享 `src/frontend/lib/` 中的大部分前端代码。
-- **外部 SaaS** 是第三方提供商。通过环境变量启用，只为你实际使用的部分付费。
+- **外部 SaaS** 是第三方提供商。应用启动后，在 Admin / Configuration 中按业务域启用和配置。
 
 ## 请求流程
 
@@ -109,18 +109,18 @@ API 在 `src/backend/api/index.ts` 中被拆分为四个路由组：
 
 | 组            | 认证级别          | 用途                                          |
 | ------------- | ----------------- | --------------------------------------------- |
-| `publicApi`   | 无                | 健康检查、认证登录、支付 Webhook、R2 公共读取 |
-| `authOnlyApi` | 已登录            | 仅需身份验证的路由（如绑定内测码）            |
-| `userApi`     | 已登录 + 内测门控 | 所有已认证的用户端点                          |
-| `adminApi`    | 超级管理员        | 管理员操作                                    |
+| `publicApi`   | 无                                      | 健康检查、认证登录、支付 Webhook、R2 公共读取 |
+| `authOnlyApi` | 浏览器 Session 或带 scope 的 OAuth Token | 只需要身份的路由                              |
+| `userApi`     | Session 或 OAuth Token + 内测门控         | 已认证用户 JSON API                           |
+| `adminApi`    | Session 或 OAuth Token + D1 管理员角色     | 管理员 JSON API                               |
 
-核心思路：公共路由完全跳过认证，用户路由运行完整中间件链（认证、内测门控、租户 DB），管理员路由用管理员认证替代普通认证。注册路由时选择对应的组即可。
+受保护的 JSON 路由必须在中央权限表声明一个 scope。浏览器 Session 直接满足该 scope，OAuth Access Token 必须显式包含它。管理员路由还会校验授权用户当前仍持有 D1 管理员角色。流式传输和对象读写等仅限浏览器的路由会显式拒绝 OAuth Token。
 
 ## 数据架构
 
 两层数据库，各自负责不同的所有权：
 
-**Meta DB**（`META_DB`）：全局控制状态。整个产品共用一个数据库。存储分片注册表、用户到分片的映射、认证、支付、订阅、Webhook、通知等。通过 `ctx.get('metaDb')` 访问。
+**Meta DB**（`META_DB`）：全局控制状态。整个产品共用一个数据库。存储分片注册表、用户到分片的映射、动态系统配置、OAuth API Access、认证、支付、AI Channel、订阅、Webhook 和通知。通过 `ctx.get('metaDb')` 访问。
 
 **租户分片 DB**：用户级别的运行时数据。按地区分片到多个 D1 数据库中。存储积分余额、积分交易、反馈、通知已读状态、AI 异步任务表等。通过 `ctx.get('tenantDb')` 访问。
 
@@ -150,7 +150,7 @@ Meta DB 和租户分片 DB 各自维护独立的 bookmark 流，因为它们是�
 
 `system_settings` 是动态产品配置的单例权威来源。每个业务域有独立版本，管理员 API 可以拒绝过期写入而不耦合其他配置域。`payment_products` 和 `ai_channels` 是独立的版本化集合。
 
-敏感值以 AES-GCM 密文和 IV 保存。`prepare-cloudflare` 首次生成 `CONFIG_ENCRYPTION_KEY`，并保存在本地 secret 状态或 Cloudflare Worker Secrets 中；它不会写入 D1，也不会在 D1 初始化后被替换。每个运行时模块按完整业务域迁移，切换到 D1 后在同一修改中删除旧 ENV 和回退路径。
+敏感值以 AES-GCM 密文和 IV 保存。`prepare-cloudflare` 首次生成 `CONFIG_ENCRYPTION_KEY`，并保存在本地生成的 secret 状态或 Cloudflare Worker Secrets 中；它不会写入 D1，也不会在 D1 初始化后被替换。所有运行时业务域都只从 D1 读取配置，不存在业务 ENV 回退。
 
 ## prepare-cloudflare 自动化
 
@@ -167,4 +167,4 @@ pnpm dev / pnpm deploy:cloudflare
 
 本地模式使用占位 UUID 并在本地应用迁移。远程模式创建真实的 Cloudflare 资源，启用读副本，并远程应用迁移。
 
-这是一个架构决策，而不只是便利性考量：基础设施由环境变量代码生成，而非在控制台手动配置。添加一个队列、一个分片或一个 Durable Object，改一个环境变量就够了，不需要手动操作。
+这是一个架构决策，而不只是便利性考量：固定部署拓扑由环境变量生成，运行时业务设置保存在 D1。添加 Queue、Shard 或 Durable Object 才需要修改固定拓扑；启用 Provider 或调整产品行为不需要。

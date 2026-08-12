@@ -25,6 +25,7 @@ vitest
 | Svelte check | `src/frontend/` | `pnpm test` | Catch Svelte component errors |
 | Unit tests | `src/**/*.test.ts`, `scripts/**/*.test.mjs` | `pnpm test` | Domain, handler, config, provider, utility behavior |
 | Local E2E | `e2e/**/*.test.ts` | `pnpm test:e2e` | HTTP flows against local dev app |
+| First-run acceptance | isolated temporary project | `pnpm test:e2e:first-run` | Empty D1, one-time credentials, config, OAuth, and revocation |
 | Remote E2E | `e2e/**/*.test.ts` | `pnpm test:e2e:remote` | HTTP flows against deployed app |
 
 Unit tests do not include `e2e/**`. E2E tests use `vitest.e2e.config.ts`.
@@ -248,6 +249,14 @@ pnpm test:e2e
 
 `pnpm dev` runs Worker and Vite dev servers. Local E2E uses `APP_BASE_URL` from config and normally targets the Vite dev port.
 
+Run the real first-run acceptance from a clean isolated project copy:
+
+```bash
+pnpm test:e2e:first-run
+```
+
+This command prepares an empty local D1 twice, proves the initial administrator password is printed exactly once, starts the real Worker and web servers, changes the administrator credentials through HTTP, saves General through a browser session, saves Storage through OAuth, verifies immediate frontend state, revokes the grant, and then runs the complete local E2E suite. It does not read the current checkout's secret files or local database.
+
 Remote E2E:
 
 ```bash
@@ -258,7 +267,7 @@ Remote E2E sets `E2E_REMOTE=1` and targets `https://APP_DOMAIN`.
 
 ## Remote E2E Limits
 
-Remote E2E must be read-or-call only against an already deployed environment.
+Remote E2E only uses public HTTP against an already deployed environment.
 
 Allowed:
 
@@ -266,6 +275,7 @@ Allowed:
 - Verify auth gates
 - Verify configured features
 - Verify deployed client config
+- Save configuration through the public admin API and restore the original value
 
 Forbidden:
 
@@ -328,6 +338,9 @@ pnpm exec vitest src/backend/credits/index.test.ts -t "daily"
 
 # Local E2E
 pnpm test:e2e
+
+# Empty-project first-run acceptance
+pnpm test:e2e:first-run
 
 # Remote E2E
 pnpm test:e2e:remote

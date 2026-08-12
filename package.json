@@ -9,14 +9,15 @@
 		"dev": "pnpm exec svelte-kit sync && pnpm prepare:cloudflare:dev && wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false && (wrangler dev --env-file .wrangler/runtime-secrets.env --port 8787 & vite dev --mode dev --port 5173 --strictPort)",
 		"dev:extension": "pnpm prepare:public:dev && wxt src/frontend/extension --mv3",
 		"build:extension": "pnpm prepare:public:prod && wxt zip src/frontend/extension --mv3",
-		"deploy:cloudflare": "pnpm prepare:cloudflare:prod && CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false && vite build && CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler deploy --secrets-file .wrangler/runtime-secrets.env",
+		"deploy:cloudflare": "pnpm prepare:cloudflare:prod && CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false && vite build && if [ -s .wrangler/runtime-secrets.env ]; then CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler deploy --secrets-file .wrangler/runtime-secrets.env; else CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler deploy; fi",
 		"prepare:public:dev": "node scripts/prepare-public.mjs --mode dev",
 		"prepare:public:prod": "node scripts/prepare-public.mjs --mode prod",
 		"prepare:cloudflare:dev": "node scripts/prepare-cloudflare.mjs --mode dev",
 		"prepare:cloudflare:prod": "node scripts/prepare-cloudflare.mjs --mode prod",
 		"test": "pnpm exec tsc --noEmit -p tsconfig.tsc.json && pnpm exec svelte-check --tsconfig ./tsconfig.json && vitest",
 		"test:e2e": "vitest --config vitest.e2e.config.ts",
-		"test:e2e:remote": "E2E_REMOTE=1 vitest --config vitest.e2e.config.ts"
+		"test:e2e:remote": "E2E_REMOTE=1 vitest --config vitest.e2e.config.ts",
+		"test:e2e:first-run": "node scripts/accept-local-first-run.mjs"
 	},
 	"devDependencies": {
 		"@better-auth/cli": "^1.4.21",

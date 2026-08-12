@@ -6,6 +6,7 @@ import {
 	buildInitialAdministratorInsertSql,
 	buildRequiredSecretKeys,
 	buildRuntimeSecretLines,
+	formatRuntimeSecretFile,
 	buildSystemSettingsInitializationSql,
 	buildTypesWranglerConfig,
 	buildWorkerRoutes,
@@ -271,8 +272,13 @@ describe('prepare cloudflare runtime config validation', () => {
 	})
 
 	it('generates remote system secrets only for a new Worker', () => {
-		const generated = resolveRemoteSystemSecrets(null, {}, () => Buffer.alloc(32, 7))
-		const reusedPending = resolveRemoteSystemSecrets(null, generated, () => Buffer.alloc(32, 8))
+		const generated = resolveRemoteSystemSecrets(null, {}, false, () => Buffer.alloc(32, 7))
+		const reusedPending = resolveRemoteSystemSecrets(
+			null,
+			generated,
+			false,
+			() => Buffer.alloc(32, 8)
+		)
 		const existing = resolveRemoteSystemSecrets(
 			new Set([
 				'BETTER_AUTH_SECRET',
@@ -280,6 +286,7 @@ describe('prepare cloudflare runtime config validation', () => {
 				'R2_ORIGIN_SIGNING_SECRET'
 			]),
 			{},
+			true,
 			() => Buffer.alloc(32, 8)
 		)
 
@@ -294,10 +301,68 @@ describe('prepare cloudflare runtime config validation', () => {
 		})
 	})
 
-	it('rejects missing generated secrets on an existing Worker', () => {
+	it('generates only missing secrets when an existing Worker has no settings', () => {
+		const generated = resolveRemoteSystemSecrets(
+			new Set(['BETTER_AUTH_SECRET']),
+			{},
+			false,
+			() => Buffer.alloc(32, 7)
+		)
+
+		expect({ generated }).toEqual({
+			generated: {
+				CONFIG_ENCRYPTION_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+				R2_ORIGIN_SIGNING_SECRET: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc'
+			}
+		})
+	})
+
+	it('reuses pending secrets when a first deploy failed before settings initialization', () => {
+		const pending = {
+			BETTER_AUTH_SECRET: 'auth-secret',
+			CONFIG_ENCRYPTION_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+			R2_ORIGIN_SIGNING_SECRET: 'r2-secret'
+		}
+		const reused = resolveRemoteSystemSecrets(
+			new Set([
+				'BETTER_AUTH_SECRET',
+				'CONFIG_ENCRYPTION_KEY',
+				'R2_ORIGIN_SIGNING_SECRET'
+			]),
+			pending,
+			false,
+			() => Buffer.alloc(32, 8)
+		)
+
+		expect({ reused }).toEqual({ reused: pending })
+	})
+
+	it('reuses the pending encryption key when an upgraded Worker failed before settings initialization', () => {
+		const pending = {
+			CONFIG_ENCRYPTION_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+			R2_ORIGIN_SIGNING_SECRET: 'r2-secret'
+		}
+		const reused = resolveRemoteSystemSecrets(
+			new Set([
+				'BETTER_AUTH_SECRET',
+				'CONFIG_ENCRYPTION_KEY',
+				'R2_ORIGIN_SIGNING_SECRET'
+			]),
+			pending,
+			false,
+			() => Buffer.alloc(32, 8)
+		)
+
+		expect({ reused }).toEqual({ reused: pending })
+	})
+
+	it('rejects missing generated secrets when settings already exist', () => {
 		expect(() => {
-			resolveRemoteSystemSecrets(new Set(['BETTER_AUTH_SECRET']), {}, () =>
-				Buffer.alloc(32, 7)
+			resolveRemoteSystemSecrets(
+				new Set(['BETTER_AUTH_SECRET']),
+				{},
+				true,
+				() => Buffer.alloc(32, 7)
 			)
 		}).toThrow('WORKER_SYSTEM_SECRETS_INCOMPLETE')
 	})
@@ -439,6 +504,10 @@ describe('prepare cloudflare runtime config validation', () => {
 			typeHasPaymentSecret: false,
 			typeHasGeneratedSystemSecret: true
 		})
+	})
+
+	it('writes no runtime secret bytes when a deploy has nothing to upload', () => {
+		expect({ content: formatRuntimeSecretFile([]) }).toEqual({ content: '' })
 	})
 
 })

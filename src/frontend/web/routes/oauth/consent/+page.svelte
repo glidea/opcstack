@@ -47,14 +47,20 @@
 		const response: Response = await fetch('/api/auth/oauth2/consent', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ accept })
+			body: JSON.stringify({ accept, oauth_query: $page.url.searchParams.toString() })
 		})
 		if (!response.ok) {
 			error = 'Consent could not be saved'
 			loading = false
 			return
 		}
-		window.location.assign(response.url)
+		const body = (await response.json()) as { redirect: boolean; url: string }
+		if (!body.redirect || !body.url) {
+			error = 'Consent could not be saved'
+			loading = false
+			return
+		}
+		window.location.assign(body.url)
 	}
 </script>
 

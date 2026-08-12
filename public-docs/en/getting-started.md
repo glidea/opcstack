@@ -35,14 +35,12 @@ cd <your-app-name>
 git remote rename origin upstream
 pnpm install
 vim .env.dev
-cp .env.secret.example .env.secret.dev
-vim .env.secret.dev
 pnpm dev
 ```
 
 After startup open http://localhost:5173
 
-Public config lives in `.env.dev` and `.env.prod`. Secrets live in `.env.secret.dev` and `.env.secret.prod`. Do not commit secret files. See [Deployment](guides/deployment.md) for the full env system.
+The first preparation prints one-time administrator credentials. Sign in, change the email and password under Account / Security, then configure business features under Admin / Configuration. `.env.dev` and `.env.prod` contain only fixed deployment identity and Cloudflare resource topology. Internal root secrets are generated automatically; business credentials are encrypted in D1.
 
 ## 3. Deploy to Cloudflare
 

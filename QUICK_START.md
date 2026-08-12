@@ -4,7 +4,7 @@ Install and run the OPCStack app creation Skill for the current Agent platform.
 
 ## Canonical Workflow
 
-The Skill name is `create-opcstack-app`.
+The Skill name is `create-opcstack-app`. It first creates a runnable shell from fixed deployment topology only. The preparation script generates internal root secrets and one-time administrator credentials. Business settings and third-party credentials are configured after startup through Admin / Configuration or an OAuth-authorized API, never through business ENV files.
 
 Every invocation must fetch and follow the latest workflow from:
 

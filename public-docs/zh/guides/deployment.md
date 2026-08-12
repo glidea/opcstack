@@ -10,7 +10,7 @@ order: 7
 
 OPCStack 只有一个运行时部署单元：一个 Cloudflare Worker。这个 Worker 承载 Web SSR、静态资源、JSON API、Better Auth 路由、支付 webhook、定时任务、队列消费者和 Cloudflare bindings。Chrome 扩展是独立的构建产物，调用同一个已部署的 origin。
 
-部署是配置驱动的。`scripts/prepare-cloudflare.mjs` 读取 env 文件、供给或解析 Cloudflare 资源、生成 `wrangler.jsonc`、运行迁移、种入分片注册表、同步超级管理员，然后由 `wrangler deploy` 上传 Worker。
+部署由固定拓扑配置驱动。`scripts/prepare-cloudflare.mjs` 读取固定 ENV、供给或解析 Cloudflare 资源、生成 `wrangler.jsonc`、运行迁移、种入分片注册表，并只在管理员不存在时创建管理员，最后由 `wrangler deploy` 上传 Worker。
 
 ## 运行时概览
 
@@ -102,7 +102,11 @@ pnpm deploy:cloudflare
 pnpm prepare:cloudflare:prod
 CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false
 vite build
-CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler deploy --secrets-file .wrangler/runtime-secrets.env
+if [ -s .wrangler/runtime-secrets.env ]; then
+  CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler deploy --secrets-file .wrangler/runtime-secrets.env
+else
+  CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler deploy
+fi
 ```
 
 仅 prepare 命令：
@@ -132,19 +136,19 @@ pnpm dev
 
 | 步骤 | Dev 模式 | Prod 模式 |
 | --- | --- | --- |
-| 加载 env | `.env.dev`、`.env.secret.dev`、`.env`、`process.env` | `.env.prod`、`.env.secret.prod`、`.env`、`process.env` |
+| 加载 env | `.env.dev`、`.env`、`process.env` | `.env.prod`、`.env`、`process.env` |
 | 解析 Cloudflare token | 不需要远端 token | 读取 `CLOUDFLARE_API_TOKEN` 或缓存 token |
 | D1 | 使用本地占位 ID | 创建或解析 Meta DB 和 Tenant Shard DB |
 | D1 read replication | 否 | 启用 read replication |
 | Queues | 生成 bindings | 创建队列并生成 bindings |
 | R2 | 仅在启用时生成 binding | 创建 bucket、CORS、tmp 生命周期、图片转换 |
 | KV | 本地占位命名空间 | 创建或解析 KV 命名空间 |
-| Turnstile | 使用本地配置/测试行为 | 启用时创建或更新 widget |
+| Turnstile | 将 Cloudflare 测试凭据写入 D1 | 创建或更新 widget 并将凭据写入 D1 |
 | Config | 生成 `wrangler.jsonc` | 生成 `wrangler.jsonc` |
 | Types config | 生成 `.wrangler/wrangler.types.jsonc` | 生成 `.wrangler/wrangler.types.jsonc` |
-| Runtime secrets | 写入 `.wrangler/runtime-secrets.env` | 写入 `.wrangler/runtime-secrets.env` |
+| Runtime secrets | 写入本地运行时密钥 | 只写入本次待上传的新 Worker Secret |
 | Migrations | 生成并应用本地 D1 迁移 | 生成并应用远端 D1 迁移 |
-| Seed state | upsert 分片注册表和超级管理员 | upsert 分片注册表和超级管理员 |
+| Seed state | 初始化业务域配置、分片注册表、OAuth Client 和管理员 | 初始化业务域配置、分片注册表、OAuth Client 和管理员 |
 
 不要手动创建资源后称之为部署。如果 Worker 需要某个资源，通过 env 配置和 `prepare-cloudflare` 来表达它。
 
@@ -160,36 +164,27 @@ pnpm dev
 | `src/frontend/lib/config/client.generated.ts` | 公共前端和扩展配置 |
 | D1 migrations | 由 Drizzle schema 生成 |
 
-注意：不要读取或打印真实密钥文件或 token 缓存。密钥值归用户所有。
+注意：不要读取或打印脚本生成的密钥状态或 token 缓存。
 
-## Env 文件
-
-公共配置：
+## 固定 ENV
 
 | 文件 | 用途 |
 | --- | --- |
-| `.env.dev` | 本地公共默认值 |
-| `.env.prod` | 生产公共默认值 |
+| `.env.dev` | 本地部署身份与资源拓扑 |
+| `.env.prod` | 生产部署身份与资源拓扑 |
 | `.env` | 本地覆盖 |
 
-密钥配置：
-
-| 文件 | 用途 |
-| --- | --- |
-| `.env.secret.example` | 占位文档 |
-| `.env.secret.dev` | 本地真实密钥 |
-| `.env.secret.prod` | 生产真实密钥 |
+这些文件只包含 `APP_NAME`、`APP_VERSION`、域名、扩展 host permissions、D1 分片、R2 资源开关与生命周期、Queue 拓扑、Cron triggers 和 Durable Object 拓扑。认证、邮件、支付、AI、Credits、Affiliate 和 Storage 规则都不能写入这些文件。
 
 加载顺序：
 
 ```text
 .env.dev 或 .env.prod
-  -> .env.secret.dev 或 .env.secret.prod
   -> .env
   -> process.env
 ```
 
-即 `.env` 覆盖模式文件，shell 环境变量覆盖一切。
+`.env.secret.dev` 只保存脚本生成的三个本地内部根密钥，不是用户配置，也不参与 ENV 加载。生产根密钥只保存在 Cloudflare Worker Secrets。
 
 ## Cloudflare Token
 
@@ -398,7 +393,9 @@ Binding 和类命名：
 | `CONFIG_ENCRYPTION_KEY` |
 | `R2_ORIGIN_SIGNING_SECRET` |
 
-支付凭据加密保存在 D1，通过后台 Configuration 页面管理，不是 Worker Secret。
+用户不提供这些值。本地准备首次生成并持久化，生产准备在首次部署时创建 Cloudflare Worker Secrets，后续不覆盖。D1 已初始化但对应根密钥丢失时，准备流程直接失败，不生成替代密钥。
+
+所有第三方凭据都通过 Admin / Configuration 或 OAuth 授权 API 加密写入 D1，不是 Worker Secret。
 
 `.wrangler/wrangler.types.jsonc` 可能包含完整密钥 schema，以保持生成的 `Env` 类型稳定。这不意味着每个密钥在运行时都是必需的。
 
@@ -415,7 +412,7 @@ Binding 和类命名：
 | Cloudflare Email | 付费 Worker 方案和 `SEND_EMAIL` binding |
 | Dodo | Configuration > Payment 中的凭据、产品 id、指向 Worker 的 webhook |
 | Creem | Configuration > Payment 中的凭据、产品 id、指向 Worker 的 webhook |
-| AI providers | secret env 中的 API keys，public env 中的 base URL 和模型名 |
+| AI providers | AI Tab 中的 API keys、base URLs、模型、路由和 Channels |
 
 如果某功能被禁用，不要配置假的生产凭据。保持功能开关为 false。
 
@@ -440,15 +437,14 @@ EXTENSION_HOST_PERMISSIONS=https://example.com/*
 
 ## 部署 Checklist
 
-1. 设置 `.env.prod`
-2. 将真实生产密钥放入 `.env.secret.prod` 或 CI secrets
-3. 设置 `APP_DOMAIN`
-4. 设置可选的 `APP_CN_DOMAIN` 和 `APP_CN_CNAME_TARGET`
-5. 为已启用功能配置 OAuth 应用、支付 webhook、邮件发送者和 AI provider keys
-6. 运行 `pnpm prepare:cloudflare:prod`
-7. 检查生成的 `wrangler.jsonc`
-8. 运行 `pnpm deploy:cloudflare`
-9. 对已部署应用运行 `pnpm test:e2e:remote`
+1. 在 `.env.prod` 设置固定拓扑，包括 `APP_DOMAIN`
+2. 设置可选的 `APP_CN_DOMAIN` 和 `APP_CN_CNAME_TARGET`
+3. 运行 `pnpm deploy:cloudflare`
+4. 保存首次准备只显示一次的管理员凭据
+5. 登录已部署应用并修改管理员邮箱和密码
+6. 在 Admin / Configuration 配置并启用所需业务域
+7. 在外部 Provider 登记页面显示的 OAuth Callback 和 Payment Webhook URL
+8. 对已部署应用运行 `pnpm test:e2e:remote`
 
 CI 应直接设置 `CLOUDFLARE_API_TOKEN`。本地部署可使用缓存 token。
 
@@ -462,9 +458,9 @@ CI 应直接设置 `CLOUDFLARE_API_TOKEN`。本地部署可使用缓存 token。
 
 `QUEUE_NAMES`、`CRONS`、`D1_SHARDS` 及相关列表 env 使用分号。
 
-**将密钥放入公共 env**
+**将业务配置写入固定 ENV**
 
-`.env.dev` 和 `.env.prod` 是公共配置。API key 应放在 secret env 或 CI secrets 中。
+`.env.dev` 和 `.env.prod` 只负责部署拓扑。业务设置和第三方凭据必须通过 Admin / Configuration 写入 D1。
 
 **在有用户后修改 `D1_SHARDS` 而没有迁移方案**
 

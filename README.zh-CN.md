@@ -113,10 +113,10 @@ cd <your-app-name>
 git remote rename origin upstream
 pnpm install
 vim .env.dev
-cp .env.secret.example .env.secret.dev
-vim .env.secret.dev
 pnpm dev
 ```
+
+首次准备会自动生成 Worker 内部根密钥，并创建 `admin@opcstack.local` 和随机密码。使用终端只显示一次的凭据登录，在 Account / Security 修改邮箱和密码，再到 Admin / Configuration 配置业务能力。业务凭据加密保存在 D1，不写入 env 文件。
 
 部署到 Cloudflare：
 
@@ -146,8 +146,7 @@ pnpm build:extension
 | `scripts/prepare-public.mjs` | 生成前端公共产物，包括客户端配置、Web Logo 和扩展图标 |
 | `scripts/prepare-cloudflare.mjs` | 本地和部署前的 Cloudflare 配置、资源创建及迁移自动化 |
 | `wrangler.jsonc.tpl` | Worker 配置模板 |
-| `.env.dev` / `.env.prod` | 可提交的公共环境配置 |
-| `.env.secret.example` | 不含真实值的密钥配置模板 |
+| `.env.dev` / `.env.prod` | 固定部署身份与 Cloudflare 资源拓扑 |
 | `src/api-contract/` | API 请求、响应、Schema 和共享类型 |
 | `src/frontend/lib/` | 共享前端层，包括 UI、国际化、配置和客户端逻辑 |
 | `src/frontend/web/` | Web 入口，包括 SvelteKit 页面、路由、静态资源和应用外壳 |

@@ -10,7 +10,7 @@ order: 7
 
 OPCStack has one runtime deployment unit: a Cloudflare Worker. The Worker owns web SSR, static assets, JSON APIs, Better Auth routes, payment webhooks, scheduled jobs, queue consumers, and Cloudflare bindings. The Chrome extension is a separate build artifact that calls the same deployed origin.
 
-Deployment is config-driven. `scripts/prepare-cloudflare.mjs` reads env files, provisions or resolves Cloudflare resources, generates `wrangler.jsonc`, runs migrations, seeds shard registry, syncs the super admin, then `wrangler deploy` uploads the Worker.
+Deployment is config-driven. `scripts/prepare-cloudflare.mjs` reads fixed topology env, provisions or resolves Cloudflare resources, generates `wrangler.jsonc`, runs migrations, seeds shard registry, and creates the administrator only when absent. `wrangler deploy` then uploads the Worker.
 
 ## Runtime Overview
 
@@ -102,7 +102,11 @@ That script expands to:
 pnpm prepare:cloudflare:prod
 CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false
 vite build
-CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler deploy --secrets-file .wrangler/runtime-secrets.env
+if [ -s .wrangler/runtime-secrets.env ]; then
+  CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler deploy --secrets-file .wrangler/runtime-secrets.env
+else
+  CLOUDFLARE_API_TOKEN=$(cat .wrangler/cloudflare-api-token) wrangler deploy
+fi
 ```
 
 Prepare-only commands:
@@ -132,19 +136,19 @@ pnpm dev
 
 | Step | Dev mode | Prod mode |
 | --- | --- | --- |
-| Load env | `.env.dev`, `.env.secret.dev`, `.env`, `process.env` | `.env.prod`, `.env.secret.prod`, `.env`, `process.env` |
+| Load env | `.env.dev`, `.env`, `process.env` | `.env.prod`, `.env`, `process.env` |
 | Resolve Cloudflare token | No remote token needed | Reads `CLOUDFLARE_API_TOKEN` or cached token |
 | D1 | Uses local placeholder IDs | Creates or resolves Meta DB and Tenant Shard DBs |
 | D1 read replication | No | Enables read replication |
 | Queues | Generates bindings | Creates queues and generates bindings |
 | R2 | Generates binding only when enabled | Creates bucket, CORS, tmp lifecycle, image transformations |
 | KV | Local placeholder namespace | Creates or resolves KV namespace |
-| Turnstile | Uses local config/test behavior | Creates or updates widget when enabled |
+| Turnstile | Writes Cloudflare test credentials into D1 | Creates or updates the widget and writes its credentials into D1 |
 | Config | Generates `wrangler.jsonc` | Generates `wrangler.jsonc` |
 | Types config | Generates `.wrangler/wrangler.types.jsonc` | Generates `.wrangler/wrangler.types.jsonc` |
-| Runtime secrets | Writes `.wrangler/runtime-secrets.env` | Writes `.wrangler/runtime-secrets.env` |
+| Runtime secrets | Writes local runtime secrets | Writes only new Worker Secrets pending upload |
 | Migrations | Generates and applies local D1 migrations | Generates and applies remote D1 migrations |
-| Seed state | Upserts shard registry and super admin | Upserts shard registry and super admin |
+| Seed state | Initializes domain config, shard registry, OAuth client, and administrator | Initializes domain config, shard registry, OAuth client, and administrator |
 
 Do not manually create resources and call that deployment. If the Worker needs a resource, make it expressible through env config and `prepare-cloudflare`.
 
@@ -156,40 +160,31 @@ Generated files:
 | --- | --- |
 | `wrangler.jsonc` | Runtime Worker config used by Wrangler |
 | `.wrangler/wrangler.types.jsonc` | Type-generation config with full secret schema |
-| `.wrangler/runtime-secrets.env` | Runtime secrets passed to Wrangler |
+| `.wrangler/runtime-secrets.env` | Local runtime secrets or new Worker Secrets pending upload |
 | `src/frontend/lib/config/client.generated.ts` | Public frontend and extension config |
 | D1 migrations | Generated from Drizzle schemas |
 
-Agent rule: do not read or print real secret files or token caches. Secret values are user-owned.
+Agent rule: do not read or print generated secret state or token caches.
 
-## Env Files
-
-Public config:
+## Fixed Env
 
 | File | Purpose |
 | --- | --- |
-| `.env.dev` | Local public defaults |
-| `.env.prod` | Production public defaults |
+| `.env.dev` | Local deployment identity and resource topology |
+| `.env.prod` | Production deployment identity and resource topology |
 | `.env` | Local override |
 
-Secret config:
-
-| File | Purpose |
-| --- | --- |
-| `.env.secret.example` | Placeholder documentation |
-| `.env.secret.dev` | Local real secrets |
-| `.env.secret.prod` | Production real secrets |
+These files contain only `APP_NAME`, `APP_VERSION`, domains, extension host permissions, D1 shards, R2 resource switches and lifecycle, Queue topology, Cron triggers, and Durable Object topology. They never contain authentication, email, payment, AI, credits, affiliate, or storage-rule configuration.
 
 Load order:
 
 ```text
 .env.dev or .env.prod
-  -> .env.secret.dev or .env.secret.prod
   -> .env
   -> process.env
 ```
 
-This means `.env` overrides mode files, and shell env overrides everything.
+`.env.secret.dev` is generated local state for the three internal root secrets. It is not user configuration and is never part of env loading. Production roots live only in Cloudflare Worker Secrets.
 
 ## Cloudflare Token
 
@@ -398,7 +393,9 @@ Generated once by `prepare-cloudflare` and always required:
 | `CONFIG_ENCRYPTION_KEY` |
 | `R2_ORIGIN_SIGNING_SECRET` |
 
-Payment credentials are encrypted in D1 and managed through the admin Configuration page. They are not Worker secrets.
+Users never provide these values. Local preparation generates and persists them once. Production preparation creates them as Cloudflare Worker Secrets on the first deployment and never overwrites them. If initialized D1 state loses the matching roots, preparation fails instead of generating replacements.
+
+All third-party credentials are encrypted in D1 and managed through Admin / Configuration or an OAuth-authorized API call. They are not Worker secrets.
 
 `.wrangler/wrangler.types.jsonc` may include the full secret schema so generated `Env` stays stable. That does not mean every secret is required at runtime.
 
@@ -415,7 +412,7 @@ External services must point back to the deployed Worker origin.
 | Cloudflare Email | Paid Worker plan and `SEND_EMAIL` binding |
 | Dodo | Configuration > Payment credentials, product ids, webhook to Worker |
 | Creem | Configuration > Payment credentials, product ids, webhook to Worker |
-| AI providers | API keys in secret env, base URLs and model names in public env |
+| AI providers | API keys, base URLs, models, routing, and channels in the AI tab |
 
 If a feature is disabled, do not configure fake production credentials. Keep the feature switch false.
 
@@ -440,15 +437,14 @@ Use the deployed `APP_DOMAIN` in production extension builds.
 
 ## Deployment Checklist
 
-1. Set `.env.prod`
-2. Put real production secrets in `.env.secret.prod` or CI secrets
-3. Set `APP_DOMAIN`
-4. Set optional `APP_CN_DOMAIN` and `APP_CN_CNAME_TARGET`
-5. Configure OAuth apps, payment webhooks, email sender, and AI provider keys for enabled features
-6. Run `pnpm prepare:cloudflare:prod`
-7. Check generated `wrangler.jsonc`
-8. Run `pnpm deploy:cloudflare`
-9. Run `pnpm test:e2e:remote` against the deployed app
+1. Set fixed topology in `.env.prod`, including `APP_DOMAIN`
+2. Set optional `APP_CN_DOMAIN` and `APP_CN_CNAME_TARGET`
+3. Run `pnpm deploy:cloudflare`
+4. Retain the one-time administrator credentials printed by the first preparation
+5. Sign in to the deployed app and change the administrator email and password
+6. Configure and enable required business domains in Admin / Configuration
+7. Register the displayed OAuth callback and payment webhook URLs with external providers
+8. Run `pnpm test:e2e:remote` against the deployed app
 
 CI should set `CLOUDFLARE_API_TOKEN` directly. Local deploy can use the cached token.
 
@@ -462,9 +458,9 @@ Edit env files or `wrangler.jsonc.tpl`. `wrangler.jsonc` is generated.
 
 `QUEUE_NAMES`, `CRONS`, `D1_SHARDS`, and related list envs use semicolons.
 
-**Putting secrets in public env**
+**Putting business settings in fixed env**
 
-`.env.dev` and `.env.prod` are public config. API keys belong in secret env or CI secrets.
+`.env.dev` and `.env.prod` own deployment topology only. Business settings and third-party credentials belong in D1 through Admin / Configuration.
 
 **Changing `D1_SHARDS` after users exist without a migration plan**
 

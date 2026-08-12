@@ -38,12 +38,12 @@ Agents must follow these rules:
 - Do not read `.env.secret.dev`
 - Do not read `.env.secret.prod`
 - Do not read `.wrangler/runtime-secrets.env`
-- Do not write secret files
+- Do not edit generated secret state
 - Do not ask the user to paste secrets into chat
 - Do not print secret values
-- Tell the user to edit secret files locally when secret values are required
+- Enter third-party credentials only through the running Admin Configuration page or its OAuth-authorized API
 
-If a command fails because a secret is missing, explain which key is missing and ask the user to fill it locally. Do not inspect the secret file.
+Users do not maintain business secret env files. `prepare-cloudflare` owns the internal root secrets. If generated root secret state is missing after D1 initialization, report that recovery is required; never generate a replacement root.
 
 ---
 
@@ -126,7 +126,7 @@ Notes:
 
 - Authentication, Email, Turnstile, social login, and beta gate are configured after startup in the admin Configuration workspace
 - R2, Queues, Cron, and AI queue names may already be enabled in `.env.dev`; do not force users to configure them during local setup
-- Production-only values belong in `.env.prod` and `.env.secret.prod`, not in local setup
+- Production deployment topology belongs in `.env.prod`, not in local setup
 
 ---
 
@@ -235,25 +235,43 @@ Do not duplicate UI, config parsing, or API client setup inside the extension wh
 
 ### If The User Chooses Configure Production Environment
 
-Ask which modules they want enabled in production:
+First collect only fixed deployment topology in `.env.prod`:
 
-- Email auth
-- OAuth
-- Payment
-- AI providers
-- R2 uploads
-- Queues and Cron
-- Beta code
-- Affiliate rewards
+| Key | Purpose |
+| --- | --- |
+| `APP_NAME` | Stable Worker and resource prefix |
+| `APP_VERSION` | Public release version |
+| `APP_DOMAIN` | Primary production hostname |
+| `APP_CN_DOMAIN` | Optional China hostname |
+| `APP_CN_CNAME_TARGET` | Optional unproxied CNAME target for the China hostname |
+| `EXTENSION_HOST_PERMISSIONS` | Chrome extension origins |
+| `D1_SHARDS` | Regional tenant D1 layout |
+| `R2_ENABLED` | R2 binding and bucket topology |
+| `R2_TMP_LIFECYCLE_RULES` | Temporary object retention |
+| `QUEUE_NAMES` | Queue bindings and consumers |
+| `QUEUE_MAX_CONCURRENCY` | Optional queue consumer limit |
+| `CRONS` | Worker cron triggers |
+| `DO_NAMES` | Durable Object bindings |
 
-Guide config module by module.
+These are the complete long-lived ENV inputs. Do not add Authentication, Email, Storage policy, Credits, Affiliate, Payment, AI, administrator identity, or third-party credentials to ENV.
+
+Then run `pnpm deploy:cloudflare`. On the first deployment, retain the one-time administrator credentials, open the deployed application, sign in, and change the administrator email and password under Account / Security.
+
+After the shell is running, ask which business modules they want to configure:
+
+- Authentication and external OAuth
+- Email
+- Storage rules
+- Credits and affiliate rewards
+- Payment and products
+- AI providers and channels
 
 Rules:
 
-- Public values go to `.env.prod`
-- Secret values go to `.env.secret.prod`
-- The user edits secret files locally
-- The Agent does not read secret files
+- Fixed deployment topology goes to `.env.prod`
+- Business settings and third-party credentials go to Meta D1 through Admin / Configuration
+- Human operators use the browser Session
+- Agents and CLI clients run `opc auth connect`, show the authorization URL, and wait for the user to approve explicit scopes
 - Deployment is done with `pnpm deploy:cloudflare`
 
 Explain that `scripts/prepare-cloudflare.mjs --mode prod` automatically provisions Cloudflare resources such as D1, shard D1 databases, KV, R2, Queues, Turnstile widget, R2 CORS, lifecycle rules, and read replication.

@@ -7,7 +7,6 @@ import {
 	requireApiScope
 } from './auth'
 import { authCore } from '../auth'
-import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import type { AuthRuntimeConfig } from '../../config'
@@ -16,12 +15,6 @@ import { isAdministrator } from '../../auth/administrator'
 vi.mock('../auth', () => {
 	return {
 		authCore: vi.fn()
-	}
-})
-
-vi.mock('@better-auth/oauth-provider/resource-client', () => {
-	return {
-		oauthProviderResourceClient: vi.fn()
 	}
 })
 
@@ -284,17 +277,20 @@ describe('OAuth API authorization', () => {
 	})
 
 	it('accepts a verified OAuth token and exposes its grant scopes', async () => {
-		const verifyAccessToken = vi.fn(async () => ({
-			sub: 'user-1',
-			azp: 'opc-cli',
-			grant_id: 'grant-1',
-			api_scopes: ['credits:read']
+		const verifyJWT = vi.fn(async () => ({
+			payload: {
+				sub: 'user-1',
+				azp: 'opc-cli',
+				scope: 'api_access offline_access',
+				grant_id: 'grant-1',
+				api_scopes: ['credits:read']
+			}
 		}))
-		vi.mocked(oauthProviderResourceClient).mockReturnValue({
-			getActions: () => ({ verifyAccessToken })
-		} as never)
 		vi.mocked(authCore).mockReturnValue({
-			api: { getSession: vi.fn(async () => null) }
+			api: {
+				getSession: vi.fn(async () => null),
+				verifyJWT
+			}
 		} as never)
 
 		const state = createContextState('/api/get_credit_summary', 'Bearer access-token')
@@ -327,21 +323,28 @@ describe('OAuth API authorization', () => {
 			grantId: 'grant-1',
 			scopes: ['credits:read']
 		})
+		expect(verifyJWT).toHaveBeenCalledWith({
+			body: {
+				token: 'access-token',
+				issuer: 'http://localhost:5173/api/auth'
+			}
+		})
 	})
 
 	it('rejects an OAuth token after its grant is revoked', async () => {
-		vi.mocked(oauthProviderResourceClient).mockReturnValue({
-			getActions: () => ({
-				verifyAccessToken: vi.fn(async () => ({
+		vi.mocked(authCore).mockReturnValue({
+			api: {
+				getSession: vi.fn(async () => null),
+				verifyJWT: vi.fn(async () => ({
+					payload: {
 					sub: 'user-1',
 					azp: 'opc-cli',
+					scope: 'api_access offline_access',
 					grant_id: 'grant-1',
 					api_scopes: ['credits:read']
+					}
 				}))
-			})
-		} as never)
-		vi.mocked(authCore).mockReturnValue({
-			api: { getSession: vi.fn(async () => null) }
+			}
 		} as never)
 		const state = createContextState('/api/get_credit_summary', 'Bearer access-token')
 		state.values['metaDb'] = {

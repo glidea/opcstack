@@ -22,6 +22,7 @@ const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
 const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
 const RUNTIME_SECRETS_PATH = '.wrangler/runtime-secrets.env'
+const RUNTIME_SECRETS_MODE_PATH = '.wrangler/runtime-secrets.mode'
 const TYPES_WRANGLER_CONFIG_PATH = '.wrangler/wrangler.types.jsonc'
 const SYSTEM_SECRET_KEYS = [
 	'BETTER_AUTH_SECRET',
@@ -174,16 +175,10 @@ function selectTurnstileWidget(widgets, appName) {
 
 function loadEnv(isRemote) {
 	const defaultEnvFile = isRemote ? '.env.prod' : '.env.dev'
-	const secretEnvFile = isRemote ? '.env.secret.prod' : '.env.secret.dev'
 	const overrideEnvFile = '.env'
 
 	console.log(`Loading public defaults from ${defaultEnvFile}...`)
 	const defaultEnv = parseEnvFile(defaultEnvFile)
-
-	const secretEnv = parseEnvFile(secretEnvFile)
-	if (Object.keys(secretEnv).length > 0) {
-		console.log(`Loading secrets from ${secretEnvFile}...`)
-	}
 
 	const overrideEnv = parseEnvFile(overrideEnvFile)
 	if (Object.keys(overrideEnv).length > 0) {
@@ -192,7 +187,6 @@ function loadEnv(isRemote) {
 
 	return {
 		...defaultEnv,
-		...secretEnv,
 		...overrideEnv,
 		...process.env
 	}
@@ -238,19 +232,55 @@ export function resolveLocalSystemSecrets(existing, randomBytesFactory = randomB
 export function resolveRemoteSystemSecrets(
 	existingNames,
 	pending,
+	settingsExist,
 	randomBytesFactory = randomBytes
 ) {
 	if (existingNames === null) {
+		if (settingsExist && !hasCompleteSystemSecrets(pending)) {
+			throw new Error('SYSTEM_SECRETS_RECOVERY_UNAVAILABLE')
+		}
 		return resolveLocalSystemSecrets(pending, randomBytesFactory)
 	}
 
-	const existingCount = SYSTEM_SECRET_KEYS.filter((key) => {
-		return existingNames.has(key)
-	}).length
-	if (existingCount !== SYSTEM_SECRET_KEYS.length) {
+	const missingKeys = SYSTEM_SECRET_KEYS.filter((key) => !existingNames.has(key))
+	if (missingKeys.length === 0) {
+		if (!settingsExist) {
+			if (String(pending.CONFIG_ENCRYPTION_KEY ?? '').trim() !== '') {
+				validateConfigEncryptionKey(pending.CONFIG_ENCRYPTION_KEY)
+				return { ...pending }
+			}
+			throw new Error('CONFIG_ENCRYPTION_KEY_UNAVAILABLE')
+		}
+		return {}
+	}
+	if (settingsExist && !missingKeys.every((key) => String(pending[key] ?? '').trim() !== '')) {
 		throw new Error('WORKER_SYSTEM_SECRETS_INCOMPLETE')
 	}
-	return {}
+
+	const resolved = {}
+	for (const key of missingKeys) {
+		const pendingValue = settingsExist ? String(pending[key] ?? '').trim() : ''
+		resolved[key] = pendingValue || generateSystemSecret(key, randomBytesFactory)
+	}
+	if (resolved.CONFIG_ENCRYPTION_KEY) {
+		validateConfigEncryptionKey(resolved.CONFIG_ENCRYPTION_KEY)
+	}
+	return resolved
+}
+
+function hasCompleteSystemSecrets(values) {
+	return SYSTEM_SECRET_KEYS.every((key) => String(values[key] ?? '').trim() !== '')
+}
+
+function readRuntimeSecretsForMode(mode) {
+	if (!existsSync(RUNTIME_SECRETS_MODE_PATH)) {
+		return {}
+	}
+	const storedMode = readFileSync(RUNTIME_SECRETS_MODE_PATH, 'utf-8').trim()
+	if (storedMode !== mode) {
+		return {}
+	}
+	return parseEnvFile(RUNTIME_SECRETS_PATH)
 }
 
 export function resolveSystemSettingsInitialization(input) {
@@ -296,13 +326,21 @@ function appendLocalSystemSecrets(existing, resolved) {
 	console.log(`Generated local system secrets in ${path}`)
 }
 
-function writeRuntimeSecrets(env) {
+function writeRuntimeSecrets(env, mode) {
 	mkdirSync('.wrangler', { recursive: true })
 
 	const lines = buildRuntimeSecretLines(env)
 
-	writeFileSync(RUNTIME_SECRETS_PATH, `${lines.join('\n')}\n`, { mode: 0o600 })
+	writeFileSync(RUNTIME_SECRETS_PATH, formatRuntimeSecretFile(lines), { mode: 0o600 })
+	writeFileSync(RUNTIME_SECRETS_MODE_PATH, `${mode}\n`)
 	console.log(`Runtime secrets written to ${RUNTIME_SECRETS_PATH}`)
+}
+
+export function formatRuntimeSecretFile(lines) {
+	if (lines.length === 0) {
+		return ''
+	}
+	return `${lines.join('\n')}\n`
 }
 
 export function buildTypesWranglerConfig(config) {
@@ -1031,6 +1069,32 @@ async function listD1Databases(accountId, token) {
 	return Array.isArray(result) ? result : []
 }
 
+async function hasRemoteSystemSettings(accountId, databaseId, token) {
+	const tableResult = await cfApiRequest(
+		token,
+		'POST',
+		`/accounts/${accountId}/d1/database/${databaseId}/query`,
+		{ sql: "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'system_settings'" }
+	)
+	if (!readD1ApiRows(tableResult).some((row) => row.name === 'system_settings')) {
+		return false
+	}
+	const settingsResult = await cfApiRequest(
+		token,
+		'POST',
+		`/accounts/${accountId}/d1/database/${databaseId}/query`,
+		{ sql: 'SELECT id FROM system_settings WHERE id = 1' }
+	)
+	return readD1ApiRows(settingsResult).some((row) => row.id === 1)
+}
+
+function readD1ApiRows(result) {
+	if (!Array.isArray(result) || !Array.isArray(result[0]?.results)) {
+		return []
+	}
+	return result[0].results
+}
+
 async function createD1Database(accountId, token, name, region) {
 	return cfApiRequest(token, 'POST', `/accounts/${accountId}/d1/database`, buildD1CreatePayload(name, region))
 }
@@ -1400,6 +1464,7 @@ async function main() {
 	let cloudflareApiToken = ''
 	let appCnZoneName = ''
 	let remoteWorkerSecretNames = null
+	let remoteSettingsExist = false
 	let hadPendingRemoteSystemSecrets = false
 	let remoteSystemSecrets = {}
 
@@ -1418,22 +1483,6 @@ async function main() {
 			cloudflareApiToken,
 			appName
 		)
-		const pendingRemoteSystemSecrets = parseEnvFile(RUNTIME_SECRETS_PATH)
-		hadPendingRemoteSystemSecrets = SYSTEM_SECRET_KEYS.every((key) => {
-			return String(pendingRemoteSystemSecrets[key] ?? '').trim() !== ''
-		})
-		remoteSystemSecrets = resolveRemoteSystemSecrets(
-			remoteWorkerSecretNames,
-			pendingRemoteSystemSecrets
-		)
-		if (Object.keys(remoteSystemSecrets).length > 0) {
-			Object.assign(env, remoteSystemSecrets)
-			console.log('Worker system secrets ready for first deploy')
-		} else {
-			console.log('Worker system secrets already exist')
-		}
-		validateRuntimeConfig(env)
-
 		appCnZoneName = await ensureAppCnDnsRecord(
 			accountId,
 			cloudflareApiToken,
@@ -1478,6 +1527,25 @@ async function main() {
 			}
 
 			shardDatabaseIds[shard.id] = existingShardDB.uuid
+		}
+
+		remoteSettingsExist = await hasRemoteSystemSettings(
+			accountId,
+			databaseId,
+			cloudflareApiToken
+		)
+		const pendingRemoteSystemSecrets = readRuntimeSecretsForMode(mode)
+		hadPendingRemoteSystemSecrets = hasCompleteSystemSecrets(pendingRemoteSystemSecrets)
+		remoteSystemSecrets = resolveRemoteSystemSecrets(
+			remoteWorkerSecretNames,
+			pendingRemoteSystemSecrets,
+			remoteSettingsExist
+		)
+		if (Object.keys(remoteSystemSecrets).length > 0) {
+			Object.assign(env, remoteSystemSecrets)
+			console.log('Worker system secrets ready for deploy')
+		} else {
+			console.log('Worker system secrets already exist')
 		}
 	} else {
 		console.log(`Using local Meta D1 database ID: ${databaseId}`)
@@ -1700,7 +1768,7 @@ async function main() {
 	if (!isRemote) {
 		appendLocalSystemSecrets(existingLocalSystemSecrets, localSystemSecrets)
 	}
-	writeRuntimeSecrets(env)
+	writeRuntimeSecrets(env, mode)
 	if (
 		resolveSystemSettingsInitialization({
 			settingsExist,

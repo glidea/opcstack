@@ -113,10 +113,14 @@ cd <your-app-name>
 git remote rename origin upstream
 pnpm install
 vim .env.dev
-cp .env.secret.example .env.secret.dev
-vim .env.secret.dev
 pnpm dev
 ```
+
+The first preparation generates the internal Worker secrets and creates
+`admin@opcstack.local` with a random password. Sign in with the credentials printed once in
+the terminal, change the email and password under Account / Security, then configure business
+features under Admin / Configuration. Business credentials are encrypted in D1, not stored in
+env files.
 
 Deploy to Cloudflare:
 
@@ -146,8 +150,7 @@ pnpm build:extension
 | `scripts/prepare-public.mjs`     | Generates public frontend artifacts, including client config, web logo, and extension icons                      |
 | `scripts/prepare-cloudflare.mjs` | Local and pre-deployment Cloudflare automation: config generation, resource provisioning, and migrations         |
 | `wrangler.jsonc.tpl`             | Cloudflare Worker configuration template                                                                         |
-| `.env.dev` / `.env.prod`         | Committable public environment configuration                                                                     |
-| `.env.secret.example`            | Secret configuration template                                                                                    |
+| `.env.dev` / `.env.prod`         | Fixed deployment identity and Cloudflare resource topology                                                       |
 | `src/api-contract/`              | API requests, responses, schemas, and shared types                                                               |
 | `src/frontend/lib/`              | Shared frontend layer for UI, i18n, configuration, and client logic                                              |
 | `src/frontend/web/`              | Web entrypoint: SvelteKit pages, routes, static assets, and web shell                                            |

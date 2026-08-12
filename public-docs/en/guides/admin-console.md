@@ -20,6 +20,8 @@ An unauthenticated visitor is redirected to login. A signed-in account without t
 
 Programmatic clients use OAuth grants with explicit scopes. There is no static admin API token.
 
+Run `opc auth connect --name <project> --server <origin> --scopes <scope-list>`. The CLI prints an authorization URL. After the signed-in user reviews and approves the requested scopes in the browser, the CLI receives tokens through PKCE and stores them under that connection name and server origin. `opc api request` uses the selected connection. Revoking the grant in Account / API Access invalidates both access and refresh immediately.
+
 ## Pages
 
 | Page | Route | Purpose |

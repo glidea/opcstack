@@ -77,7 +77,8 @@ export function createRefreshTokenRequest(connection) {
 		body: new URLSearchParams({
 			grant_type: 'refresh_token',
 			client_id: CLIENT_ID,
-			refresh_token: connection.refresh_token
+			refresh_token: connection.refresh_token,
+			resource: connection.server
 		})
 	}
 }
@@ -163,7 +164,8 @@ async function connect(name, server, scopes) {
 				client_id: CLIENT_ID,
 				code: result.code,
 				redirect_uri: new URL(REDIRECT_URI_PATH, `${normalizedServer}/`).toString(),
-				code_verifier: pkce.verifier
+				code_verifier: pkce.verifier,
+				resource: normalizedServer
 			}).toString()
 		})
 		const store = await readCredentialStore()

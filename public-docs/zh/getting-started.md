@@ -35,14 +35,12 @@ cd <your-app-name>
 git remote rename origin upstream
 pnpm install
 vim .env.dev
-cp .env.secret.example .env.secret.dev
-vim .env.secret.dev
 pnpm dev
 ```
 
 启动后打开 http://localhost:5173
 
-公共配置放在 `.env.dev` 和 `.env.prod`。密钥放在 `.env.secret.dev` 和 `.env.secret.prod`。不要提交密钥文件。完整的环境变量体系请参阅 [部署](guides/deployment.md)。
+首次准备会在终端显示一次性管理员凭据。登录后先在 Account / Security 修改邮箱和密码，再到 Admin / Configuration 配置业务能力。`.env.dev` 和 `.env.prod` 只包含固定部署身份与 Cloudflare 资源拓扑。内部根密钥由脚本自动生成，业务凭据加密保存在 D1。
 
 ## 3. 部署到 Cloudflare
 

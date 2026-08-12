@@ -20,6 +20,8 @@ order: 10
 
 程序化客户端通过明确 scope 的 OAuth Grant 调用 API，不存在静态管理员 API Token。
 
+运行 `opc auth connect --name <project> --server <origin> --scopes <scope-list>`。CLI 显示授权 URL，已登录用户在浏览器审核并批准 Scope 后，CLI 通过 PKCE 自动取得 Token，并按连接名和服务地址隔离保存。`opc api request` 使用指定连接。用户在 Account / API Access 撤销 Grant 后，Access Token 和 Refresh Token 都立即失效。
+
 ## 页面
 
 | 页面 | 路由 | 用途 |

@@ -1,7 +1,6 @@
 import type { Context, MiddlewareHandler } from 'hono'
 import type { ApiEnv } from '..'
 import { authCore } from '../auth'
-import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
 import { OAUTH_API_CLIENT_ID, getOAuthGrant } from '../../oauth-api-access'
 import { getAuthRuntimeConfig, type AuthRuntimeConfig } from '../../config'
 import { isAdministrator } from '../../auth/administrator'
@@ -57,10 +56,14 @@ export const authMiddleware: MiddlewareHandler<ApiEnv> = async (
 	}
 
 	try {
-		const payload = await oauthProviderResourceClient(auth).getActions().verifyAccessToken(token, {
-			verifyOptions: { audience: ctx.env.APP_BASE_URL },
-			scopes: ['api_access']
+		const authIssuer: string = new URL('/api/auth', ctx.env.APP_BASE_URL).toString()
+		const verified = await auth.api.verifyJWT({
+			body: { token, issuer: authIssuer }
 		})
+		const payload = verified.payload
+		if (!payload || !hasOAuthProtocolScope(payload['scope'])) {
+			return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
+		}
 		const userId = payload.sub
 		const grantId = readStringClaim(payload['grant_id'])
 		const clientId = readStringClaim(payload['azp'] ?? payload['client_id'])
@@ -119,6 +122,10 @@ function readScopesClaim(value: unknown): ApiScope[] | undefined {
 		return undefined
 	}
 	return value as ApiScope[]
+}
+
+function hasOAuthProtocolScope(value: unknown): boolean {
+	return typeof value === 'string' && value.split(' ').includes('api_access')
 }
 
 export const administratorMiddleware: MiddlewareHandler<ApiEnv> = async (

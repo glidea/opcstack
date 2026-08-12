@@ -85,5 +85,6 @@ describe('opc cli protocol helpers', () => {
 
 		expect(request.url).toBe('https://shop.example.com/api/auth/oauth2/token')
 		expect(request.body.get('refresh_token')).toBe('refresh-token')
+		expect(request.body.get('resource')).toBe('https://shop.example.com')
 	})
 })

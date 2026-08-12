@@ -26,6 +26,7 @@ vitest
 | Svelte 检查 | `src/frontend/` | `pnpm test` | 捕获 Svelte 组件错误 |
 | 单元测试 | `src/**/*.test.ts`、`scripts/**/*.test.mjs` | `pnpm test` | 领域、处理器、配置、provider、工具函数行为 |
 | 本地 E2E | `e2e/**/*.test.ts` | `pnpm test:e2e` | 对本地开发应用的 HTTP 流程 |
+| 首次安装验收 | 隔离的临时项目 | `pnpm test:e2e:first-run` | 空 D1、一次性凭据、配置、OAuth 和撤销 |
 | 远端 E2E | `e2e/**/*.test.ts` | `pnpm test:e2e:remote` | 对已部署应用的 HTTP 流程 |
 
 单元测试不包含 `e2e/**`。E2E 测试使用 `vitest.e2e.config.ts`。
@@ -249,6 +250,14 @@ pnpm test:e2e
 
 `pnpm dev` 运行 Worker 和 Vite 开发服务器。本地 E2E 使用配置中的 `APP_BASE_URL`，通常指向 Vite 开发端口。
 
+在隔离的空项目副本中运行真实首次安装验收：
+
+```bash
+pnpm test:e2e:first-run
+```
+
+这个命令会对空本地 D1 执行两次准备，证明初始管理员密码只显示一次，然后启动真实 Worker 和 Web Server，通过 HTTP 修改管理员凭据，通过浏览器 Session 保存 General，通过 OAuth 保存 Storage，验证前台立即生效，撤销 Grant，最后运行完整本地 E2E。它不会读取当前项目的 secret 文件或本地数据库。
+
 远端 E2E：
 
 ```bash
@@ -259,7 +268,7 @@ pnpm test:e2e:remote
 
 ## 远端 E2E 限制
 
-远端 E2E 只能对已部署的环境进行只读或调用操作。
+远端 E2E 只能通过公开 HTTP 访问已部署的环境。
 
 允许：
 
@@ -267,6 +276,7 @@ pnpm test:e2e:remote
 - 验证认证门控
 - 验证已配置的功能
 - 验证已部署的客户端配置
+- 通过公开管理 API 保存配置并恢复原值
 
 禁止：
 
@@ -329,6 +339,9 @@ pnpm exec vitest src/backend/credits/index.test.ts -t "daily"
 
 # 本地 E2E
 pnpm test:e2e
+
+# 空项目首次安装验收
+pnpm test:e2e:first-run
 
 # 远端 E2E
 pnpm test:e2e:remote

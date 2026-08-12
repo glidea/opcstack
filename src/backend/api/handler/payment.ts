@@ -39,7 +39,8 @@ export async function listPaymentProductsHandler(ctx: Context<ApiEnv>): Promise<
 				upgrade_rank: row.upgradeRank,
 				period_credits_amount: formatNullableCreditAmount(row.periodCreditsAmount)
 			}
-		})
+		}),
+		total: items.length
 	})
 }
 

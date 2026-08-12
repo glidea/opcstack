@@ -19,7 +19,8 @@ export const PaymentProductItemSchema = z.object({
 export type PaymentProductItem = z.infer<typeof PaymentProductItemSchema>
 
 export const ListPaymentProductsResponseSchema = z.object({
-	items: z.array(PaymentProductItemSchema)
+	items: z.array(PaymentProductItemSchema),
+	total: z.number()
 })
 export type ListPaymentProductsResponse = z.infer<typeof ListPaymentProductsResponseSchema>
 

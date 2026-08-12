@@ -46,6 +46,7 @@ describe('listPaymentProductsHandler', () => {
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		itemCount: number
+		total: number
 		hasProviderProductId: boolean
 	}
 
@@ -59,6 +60,7 @@ describe('listPaymentProductsHandler', () => {
 			whenDetail: {},
 			thenExpected: {
 				itemCount: 1,
+				total: 1,
 				hasProviderProductId: false
 			}
 		}
@@ -87,9 +89,11 @@ describe('listPaymentProductsHandler', () => {
 		const res = await listPaymentProductsHandler(ctx)
 		const payload = (await res.json()) as {
 			items: Array<Record<string, unknown>>
+			total: number
 		}
 		return {
 			itemCount: payload.items.length,
+			total: payload.total,
 			hasProviderProductId: Object.prototype.hasOwnProperty.call(
 				payload.items[0] ?? {},
 				'provider_product_id'

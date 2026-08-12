@@ -161,7 +161,7 @@ Key rules:
   wrangler.jsonc.tpl    # Worker config template
   .env.dev              # Public local config, safe to commit
   .env.prod             # Public production config, safe to commit
-  .env.secret.example   # Secret config template without real values
+  .env.secret.dev       # Generated local root secret state, never user configuration
 
 src/
   index.ts              # Worker entrypoint
@@ -199,15 +199,13 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - `scripts/prepare-cloudflare.mjs` generates `wrangler.jsonc`, `.wrangler/wrangler.types.jsonc`, Cloudflare resources, bindings, migrations, runtime secrets, and public artifacts.
 - `wrangler.jsonc` is the runtime config and should include only secrets required by enabled features.
 - `.wrangler/wrangler.types.jsonc` is type-generation-only config and includes the three generated system secrets so `Env` stays stable.
-- Fixed public deployment config lives in `.env.dev` and `.env.prod`. `.env` is a local override.
-- User-provided secret config lives in `.env.secret.dev` and `.env.secret.prod`.
-- Agents must not read, print, search, edit, create, or copy secret files or token caches: `.env.secret.dev`, `.env.secret.prod`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
-- Any work involving secret values must be performed by the user.
-- Env loading order: `.env.dev` or `.env.prod` -> `.env.secret.dev` or `.env.secret.prod` -> `.env` -> `process.env`.
+- Fixed deployment config lives in `.env.dev` and `.env.prod`. `.env` is a local override.
+- `.env.secret.dev` is generated local state for the three internal root secrets. It is not user configuration and is not part of env loading. Production roots live in Cloudflare Worker Secrets.
+- Agents must not read, print, search, edit, create, or copy generated secret state or token caches: `.env.secret.dev`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
+- Third-party credentials are entered through Admin Configuration or an OAuth-authorized API and encrypted in D1. Never add them to env files.
+- Env loading order: `.env.dev` or `.env.prod` -> `.env` -> `process.env`.
 - Env files contain fixed deployment topology only and are ordered by shared product identity, domains, frontend exposure, and infrastructure.
-- Keep related env keys together. Put a feature switch before its provider selection and provider-specific settings.
-- Keep optional settings after required settings inside the same group.
-- Keep `.env.secret.example` in the same business order as public env files.
+- The fixed ENV set is `APP_NAME`, `APP_VERSION`, `APP_DOMAIN`, `APP_CN_DOMAIN`, `APP_CN_CNAME_TARGET`, `EXTENSION_HOST_PERMISSIONS`, `D1_SHARDS`, `R2_ENABLED`, `R2_TMP_LIFECYCLE_RULES`, `QUEUE_NAMES`, `QUEUE_MAX_CONCURRENCY`, `CRONS`, and `DO_NAMES`.
 - `prepare-cloudflare` owns `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET`. It generates them once, persists local values in `.env.secret.dev`, and uploads production values as Cloudflare Worker Secrets without overwriting existing values.
 - Existing D1 configuration without the matching generated system secrets is unrecoverable and must fail preparation. Never silently generate replacement roots for initialized data.
 - Dynamic configuration storage lives in `src/backend/config/` and the Meta DB `system_settings` row. Each business domain owns one JSON document, version, and update timestamp.
@@ -221,9 +219,8 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - `APP_CN_DOMAIN` is optional. When set without `APP_CN_CNAME_TARGET`, `prepare-cloudflare.mjs` adds it as a second Worker custom domain. It always adds it as an R2 CORS origin and Turnstile domain.
 - `APP_CN_CNAME_TARGET` is optional. When set with `APP_CN_DOMAIN` in prod mode, `prepare-cloudflare.mjs` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`, skips the Worker custom domain for that hostname, and adds a normal Worker zone route. It does not choose acceleration targets.
 - Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.
-- Add secret runtime config keys to `scripts/prepare-cloudflare.mjs` `SECRET_KEYS`.
+- Do not add user-configured Worker Secrets. Only internal roots that must exist before D1 can be read belong in `scripts/prepare-cloudflare.mjs`.
 - When adding an env key, document it directly above the assignment with comments covering purpose, runtime usage, valid values, default semantics, external source, and operational best practices when they exist.
-- Secret env keys must be documented with placeholders in `.env.secret.example` only; do not read or edit real secret env files.
 - After changing config keys, run `pnpm prepare:cloudflare:dev` and `pnpm exec wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false`.
 - Use generated `Env`; do not create feature-specific env interfaces.
 - Use `clientConfig` from `$frontend/config/client` only for fixed public deployment config. Runtime business configuration comes from D1.

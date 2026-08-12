@@ -3,14 +3,13 @@ import { defineConfig } from 'vitest/config'
 
 const isRemote = process.env.E2E_REMOTE === '1'
 const envFile = isRemote ? '.env.prod' : '.env.dev'
-const secretEnvFile = isRemote ? '.env.secret.prod' : '.env.secret.dev'
-const envValues: Record<string, string> = readEnvFiles([envFile, secretEnvFile, '.env'])
+const envValues: Record<string, string> = readEnvFiles([envFile, '.env'])
 const appDomain = readConfig('APP_DOMAIN') ?? 'localhost'
 const appBaseUrl = resolveAppBaseUrl(appDomain, isRemote)
 const r2Enabled = readConfig('R2_ENABLED') ?? 'false'
 const adminEmail = process.env.E2E_ADMIN_EMAIL ?? ''
 const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? ''
-const d1ShardCount = readConfig('D1_SHARD_COUNT') ?? '1'
+const d1ShardCount = String(readD1ShardCount(readConfig('D1_SHARDS') ?? 'apac:1'))
 const runAffiliateFlow = process.env.E2E_RUN_AFFILIATE_FLOW ?? 'false'
 const runDailyCheckinFlow = process.env.E2E_RUN_DAILY_CHECKIN_FLOW ?? 'false'
 
@@ -61,6 +60,17 @@ function readLocalVitePort(): string {
 
 function readConfig(name: string): string | undefined {
 	return process.env[name] ?? envValues[name]
+}
+
+function readD1ShardCount(value: string): number {
+	return value
+		.split(';')
+		.map((item: string): string => item.trim())
+		.filter((item: string): boolean => item !== '')
+		.reduce((total: number, item: string): number => {
+			const separator: number = item.lastIndexOf(':')
+			return total + Number(item.slice(separator + 1))
+		}, 0)
 }
 
 function readEnvFiles(files: string[]): Record<string, string> {
