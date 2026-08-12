@@ -1,22 +1,32 @@
 import { relations, sql } from 'drizzle-orm'
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core'
 
-export const user = sqliteTable('user', {
-	id: text('id').primaryKey(),
-	name: text('name').notNull(),
-	email: text('email').notNull().unique(),
-	affCode: text('aff_code').unique(),
-	registrationUtmSource: text('registration_utm_source'),
-	emailVerified: integer('email_verified', { mode: 'boolean' }).default(false).notNull(),
-	image: text('image'),
-	createdAt: integer('created_at', { mode: 'timestamp_ms' })
-		.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-		.notNull(),
-	updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-		.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-		.$onUpdate(() => /* @__PURE__ */ new Date())
-		.notNull()
-})
+export const user = sqliteTable(
+	'user',
+	{
+		id: text('id').primaryKey(),
+		name: text('name').notNull(),
+		email: text('email').notNull().unique(),
+		role: text('role').default('user').notNull(),
+		affCode: text('aff_code').unique(),
+		registrationUtmSource: text('registration_utm_source'),
+		emailVerified: integer('email_verified', { mode: 'boolean' }).default(false).notNull(),
+		image: text('image'),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+			.notNull(),
+		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull()
+	},
+	(table) => [
+		check('user_role_check', sql`${table.role} in ('user', 'admin')`),
+		uniqueIndex('user_single_administrator_idx')
+			.on(table.role)
+			.where(sql`${table.role} = 'admin'`)
+	]
+)
 
 export const session = sqliteTable(
 	'session',

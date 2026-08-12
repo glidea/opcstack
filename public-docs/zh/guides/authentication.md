@@ -187,8 +187,8 @@ email: `linuxdo-${id}@linuxdo.local`
 
 | 平台 | 控制台操作 | OPCStack 配置 |
 | --- | --- | --- |
-| Cloudflare Email Service | 接入发送域名，使用生成的 `SEND_EMAIL` binding | Email Tab：Cloudflare provider；固定 `SYSTEM_EMAIL` |
-| Resend | 验证发送域名，创建带发送权限的 API key | Email Tab：Resend provider 和 API key；固定 `SYSTEM_EMAIL` |
+| Cloudflare Email Service | 接入发送域名，使用生成的 `SEND_EMAIL` binding | Email Tab：Cloudflare provider；管理员邮箱作为发件人 |
+| Resend | 验证发送域名，创建带发送权限的 API key | Email Tab：Resend provider 和 API key；管理员邮箱作为发件人 |
 | Cloudflare Turnstile | 为 `APP_DOMAIN` 和可选的 `APP_CN_DOMAIN` 创建或复用 widget | Authentication Tab：site key、secret key 和启用开关 |
 | Google OAuth | 创建 Web application OAuth client | Authentication Tab：client ID、client secret 和启用开关 |
 | GitHub OAuth | 创建 OAuth App | Authentication Tab：client ID、client secret 和启用开关 |
@@ -202,10 +202,10 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 
 1. 打开 Cloudflare 控制台
 2. 进入 **Compute > Email Service > Email Sending**
-3. 选择 **Onboard Domain**，选择 `SYSTEM_EMAIL` 使用的域名
+3. 选择 **Onboard Domain**，选择管理员邮箱使用的域名
 4. 让 Cloudflare 创建所需的 SPF、DKIM、DMARC 和 bounce 记录
 5. 等待发送域名激活
-6. 将固定 `SYSTEM_EMAIL` 设置为接入域名上的地址并部署
+6. 在 Account / Security 将管理员邮箱改为接入域名上的地址
 7. 打开后台 Configuration 的 Email Tab，启用邮件，选择 Cloudflare 并保存
 
 如果需要本地真实发送而不依赖 Cloudflare 远端邮件行为，使用 Resend。
@@ -219,11 +219,11 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 1. 打开 Resend 控制台
 2. 添加并验证发送域名
 3. 创建带发送权限的 API key
-4. 将固定 `SYSTEM_EMAIL` 设置为已验证域名上的地址并部署
+4. 在 Account / Security 将管理员邮箱改为已验证域名上的地址
 5. 打开后台 Configuration 的 Email Tab
 6. 启用邮件，选择 Resend，填写 API key 并保存
 
-`from` 地址始终是 `SYSTEM_EMAIL`。如果 Resend 拒绝邮件，先修复发件域名，不要在代码中绕过。
+`from` 地址始终是当前管理员邮箱。管理员邮箱仍是 `admin@opcstack.local` 时不能启用邮件配置。如果 Resend 拒绝邮件，先修复发件域名。
 
 文档：[Resend domains](https://resend.com/docs/dashboard/domains/introduction)、[Resend API keys](https://resend.com/docs/create-an-api-key)
 
@@ -423,7 +423,7 @@ Handler 读写 Meta DB
 
 ## 管理员访问
 
-`src/backend/api/middleware/auth.ts` 中的 `adminUserMiddleware` 解析 Better Auth 浏览器会话。会话用户邮件等于 `SYSTEM_EMAIL` 时设置 `userId`，否则返回 401 `UNAUTHORIZED`。程序化客户端通过明确 scope 的 OAuth Grant 调用 API，不使用静态管理员 Token。
+`src/backend/api/middleware/auth.ts` 中的 `adminUserMiddleware` 解析 Better Auth 浏览器会话。会话用户具有 D1 `admin` 角色时设置 `userId`，否则返回 403 `FORBIDDEN`。程序化客户端通过明确 scope 的 OAuth Grant 调用 API，不使用静态管理员 Token。
 
 ## 前端集成
 
@@ -472,7 +472,7 @@ Authentication 和 Email 配置只保存在 Meta D1 的 `system_settings` 记录
 
 Authentication Tab 管理内测门控、邮件注册策略、Turnstile，以及 Google、GitHub 和 LinuxDo 凭据。Email Tab 管理发送开关、provider 和 Resend API key。读取密钥时只返回是否已配置；替换或删除密钥都是显式保存动作。
 
-固定 `SYSTEM_EMAIL` 仍属于部署 ENV，因为它在读取 D1 配置前就定义了管理员身份和发件地址。`BETTER_AUTH_SECRET` 和 `CONFIG_ENCRYPTION_KEY` 由 `prepare-cloudflare` 自动生成，用户不配置。
+管理员身份、公开支持地址和发件人地址都读取唯一 D1 管理员账号。首次准备会创建 `admin@opcstack.local` 和随机密码，只打印一次凭据。`BETTER_AUTH_SECRET` 和 `CONFIG_ENCRYPTION_KEY` 由 `prepare-cloudflare` 自动生成，用户不配置。
 
 ## 常见错误
 
@@ -480,7 +480,7 @@ Authentication Tab 管理内测门控、邮件注册策略、Turnstile，以及 
 
 **假设 LinuxDo 用户有真实邮件。** 邮件合成为 `linuxdo-{id}@linuxdo.local`。密码重置等基于邮件的功能对 LinuxDo 用户无效。
 
-**忘记管理员访问需要 SYSTEM_EMAIL 用户存在。** 准备流程会创建或更新该账号；修改邮箱后未重新运行准备流程，会导致浏览器会话无管理员权限。
+**使用初始本地管理员邮箱启用邮件。** 先在 Account / Security 把 `admin@opcstack.local` 改为真实邮箱。准备流程不会覆盖当前管理员邮箱或密码。
 
 **期望注册时有跨 DB 事务。** 用户创建分别写入 Meta DB 和 Tenant Shard DB。如果进程在两者之间崩溃，用户存在但没有积分余额。这是设计如此。
 

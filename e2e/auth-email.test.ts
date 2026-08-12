@@ -3,14 +3,14 @@ import { runCases, type TestCase } from '../src/backend/testing/bdd'
 
 type E2EEnv = {
 	APP_BASE_URL?: string
-	E2E_SYSTEM_EMAIL?: string
+	E2E_ADMIN_EMAIL?: string
 }
 
 const e2eEnv =
 	(globalThis as unknown as { process?: { env?: E2EEnv } }).process?.env ?? {}
 const appBaseUrl: string = e2eEnv.APP_BASE_URL ?? 'http://localhost:5173'
 const appOrigin: string = new URL(appBaseUrl).origin
-const systemEmail: string = e2eEnv.E2E_SYSTEM_EMAIL ?? ''
+const adminEmail: string = e2eEnv.E2E_ADMIN_EMAIL ?? ''
 
 describe('email auth e2e', () => {
 	beforeAll(async () => {
@@ -88,7 +88,7 @@ describe('email auth e2e', () => {
 })
 
 function buildScenarioEmail(tag: string): string {
-	const domain = extractEmailDomain(systemEmail) || 'example.com'
+	const domain = extractEmailDomain(adminEmail) || 'example.com'
 	const cleanTag = tag.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
 	return `e2e-${cleanTag}@${domain}`
 }

@@ -1,10 +1,12 @@
-import { desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, like, ne, or, sql, type SQL } from 'drizzle-orm'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
 	ListAdminUsersApi,
+	UpdateAdministratorEmailApi,
 	type ListAdminUsersResponse,
-	type ListAdminUsersResponseItem
+	type ListAdminUsersResponseItem,
+	type UpdateAdministratorEmailResponse
 } from '../../../api-contract/admin-users'
 import { user } from '../../db/schema.auth'
 import { betaCode, d1Shard, userShard } from '../../db/schema'
@@ -80,6 +82,35 @@ export async function listAdminUsersHandler(ctx: Context<ApiEnv>): Promise<Respo
 		items,
 		total: Number(totalRows[0]?.total ?? 0)
 	} as ListAdminUsersResponse)
+}
+
+export async function updateAdministratorEmailHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, UpdateAdministratorEmailApi.request)
+	if (!request.success) {
+		const error = UpdateAdministratorEmailApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+
+	const existing = await ctx.get('metaDb').query.user.findFirst({
+		columns: { id: true },
+		where: and(eq(user.email, request.data.email), ne(user.id, ctx.get('userId')))
+	})
+	if (existing) {
+		const response = UpdateAdministratorEmailApi.errors.EMAIL_ALREADY_EXISTS()
+		return ctx.json(response.body, response.status)
+	}
+
+	const rows: Array<{ email: string }> = await ctx
+		.get('metaDb')
+		.update(user)
+		.set({ email: request.data.email, updatedAt: new Date() })
+		.where(eq(user.id, ctx.get('userId')))
+		.returning({ email: user.email })
+	const administrator = rows[0]
+	if (!administrator) {
+		throw new Error('ADMINISTRATOR_NOT_FOUND')
+	}
+	return ctx.json({ email: administrator.email } as UpdateAdministratorEmailResponse)
 }
 
 function toResponseItem(row: AdminUserRow): ListAdminUsersResponseItem {

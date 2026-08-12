@@ -699,23 +699,6 @@ function validateConfigEncryptionKey(value) {
 	}
 }
 
-export function readAdminConfig(env) {
-	const email = String(env.SYSTEM_EMAIL ?? '').trim().toLowerCase()
-	if (email === '') {
-		throw new Error('SYSTEM_EMAIL_MISSING')
-	}
-
-	const password = String(env.SUPER_ADMIN_PASSWORD ?? '')
-	if (password === '') {
-		throw new Error('SUPER_ADMIN_PASSWORD_MISSING')
-	}
-
-	return {
-		email,
-		password
-	}
-}
-
 function ensureSvelteWorkerBuild() {
 	if (
 		existsSync(SVELTE_WORKER_PATH) &&
@@ -1031,50 +1014,53 @@ export function hashAdminPassword(password) {
 	return `${saltHex}:${digestHex}`
 }
 
-export function buildAdminUserUpsertSql(input) {
-	return [
-		'INSERT INTO "user"',
-		'(id, name, email, aff_code, email_verified, created_at, updated_at)',
-		'VALUES',
-		`(${sqlString(input.userId)}, ${sqlString(input.email)}, ${sqlString(input.email)}, ${sqlString(input.affCode)}, 1, ${input.nowMs}, ${input.nowMs})`,
-		'ON CONFLICT(email) DO NOTHING'
-	].join(' ')
+export function resolveAdministratorInitialization(administrators, createPassword) {
+	if (administrators.length > 1) {
+		throw new Error('MULTIPLE_ADMINISTRATORS')
+	}
+	if (administrators.length === 1) {
+		return {
+			create: false,
+			id: String(administrators[0].id),
+			email: String(administrators[0].email)
+		}
+	}
+	return {
+		create: true,
+		email: 'admin@opcstack.local',
+		password: createPassword()
+	}
 }
 
-export function buildAdminCredentialAccountUpsertSql(input) {
-	const userIdSql = `(SELECT id FROM "user" WHERE email = ${sqlString(input.email)})`
+export function buildInitialAdministratorInsertSql(input) {
 	return [
-		'UPDATE account SET',
-		`password = ${sqlString(input.passwordHash)},`,
-		`updated_at = ${input.nowMs}`,
-		`WHERE provider_id = 'credential' AND user_id = ${userIdSql};`,
+		'INSERT INTO "user"',
+		'(id, name, email, role, aff_code, email_verified, created_at, updated_at)',
+		'VALUES',
+		`(${sqlString(input.userId)}, ${sqlString(input.email)}, ${sqlString(input.email)}, 'admin', ${sqlString(input.affCode)}, 1, ${input.nowMs}, ${input.nowMs});`,
 		'INSERT INTO account',
 		'(id, account_id, provider_id, user_id, password, created_at, updated_at)',
-		'SELECT',
-		`'credential:' || id, id, 'credential', id, ${sqlString(input.passwordHash)}, ${input.nowMs}, ${input.nowMs}`,
-		'FROM "user"',
-		`WHERE email = ${sqlString(input.email)}`,
-		`AND NOT EXISTS (SELECT 1 FROM account WHERE user_id = "user".id AND provider_id = 'credential')`
+		'VALUES',
+		`(${sqlString(`credential:${input.userId}`)}, ${sqlString(input.userId)}, 'credential', ${sqlString(input.userId)}, ${sqlString(input.passwordHash)}, ${input.nowMs}, ${input.nowMs})`
 	].join(' ')
 }
 
 export function buildAdminUserShardEnsureSql(input) {
-	const userIdSql = `(SELECT id FROM "user" WHERE email = ${sqlString(input.email)})`
 	return [
 		'INSERT INTO user_shards',
 		'(user_id, shard_id, created_at)',
 		'SELECT',
-		`${userIdSql}, id, ${input.nowMs}`,
+		`${sqlString(input.userId)}, id, ${input.nowMs}`,
 		'FROM d1_shards',
 		`WHERE status = 'active'`,
-		`AND NOT EXISTS (SELECT 1 FROM user_shards WHERE user_id = ${userIdSql})`,
+		`AND NOT EXISTS (SELECT 1 FROM user_shards WHERE user_id = ${sqlString(input.userId)})`,
 		'ORDER BY assigned_count ASC, id ASC',
 		'LIMIT 1;',
 		'UPDATE d1_shards SET',
 		`assigned_count = assigned_count + 1, updated_at = ${input.nowMs}`,
-		`WHERE id = (SELECT shard_id FROM user_shards WHERE user_id = ${userIdSql})`,
-		`AND EXISTS (SELECT 1 FROM user_shards WHERE user_id = ${userIdSql} AND created_at = ${input.nowMs});`,
-		`SELECT shard_id FROM user_shards WHERE user_id = ${userIdSql}`
+		`WHERE id = (SELECT shard_id FROM user_shards WHERE user_id = ${sqlString(input.userId)})`,
+		`AND EXISTS (SELECT 1 FROM user_shards WHERE user_id = ${sqlString(input.userId)} AND created_at = ${input.nowMs});`,
+		`SELECT shard_id FROM user_shards WHERE user_id = ${sqlString(input.userId)}`
 	].join(' ')
 }
 
@@ -1086,10 +1072,6 @@ export function buildAdminCreditBalanceEnsureSql(input) {
 		`(${sqlString(input.userId)}, 0, ${input.nowMs})`,
 		'ON CONFLICT(user_id) DO NOTHING'
 	].join(' ')
-}
-
-function buildAdminUserSelectSql(email) {
-	return `SELECT id FROM "user" WHERE email = ${sqlString(email)}`
 }
 
 function readD1ExecuteValue(output, key) {
@@ -1109,36 +1091,49 @@ function createAdminAffCode() {
 	return randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase()
 }
 
-function syncSuperAdminUser(adminConfig, metaDbName, migrateFlag, shards) {
+function createInitialAdministratorPassword() {
+	return randomBytes(24).toString('base64url')
+}
+
+function readAdministrators(metaDbName, migrateFlag) {
+	const output = runOutput(buildD1ExecuteCommand({
+		databaseName: metaDbName,
+		migrateFlag,
+		sql: `SELECT id, email FROM "user" WHERE role = 'admin'`,
+		json: true
+	}))
+	const executions = JSON.parse(output)
+	return executions.flatMap((execution) => Array.isArray(execution.results) ? execution.results : [])
+}
+
+function syncAdministrator(metaDbName, migrateFlag, shards) {
 	const nowMs = Date.now()
-	const passwordHash = hashAdminPassword(adminConfig.password)
-	run(buildD1ExecuteCommand({
-		databaseName: metaDbName,
-		migrateFlag,
-		sql: buildAdminUserUpsertSql({
-			email: adminConfig.email,
-			userId: randomUUID(),
-			affCode: createAdminAffCode(),
-			nowMs
-		}),
-		json: false
-	}))
-	run(buildD1ExecuteCommand({
-		databaseName: metaDbName,
-		migrateFlag,
-		sql: buildAdminCredentialAccountUpsertSql({
-			email: adminConfig.email,
-			passwordHash,
-			nowMs
-		}),
-		json: false
-	}))
+	const initialization = resolveAdministratorInitialization(
+		readAdministrators(metaDbName, migrateFlag),
+		createInitialAdministratorPassword
+	)
+	let userId = initialization.id
+	if (initialization.create) {
+		userId = randomUUID()
+		run(buildD1ExecuteCommand({
+			databaseName: metaDbName,
+			migrateFlag,
+			sql: buildInitialAdministratorInsertSql({
+				email: initialization.email,
+				userId,
+				affCode: createAdminAffCode(),
+				passwordHash: hashAdminPassword(initialization.password),
+				nowMs
+			}),
+			json: false
+		}))
+	}
 
 	const shardOutput = runOutput(buildD1ExecuteCommand({
 		databaseName: metaDbName,
 		migrateFlag,
 		sql: buildAdminUserShardEnsureSql({
-			email: adminConfig.email,
+			userId,
 			nowMs
 		}),
 		json: true
@@ -1151,13 +1146,6 @@ function syncSuperAdminUser(adminConfig, metaDbName, migrateFlag, shards) {
 		throw new Error('SUPER_ADMIN_SHARD_MISSING')
 	}
 
-	const userOutput = runOutput(buildD1ExecuteCommand({
-		databaseName: metaDbName,
-		migrateFlag,
-		sql: buildAdminUserSelectSql(adminConfig.email),
-		json: true
-	}))
-	const userId = readD1ExecuteValue(userOutput, 'id')
 	run(buildD1ExecuteCommand({
 		databaseName: shard.databaseName,
 		migrateFlag,
@@ -1167,6 +1155,13 @@ function syncSuperAdminUser(adminConfig, metaDbName, migrateFlag, shards) {
 		}),
 		json: false
 	}))
+
+	if (initialization.create) {
+		console.log('\nInitial administrator credentials')
+		console.log(`Email: ${initialization.email}`)
+		console.log(`Password: ${initialization.password}`)
+		console.log('Change both values after signing in. This password will not be shown again.\n')
+	}
 }
 
 function parseCronExpressions(rawValue) {
@@ -1669,7 +1664,6 @@ async function main() {
 		localSystemSecrets = resolveLocalSystemSecrets(existingLocalSystemSecrets)
 		Object.assign(env, localSystemSecrets)
 	}
-	const adminConfig = readAdminConfig(env)
 	resolveAppBase(env, mode)
 	resolveAppCnDomain(env)
 	resolveAppCnCnameTarget(env)
@@ -2040,8 +2034,9 @@ async function main() {
 		}))
 	}
 
-	console.log('\nSyncing super admin user...')
-	syncSuperAdminUser(adminConfig, metaDbName, migrateFlag, shards)
+
+	console.log('\nEnsuring administrator...')
+	syncAdministrator(metaDbName, migrateFlag, shards)
 
 	console.log('\nCloudflare app prepared\n')
 }

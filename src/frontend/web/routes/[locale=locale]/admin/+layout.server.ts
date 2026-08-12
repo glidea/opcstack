@@ -9,6 +9,7 @@ type AdminSession = {
 		id: string
 		email: string
 		name: string
+		role?: string | null
 	}
 }
 
@@ -41,7 +42,7 @@ export async function load(event: AdminLayoutEvent): Promise<AdminLayoutData> {
 		const search: URLSearchParams = new URLSearchParams({ redirect: redirectPath })
 		throw redirect(302, `/${event.params.locale}/login?${search.toString()}`)
 	}
-	if (session.user.email !== parentData.supportEmail.toLowerCase()) {
+	if (session.user.role !== 'admin') {
 		throw error(403, 'Forbidden')
 	}
 

@@ -41,7 +41,6 @@
     "vars": {
         "APP_NAME": "{{APP_NAME}}",
         "APP_VERSION": "{{APP_VERSION}}",
-        "SYSTEM_EMAIL": "{{SYSTEM_EMAIL}}",
         "APP_BASE_URL": "{{APP_BASE_URL}}",
         "APP_DOMAIN": "{{APP_DOMAIN}}",
         "APP_CN_DOMAIN": "{{APP_CN_DOMAIN}}",

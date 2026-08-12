@@ -87,6 +87,7 @@ describe('system configuration store', () => {
 
 			expect({ result, reads }).toEqual({
 			result: {
+				support_email: 'admin@opcstack.local',
 				design_system: 'apple-saas',
 				docs_enabled: true,
 				email_enabled: false,
@@ -169,7 +170,11 @@ describe('system configuration store', () => {
 			resendApiKey: { ciphertext: 'saved', iv: 'saved-iv' }
 		}
 		updated.emailVersion = 2
-		const db: MetaDb = createConfigDb({ row: createSettingsRow(1), updated })
+		const db: MetaDb = createConfigDb({
+			row: createSettingsRow(1),
+			updated,
+			administratorEmail: 'owner@example.com'
+		})
 
 		const result = await updateEmailConfig(db, TEST_ENCRYPTION_KEY, {
 			enabled: true,
@@ -180,6 +185,21 @@ describe('system configuration store', () => {
 		})
 
 		expect(result).toEqual({ ...updated.emailConfig, version: 2 })
+	})
+
+	it('rejects enabling Email while the administrator uses the local address', async (): Promise<void> => {
+		const db: MetaDb = createConfigDb({ row: createSettingsRow(1) })
+
+		await expect(updateEmailConfig(db, TEST_ENCRYPTION_KEY, {
+			enabled: true,
+			provider: 'cloudflare',
+			resendApiKey: { action: 'keep' },
+			expectedVersion: 1,
+			nowMs: 2000
+		})).rejects.toEqual(new ConfigStoreError(
+			'INVALID_UPDATE',
+			'Administrator email must be changed before Email is enabled'
+		))
 	})
 
 	it('reads Storage as a validated operation snapshot', async (): Promise<void> => {
@@ -230,6 +250,7 @@ describe('system configuration store', () => {
 type ConfigDbInput = {
 	row: SystemSettings | undefined
 	updated?: SystemSettings | undefined
+	administratorEmail?: string
 	onRead?: () => void
 	onWrite?: () => void
 }
@@ -237,6 +258,12 @@ type ConfigDbInput = {
 function createConfigDb(input: ConfigDbInput): MetaDb {
 	return {
 		query: {
+			user: {
+				findFirst: async (): Promise<{ id: string; email: string }> => ({
+					id: 'admin-1',
+					email: input.administratorEmail ?? 'admin@opcstack.local'
+				})
+			},
 				systemSettings: {
 					findFirst: async (): Promise<SystemSettings | undefined> => {
 						if (input.onRead) {

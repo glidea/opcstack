@@ -55,7 +55,7 @@ See [Deployment](guides/deployment.md) for the full provisioning and deploy flow
 
 ## 4. Access the admin console
 
-Sign in with the account configured by `SYSTEM_EMAIL`, then open `/{locale}/admin`. See [Admin Console](guides/admin-console.md) for every page and operator workflow.
+Sign in with the one-time administrator credentials printed by the first preparation, change them under Account / Security, then open `/{locale}/admin`. See [Admin Console](guides/admin-console.md) for every page and operator workflow.
 
 ## 5. Develop the browser extension
 

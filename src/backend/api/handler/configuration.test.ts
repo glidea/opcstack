@@ -256,6 +256,12 @@ type MetaDbInput = {
 function createMetaDb(input: MetaDbInput): MetaDb {
 	return {
 		query: {
+			user: {
+				findFirst: async (): Promise<{ id: string; email: string }> => ({
+					id: 'admin-1',
+					email: 'owner@example.com'
+				})
+			},
 			systemSettings: {
 				findFirst: async (): Promise<SystemSettings | undefined> => input.row
 			}

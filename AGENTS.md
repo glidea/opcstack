@@ -293,8 +293,8 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - `authMiddleware` injects `userId` into `ctx.variables`.
 - Authenticated API routes accept Better Auth browser sessions from Cookie or `Authorization: Bearer <token>`. Agent JWTs are verified by the OAuth Provider resource client and expose `agentAuthorization`; existing browser-only routes reject them. Agent-enabled routes must explicitly use `requireAgentScope(scope)`.
 - The generic credential client is `opc auth connect` plus `opc api request`; it injects tokens and must not contain business API types or route-specific methods.
-- `adminUserMiddleware` accepts only the `SYSTEM_EMAIL` Better Auth browser session. Automated API access uses scoped OAuth rather than a static admin token.
-- `SYSTEM_EMAIL` is the single operator mailbox used for public support contact, super admin identity, and outbound email sender.
+- `adminUserMiddleware` accepts only a Better Auth browser session whose user has the unique D1 `admin` role. Automated API access uses scoped OAuth rather than a static admin token.
+- The unique D1 administrator email is also the public support contact and outbound email sender. Initialization creates `admin@opcstack.local`; change it under Account / Security before enabling email delivery.
 - Credits use integer units where `1 credit = 1_000_000 units`; API credit amounts use decimal strings.
 - Payment `price_amount` is provider minor currency units and must not be mixed with credit units.
 - R2 paths are `public/*`, `private/<userId>/*`, `tmp/public/*`, and `tmp/private/<userId>/*`.

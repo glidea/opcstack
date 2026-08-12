@@ -13,6 +13,7 @@ describe('web public runtime configuration', () => {
 	beforeEach((): void => {
 		vi.clearAllMocks()
 		vi.mocked(getPublicRuntimeConfig).mockResolvedValue({
+			support_email: 'admin@opcstack.local',
 			design_system: 'brutalism',
 			docs_enabled: false,
 			email_enabled: false,
@@ -71,6 +72,7 @@ describe('web public runtime configuration', () => {
 		expect(withSession).toHaveBeenCalledWith('first-unconstrained')
 		expect(getPublicRuntimeConfig).toHaveBeenCalledOnce()
 		expect(locals['publicRuntimeConfig']).toEqual({
+			support_email: 'admin@opcstack.local',
 			design_system: 'brutalism',
 			docs_enabled: false,
 			email_enabled: false,

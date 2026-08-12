@@ -11,6 +11,7 @@ import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resourc
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import type { AuthRuntimeConfig } from '../../config'
+import { isAdministrator } from '../../auth/administrator'
 
 vi.mock('../auth', () => {
 	return {
@@ -21,6 +22,12 @@ vi.mock('../auth', () => {
 vi.mock('@better-auth/oauth-provider/resource-client', () => {
 	return {
 		oauthProviderResourceClient: vi.fn()
+	}
+})
+
+vi.mock('../../auth/administrator', () => {
+	return {
+		isAdministrator: vi.fn()
 	}
 })
 
@@ -164,6 +171,7 @@ describe('adminUserMiddleware', () => {
 		authorization?: string
 		sessionUserId?: string
 		sessionUserEmail?: string
+		administrator?: boolean
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
@@ -197,7 +205,8 @@ describe('adminUserMiddleware', () => {
 			then: 'sets session user id',
 			givenDetail: {
 				sessionUserId: 'admin-user',
-				sessionUserEmail: 'admin@example.com'
+				sessionUserEmail: 'owner@example.com',
+				administrator: true
 			},
 			whenDetail: {},
 			thenExpected: {
@@ -219,8 +228,8 @@ describe('adminUserMiddleware', () => {
 			},
 			whenDetail: {},
 			thenExpected: {
-				status: 401,
-				code: 'UNAUTHORIZED',
+				status: 403,
+				code: 'FORBIDDEN',
 				nextCalled: false,
 				setUserId: ''
 			}
@@ -267,6 +276,7 @@ describe('adminUserMiddleware', () => {
 			given.sessionUserId ? 'better-auth.session_token=test' : undefined
 		)
 		const ctx = createContext(state)
+		vi.mocked(isAdministrator).mockResolvedValue(given.administrator ?? false)
 		const res = await adminUserMiddleware(ctx, state.next)
 
 		if (!res) {
@@ -427,7 +437,6 @@ function createContextState(
 		...(authorization !== undefined ? { authorization } : {}),
 		...(cookie !== undefined ? { cookie } : {}),
 		env: {
-			SYSTEM_EMAIL: 'admin@example.com',
 			BETTER_AUTH_SECRET: 'secret',
 			APP_BASE_URL: 'http://localhost:5173'
 		},
@@ -444,6 +453,7 @@ function createContextState(
 
 function createAuthRuntimeConfig(): AuthRuntimeConfig {
 	return {
+		systemEmail: 'admin@opcstack.local',
 		authentication: {
 			betaCodeEnabled: true,
 			emailSignupEnabled: false,

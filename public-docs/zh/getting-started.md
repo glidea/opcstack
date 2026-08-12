@@ -56,7 +56,7 @@ pnpm deploy:cloudflare
 
 ## 4. 访问管理控制台
 
-使用 `SYSTEM_EMAIL` 配置的账号登录，然后打开 `/{locale}/admin`。全部页面和运营操作参阅[管理控制台](guides/admin-console.md)。
+使用首次准备流程打印的一次性管理员凭据登录，在 Account / Security 修改邮箱和密码，然后打开 `/{locale}/admin`。全部页面和运营操作参阅[管理控制台](guides/admin-console.md)。
 
 ## 5. 开发浏览器扩展
 

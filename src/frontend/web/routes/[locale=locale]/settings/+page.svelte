@@ -6,6 +6,7 @@
 	import { _ } from '$frontend/i18n'
 	import { Button } from '$frontend/ui/button'
 	import { Input } from '$frontend/ui/input'
+	import { ApiClientError } from '$apiContract/client'
 
 	let {
 		data
@@ -18,12 +19,33 @@
 	} = $props()
 
 	const session = client.auth.useSession()
+	type SessionUser = { role?: string }
 
 	let currentPassword: string = $state('')
 	let newPassword: string = $state('')
+	let newEmail: string = $state('')
 	let loading: boolean = $state(false)
+	let emailLoading: boolean = $state(false)
 	let error: string = $state('')
+	let emailError: string = $state('')
 	let success: boolean = $state(false)
+	let emailSuccess: boolean = $state(false)
+
+	async function handleChangeEmail(): Promise<void> {
+		emailLoading = true
+		emailError = ''
+		emailSuccess = false
+		try {
+			await client.api.updateAdministratorEmail({ email: newEmail })
+			newEmail = ''
+			emailSuccess = true
+			await $session.refetch()
+		} catch (error) {
+			emailError = error instanceof ApiClientError ? error.body.message : $_('settings.email.submit')
+		} finally {
+			emailLoading = false
+		}
+	}
 
 	async function handleChangePassword(): Promise<void> {
 		loading = true
@@ -49,6 +71,11 @@
 	function handleSubmit(event: SubmitEvent): void {
 		event.preventDefault()
 		void handleChangePassword()
+	}
+
+	function handleEmailSubmit(event: SubmitEvent): void {
+		event.preventDefault()
+		void handleChangeEmail()
 	}
 
 	function handleSignOut(): void {
@@ -89,7 +116,27 @@
 			{$_('settings.agents.title')}
 		</Button>
 
-		<section class="border-t border-border py-8">
+		{#if ($session.data?.user as SessionUser | undefined)?.role === 'admin'}
+		<section class="mt-8 border-t border-border py-8">
+			<div class="grid gap-8 md:grid-cols-[220px_1fr]">
+				<div>
+					<h2 class="text-tagline">{$_('settings.email.title')}</h2>
+					<p class="text-caption mt-2 text-muted-foreground">{$_('settings.email.description')}</p>
+				</div>
+				<form class="max-w-sm space-y-4" onsubmit={handleEmailSubmit}>
+					{#if emailError}<p class="text-sm text-destructive">{emailError}</p>{/if}
+					{#if emailSuccess}<p class="text-sm text-muted-foreground">{$_('settings.email.success')}</p>{/if}
+					<label class="block text-sm font-medium" for="settings-email">{$_('settings.email.label')}</label>
+					<Input id="settings-email" type="email" autocomplete="email" bind:value={newEmail} required aria-invalid={emailError !== ''} />
+					<Button type="submit" class="w-full" disabled={emailLoading}>
+						{emailLoading ? $_('settings.email.submitting') : $_('settings.email.submit')}
+					</Button>
+				</form>
+			</div>
+		</section>
+		{/if}
+
+		<section class="mt-8 border-t border-border py-8">
 			<div class="grid gap-8 md:grid-cols-[220px_1fr]">
 				<div>
 					<h2 class="text-tagline">{$_('settings.password.title')}</h2>
@@ -105,15 +152,19 @@
 					{#if success}
 						<p class="text-sm text-muted-foreground">{$_('settings.password.success')}</p>
 					{/if}
+					<label class="block text-sm font-medium" for="current-password">{$_('settings.password.currentPassword')}</label>
 					<Input
+						id="current-password"
 						type="password"
-						placeholder={$_('settings.password.currentPassword')}
+						autocomplete="current-password"
 						bind:value={currentPassword}
 						required
 					/>
+					<label class="block text-sm font-medium" for="new-password">{$_('settings.password.newPassword')}</label>
 					<Input
+						id="new-password"
 						type="password"
-						placeholder={$_('settings.password.newPassword')}
+						autocomplete="new-password"
 						bind:value={newPassword}
 						required
 					/>

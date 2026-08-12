@@ -54,7 +54,7 @@ import {
 	listAdminAiTasksHandler
 } from './handler/admin-ai-tasks'
 import { getAdminOverviewHandler } from './handler/admin-overview'
-import { listAdminUsersHandler } from './handler/admin-users'
+import { listAdminUsersHandler, updateAdministratorEmailHandler } from './handler/admin-users'
 import {
 	getAuthenticationConfigHandler,
 	getEmailConfigHandler,
@@ -129,6 +129,7 @@ authOnlyApi.post('/agent/revoke_grant', authMiddleware, browserSessionOnlyMiddle
 const adminApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 adminApi.use('/admin/*', adminUserMiddleware)
 adminApi.post('/admin/list_users', listAdminUsersHandler)
+adminApi.post('/admin/update_administrator_email', updateAdministratorEmailHandler)
 adminApi.post('/admin/generate_beta_codes', generateBetaCodesHandler)
 adminApi.post('/admin/list_beta_codes', listBetaCodesHandler)
 adminApi.post('/admin/generate_credit_codes', generateCreditCodesHandler)

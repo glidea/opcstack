@@ -31,7 +31,7 @@ export async function load(event: {
 	const origin = clientConfig.webBaseUrl
 	const siteName = clientConfig.appName
 	const locale = resolveLocale(event.params.locale)
-	const supportEmail = clientConfig.supportEmail
+	const supportEmail = event.locals.publicRuntimeConfig.support_email
 	const alternateUrls = supportedLocales.map((locale) => {
 		return {
 			locale,

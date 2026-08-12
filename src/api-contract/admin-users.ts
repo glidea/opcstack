@@ -39,18 +39,45 @@ export const ListAdminUsersResponseSchema = z.object({
 })
 export type ListAdminUsersResponse = z.infer<typeof ListAdminUsersResponseSchema>
 
+export const UpdateAdministratorEmailRequestSchema = z.object({
+	email: z.string().trim().email()
+})
+export type UpdateAdministratorEmailRequest = z.infer<
+	typeof UpdateAdministratorEmailRequestSchema
+>
+
+export const UpdateAdministratorEmailResponseSchema = z.object({
+	email: z.string().email()
+})
+export type UpdateAdministratorEmailResponse = z.infer<
+	typeof UpdateAdministratorEmailResponseSchema
+>
+
+const AdminUserErrors = {
+	INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
+		return {
+			status: 400,
+			body: { code: 'INVALID_REQUEST', message }
+		}
+	},
+	EMAIL_ALREADY_EXISTS(): ApiErrorResult<'EMAIL_ALREADY_EXISTS', 409> {
+		return {
+			status: 409,
+			body: { code: 'EMAIL_ALREADY_EXISTS', message: 'Email is already in use' }
+		}
+	}
+}
+
 export const ListAdminUsersApi = {
 	request: ListAdminUsersRequestSchema,
 	response: ListAdminUsersResponseSchema,
 	errors: {
-		INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
-			return {
-				status: 400,
-				body: {
-					code: 'INVALID_REQUEST',
-					message
-				}
-			}
-		}
+		...AdminUserErrors
 	}
+}
+
+export const UpdateAdministratorEmailApi = {
+	request: UpdateAdministratorEmailRequestSchema,
+	response: UpdateAdministratorEmailResponseSchema,
+	errors: AdminUserErrors
 }

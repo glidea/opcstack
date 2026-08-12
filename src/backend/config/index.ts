@@ -18,6 +18,7 @@ import {
 	mutateConfigSecret,
 	type SecretMutation
 } from './crypto'
+import { getAdministrator } from '../auth/administrator'
 
 export type ConfigStoreErrorCode =
 	| 'SETTINGS_NOT_FOUND'
@@ -80,11 +81,13 @@ export type EmailRuntimeConfig = {
 }
 
 export type AuthRuntimeConfig = {
+	systemEmail: string
 	authentication: AuthenticationRuntimeConfig
 	email: EmailRuntimeConfig
 }
 
 export type PublicRuntimeConfig = {
+	support_email: string
 	design_system: GeneralSettingsDocument['designSystem']
 	docs_enabled: boolean
 	email_enabled: boolean
@@ -338,6 +341,15 @@ export async function updateEmailConfig(
 		)
 	})
 	validateEmailDependencies(values)
+	if (values.enabled) {
+		const administrator = await getAdministrator(db)
+		if (administrator.email.endsWith('@opcstack.local')) {
+			throw new ConfigStoreError(
+				'INVALID_UPDATE',
+				'Administrator email must be changed before Email is enabled'
+			)
+		}
+	}
 	const settings: SystemSettings = await updateSystemSettingsDomain(db, {
 		domain: 'email',
 		expectedVersion: input.expectedVersion,
@@ -356,9 +368,11 @@ export async function getAuthRuntimeConfig(
 		settings.authenticationConfig
 	)
 	const email: EmailSettingsDocument = parseEmailSettings(settings.emailConfig)
+	const administrator = await getAdministrator(db)
 	validateAuthenticationDependencies(authentication)
 	validateEmailDependencies(email)
 	return {
+		systemEmail: administrator.email,
 		authentication: await decryptAuthenticationConfig(encryptionKey, authentication),
 		email: {
 			enabled: email.enabled,
@@ -377,9 +391,11 @@ export async function getPublicRuntimeConfig(db: MetaDb): Promise<PublicRuntimeC
 		settings.authenticationConfig
 	)
 	const email: EmailSettingsDocument = parseEmailSettings(settings.emailConfig)
+	const administrator = await getAdministrator(db)
 	validateAuthenticationDependencies(authentication)
 	validateEmailDependencies(email)
 	return {
+		support_email: administrator.email,
 		design_system: general.designSystem,
 		docs_enabled: general.docsEnabled,
 		email_enabled: email.enabled,

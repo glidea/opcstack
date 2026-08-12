@@ -15,10 +15,10 @@ Source of Truth 必须严格单一：任何一项配置要么属于 ENV，要么
 ENV 只保留在连接 `META_DB` 前必须确定的输入：
 
 - Cloudflare 资源和 Worker 绑定的部署拓扑，例如应用标识、域名、D1 Shard、Queue、Cron、R2 和 Durable Object
-- 系统根身份与初始化凭据：`SYSTEM_EMAIL` 和 `SUPER_ADMIN_PASSWORD`
+- 初始化后保存在 D1 的唯一管理员身份和认证凭据
 - Chrome 扩展 Manifest 必须在构建时固化的字段，例如版本和 host permissions
 
-`SYSTEM_EMAIL` 和 `SUPER_ADMIN_PASSWORD` 长期以 ENV 为唯一权威来源，不使用 `BOOTSTRAP_*` 临时命名，也不允许在后台或 D1 中修改。`SUPER_ADMIN_PASSWORD` 在 D1 中对应的密码 Hash 是认证运行数据，不是第二个配置来源。
+准备脚本在 D1 中不存在管理员时创建唯一 `admin` 角色账号，初始邮箱为 `admin@opcstack.local`，密码随机生成。凭据仅在首次创建成功后显示一次，后续准备不覆盖管理员邮箱或密码。管理员在 Account / Security 修改邮箱和密码；当前管理员邮箱同时作为公开支持邮箱与发件人地址。
 
 `BETTER_AUTH_SECRET`、`CONFIG_ENCRYPTION_KEY` 和 `R2_ORIGIN_SIGNING_SECRET` 不是用户配置项。准备脚本在项目首次初始化时直接生成具体随机值。本地将值写入 `.env.secret.dev` 作为固定本地 secret 状态；远程将值写入 Cloudflare Worker Secrets。后续启动和部署只复用，不覆盖。D1 已初始化但对应根密钥缺失时直接失败，不生成替代密钥。
 
@@ -129,15 +129,15 @@ Source of Truth 边界：
 
 状态：已确认
 
-不保留静态管理员 API Token。人类管理员使用 `SYSTEM_EMAIL` 对应的浏览器 Session；Agent、CLI 和其他委托客户端统一通过 OAuth API Access 获得有限、可撤销的业务权限。
+不保留静态管理员 API Token。人类管理员使用 D1 `admin` 角色账号的浏览器 Session；Agent、CLI 和其他委托客户端统一通过 OAuth API Access 获得有限、可撤销的业务权限。
 
 - OAuth Client 通过 `opc auth connect` 发起授权，请求当前操作需要的业务 scope
-- 管理员使用 `SYSTEM_EMAIL` 对应的浏览器 Session 显式批准
+- 管理员使用 D1 `admin` 角色账号的浏览器 Session 显式批准
 - 只有系统管理员可批准 `admin:*` scope，普通用户即使发起同名 scope 也必须被拒绝
 - 配置 Admin API 同时校验 scope、OAuth Grant 状态与 Grant 所属用户的管理员身份
 - Access Token 保持短有效期，Refresh Token 与 OAuth Grant 可撤销
 
-首次配置不依赖 OAuth。`prepare-cloudflare` 先根据长期固定的 ENV 建立管理员和基础认证，人类可直接登录后台。如果希望 AI 完成首轮业务配置，管理员登录后批准该 Agent 的 OAuth API Access 即可。
+首次配置不依赖 OAuth。`prepare-cloudflare` 在 D1 缺失管理员时创建一次性初始凭据，人类可直接登录后台。如果希望 AI 完成首轮业务配置，管理员登录后批准该 OAuth Client 的 API Access 即可。
 
 ### 1.5 配置生效语义
 
@@ -186,7 +186,7 @@ Source of Truth 边界：
 1. 用户复制安装提示词，安装创建项目的 Skill，并要求 Agent 初始化项目
 2. Skill 只引导用户提供部署前无法绕过的固定 ENV 与 Cloudflare 资源信息
 3. Agent 完成代码生成、资源准备、数据库迁移和本地或 Cloudflare 部署
-4. 系统根据固定 ENV 建立管理员认证，用户可以打开应用并登录后台
+4. 系统在 D1 创建唯一管理员并打印一次性初始凭据，用户可以打开应用并登录后台
 5. 此时项目壳子已经可运行，不要求用户先为 Agent 授权，也不要求业务配置已经完整
 
 #### 阶段二：继续开发或配置业务
@@ -602,7 +602,7 @@ General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
 | Delivery provider | `EMAIL_PROVIDER` | Select：`cloudflare` / `resend` |
 | Resend API key | `EMAIL_RESEND_API_KEY` | 密钥替换控件 |
 
-`SYSTEM_EMAIL` 不在此处编辑。它继续作为固定 ENV，同时承担系统管理员邮箱、公开支持邮箱和发件人地址。
+管理员邮箱在 Account / Security 编辑，不属于 Configuration 业务配置。它同时承担管理员登录、公开支持邮箱和发件人地址；仍为 `admin@opcstack.local` 时禁止启用邮件发送。
 
 #### Storage
 
@@ -705,7 +705,6 @@ AI 通用设置：
 | --- | --- |
 | `APP_NAME` | Worker、D1、R2、KV 等资源稳定标识和命名前缀 |
 | `APP_VERSION` | Worker 与 Chrome 扩展发布产物版本 |
-| `SYSTEM_EMAIL` | 根管理员身份、支持邮箱和发件人地址 |
 | `APP_DOMAIN` | Worker route、OAuth callback、Webhook、CORS 和 canonical URL |
 | `APP_CN_DOMAIN` | 可选第二入口、Worker route、CORS 和 Turnstile domain |
 | `APP_CN_CNAME_TARGET` | 部署时 DNS CNAME 目标 |
@@ -726,7 +725,7 @@ AI 通用设置：
 | `CONFIG_ENCRYPTION_KEY` | D1 敏感配置的 AES-GCM 根密钥 |
 | `R2_ORIGIN_SIGNING_SECRET` | Worker 内部图片 Origin URL 签名根密钥 |
 
-用户提供的固定 secret ENV 只包含 `SUPER_ADMIN_PASSWORD` 及尚未迁入 D1 的外部服务凭据。
+迁移完成后，用户不提供运行时业务 secret ENV。第三方凭据经配置 API 加密写入 D1；三个内部根 secret 由准备脚本生成并持久化。
 
 部署工具还接受 `CLOUDFLARE_API_TOKEN` 或本地 Token Cache。它是部署凭据，不注入 Worker，也不属于产品配置。
 
@@ -990,7 +989,7 @@ flowchart TB
 ```text
 Browser Session or OAuth Bearer Token
   -> resolve identity
-  -> verify SYSTEM_EMAIL administrator
+  -> verify D1 administrator role
   -> OAuth request verifies route scope
   -> configuration handler
   -> configuration component validation
@@ -1104,8 +1103,8 @@ Turnstile 是唯一需要部署工具与动态配置衔接的外部资源。部�
 
 | Consumer | Target input |
 | --- | --- |
-| Better Auth | Authentication config、Email config、准备脚本生成的 `BETTER_AUTH_SECRET` 和固定 `SYSTEM_EMAIL` |
-| Email clients | Provider、Provider credential、固定 sender `SYSTEM_EMAIL` |
+| Better Auth | Authentication config、Email config、准备脚本生成的 `BETTER_AUTH_SECRET` 和 D1 管理员邮箱 |
+| Email clients | Provider、Provider credential、D1 管理员邮箱 sender |
 | R2 upload validation | Allowed MIME types、maximum bytes；Bucket Binding 仍来自 ENV |
 | Credits and Affiliate | 当前业务域规则和整数 credit units |
 | Payment service | Payment routing、Provider credential、Products；`APP_DOMAIN` 仍作为固定回跳根地址 |
@@ -1191,7 +1190,7 @@ flowchart LR
   -> 返回写入结果并验证
 ```
 
-用户初始化时只填写超级管理员密码等真正需要人工决定的凭据，内部根密钥由脚本生成。日常业务配置不需要重新部署，Agent 通过 OAuth 获得有限权限。代价是首次运行只有可登录的项目壳子，AI、支付、外部登录等能力必须在后台或授权后由 OAuth Client 明确配置并启用。
+用户初始化时不需要预先填写管理员账号或内部根密钥，准备脚本生成一次性管理员密码和内部根密钥。日常业务配置不需要重新部署，OAuth Client 通过授权获得有限权限。代价是首次运行只有可登录的项目壳子，AI、支付、外部登录等能力必须在后台或授权后由 OAuth Client 明确配置并启用。
 
 ## 3. 关键流程
 
@@ -1216,11 +1215,11 @@ sequenceDiagram
   Prepare->>Meta: Apply Meta migrations
   Prepare->>Meta: INSERT initial system_settings only when missing<br/>(all switches disabled, encrypted Turnstile credentials, domain versions=1)
   Prepare->>Meta: UPSERT OAuth public client(client_id="opc-cli")
-  Prepare->>Meta: UPSERT super administrator(email=SYSTEM_EMAIL, password_hash)
-  Prepare-->>Skill: Initialization completed
+  Prepare->>Meta: INSERT administrator(role=admin, email=admin@opcstack.local, random password) only when absent
+  Prepare-->>Skill: Initialization completed + one-time credentials when created
   Skill-->>User: Local or Cloudflare application URL
   User->>Web: GET /{locale}/login
-  User->>Auth: POST /api/auth/sign-in/email<br/>{email: SYSTEM_EMAIL, password: SUPER_ADMIN_PASSWORD}
+  User->>Auth: POST /api/auth/sign-in/email<br/>{one-time email and password}
   Auth->>Meta: Verify administrator credentials and create session
   Auth-->>User: Set session cookie
   User->>Web: GET /{locale}/admin/configuration/general
@@ -1233,25 +1232,26 @@ sequenceDiagram
 
 - 固定 ENV 缺失、Migration 失败或初始化记录写入失败时，准备流程直接失败，不启动一个半初始化应用
 - `system_settings` 缺失时，运行时返回配置初始化错误，不推断默认关闭状态
-- 再次执行准备流程只校准固定资源、内置 OAuth Client 和根管理员，不覆盖用户已经保存在 D1 的业务配置
+- 再次执行准备流程只校准固定资源和内置 OAuth Client，不覆盖 D1 管理员凭据或业务配置
 
 #### 创建引导文档职责
 
 | 文档 | 唯一职责 | 本次迁移要求 |
 | --- | --- | --- |
 | `QUICK_START.md` | 安装并调用最新的创建项目 Skill | 保持轻量，只传递项目名并启动 Skill，不复制配置步骤，不列动态配置项 |
-| `CREATE_OPCSTACK_APP.md` | 定义从创建代码到得到可登录项目壳子的标准流程 | 只收集固定 ENV 和超级管理员密码；内部根密钥由准备脚本生成；删除把认证、邮件、支付、AI、存储规则等写入 `.env*` 的步骤 |
+| `CREATE_OPCSTACK_APP.md` | 定义从创建代码到得到可登录项目壳子的标准流程 | 只收集固定部署拓扑；管理员与内部根密钥由准备脚本生成；删除把认证、邮件、支付、AI、存储规则等写入 `.env*` 的步骤 |
 | `README.md` | 给已创建项目的开发者提供最短启动入口 | 启动后引导进入 Configuration；不再把 ENV 文件描述为业务配置入口 |
 
 `CREATE_OPCSTACK_APP.md` 的目标用户流程固定为：
 
 ```text
 创建项目代码
-  -> 收集固定公开 ENV、资源拓扑和超级管理员密码
+  -> 收集固定公开 ENV 和资源拓扑
   -> 准备脚本生成内部根密钥
   -> 启动本地实例或部署 Cloudflare 实例
   -> Migration 写入明确禁用的 D1 初始配置
-  -> 用户使用 SYSTEM_EMAIL 和 SUPER_ADMIN_PASSWORD 登录
+  -> 终端首次显示一次性管理员邮箱和密码
+  -> 用户登录并在 Account / Security 修改凭据
   -> 选择下一步
        - Build a feature
        - Configure application
@@ -1279,7 +1279,7 @@ sequenceDiagram
 
   Admin->>Page: GET /{locale}/admin/configuration/email
   Page->>API: POST /api/admin/get_email_config {}
-  API->>Auth: Verify browser session and SYSTEM_EMAIL administrator
+  API->>Auth: Verify browser session and D1 administrator role
   Auth-->>API: user_id
   API->>Config: getEmailConfig(metaDbSession)
   Config->>Meta: SELECT email_config, email_version FROM system_settings WHERE id=1
@@ -1290,7 +1290,7 @@ sequenceDiagram
 
   Admin->>Page: Replace key and click Save changes
   Page->>API: POST /api/admin/update_email_config<br/>{expected_version:4, provider:"resend", resend_api_key:{action:"replace", value:"re_live_..."}}
-  API->>Auth: Verify browser session and SYSTEM_EMAIL administrator
+  API->>Auth: Verify browser session and D1 administrator role
   Auth-->>API: user_id
   API->>Config: updateEmailConfig(input)
   Config->>Config: Validate complete Email configuration
@@ -1367,7 +1367,7 @@ sequenceDiagram
 异常规则：
 
 - 未注册的 `client_id`、非法 scope、非 S256 PKCE 或非法 Origin 在创建或 authorize 阶段直接拒绝
-- 只有 `SYSTEM_EMAIL` 管理员可以批准 `config:*` 等管理员 scope
+- 只有当前 D1 管理员可以批准 `config:*` 等管理员 scope
 - 用户拒绝、请求过期、授权码过期或重复消费时，CLI 停止轮询并报告需要重新授权
 - 轮询过快返回 `slow_down` 和新 interval，CLI 必须按服务端节奏继续
 - Refresh Token 失效或 Grant 被撤销后不降级为固定 Token，重新走授权流程
@@ -1389,8 +1389,8 @@ sequenceDiagram
   Agent->>CLI: Create image channel for shop-local
   CLI->>API: Bearer access_token<br/>{id:"openai-official", area:"image", provider:"openai", name:"Official", base_url:"https://api.openai.com/v1", models:["gpt-image-1"], price_multiplier:1, api_key:"sk-...", enabled:true}
   API->>Auth: Verify token audience, api_access, active Grant and user identity
-  Auth->>Meta: Read Grant and user email
-  Meta-->>Auth: active Grant, SYSTEM_EMAIL administrator
+  Auth->>Meta: Read Grant and user role
+  Meta-->>Auth: active Grant, D1 administrator
   Auth->>Auth: Require scope config:ai:write
   Auth-->>API: Authorized
   API->>Config: createAIChannel(input)
@@ -1951,7 +1951,7 @@ Token Response 为标准 `{access_token, refresh_token, token_type:'Bearer', exp
 
 ### 4.11 业务 Scope Registry
 
-所有受保护 JSON 业务路由必须在注册时声明下列 scope。Browser Session 走原有身份和角色检查；OAuth Token 额外检查 scope。`config:*` 和 `admin:*` 标记为 Admin-only scope，只允许 `SYSTEM_EMAIL` 管理员批准。
+所有受保护 JSON 业务路由必须在注册时声明下列 scope。Browser Session 走原有身份和角色检查；OAuth Token 额外检查 scope。`config:*` 和 `admin:*` 标记为 Admin-only scope，只允许当前 D1 管理员批准。
 
 | Scope | Routes |
 | --- | --- |

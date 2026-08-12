@@ -32,7 +32,7 @@ const REGISTRATION_UTM_SOURCE_COOKIE = 'registration_utm_source'
 
 export function authCore(env: Env, db: MetaDb, config: AuthRuntimeConfig) {
   const aff = new AffService(db)
-  const emailOtpPlugin = buildEmailOtp(env, config.email)
+  const emailOtpPlugin = buildEmailOtp(env, config.email, config.systemEmail)
   const captchaPlugin = buildTurnstileCaptcha(config.authentication)
   const linuxDoOAuthPlugin: ReturnType<typeof genericOAuth> | undefined = buildLinuxDoOAuth(
 		config.authentication.providers.linuxdo
@@ -53,6 +53,11 @@ export function authCore(env: Env, db: MetaDb, config: AuthRuntimeConfig) {
     plugins,
     user: {
       additionalFields: {
+		role: {
+			type: 'string',
+			required: false,
+			input: false
+		},
         registrationUtmSource: {
           type: 'string',
           required: false,
@@ -244,8 +249,12 @@ function bytesToHex(bytes: Uint8Array): string {
   return output
 }
 
-function buildEmailOtp(env: Env, config: EmailRuntimeConfig): ReturnType<typeof emailOTP> {
-  const emailClient = buildEmailClient(env, config)
+function buildEmailOtp(
+	env: Env,
+	config: EmailRuntimeConfig,
+	systemEmail: string
+): ReturnType<typeof emailOTP> {
+	const emailClient = buildEmailClient(env, config, systemEmail)
 
   return emailOTP({
     otpLength: 6,
@@ -327,7 +336,11 @@ function buildLinuxDoAvatarUrl(avatarTemplate: string | undefined): string | und
   return `https://connect.linux.do${avatarTemplate.replace('{size}', '96')}`
 }
 
-function buildEmailClient(env: Env, config: EmailRuntimeConfig): EmailClients['simple'] {
+function buildEmailClient(
+	env: Env,
+	config: EmailRuntimeConfig,
+	systemEmail: string
+): EmailClients['simple'] {
   if (!config.enabled || !config.provider) {
     return {
       send: async (): Promise<void> => {
@@ -339,7 +352,7 @@ function buildEmailClient(env: Env, config: EmailRuntimeConfig): EmailClients['s
     provider: config.provider,
     resendApiKey: config.resendApiKey,
     appName: env.APP_NAME,
-    sender: env.SYSTEM_EMAIL,
+    sender: systemEmail,
     sendEmailBinding: env.SEND_EMAIL
   }).simple
 }

@@ -289,8 +289,8 @@ pnpm test:e2e:remote
 | --- | --- |
 | `APP_BASE_URL` | 本地或远端应用的 base URL |
 | `E2E_REMOTE` | 远端运行时为 `1` |
-| `E2E_SYSTEM_EMAIL` | 管理员 Session 测试使用的超级管理员邮箱 |
-| `E2E_SUPER_ADMIN_PASSWORD` | 管理员 Session 测试使用的超级管理员密码 |
+| `E2E_ADMIN_EMAIL` | 管理员 Session 测试使用的管理员邮箱 |
+| `E2E_ADMIN_PASSWORD` | 管理员 Session 测试使用的管理员密码 |
 | `E2E_R2_ENABLED` | R2 测试是否可以运行 |
 | `E2E_PAYMENT_ENABLED` | 支付测试是否可以运行 |
 | `E2E_D1_SHARD_COUNT` | 分片测试预期的分片数量 |

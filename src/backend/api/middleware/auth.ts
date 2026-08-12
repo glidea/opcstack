@@ -4,6 +4,7 @@ import { authCore } from '../auth'
 import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
 import { AGENT_CLIENT_ID, getAgentGrant } from '../../agent-auth'
 import { getAuthRuntimeConfig, type AuthRuntimeConfig } from '../../config'
+import { isAdministrator } from '../../auth/administrator'
 
 export type AgentAuthorization = {
 	userId: string
@@ -118,8 +119,6 @@ export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
 	ctx,
 	next
 ): Promise<Response | void> => {
-	const adminEmail = ctx.env.SYSTEM_EMAIL.toLowerCase()
-
 	if (!ctx.req.header('cookie')) {
 		return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
 	}
@@ -128,8 +127,11 @@ export const adminUserMiddleware: MiddlewareHandler<ApiEnv> = async (
 	const session = await authCore(ctx.env, ctx.get('metaDb'), config).api.getSession({
 		headers: ctx.req.raw.headers
 	})
-	if (!session || session.user.email !== adminEmail) {
+	if (!session) {
 		return ctx.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, 401)
+	}
+	if (!(await isAdministrator(ctx.get('metaDb'), session.user.id))) {
+		return ctx.json({ code: 'FORBIDDEN', message: 'Forbidden' }, 403)
 	}
 
 	ctx.set('userId', session.user.id)

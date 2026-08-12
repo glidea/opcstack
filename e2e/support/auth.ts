@@ -40,8 +40,8 @@ export function getAdminSessionCookie(appBaseUrl: string): Promise<string> {
 }
 
 async function createAdminSessionCookie(appBaseUrl: string): Promise<string> {
-	const email: string = process.env['E2E_SYSTEM_EMAIL'] ?? ''
-	const password: string = process.env['E2E_SUPER_ADMIN_PASSWORD'] ?? ''
+	const email: string = process.env['E2E_ADMIN_EMAIL'] ?? ''
+	const password: string = process.env['E2E_ADMIN_PASSWORD'] ?? ''
 	if (email === '' || password === '') {
 		throw new Error('E2E_ADMIN_SESSION_CONFIG_REQUIRED')
 	}

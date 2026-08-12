@@ -30,6 +30,7 @@ type SessionPayload = {
 		id: string
 		email: string
 		name: string
+		role: string
 	}
 }
 
@@ -43,15 +44,15 @@ describe('admin route protection', () => {
 
 	test('rejects a signed-in non-admin user', async (): Promise<void> => {
 		await expect(loadAdminLayout(createLayoutEvent({
-			user: { id: 'user-1', email: 'user@example.com', name: 'User' }
+			user: { id: 'user-1', email: 'user@example.com', name: 'User', role: 'user' }
 		}))).rejects.toMatchObject({
 			status: 403
 		})
 	})
 
-	test('allows the system email user', async (): Promise<void> => {
+	test('allows the administrator role', async (): Promise<void> => {
 		const result: Record<string, unknown> = await loadAdminLayout(createLayoutEvent({
-			user: { id: 'admin-1', email: 'admin@example.com', name: 'Admin' }
+			user: { id: 'admin-1', email: 'admin@example.com', name: 'Admin', role: 'admin' }
 		}))
 
 		expect(result).toMatchObject({
@@ -63,7 +64,7 @@ describe('admin route protection', () => {
 
 	test('reads the session from Worker bindings in production', async (): Promise<void> => {
 		const session: SessionPayload = {
-			user: { id: 'admin-1', email: 'admin@example.com', name: 'Admin' }
+			user: { id: 'admin-1', email: 'admin@example.com', name: 'Admin', role: 'admin' }
 		}
 		getRuntimeSession.mockResolvedValueOnce(session)
 		const fetchSession = vi.fn(async (): Promise<Response> => {
@@ -87,7 +88,7 @@ describe('admin route protection', () => {
 
 	test('reads the session through the API in Vite when Worker bindings are absent', async (): Promise<void> => {
 		const session: SessionPayload = {
-			user: { id: 'admin-1', email: 'admin@example.com', name: 'Admin' }
+			user: { id: 'admin-1', email: 'admin@example.com', name: 'Admin', role: 'admin' }
 		}
 		const fetchSession = vi.fn(async (): Promise<Response> => Response.json(session))
 		const event: LayoutEventFixture = createLayoutEvent(null, fetchSession)

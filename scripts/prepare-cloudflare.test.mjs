@@ -5,6 +5,7 @@ import {
 	buildAIChannelVars,
 	buildDnsCnameRecordPayload,
 	buildOAuthClientUpsertSql,
+	buildInitialAdministratorInsertSql,
 	buildRequiredSecretKeys,
 	buildRuntimeSecretLines,
 	buildSystemSettingsInitializationSql,
@@ -12,6 +13,7 @@ import {
 	buildWorkerRoutes,
 	encryptInitializationSecret,
 	resolveLocalSystemSecrets,
+	resolveAdministratorInitialization,
 	resolveRemoteSystemSecrets,
 	resolveSystemSettingsInitialization,
 	resolveTurnstileInitializationConfig,
@@ -22,6 +24,44 @@ import {
 import { resolveAppCnCnameTarget } from './prepare-public.mjs'
 
 describe('prepare cloudflare dns config', () => {
+	it('creates the initial administrator only when D1 has no administrator', () => {
+		const result = resolveAdministratorInitialization([], () => 'random-password')
+
+		expect(result).toEqual({
+			create: true,
+			email: 'admin@opcstack.local',
+			password: 'random-password'
+		})
+	})
+
+	it('does not reset an existing administrator during another prepare', () => {
+		const result = resolveAdministratorInitialization([
+			{ id: 'admin-1', email: 'owner@example.com' }
+		], () => {
+			throw new Error('password must not be generated')
+		})
+
+		expect(result).toEqual({
+			create: false,
+			id: 'admin-1',
+			email: 'owner@example.com'
+		})
+	})
+
+	it('inserts an administrator role without an email upsert', () => {
+		const sql = buildInitialAdministratorInsertSql({
+			userId: 'admin-1',
+			email: 'admin@opcstack.local',
+			affCode: 'ADMIN001',
+			passwordHash: 'password-hash',
+			nowMs: 123
+		})
+
+		expect(sql).toContain("'admin'")
+		expect(sql).not.toContain('ON CONFLICT')
+		expect(sql).not.toContain('UPDATE account')
+	})
+
 	it('seeds the fixed agent oauth client with the deployment callback', () => {
 		const sql = buildAgentOAuthClientUpsertSql({
 			baseUrl: 'https://app.example.com',
@@ -505,12 +545,12 @@ describe('prepare cloudflare runtime config validation', () => {
 		expect({
 			runtimeKeys: config.secrets.required,
 			typeHasPaymentSecret: typesConfig.secrets.required.includes('PAYMENT_DODO_API_KEY'),
-			typeHasPrepareOnlyPassword:
-				typesConfig.secrets.required.includes('SUPER_ADMIN_PASSWORD')
+			typeHasGeneratedSystemSecret:
+				typesConfig.secrets.required.includes('CONFIG_ENCRYPTION_KEY')
 		}).toEqual({
 			runtimeKeys: ['BETTER_AUTH_SECRET'],
 			typeHasPaymentSecret: true,
-			typeHasPrepareOnlyPassword: false
+			typeHasGeneratedSystemSecret: true
 		})
 	})
 

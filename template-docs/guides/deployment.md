@@ -417,7 +417,7 @@ External services must point back to the deployed Worker origin.
 | Google OAuth | Client id and secret in the Authentication tab, callback URL using `APP_DOMAIN` |
 | GitHub OAuth | App id and secret in the Authentication tab, callback URL using `APP_DOMAIN` |
 | LinuxDO OAuth | OAuth id and secret, callback URL using `APP_DOMAIN` |
-| Resend | API key and verified sender domain for `SYSTEM_EMAIL` |
+| Resend | API key and verified sender domain for the D1 administrator email |
 | Cloudflare Email | Paid Worker plan and `SEND_EMAIL` binding |
 | Dodo | API key, webhook secret, product ids, webhook to Worker |
 | Creem | API key, webhook secret, product ids, webhook to Worker |

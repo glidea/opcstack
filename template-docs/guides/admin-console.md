@@ -11,11 +11,11 @@ The admin console turns the existing Admin APIs into one operator workspace. It 
 
 ## Access
 
-1. Set `SYSTEM_EMAIL` to the operator account before running `prepare-cloudflare`.
-2. Register or sign in with the same email address.
+1. Run `prepare-cloudflare` and retain the one-time administrator credentials printed after the first successful initialization.
+2. Sign in, then change the administrator email and password under Account / Security.
 3. Open `/{locale}/admin`. The route redirects to `/{locale}/admin/overview`.
 
-An unauthenticated visitor is redirected to login. A signed-in account whose email does not match `SYSTEM_EMAIL` receives `403 Forbidden`.
+An unauthenticated visitor is redirected to login. A signed-in account without the D1 `admin` role receives `403 Forbidden`.
 
 Programmatic clients use OAuth grants with explicit scopes. There is no static admin API token.
 
@@ -103,14 +103,14 @@ A link is hidden when the required Cloudflare account or resource identifier is 
 - Payments, feedback, and AI task operations are read-only.
 - Codes cannot be revoked from the console.
 - Notifications cannot be edited or withdrawn after publishing.
-- Admin roles and fine-grained permissions are not included. One `SYSTEM_EMAIL` account owns browser access.
+- Fine-grained administrator permissions are not included. One D1 `admin` account owns browser access.
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
 | Redirected to login | Sign in and return to the original admin URL |
-| `403 Forbidden` | Confirm the session email exactly matches `SYSTEM_EMAIL` |
+| `403 Forbidden` | Confirm the signed-in account is the D1 administrator |
 | Empty list | Reset filters and confirm the related API has persisted records |
 | Missing Cloudflare link | Run the relevant prepare flow and confirm the public resource identifiers are configured |
 

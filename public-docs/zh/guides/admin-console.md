@@ -12,11 +12,11 @@ order: 10
 
 ## 访问控制台
 
-1. 运行 `prepare-cloudflare` 前，把 `SYSTEM_EMAIL` 设置为运营账号邮箱。
-2. 使用相同邮箱注册或登录。
+1. 运行 `prepare-cloudflare`，保存首次成功初始化后打印的一次性管理员凭据。
+2. 登录后在 Account / Security 修改管理员邮箱和密码。
 3. 打开 `/{locale}/admin`，系统会跳转到 `/{locale}/admin/overview`。
 
-未登录用户会跳转到登录页。已登录账号的邮箱与 `SYSTEM_EMAIL` 不一致时返回 `403 Forbidden`。
+未登录用户会跳转到登录页。已登录账号没有 D1 `admin` 角色时返回 `403 Forbidden`。
 
 程序化客户端通过明确 scope 的 OAuth Grant 调用 API，不存在静态管理员 API Token。
 
@@ -104,14 +104,14 @@ Cloudflare 外链放在对应资源旁：
 - 支付、反馈和 AI 任务只支持查看。
 - 控制台不支持作废内测码或兑换码。
 - 公告发布后不能编辑或撤回。
-- 暂不支持管理员角色和细粒度权限，浏览器访问权只属于 `SYSTEM_EMAIL` 账号。
+- 暂不支持细粒度管理员权限，浏览器访问权只属于唯一 D1 `admin` 账号。
 
 ## 常见问题
 
 | 现象 | 检查项 |
 | --- | --- |
 | 跳转到登录页 | 完成登录后返回原管理页面 |
-| `403 Forbidden` | 确认会话邮箱与 `SYSTEM_EMAIL` 完全一致 |
+| `403 Forbidden` | 确认当前登录账号是 D1 管理员 |
 | 列表为空 | 重置筛选，并确认相关 API 已写入数据 |
 | 没有 Cloudflare 外链 | 运行对应 prepare 流程，并确认公开资源标识已配置 |
 

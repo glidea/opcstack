@@ -418,7 +418,7 @@ Binding 和类命名：
 | Google OAuth | Authentication Tab 中的 client id 和 secret，使用 `APP_DOMAIN` 的回调 URL |
 | GitHub OAuth | Authentication Tab 中的 app id 和 secret，使用 `APP_DOMAIN` 的回调 URL |
 | LinuxDO OAuth | OAuth id 和密钥，使用 `APP_DOMAIN` 的回调 URL |
-| Resend | API key 和 `SYSTEM_EMAIL` 的已验证发件人域名 |
+| Resend | API key 和 D1 管理员邮箱的已验证发件人域名 |
 | Cloudflare Email | 付费 Worker 方案和 `SEND_EMAIL` binding |
 | Dodo | API key、webhook 密钥、产品 id、指向 Worker 的 webhook |
 | Creem | API key、webhook 密钥、产品 id、指向 Worker 的 webhook |

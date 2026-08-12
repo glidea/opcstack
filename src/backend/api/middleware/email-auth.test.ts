@@ -397,6 +397,7 @@ function createAuthRuntimeConfig(input: {
 	cooldownSeconds: string
 }): AuthRuntimeConfig {
 	return {
+		systemEmail: 'admin@opcstack.local',
 		authentication: {
 			betaCodeEnabled: false,
 			emailSignupEnabled: input.emailSignupEnabled === 'true',

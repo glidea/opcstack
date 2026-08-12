@@ -156,6 +156,7 @@ function createContextState(
 
 function createAuthRuntimeConfig(betaCodeEnabled: boolean): AuthRuntimeConfig {
 	return {
+		systemEmail: 'admin@opcstack.local',
 		authentication: {
 			betaCodeEnabled,
 			emailSignupEnabled: false,

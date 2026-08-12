@@ -10,7 +10,9 @@ import type {
 import type { GetAdminOverviewResponse } from '../admin-overview'
 import type {
 	ListAdminUsersRequest,
-	ListAdminUsersResponse
+	ListAdminUsersResponse,
+	UpdateAdministratorEmailRequest,
+	UpdateAdministratorEmailResponse
 } from '../admin-users'
 import type {
 	BindBetaCodeRequest,
@@ -172,6 +174,9 @@ type ApiMethods = {
 	uploadR2Object(input: UploadR2ObjectRequest): Promise<UploadR2ObjectResponse>
 	uploadR2PublicObject(input: UploadR2PublicObjectRequest): Promise<UploadR2PublicObjectResponse>
 	updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig>
+	updateAdministratorEmail(
+		input: UpdateAdministratorEmailRequest
+	): Promise<UpdateAdministratorEmailResponse>
 	updateStorageConfig(input: UpdateStorageConfigRequest): Promise<StorageConfig>
 	upgradeSubscription(input: UpgradeSubscriptionRequest): Promise<UpgradeSubscriptionResponse>
 }
@@ -448,6 +453,11 @@ function createApiMethods(
 		},
 		updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig> {
 			return call({ path: '/api/admin/update_general_config', body: input })
+		},
+		updateAdministratorEmail(
+			input: UpdateAdministratorEmailRequest
+		): Promise<UpdateAdministratorEmailResponse> {
+			return call({ path: '/api/admin/update_administrator_email', body: input })
 		},
 		updateStorageConfig(input: UpdateStorageConfigRequest): Promise<StorageConfig> {
 			return call({ path: '/api/admin/update_storage_config', body: input })

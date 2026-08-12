@@ -138,7 +138,6 @@ export function buildClientConfig(vars) {
 		appVersion: vars.APP_VERSION,
 		apiBaseUrl: vars.APP_BASE_URL,
 		webBaseUrl: vars.APP_BASE_URL,
-		supportEmail: vars.SYSTEM_EMAIL,
 		paymentEnabled: parseConfigBoolean(vars.PAYMENT_ENABLED),
 		extension: {
 			hostPermissions: parseList(vars.EXTENSION_HOST_PERMISSIONS)
@@ -151,7 +150,6 @@ function validatePublicConfig(vars) {
 		'APP_NAME',
 		'APP_VERSION',
 		'APP_BASE_URL',
-		'SYSTEM_EMAIL',
 		'PAYMENT_ENABLED',
 		'EXTENSION_HOST_PERMISSIONS'
 	]
@@ -173,7 +171,6 @@ export function writeClientConfig(vars) {
 	appVersion: string
 	apiBaseUrl: string
 	webBaseUrl: string
-	supportEmail: string
 	paymentEnabled: boolean
 	extension: {
 		hostPermissions: string[]
