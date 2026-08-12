@@ -3,7 +3,10 @@ import type { MetaDb } from '../db'
 import type { SystemSettings } from '../db/schema.meta'
 import {
 	ConfigStoreError,
+	getPublicRuntimeConfig,
+	getStorageConfig,
 	readSystemSettingsSnapshot,
+	updateStorageConfig,
 	updateSystemSettingsDomain
 } from './index'
 
@@ -45,9 +48,12 @@ describe('system configuration store', () => {
 			nowMs: 2000
 		})
 
-		expect({ version: result.generalVersion, designSystem: result.designSystem }).toEqual({
+		expect({ version: result.generalVersion, config: result.generalConfig }).toEqual({
 			version: 2,
-			designSystem: 'brutalism'
+			config: {
+				designSystem: 'brutalism',
+				docsEnabled: false
+			}
 		})
 	})
 
@@ -62,6 +68,70 @@ describe('system configuration store', () => {
 				nowMs: 2000
 			})
 		).rejects.toEqual(new ConfigStoreError('VERSION_CONFLICT', 'System settings version conflict'))
+	})
+
+	it('maps one settings read to the public runtime snapshot', async (): Promise<void> => {
+		let reads: number = 0
+		const db: MetaDb = createConfigDb({
+			row: createSettingsRow(1),
+			onRead: (): void => {
+				reads += 1
+			}
+		})
+
+		const result = await getPublicRuntimeConfig(db)
+
+		expect({ result, reads }).toEqual({
+			result: {
+				design_system: 'apple-saas',
+				docs_enabled: true
+			},
+			reads: 1
+		})
+	})
+
+	it('reads Storage as a validated operation snapshot', async (): Promise<void> => {
+		const db: MetaDb = createConfigDb({ row: createSettingsRow(1) })
+
+		const result = await getStorageConfig(db)
+
+		expect(result).toEqual({
+			allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
+			maxUploadBytes: 5_242_880,
+			version: 1
+		})
+	})
+
+	it('rejects invalid Storage data read from D1', async (): Promise<void> => {
+		const row: SystemSettings = createSettingsRow(1)
+		row.storageConfig.allowedContentTypes = ['image/png', 'image/png']
+		const db: MetaDb = createConfigDb({ row })
+
+		await expect(getStorageConfig(db)).rejects.toEqual(
+			new ConfigStoreError('SETTINGS_INVALID', 'Storage settings are invalid')
+		)
+	})
+
+	it('updates Storage as one versioned domain', async (): Promise<void> => {
+		const updated: SystemSettings = createSettingsRow(1, 2)
+		updated.storageConfig = {
+			allowedContentTypes: ['text/plain'],
+			maxUploadBytes: 1024
+		}
+		const db: MetaDb = createConfigDb({ row: createSettingsRow(1), updated })
+
+		const result = await updateStorageConfig(db, {
+			allowedContentTypes: ['text/plain'],
+			maxUploadBytes: 1024,
+			expectedVersion: 1,
+			nowMs: 2000
+		})
+
+		expect(result).toEqual({
+			allowedContentTypes: ['text/plain'],
+			maxUploadBytes: 1024,
+			version: 2
+		})
 	})
 })
 
@@ -95,11 +165,20 @@ function createConfigDb(input: ConfigDbInput): MetaDb {
 	} as unknown as MetaDb
 }
 
-function createSettingsRow(generalVersion: number): SystemSettings {
+function createSettingsRow(generalVersion: number, storageVersion: number = 1): SystemSettings {
 	return {
 		id: 1,
 		generalVersion,
-		designSystem: generalVersion === 1 ? 'apple-saas' : 'brutalism',
-		docsEnabled: generalVersion === 1
+		generalUpdatedAt: 1000,
+		storageVersion,
+		storageUpdatedAt: 1000,
+		generalConfig: {
+			designSystem: generalVersion === 1 ? 'apple-saas' : 'brutalism',
+			docsEnabled: generalVersion === 1
+		},
+		storageConfig: {
+			allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
+			maxUploadBytes: 5_242_880
+		}
 	} as unknown as SystemSettings
 }

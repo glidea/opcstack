@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8c8dfd32-ada0-4b68-b698-9d28563eb918",
+  "id": "df90812b-9752-4719-bbbd-6f320786e81a",
   "prevId": "08eb0dd7-73e9-4b97-8956-9c33418570c9",
   "tables": {
     "aff_referrals": {
@@ -1750,9 +1750,30 @@
           "notNull": true,
           "autoincrement": false
         },
+        "general_config": {
+          "name": "general_config",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "general_version": {
           "name": "general_version",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "general_updated_at": {
+          "name": "general_updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "authentication_config": {
+          "name": "authentication_config",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -1764,9 +1785,37 @@
           "notNull": true,
           "autoincrement": false
         },
+        "authentication_updated_at": {
+          "name": "authentication_updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email_config": {
+          "name": "email_config",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "email_version": {
           "name": "email_version",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email_updated_at": {
+          "name": "email_updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "storage_config": {
+          "name": "storage_config",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -1778,9 +1827,37 @@
           "notNull": true,
           "autoincrement": false
         },
+        "storage_updated_at": {
+          "name": "storage_updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "credits_config": {
+          "name": "credits_config",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "credits_version": {
           "name": "credits_version",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "credits_updated_at": {
+          "name": "credits_updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "affiliate_config": {
+          "name": "affiliate_config",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -1792,9 +1869,37 @@
           "notNull": true,
           "autoincrement": false
         },
+        "affiliate_updated_at": {
+          "name": "affiliate_updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payment_config": {
+          "name": "payment_config",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "payment_version": {
           "name": "payment_version",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payment_updated_at": {
+          "name": "payment_updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ai_config": {
+          "name": "ai_config",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -1806,708 +1911,15 @@
           "notNull": true,
           "autoincrement": false
         },
-        "design_system": {
-          "name": "design_system",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "docs_enabled": {
-          "name": "docs_enabled",
+        "ai_updated_at": {
+          "name": "ai_updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "beta_code_enabled": {
-          "name": "beta_code_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email_signup_enabled": {
-          "name": "email_signup_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email_signup_domain_allowlist": {
-          "name": "email_signup_domain_allowlist",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email_require_verification": {
-          "name": "email_require_verification",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email_user_action_cooldown_seconds": {
-          "name": "email_user_action_cooldown_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "turnstile_enabled": {
-          "name": "turnstile_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "turnstile_site_key": {
-          "name": "turnstile_site_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "turnstile_secret_key_ciphertext": {
-          "name": "turnstile_secret_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "turnstile_secret_key_iv": {
-          "name": "turnstile_secret_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "google_auth_enabled": {
-          "name": "google_auth_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "google_client_id": {
-          "name": "google_client_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "google_client_secret_ciphertext": {
-          "name": "google_client_secret_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "google_client_secret_iv": {
-          "name": "google_client_secret_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "github_auth_enabled": {
-          "name": "github_auth_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "github_client_id": {
-          "name": "github_client_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "github_client_secret_ciphertext": {
-          "name": "github_client_secret_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "github_client_secret_iv": {
-          "name": "github_client_secret_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "linuxdo_auth_enabled": {
-          "name": "linuxdo_auth_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "linuxdo_client_id": {
-          "name": "linuxdo_client_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "linuxdo_client_secret_ciphertext": {
-          "name": "linuxdo_client_secret_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "linuxdo_client_secret_iv": {
-          "name": "linuxdo_client_secret_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "email_enabled": {
-          "name": "email_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email_provider": {
-          "name": "email_provider",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "email_resend_api_key_ciphertext": {
-          "name": "email_resend_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "email_resend_api_key_iv": {
-          "name": "email_resend_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "r2_user_upload_allowed_content_types": {
-          "name": "r2_user_upload_allowed_content_types",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "r2_user_upload_max_bytes": {
-          "name": "r2_user_upload_max_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credits_signup_enabled": {
-          "name": "credits_signup_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credits_signup_amount": {
-          "name": "credits_signup_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credits_daily_checkin_enabled": {
-          "name": "credits_daily_checkin_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credits_daily_checkin_amount": {
-          "name": "credits_daily_checkin_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "credits_history_retention_days": {
-          "name": "credits_history_retention_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "affiliate_enabled": {
-          "name": "affiliate_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "affiliate_inviter_credit_amount": {
-          "name": "affiliate_inviter_credit_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "affiliate_invitee_credit_amount": {
-          "name": "affiliate_invitee_credit_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payment_enabled": {
-          "name": "payment_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payment_default_provider": {
-          "name": "payment_default_provider",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payment_provider_country_overrides": {
-          "name": "payment_provider_country_overrides",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payment_dodo_test_mode": {
-          "name": "payment_dodo_test_mode",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payment_dodo_api_key_ciphertext": {
-          "name": "payment_dodo_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payment_dodo_api_key_iv": {
-          "name": "payment_dodo_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payment_dodo_webhook_secret_ciphertext": {
-          "name": "payment_dodo_webhook_secret_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payment_dodo_webhook_secret_iv": {
-          "name": "payment_dodo_webhook_secret_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payment_creem_test_mode": {
-          "name": "payment_creem_test_mode",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payment_creem_api_key_ciphertext": {
-          "name": "payment_creem_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payment_creem_api_key_iv": {
-          "name": "payment_creem_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payment_creem_webhook_secret_ciphertext": {
-          "name": "payment_creem_webhook_secret_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payment_creem_webhook_secret_iv": {
-          "name": "payment_creem_webhook_secret_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ai_routing_error_weight": {
-          "name": "ai_routing_error_weight",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ai_routing_latency_weight": {
-          "name": "ai_routing_latency_weight",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ai_routing_price_weight": {
-          "name": "ai_routing_price_weight",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ai_task_retention_days": {
-          "name": "ai_task_retention_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "chat_openai_enabled": {
-          "name": "chat_openai_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "chat_openai_base_url": {
-          "name": "chat_openai_base_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "chat_openai_default_model": {
-          "name": "chat_openai_default_model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "chat_openai_api_key_ciphertext": {
-          "name": "chat_openai_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "chat_openai_api_key_iv": {
-          "name": "chat_openai_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_gemini_enabled": {
-          "name": "image_gemini_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "image_gemini_base_url": {
-          "name": "image_gemini_base_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_gemini_default_model": {
-          "name": "image_gemini_default_model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_gemini_api_key_ciphertext": {
-          "name": "image_gemini_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_gemini_api_key_iv": {
-          "name": "image_gemini_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_openai_enabled": {
-          "name": "image_openai_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "image_openai_base_url": {
-          "name": "image_openai_base_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_openai_default_model": {
-          "name": "image_openai_default_model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_openai_api_key_ciphertext": {
-          "name": "image_openai_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_openai_api_key_iv": {
-          "name": "image_openai_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_seedream_enabled": {
-          "name": "image_seedream_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "image_seedream_base_url": {
-          "name": "image_seedream_base_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_seedream_default_model": {
-          "name": "image_seedream_default_model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_seedream_api_key_ciphertext": {
-          "name": "image_seedream_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_seedream_api_key_iv": {
-          "name": "image_seedream_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_aliyun_enabled": {
-          "name": "image_aliyun_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "image_aliyun_base_url": {
-          "name": "image_aliyun_base_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_aliyun_default_model": {
-          "name": "image_aliyun_default_model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_aliyun_api_key_ciphertext": {
-          "name": "image_aliyun_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "image_aliyun_api_key_iv": {
-          "name": "image_aliyun_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tts_gemini_enabled": {
-          "name": "tts_gemini_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tts_gemini_base_url": {
-          "name": "tts_gemini_base_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tts_gemini_default_model": {
-          "name": "tts_gemini_default_model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tts_gemini_api_key_ciphertext": {
-          "name": "tts_gemini_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tts_gemini_api_key_iv": {
-          "name": "tts_gemini_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tts_seed_enabled": {
-          "name": "tts_seed_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tts_seed_base_url": {
-          "name": "tts_seed_base_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tts_seed_default_model": {
-          "name": "tts_seed_default_model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tts_seed_api_key_ciphertext": {
-          "name": "tts_seed_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "tts_seed_api_key_iv": {
-          "name": "tts_seed_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "realtime_doubao_enabled": {
-          "name": "realtime_doubao_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "realtime_doubao_base_url": {
-          "name": "realtime_doubao_base_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "realtime_doubao_default_model": {
-          "name": "realtime_doubao_default_model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "realtime_doubao_api_key_ciphertext": {
-          "name": "realtime_doubao_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "realtime_doubao_api_key_iv": {
-          "name": "realtime_doubao_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "video_seedance_enabled": {
-          "name": "video_seedance_enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "video_seedance_base_url": {
-          "name": "video_seedance_base_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "video_seedance_default_model": {
-          "name": "video_seedance_default_model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "video_seedance_api_key_ciphertext": {
-          "name": "video_seedance_api_key_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "video_seedance_api_key_iv": {
-          "name": "video_seedance_api_key_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -2527,21 +1939,9 @@
           "name": "system_settings_versions_check",
           "value": "\"system_settings\".\"general_version\" >= 1 and \"system_settings\".\"authentication_version\" >= 1 and \"system_settings\".\"email_version\" >= 1 and \"system_settings\".\"storage_version\" >= 1 and \"system_settings\".\"credits_version\" >= 1 and \"system_settings\".\"affiliate_version\" >= 1 and \"system_settings\".\"payment_version\" >= 1 and \"system_settings\".\"ai_version\" >= 1"
         },
-        "system_settings_design_system_check": {
-          "name": "system_settings_design_system_check",
-          "value": "\"system_settings\".\"design_system\" in ('apple-saas', 'brutalism')"
-        },
-        "system_settings_email_provider_check": {
-          "name": "system_settings_email_provider_check",
-          "value": "\"system_settings\".\"email_provider\" is null or \"system_settings\".\"email_provider\" in ('cloudflare', 'resend')"
-        },
-        "system_settings_payment_provider_check": {
-          "name": "system_settings_payment_provider_check",
-          "value": "\"system_settings\".\"payment_default_provider\" is null or \"system_settings\".\"payment_default_provider\" in ('dodo', 'creem')"
-        },
-        "system_settings_positive_values_check": {
-          "name": "system_settings_positive_values_check",
-          "value": "\"system_settings\".\"email_user_action_cooldown_seconds\" > 0 and \"system_settings\".\"r2_user_upload_max_bytes\" > 0 and \"system_settings\".\"credits_signup_amount\" >= 0 and \"system_settings\".\"credits_daily_checkin_amount\" >= 0 and \"system_settings\".\"credits_history_retention_days\" > 0 and \"system_settings\".\"affiliate_inviter_credit_amount\" >= 0 and \"system_settings\".\"affiliate_invitee_credit_amount\" >= 0 and \"system_settings\".\"ai_routing_error_weight\" >= 0 and \"system_settings\".\"ai_routing_latency_weight\" >= 0 and \"system_settings\".\"ai_routing_price_weight\" >= 0 and (\"system_settings\".\"ai_routing_error_weight\" + \"system_settings\".\"ai_routing_latency_weight\" + \"system_settings\".\"ai_routing_price_weight\") > 0 and \"system_settings\".\"ai_task_retention_days\" > 0"
+        "system_settings_json_check": {
+          "name": "system_settings_json_check",
+          "value": "json_valid(\"system_settings\".\"general_config\") and json_type(\"system_settings\".\"general_config\") = 'object' and json_valid(\"system_settings\".\"authentication_config\") and json_type(\"system_settings\".\"authentication_config\") = 'object' and json_valid(\"system_settings\".\"email_config\") and json_type(\"system_settings\".\"email_config\") = 'object' and json_valid(\"system_settings\".\"storage_config\") and json_type(\"system_settings\".\"storage_config\") = 'object' and json_valid(\"system_settings\".\"credits_config\") and json_type(\"system_settings\".\"credits_config\") = 'object' and json_valid(\"system_settings\".\"affiliate_config\") and json_type(\"system_settings\".\"affiliate_config\") = 'object' and json_valid(\"system_settings\".\"payment_config\") and json_type(\"system_settings\".\"payment_config\") = 'object' and json_valid(\"system_settings\".\"ai_config\") and json_type(\"system_settings\".\"ai_config\") = 'object'"
         }
       }
     },

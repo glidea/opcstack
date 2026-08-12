@@ -7,131 +7,149 @@ export type PaymentProviderCountryOverride = {
 	provider: 'dodo' | 'creem'
 }
 
+export type EncryptedConfigValue = {
+	ciphertext: string
+	iv: string
+}
+
+export type GeneralSettingsDocument = {
+	designSystem: 'apple-saas' | 'brutalism'
+	docsEnabled: boolean
+}
+
+export type AuthenticationProviderSettings = {
+	enabled: boolean
+	clientId: string | null
+	clientSecret: EncryptedConfigValue | null
+}
+
+export type AuthenticationSettingsDocument = {
+	betaCodeEnabled: boolean
+	emailSignupEnabled: boolean
+	emailSignupDomainAllowlist: string[]
+	emailRequireVerification: boolean
+	emailUserActionCooldownSeconds: number
+	turnstile: {
+		enabled: boolean
+		siteKey: string | null
+		secretKey: EncryptedConfigValue | null
+	}
+	providers: {
+		google: AuthenticationProviderSettings
+		github: AuthenticationProviderSettings
+		linuxdo: AuthenticationProviderSettings
+	}
+}
+
+export type EmailSettingsDocument = {
+	enabled: boolean
+	provider: 'cloudflare' | 'resend' | null
+	resendApiKey: EncryptedConfigValue | null
+}
+
+export type StorageSettingsDocument = {
+	allowedContentTypes: string[]
+	maxUploadBytes: number
+}
+
+export type CreditsSettingsDocument = {
+	signupEnabled: boolean
+	signupAmount: number
+	dailyCheckinEnabled: boolean
+	dailyCheckinAmount: number
+	historyRetentionDays: number
+}
+
+export type AffiliateSettingsDocument = {
+	enabled: boolean
+	inviterCreditAmount: number
+	inviteeCreditAmount: number
+}
+
+export type PaymentProviderSettings = {
+	testMode: boolean
+	apiKey: EncryptedConfigValue | null
+	webhookSecret: EncryptedConfigValue | null
+}
+
+export type PaymentSettingsDocument = {
+	enabled: boolean
+	defaultProvider: 'dodo' | 'creem' | null
+	providerCountryOverrides: PaymentProviderCountryOverride[]
+	providers: {
+		dodo: PaymentProviderSettings
+		creem: PaymentProviderSettings
+	}
+}
+
+export type AIProviderSettings = {
+	enabled: boolean
+	baseUrl: string | null
+	defaultModel: string | null
+	apiKey: EncryptedConfigValue | null
+}
+
+export type AISettingsDocument = {
+	routing: {
+		errorWeight: number
+		latencyWeight: number
+		priceWeight: number
+	}
+	taskRetentionDays: number
+	providers: {
+		chatOpenai: AIProviderSettings
+		imageGemini: AIProviderSettings
+		imageOpenai: AIProviderSettings
+		imageSeedream: AIProviderSettings
+		imageAliyun: AIProviderSettings
+		ttsGemini: AIProviderSettings
+		ttsSeed: AIProviderSettings
+		realtimeDoubao: AIProviderSettings
+		videoSeedance: AIProviderSettings
+	}
+}
+
 export const systemSettings = sqliteTable(
 	'system_settings',
 	{
 		id: integer('id').primaryKey(),
+		generalConfig: text('general_config', { mode: 'json' })
+			.$type<GeneralSettingsDocument>()
+			.notNull(),
 		generalVersion: integer('general_version').notNull(),
+		generalUpdatedAt: integer('general_updated_at').notNull(),
+		authenticationConfig: text('authentication_config', { mode: 'json' })
+			.$type<AuthenticationSettingsDocument>()
+			.notNull(),
 		authenticationVersion: integer('authentication_version').notNull(),
+		authenticationUpdatedAt: integer('authentication_updated_at').notNull(),
+		emailConfig: text('email_config', { mode: 'json' }).$type<EmailSettingsDocument>().notNull(),
 		emailVersion: integer('email_version').notNull(),
+		emailUpdatedAt: integer('email_updated_at').notNull(),
+		storageConfig: text('storage_config', { mode: 'json' })
+			.$type<StorageSettingsDocument>()
+			.notNull(),
 		storageVersion: integer('storage_version').notNull(),
+		storageUpdatedAt: integer('storage_updated_at').notNull(),
+		creditsConfig: text('credits_config', { mode: 'json' })
+			.$type<CreditsSettingsDocument>()
+			.notNull(),
 		creditsVersion: integer('credits_version').notNull(),
+		creditsUpdatedAt: integer('credits_updated_at').notNull(),
+		affiliateConfig: text('affiliate_config', { mode: 'json' })
+			.$type<AffiliateSettingsDocument>()
+			.notNull(),
 		affiliateVersion: integer('affiliate_version').notNull(),
+		affiliateUpdatedAt: integer('affiliate_updated_at').notNull(),
+		paymentConfig: text('payment_config', { mode: 'json' })
+			.$type<PaymentSettingsDocument>()
+			.notNull(),
 		paymentVersion: integer('payment_version').notNull(),
+		paymentUpdatedAt: integer('payment_updated_at').notNull(),
+		aiConfig: text('ai_config', { mode: 'json' }).$type<AISettingsDocument>().notNull(),
 		aiVersion: integer('ai_version').notNull(),
-		designSystem: text('design_system').notNull(),
-		docsEnabled: integer('docs_enabled', { mode: 'boolean' }).notNull(),
-		betaCodeEnabled: integer('beta_code_enabled', { mode: 'boolean' }).notNull(),
-		emailSignupEnabled: integer('email_signup_enabled', { mode: 'boolean' }).notNull(),
-		emailSignupDomainAllowlist: text('email_signup_domain_allowlist', { mode: 'json' })
-			.$type<string[]>()
-			.notNull(),
-		emailRequireVerification: integer('email_require_verification', {
-			mode: 'boolean'
-		}).notNull(),
-		emailUserActionCooldownSeconds: integer('email_user_action_cooldown_seconds').notNull(),
-		turnstileEnabled: integer('turnstile_enabled', { mode: 'boolean' }).notNull(),
-		turnstileSiteKey: text('turnstile_site_key'),
-		turnstileSecretKeyCiphertext: text('turnstile_secret_key_ciphertext'),
-		turnstileSecretKeyIv: text('turnstile_secret_key_iv'),
-		googleAuthEnabled: integer('google_auth_enabled', { mode: 'boolean' }).notNull(),
-		googleClientId: text('google_client_id'),
-		googleClientSecretCiphertext: text('google_client_secret_ciphertext'),
-		googleClientSecretIv: text('google_client_secret_iv'),
-		githubAuthEnabled: integer('github_auth_enabled', { mode: 'boolean' }).notNull(),
-		githubClientId: text('github_client_id'),
-		githubClientSecretCiphertext: text('github_client_secret_ciphertext'),
-		githubClientSecretIv: text('github_client_secret_iv'),
-		linuxdoAuthEnabled: integer('linuxdo_auth_enabled', { mode: 'boolean' }).notNull(),
-		linuxdoClientId: text('linuxdo_client_id'),
-		linuxdoClientSecretCiphertext: text('linuxdo_client_secret_ciphertext'),
-		linuxdoClientSecretIv: text('linuxdo_client_secret_iv'),
-		emailEnabled: integer('email_enabled', { mode: 'boolean' }).notNull(),
-		emailProvider: text('email_provider'),
-		emailResendApiKeyCiphertext: text('email_resend_api_key_ciphertext'),
-		emailResendApiKeyIv: text('email_resend_api_key_iv'),
-		r2UserUploadAllowedContentTypes: text('r2_user_upload_allowed_content_types', {
-			mode: 'json'
-		})
-			.$type<string[]>()
-			.notNull(),
-		r2UserUploadMaxBytes: integer('r2_user_upload_max_bytes').notNull(),
-		creditsSignupEnabled: integer('credits_signup_enabled', { mode: 'boolean' }).notNull(),
-		creditsSignupAmount: integer('credits_signup_amount').notNull(),
-		creditsDailyCheckinEnabled: integer('credits_daily_checkin_enabled', {
-			mode: 'boolean'
-		}).notNull(),
-		creditsDailyCheckinAmount: integer('credits_daily_checkin_amount').notNull(),
-		creditsHistoryRetentionDays: integer('credits_history_retention_days').notNull(),
-		affiliateEnabled: integer('affiliate_enabled', { mode: 'boolean' }).notNull(),
-		affiliateInviterCreditAmount: integer('affiliate_inviter_credit_amount').notNull(),
-		affiliateInviteeCreditAmount: integer('affiliate_invitee_credit_amount').notNull(),
-		paymentEnabled: integer('payment_enabled', { mode: 'boolean' }).notNull(),
-		paymentDefaultProvider: text('payment_default_provider'),
-		paymentProviderCountryOverrides: text('payment_provider_country_overrides', { mode: 'json' })
-			.$type<PaymentProviderCountryOverride[]>()
-			.notNull(),
-		paymentDodoTestMode: integer('payment_dodo_test_mode', { mode: 'boolean' }).notNull(),
-		paymentDodoApiKeyCiphertext: text('payment_dodo_api_key_ciphertext'),
-		paymentDodoApiKeyIv: text('payment_dodo_api_key_iv'),
-		paymentDodoWebhookSecretCiphertext: text('payment_dodo_webhook_secret_ciphertext'),
-		paymentDodoWebhookSecretIv: text('payment_dodo_webhook_secret_iv'),
-		paymentCreemTestMode: integer('payment_creem_test_mode', { mode: 'boolean' }).notNull(),
-		paymentCreemApiKeyCiphertext: text('payment_creem_api_key_ciphertext'),
-		paymentCreemApiKeyIv: text('payment_creem_api_key_iv'),
-		paymentCreemWebhookSecretCiphertext: text('payment_creem_webhook_secret_ciphertext'),
-		paymentCreemWebhookSecretIv: text('payment_creem_webhook_secret_iv'),
-		aiRoutingErrorWeight: real('ai_routing_error_weight').notNull(),
-		aiRoutingLatencyWeight: real('ai_routing_latency_weight').notNull(),
-		aiRoutingPriceWeight: real('ai_routing_price_weight').notNull(),
-		aiTaskRetentionDays: integer('ai_task_retention_days').notNull(),
-		chatOpenaiEnabled: integer('chat_openai_enabled', { mode: 'boolean' }).notNull(),
-		chatOpenaiBaseUrl: text('chat_openai_base_url'),
-		chatOpenaiDefaultModel: text('chat_openai_default_model'),
-		chatOpenaiApiKeyCiphertext: text('chat_openai_api_key_ciphertext'),
-		chatOpenaiApiKeyIv: text('chat_openai_api_key_iv'),
-		imageGeminiEnabled: integer('image_gemini_enabled', { mode: 'boolean' }).notNull(),
-		imageGeminiBaseUrl: text('image_gemini_base_url'),
-		imageGeminiDefaultModel: text('image_gemini_default_model'),
-		imageGeminiApiKeyCiphertext: text('image_gemini_api_key_ciphertext'),
-		imageGeminiApiKeyIv: text('image_gemini_api_key_iv'),
-		imageOpenaiEnabled: integer('image_openai_enabled', { mode: 'boolean' }).notNull(),
-		imageOpenaiBaseUrl: text('image_openai_base_url'),
-		imageOpenaiDefaultModel: text('image_openai_default_model'),
-		imageOpenaiApiKeyCiphertext: text('image_openai_api_key_ciphertext'),
-		imageOpenaiApiKeyIv: text('image_openai_api_key_iv'),
-		imageSeedreamEnabled: integer('image_seedream_enabled', { mode: 'boolean' }).notNull(),
-		imageSeedreamBaseUrl: text('image_seedream_base_url'),
-		imageSeedreamDefaultModel: text('image_seedream_default_model'),
-		imageSeedreamApiKeyCiphertext: text('image_seedream_api_key_ciphertext'),
-		imageSeedreamApiKeyIv: text('image_seedream_api_key_iv'),
-		imageAliyunEnabled: integer('image_aliyun_enabled', { mode: 'boolean' }).notNull(),
-		imageAliyunBaseUrl: text('image_aliyun_base_url'),
-		imageAliyunDefaultModel: text('image_aliyun_default_model'),
-		imageAliyunApiKeyCiphertext: text('image_aliyun_api_key_ciphertext'),
-		imageAliyunApiKeyIv: text('image_aliyun_api_key_iv'),
-		ttsGeminiEnabled: integer('tts_gemini_enabled', { mode: 'boolean' }).notNull(),
-		ttsGeminiBaseUrl: text('tts_gemini_base_url'),
-		ttsGeminiDefaultModel: text('tts_gemini_default_model'),
-		ttsGeminiApiKeyCiphertext: text('tts_gemini_api_key_ciphertext'),
-		ttsGeminiApiKeyIv: text('tts_gemini_api_key_iv'),
-		ttsSeedEnabled: integer('tts_seed_enabled', { mode: 'boolean' }).notNull(),
-		ttsSeedBaseUrl: text('tts_seed_base_url'),
-		ttsSeedDefaultModel: text('tts_seed_default_model'),
-		ttsSeedApiKeyCiphertext: text('tts_seed_api_key_ciphertext'),
-		ttsSeedApiKeyIv: text('tts_seed_api_key_iv'),
-		realtimeDoubaoEnabled: integer('realtime_doubao_enabled', { mode: 'boolean' }).notNull(),
-		realtimeDoubaoBaseUrl: text('realtime_doubao_base_url'),
-		realtimeDoubaoDefaultModel: text('realtime_doubao_default_model'),
-		realtimeDoubaoApiKeyCiphertext: text('realtime_doubao_api_key_ciphertext'),
-		realtimeDoubaoApiKeyIv: text('realtime_doubao_api_key_iv'),
-		videoSeedanceEnabled: integer('video_seedance_enabled', { mode: 'boolean' }).notNull(),
-		videoSeedanceBaseUrl: text('video_seedance_base_url'),
-		videoSeedanceDefaultModel: text('video_seedance_default_model'),
-		videoSeedanceApiKeyCiphertext: text('video_seedance_api_key_ciphertext'),
-		videoSeedanceApiKeyIv: text('video_seedance_api_key_iv'),
-		createdAt: integer('created_at').notNull(),
-		updatedAt: integer('updated_at').notNull()
+		aiUpdatedAt: integer('ai_updated_at').notNull(),
+		createdAt: integer('created_at').notNull()
 	},
 	(table) => [
 		check('system_settings_singleton_check', sql`${table.id} = 1`),
@@ -140,20 +158,8 @@ export const systemSettings = sqliteTable(
 			sql`${table.generalVersion} >= 1 and ${table.authenticationVersion} >= 1 and ${table.emailVersion} >= 1 and ${table.storageVersion} >= 1 and ${table.creditsVersion} >= 1 and ${table.affiliateVersion} >= 1 and ${table.paymentVersion} >= 1 and ${table.aiVersion} >= 1`
 		),
 		check(
-			'system_settings_design_system_check',
-			sql`${table.designSystem} in ('apple-saas', 'brutalism')`
-		),
-		check(
-			'system_settings_email_provider_check',
-			sql`${table.emailProvider} is null or ${table.emailProvider} in ('cloudflare', 'resend')`
-		),
-		check(
-			'system_settings_payment_provider_check',
-			sql`${table.paymentDefaultProvider} is null or ${table.paymentDefaultProvider} in ('dodo', 'creem')`
-		),
-		check(
-			'system_settings_positive_values_check',
-			sql`${table.emailUserActionCooldownSeconds} > 0 and ${table.r2UserUploadMaxBytes} > 0 and ${table.creditsSignupAmount} >= 0 and ${table.creditsDailyCheckinAmount} >= 0 and ${table.creditsHistoryRetentionDays} > 0 and ${table.affiliateInviterCreditAmount} >= 0 and ${table.affiliateInviteeCreditAmount} >= 0 and ${table.aiRoutingErrorWeight} >= 0 and ${table.aiRoutingLatencyWeight} >= 0 and ${table.aiRoutingPriceWeight} >= 0 and (${table.aiRoutingErrorWeight} + ${table.aiRoutingLatencyWeight} + ${table.aiRoutingPriceWeight}) > 0 and ${table.aiTaskRetentionDays} > 0`
+			'system_settings_json_check',
+			sql`json_valid(${table.generalConfig}) and json_type(${table.generalConfig}) = 'object' and json_valid(${table.authenticationConfig}) and json_type(${table.authenticationConfig}) = 'object' and json_valid(${table.emailConfig}) and json_type(${table.emailConfig}) = 'object' and json_valid(${table.storageConfig}) and json_type(${table.storageConfig}) = 'object' and json_valid(${table.creditsConfig}) and json_type(${table.creditsConfig}) = 'object' and json_valid(${table.affiliateConfig}) and json_type(${table.affiliateConfig}) = 'object' and json_valid(${table.paymentConfig}) and json_type(${table.paymentConfig}) = 'object' and json_valid(${table.aiConfig}) and json_type(${table.aiConfig}) = 'object'`
 		)
 	]
 )

@@ -940,16 +940,92 @@ export function encryptInitializationSecret(encryptionKey, value) {
 }
 
 export function buildSystemSettingsInitializationSql(input) {
+	const emptyAIProvider = {
+		enabled: false,
+		baseUrl: null,
+		defaultModel: null,
+		apiKey: null
+	}
+	const generalConfig = {
+		designSystem: 'apple-saas',
+		docsEnabled: true
+	}
+	const authenticationConfig = {
+		betaCodeEnabled: false,
+		emailSignupEnabled: false,
+		emailSignupDomainAllowlist: [],
+		emailRequireVerification: false,
+		emailUserActionCooldownSeconds: 50,
+		turnstile: {
+			enabled: false,
+			siteKey: input.siteKey,
+			secretKey: {
+				ciphertext: input.secretKeyCiphertext,
+				iv: input.secretKeyIv
+			}
+		},
+		providers: {
+			google: { enabled: false, clientId: null, clientSecret: null },
+			github: { enabled: false, clientId: null, clientSecret: null },
+			linuxdo: { enabled: false, clientId: null, clientSecret: null }
+		}
+	}
+	const emailConfig = {
+		enabled: false,
+		provider: null,
+		resendApiKey: null
+	}
+	const storageConfig = {
+		allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
+		maxUploadBytes: 5_242_880
+	}
+	const creditsConfig = {
+		signupEnabled: false,
+		signupAmount: 100_000_000,
+		dailyCheckinEnabled: false,
+		dailyCheckinAmount: 10_000_000,
+		historyRetentionDays: 90
+	}
+	const affiliateConfig = {
+		enabled: false,
+		inviterCreditAmount: 50_000_000,
+		inviteeCreditAmount: 20_000_000
+	}
+	const paymentConfig = {
+		enabled: false,
+		defaultProvider: null,
+		providerCountryOverrides: [],
+		providers: {
+			dodo: { testMode: true, apiKey: null, webhookSecret: null },
+			creem: { testMode: true, apiKey: null, webhookSecret: null }
+		}
+	}
+	const aiConfig = {
+		routing: {
+			errorWeight: 1,
+			latencyWeight: 0.8,
+			priceWeight: 0.2
+		},
+		taskRetentionDays: 30,
+		providers: {
+			chatOpenai: emptyAIProvider,
+			imageGemini: emptyAIProvider,
+			imageOpenai: emptyAIProvider,
+			imageSeedream: emptyAIProvider,
+			imageAliyun: emptyAIProvider,
+			ttsGemini: emptyAIProvider,
+			ttsSeed: emptyAIProvider,
+			realtimeDoubao: emptyAIProvider,
+			videoSeedance: emptyAIProvider
+		}
+	}
+
 	return [
-		'UPDATE system_settings SET',
-		`turnstile_site_key = ${sqlString(input.siteKey)},`,
-		`turnstile_secret_key_ciphertext = ${sqlString(input.secretKeyCiphertext)},`,
-		`turnstile_secret_key_iv = ${sqlString(input.secretKeyIv)},`,
-		`updated_at = ${input.nowMs}`,
-		'WHERE id = 1 AND authentication_version = 1',
-		'AND turnstile_site_key IS NULL',
-		'AND turnstile_secret_key_ciphertext IS NULL',
-		'AND turnstile_secret_key_iv IS NULL'
+		'INSERT INTO system_settings',
+		'(id, general_config, general_version, general_updated_at, authentication_config, authentication_version, authentication_updated_at, email_config, email_version, email_updated_at, storage_config, storage_version, storage_updated_at, credits_config, credits_version, credits_updated_at, affiliate_config, affiliate_version, affiliate_updated_at, payment_config, payment_version, payment_updated_at, ai_config, ai_version, ai_updated_at, created_at)',
+		'VALUES',
+		`(1, ${sqlString(JSON.stringify(generalConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(authenticationConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(emailConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(storageConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(creditsConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(affiliateConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(paymentConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(aiConfig))}, 1, ${input.nowMs}, ${input.nowMs})`,
+		'ON CONFLICT(id) DO NOTHING'
 	].join(' ')
 }
 

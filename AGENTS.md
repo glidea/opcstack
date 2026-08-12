@@ -199,7 +199,7 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - `scripts/prepare-cloudflare.mjs` generates `wrangler.jsonc`, `.wrangler/wrangler.types.jsonc`, Cloudflare resources, bindings, migrations, runtime secrets, and public artifacts.
 - `wrangler.jsonc` is the runtime config and should include only secrets required by enabled features.
 - `.wrangler/wrangler.types.jsonc` is type-generation-only config and may include the full secret schema so `Env` stays stable.
-- Public config lives in `.env.dev` and `.env.prod`. `.env` is a local override.
+- Fixed public deployment config lives in `.env.dev` and `.env.prod`. `.env` is a local override.
 - Secret config lives in `.env.secret.dev` and `.env.secret.prod`.
 - Agents must not read, print, search, edit, create, or copy secret files or token caches: `.env.secret.dev`, `.env.secret.prod`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
 - Any work involving secret values must be performed by the user.
@@ -209,7 +209,9 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Keep optional settings after required settings inside the same group.
 - Keep `.env.secret.example` in the same business order as public env files.
 - `CONFIG_ENCRYPTION_KEY` is a fixed 32-byte Base64 ENV secret. It encrypts sensitive D1 configuration values and must fail validation before startup when invalid.
-- Dynamic configuration storage lives in `src/backend/config/` and the Meta DB `system_settings` row. Each business domain has an independent version for optimistic updates.
+- Dynamic configuration storage lives in `src/backend/config/` and the Meta DB `system_settings` row. Each business domain owns one JSON document, version, and update timestamp.
+- Configuration documents use code-side camelCase and are fully validated on every read and write. Admin API contracts remain snake_case.
+- General and Storage runtime configuration is read from the nearest Meta D1 replica. Admin writes return a D1 bookmark that subsequent browser and API reads use for immediate consistency.
 - Migrate one business domain atomically: after its runtime reads D1, delete the same ENV keys and parsers in that change. Never keep ENV fallback for a migrated setting.
 - Async AI channels are discovered from complete `<AREA>_<PROVIDER>_<CHANNEL>_{BASE_URL,MODELS,PRICE_MULTIPLIER,API_KEY}` ENV groups. ENV is the single channel registry; do not add channel ids, adapter registries, or parallel endpoint config.
 - `AI_ROUTING_ERROR_WEIGHT`, `AI_ROUTING_LATENCY_WEIGHT`, `AI_ROUTING_PRICE_WEIGHT`, and `AI_TASK_RETENTION_DAYS` are required and strictly validated during Cloudflare preparation.
@@ -221,7 +223,7 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Secret env keys must be documented with placeholders in `.env.secret.example` only; do not read or edit real secret env files.
 - After changing config keys, run `pnpm prepare:cloudflare:dev` and `pnpm exec wrangler types --config .wrangler/wrangler.types.jsonc --env-file .wrangler/runtime-secrets.env --strict-vars false`.
 - Use generated `Env`; do not create feature-specific env interfaces.
-- Use `clientConfig` from `$frontend/config/client` for public frontend config.
+- Use `clientConfig` from `$frontend/config/client` only for fixed public deployment config. Runtime business configuration comes from D1.
 
 ---
 
@@ -294,6 +296,7 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - Credits use integer units where `1 credit = 1_000_000 units`; API credit amounts use decimal strings.
 - Payment `price_amount` is provider minor currency units and must not be mixed with credit units.
 - R2 paths are `public/*`, `private/<userId>/*`, `tmp/public/*`, and `tmp/private/<userId>/*`.
+- R2 upload MIME types and maximum upload bytes come from the Storage domain in Meta D1.
 - R2 lifecycle rules may only target `tmp/public/` and `tmp/private/`.
 - User upload URLs may only write `private/<userId>/*` or `tmp/private/<userId>/*`; the request uses `is_tmp` to choose lifecycle.
 - Admin public upload URLs may only write `public/*`; do not use the admin public upload API for user-owned private files.
@@ -344,7 +347,7 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - Put i18n messages in `src/frontend/lib/i18n/messages/`.
 - Set page title, description, and canonical in `<svelte:head>`.
 - Canonical URLs use `APP_DOMAIN` and must not point business pages to the OPCStack website.
-- Active style is controlled by public env config `DESIGN_SYSTEM`. Valid values: `apple-saas` and `brutalism`.
+- Active style is controlled by the General domain in Meta D1. Valid values are `apple-saas` and `brutalism`.
 - Concrete colors, radii, typography sizes, and animations live in `src/frontend/lib/styles/app.css`.
 - Use semantic tokens such as `bg-primary`, `text-muted-foreground`, and `border-input`.
 - The product landing page uses warm paper, graphite, solid orange, and muted green surfaces. Treat the real runtime architecture as a branded visual object, keep pricing to verified cost facts and official sources, and avoid pricing matrices, decorative gradients, or glass effects.
@@ -383,7 +386,7 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 - Product docs rendered by the app live in `public-docs/en/` and `public-docs/zh/`.
 - Template explanation docs live in `template-docs/` and are not rendered by the app.
 - Admin console operator usage lives in `template-docs/guides/admin-console.md` and the localized public copies. Keep them synchronized when admin routes or workflows change.
-- Docs route is `/docs/[...slug]` when `DOCS_ENABLED=true`; client config exposes `docsEnabled`.
+- Docs route is `/docs/[...slug]` when the General domain `docs_enabled` setting is true.
 - Docs use Markdown frontmatter with `title`, `description`, `group`, `group_order`, and `order`.
 - In docs frontmatter, `group_order` sorts groups and `order` sorts docs inside the same group.
 - Docs images live in `src/frontend/web/static/images/` and are referenced as `/images/...`.

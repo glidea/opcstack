@@ -206,7 +206,7 @@ describe('prepare cloudflare configuration initialization', () => {
 		expect({ result }).toEqual({ result: 'turnstile-secret' })
 	})
 
-	it('initializes Turnstile credentials only before Authentication is configured', () => {
+	it('initializes complete domain documents without overwriting saved configuration', () => {
 		const sql = buildSystemSettingsInitializationSql({
 			siteKey: 'site-key',
 			secretKeyCiphertext: 'ciphertext',
@@ -214,8 +214,12 @@ describe('prepare cloudflare configuration initialization', () => {
 			nowMs: 123
 		})
 
-		expect(sql).toContain('authentication_version = 1')
-		expect(sql).toContain('turnstile_secret_key_ciphertext IS NULL')
+		expect(sql).toContain('INSERT INTO system_settings')
+		expect(sql).toContain('general_config')
+		expect(sql).toContain('authentication_config')
+		expect(sql).toContain('storage_config')
+		expect(sql).toContain('ON CONFLICT(id) DO NOTHING')
+		expect(sql).not.toContain('turnstile_secret_key_ciphertext')
 		expect(sql).not.toContain('turnstile-secret')
 	})
 })
