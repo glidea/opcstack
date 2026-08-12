@@ -66,7 +66,7 @@
 # Task-003A: 自动初始化系统密钥并删除静态管理员 Token
 
 ## 描述
-由准备脚本首次生成 Better Auth、D1 配置加密和 R2 Origin 三个内部根密钥。本地持久化到本地 secret 状态，远程写入 Cloudflare Worker Secrets，后续启动和部署只复用、不覆盖。彻底删除 `ADMIN_API_TOKEN`，管理员使用浏览器 Session，程序化访问统一使用 OAuth scope。
+由准备脚本首次生成 Better Auth、D1 配置加密和 R2 Origin 三个内部根密钥。本地持久化到本地 secret 状态，远程写入 Cloudflare Worker Secrets，后续启动和部署只复用、不覆盖。彻底删除 `ADMIN_API_TOKEN`，管理员暂时只使用浏览器 Session；程序化 OAuth API Access 由 Task-007 完整接替。
 
 ## TODO 清单
 - [x] 1. 先增加本地生成复用、远程首次部署、密钥缺失和旧管理员 Token 失效的失败测试
@@ -80,6 +80,27 @@
 2. 首次远程部署确认三个值进入 Worker Secrets，后续部署不上传或覆盖已有值
 3. 使用旧静态 Bearer Token 调用管理员接口确认返回 401，使用 `SYSTEM_EMAIL` Session 确认成功
 4. 模拟已有 D1 丢失根密钥，确认准备阶段明确失败而不是生成错误的新密钥
+
+# Task-003B: 将管理员身份与首次凭据迁入 D1
+
+## 描述
+删除长期 `SYSTEM_EMAIL` 和 `SUPER_ADMIN_PASSWORD` ENV。空库初始化时在 Meta D1 创建唯一管理员 `admin@opcstack.local`，随机生成一次性初始密码并只在当前终端显示一次；后续准备和部署不得重置管理员邮箱或密码。管理员身份由 D1 角色判断，后台 Account / Security 允许管理员修改邮箱和密码。
+
+## 不包含
+- 不实现 OAuth API Access；程序化授权仍由 Task-007 负责
+- 不拆分管理员邮箱、支持邮箱和发件地址；当前三者统一读取唯一管理员邮箱
+
+## TODO 清单
+- [ ] 1. 先增加空库初始化、重复准备不重置、D1 管理员角色校验、修改邮箱和密码的失败测试
+- [ ] 2. 在 Better Auth 用户模型中持久化管理员角色，并将管理 API 从邮箱 ENV 比较切换为 D1 角色校验
+- [ ] 3. 初始化缺失管理员时生成 `admin@opcstack.local` 和随机一次性密码，只显示一次并保证后续准备不覆盖凭据
+- [ ] 4. 实现后台 Account / Security 页面，允许当前管理员修改邮箱和密码；邮件发送和公开支持邮箱读取管理员邮箱
+- [ ] 5. 删除 `SYSTEM_EMAIL`、`SUPER_ADMIN_PASSWORD` 的 ENV、Worker var、准备脚本输入、生成配置和现有文档声明
+
+## 验收测试步骤
+1. 从空 Meta D1 运行准备流程，确认终端只在首次显示 `admin@opcstack.local` 和随机密码，并可用它登录后台
+2. 修改管理员邮箱和密码后再次运行准备流程，确认新凭据仍有效、初始凭据失效且没有再次显示密码
+3. 使用普通用户 Session 调用管理员 API 确认返回 `403`，管理员 Session 成功；启用邮件前使用 `@opcstack.local` 发件应明确失败
 
 # Task-004: 迁移 Credits 与 Affiliate 配置
 
@@ -156,7 +177,7 @@
 ## TODO 清单
 - [ ] 1. 先增加设备授权、PKCE、Grant 撤销、Scope Registry 完整性和多项目 CLI 的失败测试
 - [ ] 2. 实现 OAuth Authorization Request、Grant、Token Claim 和撤销流程
-- [ ] 3. 为所有受保护 JSON 业务路由显式注册 scope，并统一 Session 与 Bearer Token 授权
+- [ ] 3. 为所有受保护 JSON 业务路由显式注册 scope，并统一 Session 与 Bearer Token 授权；`admin:*` 和 `config:*` 同时校验 Grant 所属用户当前仍是 D1 管理员
 - [ ] 4. 实现 `opc auth connect/status/disconnect` 与 `opc api request` 的新连接存储和同源限制
 - [ ] 5. 删除旧 Agent Schema、路由、中间件、Context、页面、CLI 和文档
 
@@ -176,7 +197,7 @@
 
 ## TODO 清单
 - [ ] 1. 先增加路由、Tab、显式保存、脏状态和配置错误的前端失败测试
-- [ ] 2. 实现 Configuration 布局、水平 Tab、默认重定向和 Admin 导航入口
+- [ ] 2. 实现 Configuration 布局、水平 Tab、默认重定向和 Admin 导航入口，并从管理员账号入口明确链接到 Account / Security
 - [ ] 3. 实现六个单例域表单，复用现有 UI Primitive 和 API Contract 类型
 - [ ] 4. 实现 Secret 的 keep、replace、remove 交互及脱敏配置状态
 - [ ] 5. 补齐英文 UI 文案、i18n、SEO 和 Admin Console 文档
@@ -217,14 +238,16 @@
 - 不让远程 E2E 创建资源、执行迁移或直接写 D1
 
 ## TODO 清单
-- [ ] 1. 先写完整 E2E 验收场景并确认能暴露尚未收口的用户流程问题
+- [ ] 1. 先写真实本地首次安装和真实 Cloudflare HTTP E2E 验收场景，禁止用单测、构建、mock 或直接数据库写入替代用户流程
 - [ ] 2. 更新 `CREATE_OPCSTACK_APP.md`、`QUICK_START.md`、README、模板文档、公开中英文文档和 `AGENTS.md`
 - [ ] 3. 清理 ENV 文件、Wrangler 模板、准备脚本、生成配置和文档中的全部旧业务配置残留
-- [ ] 4. 验证本地壳子启动、管理员登录、按域配置、前台生效、OAuth Client 授权调用和撤销流程
+- [ ] 4. 从空本地数据完整验证初始化密码只显示一次、管理员登录并修改凭据、按域配置、前台生效、OAuth Client 授权调用和撤销流程
 - [ ] 5. 运行完整类型检查、单元测试、构建、配置准备和 E2E 测试
+- [ ] 6. 对真实已部署 Cloudflare 实例执行只通过公开 HTTP 的管理员 Session、配置读写立即生效、OAuth 授权调用与撤销验收，不部署、不迁移、不直写远程 D1
 
 ## 验收测试步骤
-1. 仅填写技术设计规定的固定 ENV，从空数据库启动项目，确认可登录后台且所有可选业务能力明确禁用
+1. 仅填写技术设计规定的固定资源 ENV，从空数据库启动项目，确认终端只显示一次初始凭据、可登录并修改管理员邮箱和密码，所有可选业务能力明确禁用
 2. 通过后台配置一个业务域并通过 OAuth Client 配置另一个业务域，确认保存后新请求立即生效且旧操作快照不变
 3. 按 `QUICK_START.md` 和 `CREATE_OPCSTACK_APP.md` 分别走本地与 Cloudflare 引导，确认没有要求填写已迁入 D1 的业务 ENV
 4. 全仓搜索旧 ENV、Agent 授权和兼容关键词，确认没有旧逻辑残留
+5. 对真实 Cloudflare URL 运行远程 E2E，确认测试只使用公开页面和 HTTP API，且不执行部署、Migration、资源创建或直接 D1 写入
