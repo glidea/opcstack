@@ -12,7 +12,7 @@ export function createAIVideoClients(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
-	options: AISimpleVideoClientOptions = {}
+	options: AISimpleVideoClientOptions
 ): AIVideoClients {
 	const provider: AIVideoProvider = options.provider ?? 'seedance'
 	if (provider === 'seedance') {
@@ -31,7 +31,7 @@ export interface AISimpleVideoClient {
 
 export interface AISimpleVideoClientOptions {
 	provider?: AIVideoProvider
-	model?: string
+	model: string
 }
 
 export type AIVideoProvider = 'seedance'

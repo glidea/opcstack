@@ -240,12 +240,12 @@ The job:
 3. Runs `CreditsService.expire({ limit: 20 })` on each shard
 4. Runs `CreditsService.cleanupTransactions({ limit: 100 })` on each shard
 5. Deletes AI channel metric buckets older than 24 hours
-6. Deletes `completed` and `failed` Image, TTS, and Video task rows older than `AI_TASK_RETENTION_DAYS`
+6. Loads AI task retention from D1 and deletes older `completed` and `failed` Image, TTS, and Video task rows
 7. Logs structured job results
 
 The cron reads Credits transaction retention and AI task retention from Meta D1 once per execution. Invalid or missing dynamic configuration fails the job instead of silently using an ENV fallback.
 
-`AI_TASK_RETENTION_DAYS` is strictly validated by the Cloudflare preparation step and has no runtime fallback. AI cleanup uses indexed timestamp predicates, never deletes `processing` tasks, and never reads task result JSON or accesses R2.
+AI task retention is strictly validated when the D1 AI configuration is saved and has no Env fallback. AI cleanup uses indexed timestamp predicates, never deletes `processing` tasks, and never reads task result JSON or accesses R2.
 
 ## Add A Queue
 

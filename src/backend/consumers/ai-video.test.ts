@@ -44,7 +44,8 @@ const mocks = vi.hoisted(() => {
 		findFirst: vi.fn(),
 		rawQueries: vi.fn(),
 		updateSet: vi.fn(),
-		logError: vi.fn()
+		logError: vi.fn(),
+		getAIRuntimeConfig: vi.fn()
 	}
 })
 
@@ -73,6 +74,12 @@ vi.mock('../ai/channel-routing', () => {
 		rankAIChannels: mocks.rankChannels,
 		resolveAIChannel: mocks.resolveChannel,
 		createAIChannelMetricQuery: mocks.metricQuery
+	}
+})
+
+vi.mock('../ai/config', () => {
+	return {
+		getAIRuntimeConfig: mocks.getAIRuntimeConfig
 	}
 })
 
@@ -142,6 +149,7 @@ describe('handleAIVideoQueue', () => {
 		mocks.runRawD1Batch.mockResolvedValue([])
 		mocks.createSeedDanceProviderTask.mockResolvedValue('remote-1')
 		mocks.getSeedDanceProviderTask.mockResolvedValue({ status: 'running' })
+		mocks.getAIRuntimeConfig.mockResolvedValue(createAIConfig())
 	})
 
 	type GivenDetail = {
@@ -290,6 +298,7 @@ describe('handleAIVideoQueue', () => {
 			expect.anything(),
 			expect.objectContaining({ target: { taskType: 'video', provider: 'seedance' } })
 		)
+		expect(mocks.getAIRuntimeConfig).toHaveBeenCalledTimes(1)
 		expect(mocks.createSeedDanceProviderTask).toHaveBeenCalledWith(
 			expect.anything(),
 			'u1',
@@ -528,21 +537,26 @@ function createBatch(task: TaskRow): MessageBatch<unknown> {
 function createEnv(putMock: ReturnType<typeof vi.fn> = vi.fn()): Env {
 	return {
 		META_DB: {},
-		AI_ROUTING_ERROR_WEIGHT: '1',
-		AI_ROUTING_LATENCY_WEIGHT: '0.8',
-		AI_ROUTING_PRICE_WEIGHT: '0.2',
-		VIDEO_SEEDDANCE_MODEL: 'video-model',
-		VIDEO_SEEDDANCE_OFFICIAL_BASE_URL: 'https://VIDEO_SEEDDANCE_OFFICIAL.example/v1',
-		VIDEO_SEEDDANCE_OFFICIAL_MODELS: 'video-model',
-		VIDEO_SEEDDANCE_OFFICIAL_PRICE_MULTIPLIER: '1',
-		VIDEO_SEEDDANCE_OFFICIAL_API_KEY: 'VIDEO_SEEDDANCE_OFFICIAL-key',
-		VIDEO_SEEDDANCE_RESELLER_A_BASE_URL: 'https://VIDEO_SEEDDANCE_RESELLER_A.example/v1',
-		VIDEO_SEEDDANCE_RESELLER_A_MODELS: 'video-model',
-		VIDEO_SEEDDANCE_RESELLER_A_PRICE_MULTIPLIER: '1',
-		VIDEO_SEEDDANCE_RESELLER_A_API_KEY: 'VIDEO_SEEDDANCE_RESELLER_A-key',
+		CONFIG_ENCRYPTION_KEY: 'test-config-key',
 		APP_BASE_URL: 'https://app',
 		R2: { put: putMock }
 	} as unknown as Env
+}
+
+function createAIConfig(): {
+	routing: { errorWeight: number; latencyWeight: number; priceWeight: number }
+	taskRetentionDays: number
+	providers: Record<string, never>
+	channels: never[]
+	version: number
+} {
+	return {
+		routing: { errorWeight: 1, latencyWeight: 0.8, priceWeight: 0.2 },
+		taskRetentionDays: 30,
+		providers: {},
+		channels: [],
+		version: 1
+	}
 }
 
 function createTask(providerTaskId: string | null): TaskRow {

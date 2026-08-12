@@ -201,7 +201,8 @@ describe('createSeedSimpleTTSClient.generateSpeech', () => {
 		const env: Env = createEnv(given.envModel, given.baseUrl)
 		const tenantDb: TenantShardDb = {} as TenantShardDb
 		const client = createSeedSimpleTTSClient(env, 'u1', tenantDb, {
-			model: given.optionsModel
+			model: given.optionsModel ?? given.envModel,
+			endpoint: { baseURL: given.baseUrl ?? 'https://openspeech.bytedance.com/api/v3', apiKey: 'api-key' }
 		})
 
 		try {
@@ -262,6 +263,7 @@ describe('createSeedSimpleTTSClient.generateSpeech', () => {
 			'u1',
 			{} as TenantShardDb,
 			{
+				model: 'seed-tts-2.0-standard',
 				endpoint: { baseURL: 'https://channel.example/api/v3', apiKey: 'channel-key' }
 			}
 		)
@@ -442,11 +444,9 @@ describe('seed podcast websocket frame', () => {
 })
 
 function createEnv(model: string, baseUrl?: string): Env {
-	return {
-		TTS_SEED_BASE_URL: baseUrl ?? 'https://openspeech.bytedance.com/api/v3',
-		TTS_SEED_API_KEY: 'api-key',
-		TTS_SEED_MODEL: model
-	} as unknown as Env
+	void model
+	void baseUrl
+	return {} as Env
 }
 
 function toStream(value: string): ReadableStream<Uint8Array> {

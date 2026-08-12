@@ -6,6 +6,7 @@ import { AIError } from './error'
 import type { AIImageProvider } from './image'
 import type { AITTSProvider } from './tts'
 import type { AIVideoProvider } from './video'
+import type { AIRuntimeConfig } from './config'
 
 const minuteMs = 60_000
 
@@ -42,10 +43,6 @@ export interface AIChannelMetricInput {
 	result: 'success' | 'error'
 }
 
-interface EnvValues {
-	[key: string]: string | undefined
-}
-
 interface AIChannelMetricRow {
 	channel: string
 	model: string
@@ -67,10 +64,10 @@ interface ChannelMetric {
 
 export async function rankAIChannels(
 	db: TenantShardDb,
-	env: Env,
+	config: AIRuntimeConfig,
 	input: AIChannelRouteInput
 ): Promise<AIRankedChannel[]> {
-	const candidates: AIChannel[] = collectAIChannels(env, input.target).filter((channel) => {
+	const candidates: AIChannel[] = collectAIChannels(config, input.target, true).filter((channel) => {
 		return channel.models.includes(input.model)
 	})
 	if (candidates.length === 0) {
@@ -129,10 +126,9 @@ export async function rankAIChannels(
 	const errorMax = max(errorValues)
 	const latencyMax = max(latencyValues)
 	const priceMax = Math.max(...available.map((channel) => channel.priceMultiplier))
-	const envValues = env as unknown as EnvValues
-	const errorWeight = Number(envValues['AI_ROUTING_ERROR_WEIGHT'])
-	const latencyWeight = Number(envValues['AI_ROUTING_LATENCY_WEIGHT'])
-	const priceWeight = Number(envValues['AI_ROUTING_PRICE_WEIGHT'])
+	const errorWeight: number = config.routing.errorWeight
+	const latencyWeight: number = config.routing.latencyWeight
+	const priceWeight: number = config.routing.priceWeight
 	const totalWeight = errorWeight + latencyWeight + priceWeight
 
 	const ranked = available.map((channel): AIRankedChannel => {
@@ -159,12 +155,12 @@ export async function rankAIChannels(
 }
 
 export function resolveAIChannel(
-	env: Env,
+	config: AIRuntimeConfig,
 	channel: string,
 	target: AIChannelTarget,
 	model: string
 ): AIChannel {
-	const resolved = collectAIChannels(env, target).find((item) => {
+	const resolved = collectAIChannels(config, target, false).find((item) => {
 		return item.channel === channel && item.models.includes(model)
 	})
 	if (!resolved) {
@@ -199,49 +195,26 @@ export function createAIChannelMetricQuery(
 	`)
 }
 
-function collectAIChannels(env: Env, target: AIChannelTarget): AIChannel[] {
-	const values = env as unknown as EnvValues
-	const providerPrefix = `${target.taskType.toUpperCase()}_${target.provider.toUpperCase()}`
-	const channelPrefixes = new Set<string>()
-	const keyPattern = new RegExp(`^(${providerPrefix}_[A-Z0-9_]+)_(BASE_URL|MODELS|PRICE_MULTIPLIER|API_KEY)$`)
-	for (const key of Object.keys(values)) {
-		const match = keyPattern.exec(key)
-		const channelPrefix = match?.[1]
-		if (channelPrefix) {
-			channelPrefixes.add(channelPrefix)
-		}
-	}
-
-	const channels: AIChannel[] = []
-	for (const prefix of channelPrefixes) {
-		const baseURL = readRequiredValue(values, `${prefix}_BASE_URL`)
-		const models = readRequiredValue(values, `${prefix}_MODELS`)
-		const priceMultiplier = Number(readRequiredValue(values, `${prefix}_PRICE_MULTIPLIER`))
-		const apiKey = readRequiredValue(values, `${prefix}_API_KEY`)
-		const modelList = models
-			.split(';')
-			.map((model) => model.trim())
-			.filter((model) => model !== '')
-		if (modelList.length === 0 || !Number.isFinite(priceMultiplier) || priceMultiplier <= 0) {
-			throw new AIError('AI_CHANNEL_CONFIG_INVALID')
-		}
-		channels.push({
-			channel: prefix,
-			target,
-			models: modelList,
-			priceMultiplier,
-			endpoint: { baseURL, apiKey }
+function collectAIChannels(
+	config: AIRuntimeConfig,
+	target: AIChannelTarget,
+	enabledOnly: boolean
+): AIChannel[] {
+	return config.channels
+		.filter((channel): boolean => {
+			return (
+				channel.area === target.taskType &&
+				channel.provider === target.provider &&
+				(!enabledOnly || channel.enabled)
+			)
 		})
-	}
-	return channels
-}
-
-function readRequiredValue(values: EnvValues, key: string): string {
-	const value = values[key]?.trim() ?? ''
-	if (value === '') {
-		throw new AIError('AI_CHANNEL_CONFIG_INVALID')
-	}
-	return value
+		.map((channel): AIChannel => ({
+			channel: channel.id,
+			target,
+			models: channel.models,
+			priceMultiplier: channel.priceMultiplier,
+			endpoint: channel.endpoint
+		}))
 }
 
 function aggregateWindow(

@@ -60,7 +60,7 @@ vi.mock('./doubao', async () => {
 	}
 	return {
 		...actual,
-		createDoubaoRealtimeClient: (_env: Env, userId: string, model: string): AIRealtimeClient => {
+		createDoubaoRealtimeClient: (_endpoint: { baseURL: string; apiKey: string }, userId: string, model: string): AIRealtimeClient => {
 			constructorCalls.push({ userId, model })
 			return new FakeRealtimeClient()
 		}
@@ -118,11 +118,9 @@ describe('createAIRealtimeClient', () => {
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
 		constructorCalls.length = 0
 		startSessionCalls.length = 0
-		const env: Env = {
-			REALTIME_DOUBAO_MODEL: DOUBAO_REALTIME_MODEL_O2
-		} as unknown as Env
-		const client: AIRealtimeClient = createAIRealtimeClient(env, 'u1', {
-			model: given.optionsModel
+		const client: AIRealtimeClient = createAIRealtimeClient('u1', {
+			model: given.optionsModel ?? DOUBAO_REALTIME_MODEL_O2,
+			endpoint: { baseURL: 'wss://example.com', apiKey: 'k' }
 		})
 		const session: AIRealtimeSession = await client.startSession({
 			speaker: DOUBAO_REALTIME_SPEAKER_ZH_FEMALE_VV_JUPITER_BIGTTS,

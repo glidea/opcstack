@@ -8,6 +8,12 @@ import {
 	type AIRealtimeStartSessionInput
 } from '../../ai/realtime'
 import type { ApiEnv } from '..'
+import {
+	getAIProviderRuntimeConfig,
+	getAIRuntimeConfig,
+	type AIProviderRuntimeConfig,
+	type AIRuntimeConfig
+} from '../../ai/config'
 
 export interface AIRealtimeWebSocket {
 	accept(): void
@@ -43,10 +49,14 @@ export interface AIRealtimeWebSocketFinishSessionMessage {
 }
 
 export async function aiRealtimeConnectHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const config: AIRuntimeConfig = await getAIRuntimeConfig(
+		ctx.get('metaDb'),
+		ctx.env.CONFIG_ENCRYPTION_KEY
+	)
 	const pair = new WebSocketPair()
 	const clientSocket: WebSocket = pair[0]
 	const serverSocket: WebSocket = pair[1]
-	bindAIRealtimeWebSocket(serverSocket, ctx.get('userId'), ctx.env)
+	bindAIRealtimeWebSocket(serverSocket, ctx.get('userId'), config)
 
 	return new Response(null, {
 		status: 101,
@@ -57,7 +67,7 @@ export async function aiRealtimeConnectHandler(ctx: Context<ApiEnv>): Promise<Re
 export function bindAIRealtimeWebSocket(
 	socket: AIRealtimeWebSocket,
 	userId: string,
-	env: Env
+	config: AIRuntimeConfig
 ): void {
 	let session: AIRealtimeSession | undefined = undefined
 	let pendingMessage: Promise<void> = Promise.resolve()
@@ -66,7 +76,7 @@ export function bindAIRealtimeWebSocket(
 		pendingMessage = pendingMessage.then(async (): Promise<void> => {
 			await handleAIRealtimeWebSocketMessage(
 				socket,
-				env,
+				config,
 				userId,
 				event.data,
 				(value: AIRealtimeSession): void => {
@@ -82,7 +92,7 @@ export function bindAIRealtimeWebSocket(
 
 async function handleAIRealtimeWebSocketMessage(
 	socket: AIRealtimeWebSocket,
-	env: Env,
+	config: AIRuntimeConfig,
 	userId: string,
 	data: string | ArrayBuffer | ArrayBufferView,
 	setSession: (session: AIRealtimeSession) => void,
@@ -96,9 +106,16 @@ async function handleAIRealtimeWebSocketMessage(
 	const message: AIRealtimeWebSocketClientJsonMessage = JSON.parse(data) as AIRealtimeWebSocketClientJsonMessage
 	switch (message.type) {
 		case 'start_session': {
-			const client: AIRealtimeClient = createAIRealtimeClient(env, userId, {
+			const provider: AIRealtimeProvider = message.provider ?? 'doubao'
+			const providerConfig: AIProviderRuntimeConfig = getAIProviderRuntimeConfig(
+				config,
+				'realtime',
+				provider
+			)
+			const client: AIRealtimeClient = createAIRealtimeClient(userId, {
 				provider: message.provider,
-				model: message.model
+				model: message.model ?? providerConfig.defaultModel,
+				endpoint: providerConfig.endpoint
 			})
 			const session: AIRealtimeSession = await client.startSession({
 				speaker: message.speaker,

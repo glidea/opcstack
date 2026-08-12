@@ -20,6 +20,7 @@ import type {
 	AITTSTaskStatus
 } from '../ai/tts'
 import type { AITTSGenerateQueueMessage } from '../ai/tts/task'
+import { getAIRuntimeConfig, type AIRuntimeConfig } from '../ai/config'
 
 const AI_TTS_MAX_ATTEMPTS = 3
 
@@ -46,6 +47,10 @@ async function handleAITTSMessage(
 		message.ack()
 		return
 	}
+	const aiConfig: AIRuntimeConfig = await getAIRuntimeConfig(
+		metaDb,
+		env.CONFIG_ENCRYPTION_KEY
+	)
 
 	const metricQueries: D1RawRunQuery[] = []
 	const attemptCount: number = task.attemptCount + 1
@@ -54,7 +59,7 @@ async function handleAITTSMessage(
 			throw new AIError('AI_CHANNEL_CONFIG_INVALID')
 		}
 
-		const rankedChannels: AIRankedChannel[] = await rankAIChannels(tenant.db, env, {
+		const rankedChannels: AIRankedChannel[] = await rankAIChannels(tenant.db, aiConfig, {
 			target: {
 				taskType: 'tts',
 				provider: task.provider as AITTSTask['provider']

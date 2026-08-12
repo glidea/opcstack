@@ -61,15 +61,12 @@ const DOUBAO_REALTIME_TTS_ENDED_EVENT = 359
 const DOUBAO_REALTIME_ASR_RESPONSE_EVENT = 451
 const DOUBAO_REALTIME_CHAT_RESPONSE_EVENT = 550
 
-export function createDoubaoRealtimeClient(env: Env, userId: string, model: string): AIRealtimeClient {
-	return new WebSocketDoubaoRealtimeClient(env, userId, model)
+export function createDoubaoRealtimeClient(endpoint: AIEndpoint, userId: string, model: string): AIRealtimeClient {
+	return new WebSocketDoubaoRealtimeClient(endpoint, userId, model)
 }
 
-export function createDoubaoRealtimeSocketRequest(env: Env, connectId: string): Request {
-	return createDoubaoRealtimeSocketRequestFromEndpoint({
-		baseURL: env.REALTIME_DOUBAO_BASE_URL,
-		apiKey: env.REALTIME_DOUBAO_API_KEY
-	}, connectId)
+export function createDoubaoRealtimeSocketRequest(endpoint: AIEndpoint, connectId: string): Request {
+	return createDoubaoRealtimeSocketRequestFromEndpoint(endpoint, connectId)
 }
 
 function createDoubaoRealtimeSocketRequestFromEndpoint(endpoint: AIEndpoint, connectId: string): Request {
@@ -133,11 +130,8 @@ class WebSocketDoubaoRealtimeClient implements AIRealtimeClient {
 	private readonly userId: string
 	private readonly model: string
 
-	constructor(env: Env, userId: string, model: string) {
-		this.endpoint = {
-			baseURL: env.REALTIME_DOUBAO_BASE_URL,
-			apiKey: env.REALTIME_DOUBAO_API_KEY
-		}
+	constructor(endpoint: AIEndpoint, userId: string, model: string) {
+		this.endpoint = endpoint
 		this.userId = userId
 		this.model = model
 	}

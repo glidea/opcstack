@@ -26,7 +26,7 @@ Every AI area exposes a small `createAI...Clients` factory. The factory returns 
 ```
 Business code
   |
-  +-- createAI...Clients(env, userId, tenantDb, options)
+  +-- createAI...Clients(userId, tenantDb, options)
         |
         +-- simple client interface
         |
@@ -96,17 +96,17 @@ src/backend/consumers/
 
 Supported provider ids are part of the public TypeScript contract for each AI area.
 
-| Area | Provider id | Module | Default model env |
+| Area | Provider id | Module | D1 provider id |
 | --- | --- | --- | --- |
-| Chat | `openai` | `chat/openai` | `CHAT_OPENAI_MODEL` |
-| Image | `gemini` | `image/gemini` | `IMAGE_GEMINI_MODEL` |
-| Image | `openai` | `image/openai` | `IMAGE_OPENAI_MODEL` |
-| Image | `seedream` | `image/seedream` | `IMAGE_SEEDDREAM_MODEL` |
-| Image | `aliyun` | `image/aliyun` | `IMAGE_ALIYUN_MODEL` |
-| TTS | `gemini` | `tts/gemini` | `TTS_GEMINI_MODEL` |
-| TTS | `seed` | `tts/seed` | `TTS_SEED_MODEL` |
-| Realtime | `doubao` | `realtime/doubao` | `REALTIME_DOUBAO_MODEL` |
-| Video | `seedance` | `video/seedance` | `VIDEO_SEEDDANCE_MODEL` |
+| Chat | `openai` | `chat/openai` | `chat_openai` |
+| Image | `gemini` | `image/gemini` | `image_gemini` |
+| Image | `openai` | `image/openai` | `image_openai` |
+| Image | `seedream` | `image/seedream` | `image_seedream` |
+| Image | `aliyun` | `image/aliyun` | `image_aliyun` |
+| TTS | `gemini` | `tts/gemini` | `tts_gemini` |
+| TTS | `seed` | `tts/seed` | `tts_seed` |
+| Realtime | `doubao` | `realtime/doubao` | `realtime_doubao` |
+| Video | `seedance` | `video/seedance` | `video_seedance` |
 
 Use provider constants from the provider `constants.ts` files when the caller needs a known model or voice name. Do not duplicate literal model lists in handlers or frontend code.
 
@@ -117,7 +117,7 @@ Chat is OpenAI-compatible and synchronous.
 ```typescript
 import { createAIClients } from '$backend/ai/chat'
 
-const clients = createAIClients(env)
+const clients = createAIClients({ provider: 'openai', model, endpoint })
 const text = await clients.simple.generateText('Explain D1 sharding in three lines')
 ```
 
@@ -132,19 +132,13 @@ const schema = z.object({
   summary: z.string()
 })
 
-const result = await createAIClients(env).simple.generateObject(
+const result = await createAIClients({ provider: 'openai', model, endpoint }).simple.generateObject(
   'Summarize this product idea',
   schema
 )
 ```
 
-Chat config:
-
-| Key | File | Purpose |
-| --- | --- | --- |
-| `CHAT_OPENAI_BASE_URL` | `.env.dev`, `.env.prod` | Primary OpenAI-compatible base URL |
-| `CHAT_OPENAI_MODEL` | `.env.dev`, `.env.prod` | Default chat model |
-| `CHAT_OPENAI_API_KEY` | `.env.secret.example` | Primary API key placeholder |
+Chat configuration is loaded from `system_settings.ai_config`. The API key is decrypted before the client is created and is never returned by configuration read APIs.
 
 ## Image
 
@@ -154,7 +148,9 @@ Image supports generate and edit flows. References can be inline base64 or exist
 import { createAIImageClients } from '$backend/ai/image'
 
 const clients = createAIImageClients(env, userId, tenantDb, {
-  provider: 'gemini'
+  provider: 'gemini',
+  model,
+  endpoint
 })
 
 const images = await clients.simple.generate({
@@ -217,7 +213,9 @@ TTS accepts explicit speakers and transcript lines. The caller owns script quali
 import { createAITTSClients } from '$backend/ai/tts'
 
 const clients = createAITTSClients(env, userId, tenantDb, {
-  provider: 'gemini'
+  provider: 'gemini',
+  model,
+  endpoint
 })
 
 const audio = await clients.simple.generateSpeech({
@@ -250,7 +248,7 @@ Provider behavior:
 | Seed `seed-tts-2.0-standard` | MP3 | Standard speech generation |
 | Seed `doubao-seed-podcast` | MP3 | Supports source-driven podcast generation |
 
-`generateSpeechFromSource` only works for Seed with `TTS_SEED_MODEL=doubao-seed-podcast`. Other TTS models throw `TTS_SOURCE_NOT_SUPPORTED`.
+`generateSpeechFromSource` only works for Seed with model `doubao-seed-podcast`. Other TTS models throw `TTS_SOURCE_NOT_SUPPORTED`.
 
 TTS output is written to `audio/` when `uploadToR2=true`.
 
@@ -261,8 +259,10 @@ Realtime currently supports Doubao over WebSocket. It returns a session object w
 ```typescript
 import { createAIRealtimeClient } from '$backend/ai/realtime'
 
-const client = createAIRealtimeClient(env, userId, {
-  provider: 'doubao'
+const client = createAIRealtimeClient(userId, {
+  provider: 'doubao',
+  model,
+  endpoint
 })
 
 const session = await client.startSession({
@@ -305,7 +305,8 @@ Video currently supports SeedDance. The simple client always creates a local asy
 import { createAIVideoClients } from '$backend/ai/video'
 
 const clients = createAIVideoClients(env, userId, tenantDb, {
-  provider: 'seedance'
+  provider: 'seedance',
+  model
 })
 
 const task = await clients.simple.generate({
@@ -383,7 +384,7 @@ Task statuses:
 
 Consumers skip missing tasks and non-processing tasks, then `ack()` the queue message. This makes retries idempotent at the task row boundary.
 
-The existing `*/10 * * * *` scheduled job deletes `completed` and `failed` task rows whose `updated_at` is older than `AI_TASK_RETENTION_DAYS`. It never deletes `processing` rows. This database cleanup does not read task results or delete generated R2 objects; object retention stays with R2 lifecycle rules.
+The existing `*/10 * * * *` scheduled job loads `taskRetentionDays` from D1 once per trigger and deletes older `completed` and `failed` task rows. It never deletes `processing` rows. This database cleanup does not read task results or delete generated R2 objects; object retention stays with R2 lifecycle rules.
 
 ## Queue Consumers
 
@@ -469,7 +470,7 @@ Synchronous Chat and Realtime calls use their provider's single configured endpo
 
 ## Channel Router
 
-Channel Router is used only by Image, TTS, and Video async consumers. Task creation still accepts only a provider and model. The consumer discovers complete channel prefixes from `Env`, filters channels that declare the task model, and selects the highest score before calling the provider.
+Channel Router is used only by Image, TTS, and Video async consumers. Task creation still accepts only a provider and model. Each consumer reads one AI configuration snapshot from D1, filters enabled channels that declare the task model, and selects the highest score before calling the provider.
 
 The score is calculated inside the current Tenant Shard from 1-minute buckets over the last 5 minutes and 1 hour:
 
@@ -487,66 +488,11 @@ Video selects a channel only when creating a new remote provider task. After the
 
 ## Config
 
-Public AI config lives in `.env.dev` and `.env.prod`.
+`META_DB` is the only source of AI business configuration. `system_settings.ai_config` stores routing weights, task retention, and the nine fixed provider configurations. `ai_channels` stores independently versioned async endpoints. Provider and channel credentials are AES-GCM encrypted with `CONFIG_ENCRYPTION_KEY`; read APIs expose only `api_key_configured`.
 
-| Key | Purpose |
-| --- | --- |
-| `CHAT_OPENAI_BASE_URL` | OpenAI-compatible chat base URL |
-| `CHAT_OPENAI_MODEL` | Default chat model |
-| `IMAGE_GEMINI_BASE_URL` | Gemini image base URL |
-| `IMAGE_GEMINI_MODEL` | Default Gemini image model |
-| `IMAGE_OPENAI_BASE_URL` | OpenAI image base URL |
-| `IMAGE_OPENAI_MODEL` | Default OpenAI image model |
-| `IMAGE_SEEDDREAM_BASE_URL` | SeedDream base URL |
-| `IMAGE_SEEDDREAM_MODEL` | Default SeedDream image model |
-| `IMAGE_ALIYUN_BASE_URL` | Aliyun DashScope base URL |
-| `IMAGE_ALIYUN_MODEL` | Default Aliyun image model |
-| `TTS_GEMINI_BASE_URL` | Gemini TTS base URL |
-| `TTS_GEMINI_MODEL` | Default Gemini TTS model |
-| `TTS_SEED_BASE_URL` | Seed TTS base URL |
-| `TTS_SEED_MODEL` | Default Seed TTS model |
-| `REALTIME_DOUBAO_BASE_URL` | Doubao realtime base URL |
-| `REALTIME_DOUBAO_MODEL` | Default Doubao realtime model |
-| `VIDEO_SEEDDANCE_BASE_URL` | SeedDance video base URL |
-| `VIDEO_SEEDDANCE_MODEL` | Default SeedDance video model |
-| `AI_ROUTING_ERROR_WEIGHT` | Async channel error-rate score weight |
-| `AI_ROUTING_LATENCY_WEIGHT` | Async channel latency score weight |
-| `AI_ROUTING_PRICE_WEIGHT` | Async channel price score weight |
-| `AI_TASK_RETENTION_DAYS` | Retention period for completed and failed async tasks |
+Configuration saves take effect for the next request, queue message, WebSocket connection, or cron trigger. One operation keeps the snapshot it started with. A Video task that already has a remote task id keeps its persisted channel even if that channel is later disabled.
 
-Secret placeholders live in `.env.secret.example`.
-
-| Secret | Purpose |
-| --- | --- |
-| `CHAT_OPENAI_API_KEY` | Primary chat key |
-| `IMAGE_GEMINI_API_KEY` | Primary Gemini image key |
-| `IMAGE_OPENAI_API_KEY` | Primary OpenAI image key |
-| `IMAGE_SEEDDREAM_API_KEY` | Primary SeedDream key |
-| `IMAGE_ALIYUN_API_KEY` | Primary Aliyun key |
-| `TTS_GEMINI_API_KEY` | Primary Gemini TTS key |
-| `TTS_SEED_API_KEY` | Primary Seed TTS key |
-| `REALTIME_DOUBAO_API_KEY` | Primary Doubao realtime key |
-| `VIDEO_SEEDDANCE_API_KEY` | Primary SeedDance key |
-| `IMAGE_GEMINI_OFFICIAL_API_KEY` | Gemini image channel key |
-| `IMAGE_OPENAI_OFFICIAL_API_KEY` | OpenAI image channel key |
-| `IMAGE_SEEDDREAM_OFFICIAL_API_KEY` | SeedDream image channel key |
-| `IMAGE_ALIYUN_OFFICIAL_API_KEY` | Aliyun image channel key |
-| `TTS_GEMINI_OFFICIAL_API_KEY` | Gemini TTS channel key |
-| `TTS_SEED_OFFICIAL_API_KEY` | Seed TTS channel key |
-| `VIDEO_SEEDDANCE_OFFICIAL_API_KEY` | SeedDance video channel key |
-
-Do not put API keys in public env files or frontend config.
-
-Async channel configuration uses one complete ENV prefix per channel:
-
-```bash
-IMAGE_OPENAI_OFFICIAL_BASE_URL=https://api.openai.com/v1
-IMAGE_OPENAI_OFFICIAL_MODELS=gpt-image-2
-IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER=1
-IMAGE_OPENAI_OFFICIAL_API_KEY=
-```
-
-`MODELS` accepts semicolon-separated model names. `PRICE_MULTIPLIER` must be positive. The Cloudflare preparation script discovers complete channel prefixes and injects their public fields and secret keys into the generated runtime configuration.
+No AI business setting or credential belongs in `.env.dev`, `.env.prod`, `.env.secret.*`, or `wrangler.jsonc`.
 
 ## Add A Provider
 
@@ -557,7 +503,7 @@ Keep provider additions boring.
 3. Implement the existing simple client interface
 4. Add the provider id to the area's provider union
 5. Add one branch in the area's `createAI...Clients` factory
-6. Add env keys to `.env.dev`, `.env.prod`, `.env.secret.example`, `wrangler.jsonc.tpl`, and `SECRET_KEYS`
+6. Add the fixed provider identity and initialized disabled D1 shape
 7. Add focused unit tests for request mapping, task creation, and provider error mapping
 
 Do not create a generic provider registry unless at least two areas need the exact same dynamic registration behavior. The current explicit `switch`/branch style is simpler and easier to read.

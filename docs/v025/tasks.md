@@ -154,11 +154,11 @@
 - 不实现 AI 后台页面
 
 ## TODO 清单
-- [ ] 1. 先增加固定 Provider、Channel CRUD、路由权重、密钥替换和 Consumer 快照的失败测试
-- [ ] 2. 实现 AI 配置及 Channel CRUD 契约、Handler、校验和加密凭据处理
-- [ ] 3. 将同步 AI Provider 和异步 Channel Router 切换到 D1 配置
-- [ ] 4. 迁移 Image、TTS、Video Consumer 与保留任务，保持一次执行只使用一份配置快照
-- [ ] 5. 删除所有 AI 业务 ENV、Channel ENV 发现、解析器和兼容逻辑
+- [x] 1. 先增加固定 Provider、Channel CRUD、路由权重、密钥替换和 Consumer 快照的失败测试
+- [x] 2. 实现 AI 配置及 Channel CRUD 契约、Handler、校验和加密凭据处理
+- [x] 3. 将同步 AI Provider 和异步 Channel Router 切换到 D1 配置
+- [x] 4. 迁移 Image、TTS、Video Consumer 与保留任务，保持一次执行只使用一份配置快照
+- [x] 5. 删除所有 AI 业务 ENV、Channel ENV 发现、解析器和兼容逻辑
 
 ## 验收测试步骤
 1. 新建并启用 Channel 后提交对应 AI 任务，确认 Consumer 使用该 Channel 且指标仍按 Channel ID 记录

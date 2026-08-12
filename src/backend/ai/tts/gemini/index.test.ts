@@ -234,7 +234,10 @@ describe('createGeminiSimpleTTSClient.generateSpeech', () => {
 
 		const env = createEnv(given.envModel)
 		const tenantDb: TenantShardDb = {} as TenantShardDb
-		const client = createGeminiSimpleTTSClient(env, 'u1', tenantDb, { model: given.optionsModel })
+		const client = createGeminiSimpleTTSClient(env, 'u1', tenantDb, {
+			model: given.optionsModel ?? given.envModel,
+			endpoint: { baseURL: 'https://generativelanguage.googleapis.com', apiKey: 'k' }
+		})
 		const output = await client.generateSpeech(when.input)
 
 		const generateArg = generateContentMock.mock.calls[0]?.[0] as
@@ -309,6 +312,7 @@ describe('createGeminiSimpleTTSClient.generateSpeech', () => {
 			'u',
 			{} as TenantShardDb,
 			{
+				model: 'env-model',
 				endpoint: { baseURL: 'https://channel.example', apiKey: 'channel-key' }
 			}
 		)
@@ -325,9 +329,6 @@ describe('createGeminiSimpleTTSClient.generateSpeech', () => {
 })
 
 function createEnv(model: string): Env {
-	return {
-		TTS_GEMINI_API_KEY: 'k',
-		TTS_GEMINI_BASE_URL: 'https://generativelanguage.googleapis.com',
-		TTS_GEMINI_MODEL: model
-	} as unknown as Env
+	void model
+	return {} as Env
 }

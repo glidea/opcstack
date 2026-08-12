@@ -19,10 +19,10 @@ import type {
 
 type R2Env = Env & { R2: R2Bucket }
 
-export function createSeedDreamNativeImageClient(env: Env): OpenAI {
+export function createSeedDreamNativeImageClient(endpoint: AIEndpoint): OpenAI {
 	return new OpenAI({
-		apiKey: env.IMAGE_SEEDDREAM_API_KEY,
-		baseURL: env.IMAGE_SEEDDREAM_BASE_URL
+		apiKey: endpoint.apiKey,
+		baseURL: endpoint.baseURL
 	})
 }
 
@@ -59,11 +59,8 @@ class seedDreamSimpleImageClient implements AISimpleImageClient {
 		options: AISimpleImageClientOptions
 	) {
 		this.env = env
-		this.endpoint = options.endpoint ?? {
-			baseURL: env.IMAGE_SEEDDREAM_BASE_URL,
-			apiKey: env.IMAGE_SEEDDREAM_API_KEY
-		}
-		this.model = options.model ?? env.IMAGE_SEEDDREAM_MODEL
+		this.endpoint = options.endpoint
+		this.model = options.model
 		this.userId = userId
 		this.tenantDb = tenantDb
 	}

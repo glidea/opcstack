@@ -94,11 +94,10 @@ describe('doubao realtime request mapping', () => {
 	]
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
-		const env: Env = {
-			REALTIME_DOUBAO_BASE_URL: given.baseUrl,
-			REALTIME_DOUBAO_API_KEY: 'api-key'
-		} as unknown as Env
-		const request: Request = createDoubaoRealtimeSocketRequest(env, 'connect-1')
+		const request: Request = createDoubaoRealtimeSocketRequest(
+			{ baseURL: given.baseUrl, apiKey: 'api-key' },
+			'connect-1'
+		)
 		const payload = toDoubaoRealtimeStartSessionPayload({
 			sessionId: 'session-1',
 			userId: 'u1',

@@ -28,29 +28,7 @@ const SYSTEM_SECRET_KEYS = [
 	'CONFIG_ENCRYPTION_KEY',
 	'R2_ORIGIN_SIGNING_SECRET'
 ]
-const AI_ASYNC_PROVIDER_CONFIGS = [
-	{ prefix: 'IMAGE_GEMINI', defaultModelKey: 'IMAGE_GEMINI_MODEL' },
-	{ prefix: 'IMAGE_OPENAI', defaultModelKey: 'IMAGE_OPENAI_MODEL' },
-	{ prefix: 'IMAGE_SEEDDREAM', defaultModelKey: 'IMAGE_SEEDDREAM_MODEL' },
-	{ prefix: 'IMAGE_ALIYUN', defaultModelKey: 'IMAGE_ALIYUN_MODEL' },
-	{ prefix: 'TTS_GEMINI', defaultModelKey: 'TTS_GEMINI_MODEL' },
-	{ prefix: 'TTS_SEED', defaultModelKey: 'TTS_SEED_MODEL' },
-	{ prefix: 'VIDEO_SEEDDANCE', defaultModelKey: 'VIDEO_SEEDDANCE_MODEL' }
-]
-const SECRET_KEYS = [
-	'BETTER_AUTH_SECRET',
-	'CONFIG_ENCRYPTION_KEY',
-	'CHAT_OPENAI_API_KEY',
-	'IMAGE_GEMINI_API_KEY',
-	'IMAGE_OPENAI_API_KEY',
-	'IMAGE_SEEDDREAM_API_KEY',
-	'IMAGE_ALIYUN_API_KEY',
-	'TTS_GEMINI_API_KEY',
-	'TTS_SEED_API_KEY',
-	'REALTIME_DOUBAO_API_KEY',
-	'VIDEO_SEEDDANCE_API_KEY',
-	'R2_ORIGIN_SIGNING_SECRET'
-]
+const SECRET_KEYS = [...SYSTEM_SECRET_KEYS]
 const CLOUDFLARE_TOKEN_PERMISSIONS = [
 	{ key: 'api_tokens', type: 'edit' },
 	{ key: 'memberships', type: 'read' },
@@ -225,18 +203,7 @@ function formatEnvValue(value) {
 }
 
 export function buildRequiredSecretKeys(env) {
-	const keys = [...SYSTEM_SECRET_KEYS]
-
-	for (const key of aiPrimarySecretKeys()) {
-		if (String(env[key] ?? '').trim() !== '') {
-			keys.push(key)
-		}
-	}
-	for (const channel of collectAIChannels(env)) {
-		keys.push(channel.apiKeyKey)
-	}
-
-	return keys
+	return [...SYSTEM_SECRET_KEYS]
 }
 
 export function buildRuntimeSecretLines(env) {
@@ -306,7 +273,7 @@ export function validateSystemSecretRecovery(input) {
 		}
 		return
 	}
-	if (!input.hasLocalSecrets) {
+	if (!input.hasLocalEncryptionKey) {
 		throw new Error('SYSTEM_SECRETS_RECOVERY_UNAVAILABLE')
 	}
 }
@@ -344,16 +311,6 @@ export function buildTypesWranglerConfig(config) {
 		required: [...new Set([...SECRET_KEYS, ...(config.secrets?.required ?? [])])]
 	}
 	return typesConfig
-}
-
-export function buildAIChannelVars(env) {
-	const vars = {}
-	for (const channel of collectAIChannels(env)) {
-		vars[channel.baseUrlKey] = env[channel.baseUrlKey]
-		vars[channel.modelsKey] = env[channel.modelsKey]
-		vars[channel.priceMultiplierKey] = env[channel.priceMultiplierKey]
-	}
-	return vars
 }
 
 function writeTypesWranglerConfig(config) {
@@ -462,138 +419,6 @@ export function validateRuntimeConfig(env) {
 		validateConfigEncryptionKey(env.CONFIG_ENCRYPTION_KEY)
 	}
 
-	validateAIRoutingConfig(env)
-	collectAIChannels(env)
-}
-
-function validateAIRoutingConfig(env) {
-	const weightKeys = [
-		'AI_ROUTING_ERROR_WEIGHT',
-		'AI_ROUTING_LATENCY_WEIGHT',
-		'AI_ROUTING_PRICE_WEIGHT'
-	]
-	let totalWeight = 0
-	for (const key of weightKeys) {
-		const raw = String(env[key] ?? '').trim()
-		const weight = Number(raw)
-		if (raw === '' || !Number.isFinite(weight) || weight < 0) {
-			throw new Error(`${key}_INVALID`)
-		}
-		totalWeight += weight
-	}
-	if (totalWeight === 0) {
-		throw new Error('AI_ROUTING_WEIGHTS_INVALID')
-	}
-
-	const retentionDays = Number(env.AI_TASK_RETENTION_DAYS)
-	if (!Number.isInteger(retentionDays) || retentionDays < 1) {
-		throw new Error('AI_TASK_RETENTION_DAYS_INVALID')
-	}
-}
-
-function collectAIChannels(env) {
-	const channelPrefixes = new Set()
-	const channelKeyPattern = /^(IMAGE|TTS|VIDEO)_([A-Z0-9]+)_([A-Z0-9_]+)_(BASE_URL|MODELS|PRICE_MULTIPLIER|API_KEY)$/
-	for (const key of Object.keys(env)) {
-		const match = channelKeyPattern.exec(key)
-		if (!match) {
-			continue
-		}
-
-		const providerPrefix = `${match[1]}_${match[2]}`
-		const providerConfig = AI_ASYNC_PROVIDER_CONFIGS.find((item) => {
-			return item.prefix === providerPrefix
-		})
-		if (!providerConfig) {
-			throw new Error(`${providerPrefix}_CHANNEL_PROVIDER_UNSUPPORTED`)
-		}
-		channelPrefixes.add(`${providerPrefix}_${match[3]}`)
-	}
-
-	const channels = []
-	for (const prefix of channelPrefixes) {
-		const baseUrlKey = `${prefix}_BASE_URL`
-		const modelsKey = `${prefix}_MODELS`
-		const priceMultiplierKey = `${prefix}_PRICE_MULTIPLIER`
-		const apiKeyKey = `${prefix}_API_KEY`
-		requireConfigValue(env, baseUrlKey)
-		requireConfigValue(env, modelsKey)
-		requireConfigValue(env, priceMultiplierKey)
-		requireSecret(env, apiKeyKey)
-
-		const models = String(env[modelsKey])
-			.split(';')
-			.map((model) => {
-				return model.trim()
-			})
-			.filter((model) => {
-				return model !== ''
-			})
-		if (models.length === 0) {
-			throw new Error(`${modelsKey}_INVALID`)
-		}
-
-		const priceMultiplier = Number(env[priceMultiplierKey])
-		if (!Number.isFinite(priceMultiplier) || priceMultiplier <= 0) {
-			throw new Error(`${priceMultiplierKey}_INVALID`)
-		}
-
-		channels.push({
-			prefix,
-			baseUrlKey,
-			modelsKey,
-			priceMultiplierKey,
-			apiKeyKey,
-			models
-		})
-	}
-
-	for (const providerConfig of AI_ASYNC_PROVIDER_CONFIGS) {
-		const baseUrl = String(env[`${providerConfig.prefix}_BASE_URL`] ?? '').trim()
-		const defaultModel = String(env[providerConfig.defaultModelKey] ?? '').trim()
-		const providerChannels = channels.filter((channel) => {
-			return channel.prefix.startsWith(`${providerConfig.prefix}_`)
-		})
-		if (baseUrl === '' && defaultModel === '' && providerChannels.length === 0) {
-			continue
-		}
-		if (
-			defaultModel === '' ||
-			!providerChannels.some((channel) => {
-				return channel.models.includes(defaultModel)
-			})
-		) {
-			throw new Error(`${providerConfig.prefix}_DEFAULT_MODEL_CHANNEL_MISSING`)
-		}
-	}
-
-	return channels
-}
-
-function requireConfigValue(env, key) {
-	if (String(env[key] ?? '').trim() === '') {
-		throw new Error(`${key}_MISSING`)
-	}
-}
-
-function aiPrimarySecretKeys() {
-	return [
-		'CHAT_OPENAI_API_KEY',
-		'IMAGE_GEMINI_API_KEY',
-		'IMAGE_OPENAI_API_KEY',
-		'IMAGE_SEEDDREAM_API_KEY',
-		'IMAGE_ALIYUN_API_KEY',
-		'TTS_GEMINI_API_KEY',
-		'TTS_SEED_API_KEY',
-		'REALTIME_DOUBAO_API_KEY',
-		'VIDEO_SEEDDANCE_API_KEY'
-	]
-}
-
-function requireSecret(env, key) {
-	if (String(env[key] ?? '').trim() === '') {
-		throw new Error(`${key}_MISSING`)
-	}
 }
 
 function validateConfigEncryptionKey(value) {
@@ -1560,12 +1385,11 @@ async function main() {
 	}
 	let existingLocalSystemSecrets = {}
 	let localSystemSecrets = {}
-	let hadCompleteLocalSystemSecrets = false
+	let hadLocalEncryptionKey = false
 	if (!isRemote) {
 		existingLocalSystemSecrets = parseEnvFile('.env.secret.dev')
-		hadCompleteLocalSystemSecrets = SYSTEM_SECRET_KEYS.every((key) => {
-			return String(existingLocalSystemSecrets[key] ?? '').trim() !== ''
-		})
+		hadLocalEncryptionKey =
+			String(existingLocalSystemSecrets.CONFIG_ENCRYPTION_KEY ?? '').trim() !== ''
 		localSystemSecrets = resolveLocalSystemSecrets(existingLocalSystemSecrets)
 		Object.assign(env, localSystemSecrets)
 	}
@@ -1796,7 +1620,6 @@ async function main() {
 	}
 
 	config.vars = config.vars || {}
-	Object.assign(config.vars, buildAIChannelVars(env))
 	writeClientConfig(config.vars)
 	await syncPublicAssets()
 	ensureSvelteWorkerBuild()
@@ -1888,9 +1711,9 @@ async function main() {
 		isRemote,
 		workerExists: remoteWorkerSecretNames !== null,
 		hasPendingSecrets: hadPendingRemoteSystemSecrets,
-		hasLocalSecrets: hadCompleteLocalSystemSecrets
+		hasLocalEncryptionKey: hadLocalEncryptionKey
 	})
-	if (!isRemote && !settingsExist) {
+	if (!isRemote) {
 		appendLocalSystemSecrets(existingLocalSystemSecrets, localSystemSecrets)
 	}
 	writeRuntimeSecrets(env)

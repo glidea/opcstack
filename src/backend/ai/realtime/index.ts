@@ -1,4 +1,5 @@
 import { createDoubaoRealtimeClient } from './doubao'
+import type { AIEndpoint } from '../endpoint'
 
 export * from './doubao/constants'
 
@@ -6,7 +7,8 @@ export type AIRealtimeProvider = 'doubao'
 
 export interface AIRealtimeClientOptions {
 	provider?: AIRealtimeProvider
-	model?: string
+	model: string
+	endpoint: AIEndpoint
 }
 
 export interface AIRealtimeClient {
@@ -89,21 +91,12 @@ export interface AIRealtimeErrorEvent {
 }
 
 export function createAIRealtimeClient(
-	env: Env,
 	userId: string,
-	options: AIRealtimeClientOptions = {}
+	options: AIRealtimeClientOptions
 ): AIRealtimeClient {
 	const provider: AIRealtimeProvider = options.provider ?? 'doubao'
-	const model: string = options.model ?? readDefaultModel(env, provider)
 	switch (provider) {
 		case 'doubao':
-			return createDoubaoRealtimeClient(env, userId, model)
-	}
-}
-
-function readDefaultModel(env: Env, provider: AIRealtimeProvider): string {
-	switch (provider) {
-		case 'doubao':
-			return env.REALTIME_DOUBAO_MODEL
+			return createDoubaoRealtimeClient(options.endpoint, userId, options.model)
 	}
 }

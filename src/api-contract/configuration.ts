@@ -370,3 +370,119 @@ export const DeletePaymentProductApi = {
 	response: DeletePaymentProductResponseSchema,
 	errors: ConfigurationErrors
 }
+
+export const AIAreaSchema = z.enum(['chat', 'image', 'tts', 'realtime', 'video'])
+export const AIChannelAreaSchema = z.enum(['image', 'tts', 'video'])
+export const AIProviderIdSchema = z.enum([
+	'chat_openai',
+	'image_gemini',
+	'image_openai',
+	'image_seedream',
+	'image_aliyun',
+	'tts_gemini',
+	'tts_seed',
+	'realtime_doubao',
+	'video_seedance'
+])
+
+export const AIProviderConfigSchema = z.object({
+	id: AIProviderIdSchema,
+	area: AIAreaSchema,
+	provider: z.string().min(1),
+	enabled: z.boolean(),
+	base_url: z.string().url().nullable(),
+	default_model: z.string().min(1).nullable(),
+	api_key_configured: z.boolean()
+})
+export type AIProviderConfig = z.infer<typeof AIProviderConfigSchema>
+
+export const AIChannelSchema = z.object({
+	id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+	area: AIChannelAreaSchema,
+	provider: z.string().min(1),
+	name: z.string().min(1),
+	base_url: z.string().url(),
+	models: z.array(z.string().min(1)).min(1),
+	price_multiplier: z.number().positive(),
+	api_key_configured: z.literal(true),
+	enabled: z.boolean(),
+	version: z.number().int().min(1)
+})
+export type AIChannel = z.infer<typeof AIChannelSchema>
+
+export const AIConfigSchema = z.object({
+	routing_error_weight: z.number().nonnegative(),
+	routing_latency_weight: z.number().nonnegative(),
+	routing_price_weight: z.number().nonnegative(),
+	task_retention_days: z.number().int().positive(),
+	providers: z.array(AIProviderConfigSchema).length(9),
+	channels: z.array(AIChannelSchema),
+	version: z.number().int().min(1)
+})
+export type AIConfig = z.infer<typeof AIConfigSchema>
+
+export const UpdateAIProviderConfigSchema = AIProviderConfigSchema.omit({
+	area: true,
+	provider: true,
+	api_key_configured: true
+}).extend({ api_key: SecretMutationSchema })
+
+export const GetAIConfigRequestSchema = z.object({})
+export const UpdateAIConfigRequestSchema = z.object({
+	routing_error_weight: z.number().nonnegative(),
+	routing_latency_weight: z.number().nonnegative(),
+	routing_price_weight: z.number().nonnegative(),
+	task_retention_days: z.number().int().positive(),
+	providers: z.array(UpdateAIProviderConfigSchema).length(9),
+	expected_version: z.number().int().min(1)
+})
+
+const AIChannelWriteFieldsSchema = AIChannelSchema.omit({
+	api_key_configured: true,
+	version: true
+})
+export const CreateAIChannelRequestSchema = AIChannelWriteFieldsSchema.extend({
+	api_key: z.string().min(1)
+})
+export const UpdateAIChannelRequestSchema = AIChannelWriteFieldsSchema.extend({
+	api_key: z.discriminatedUnion('action', [
+		z.object({ action: z.literal('keep') }),
+		z.object({ action: z.literal('replace'), value: z.string().min(1) })
+	]),
+	expected_version: z.number().int().min(1)
+})
+export const DeleteAIChannelRequestSchema = z.object({
+	id: z.string().min(1),
+	expected_version: z.number().int().min(1)
+})
+export const DeleteAIChannelResponseSchema = z.object({ id: z.string() })
+
+export const GetAIConfigApi = {
+	request: GetAIConfigRequestSchema,
+	response: AIConfigSchema,
+	errors: ConfigurationErrors
+}
+
+export const UpdateAIConfigApi = {
+	request: UpdateAIConfigRequestSchema,
+	response: AIConfigSchema,
+	errors: ConfigurationErrors
+}
+
+export const CreateAIChannelApi = {
+	request: CreateAIChannelRequestSchema,
+	response: AIChannelSchema,
+	errors: ConfigurationErrors
+}
+
+export const UpdateAIChannelApi = {
+	request: UpdateAIChannelRequestSchema,
+	response: AIChannelSchema,
+	errors: ConfigurationErrors
+}
+
+export const DeleteAIChannelApi = {
+	request: DeleteAIChannelRequestSchema,
+	response: DeleteAIChannelResponseSchema,
+	errors: ConfigurationErrors
+}

@@ -25,10 +25,10 @@ import type {
 
 type R2Env = Env & { R2: R2Bucket }
 
-export function createOpenAINativeImageClient(env: Env): OpenAI {
+export function createOpenAINativeImageClient(endpoint: AIEndpoint): OpenAI {
 	return new OpenAI({
-		apiKey: env.IMAGE_OPENAI_API_KEY,
-		baseURL: env.IMAGE_OPENAI_BASE_URL
+		apiKey: endpoint.apiKey,
+		baseURL: endpoint.baseURL
 	})
 }
 
@@ -55,11 +55,8 @@ class openAISimpleImageClient implements AISimpleImageClient {
 		options: AISimpleImageClientOptions
 	) {
 		this.env = env
-		this.endpoint = options.endpoint ?? {
-			baseURL: env.IMAGE_OPENAI_BASE_URL,
-			apiKey: env.IMAGE_OPENAI_API_KEY
-		}
-		this.model = options.model ?? env.IMAGE_OPENAI_MODEL
+		this.endpoint = options.endpoint
+		this.model = options.model
 		this.userId = userId
 		this.tenantDb = tenantDb
 	}

@@ -42,7 +42,8 @@ const mocks = vi.hoisted(() => {
 		retry: vi.fn(),
 		findFirst: vi.fn(),
 		updateSet: vi.fn(),
-		logError: vi.fn()
+		logError: vi.fn(),
+		getAIRuntimeConfig: vi.fn()
 	}
 })
 
@@ -69,6 +70,12 @@ vi.mock('../ai/channel-routing', () => {
 	return {
 		rankAIChannels: mocks.rankChannels,
 		createAIChannelMetricQuery: mocks.metricQuery
+	}
+})
+
+vi.mock('../ai/config', () => {
+	return {
+		getAIRuntimeConfig: mocks.getAIRuntimeConfig
 	}
 })
 
@@ -112,6 +119,7 @@ describe('handleAIImageQueue', () => {
 		mocks.rankChannels.mockResolvedValue([createRankedChannel('IMAGE_GEMINI_OFFICIAL')])
 		mocks.metricQuery.mockImplementation((_, input: unknown) => ({ input }))
 		mocks.runRawD1Batch.mockResolvedValue([])
+		mocks.getAIRuntimeConfig.mockResolvedValue(createAIConfig())
 	})
 
 	type GivenDetail = {
@@ -294,6 +302,7 @@ describe('handleAIImageQueue', () => {
 		await handleAIImageQueue(createBatch(task), createEnv())
 
 		expect(mocks.generate).toHaveBeenCalledTimes(2)
+		expect(mocks.getAIRuntimeConfig).toHaveBeenCalledTimes(1)
 		expect(vi.mocked(createAIImageClients).mock.calls.map((call) => call[3])).toEqual([
 			{
 				provider: 'gemini',
@@ -414,18 +423,24 @@ function createBatch(task: TaskRow): MessageBatch<unknown> {
 function createEnv(): Env {
 	return {
 		META_DB: {},
-		AI_ROUTING_ERROR_WEIGHT: '1',
-		AI_ROUTING_LATENCY_WEIGHT: '0.8',
-		AI_ROUTING_PRICE_WEIGHT: '0.2',
-		IMAGE_GEMINI_OFFICIAL_BASE_URL: 'https://IMAGE_GEMINI_OFFICIAL.example/v1',
-		IMAGE_GEMINI_OFFICIAL_MODELS: 'gemini-model',
-		IMAGE_GEMINI_OFFICIAL_PRICE_MULTIPLIER: '1',
-		IMAGE_GEMINI_OFFICIAL_API_KEY: 'IMAGE_GEMINI_OFFICIAL-key',
-		IMAGE_GEMINI_RESELLER_A_BASE_URL: 'https://IMAGE_GEMINI_RESELLER_A.example/v1',
-		IMAGE_GEMINI_RESELLER_A_MODELS: 'gemini-model',
-		IMAGE_GEMINI_RESELLER_A_PRICE_MULTIPLIER: '1',
-		IMAGE_GEMINI_RESELLER_A_API_KEY: 'IMAGE_GEMINI_RESELLER_A-key'
+		CONFIG_ENCRYPTION_KEY: 'test-config-key'
 	} as unknown as Env
+}
+
+function createAIConfig(): {
+	routing: { errorWeight: number; latencyWeight: number; priceWeight: number }
+	taskRetentionDays: number
+	providers: Record<string, never>
+	channels: never[]
+	version: number
+} {
+	return {
+		routing: { errorWeight: 1, latencyWeight: 0.8, priceWeight: 0.2 },
+		taskRetentionDays: 30,
+		providers: {},
+		channels: [],
+		version: 1
+	}
 }
 
 function createTask(attemptCount: number): TaskRow {

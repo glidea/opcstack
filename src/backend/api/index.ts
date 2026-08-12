@@ -56,8 +56,11 @@ import {
 import { getAdminOverviewHandler } from './handler/admin-overview'
 import { listAdminUsersHandler, updateAdministratorEmailHandler } from './handler/admin-users'
 import {
+	createAIChannelHandler,
 	createPaymentProductHandler,
+	deleteAIChannelHandler,
 	deletePaymentProductHandler,
+	getAIConfigHandler,
 	getAuthenticationConfigHandler,
 	getAffiliateConfigHandler,
 	getCreditsConfigHandler,
@@ -65,6 +68,8 @@ import {
 	getGeneralConfigHandler,
 	getPaymentConfigHandler,
 	getStorageConfigHandler,
+	updateAIChannelHandler,
+	updateAIConfigHandler,
 	updateAuthenticationConfigHandler,
 	updateAffiliateConfigHandler,
 	updateCreditsConfigHandler,
@@ -168,6 +173,11 @@ adminApi.post('/admin/update_payment_config', updatePaymentConfigHandler)
 adminApi.post('/admin/create_payment_product', createPaymentProductHandler)
 adminApi.post('/admin/update_payment_product', updatePaymentProductHandler)
 adminApi.post('/admin/delete_payment_product', deletePaymentProductHandler)
+adminApi.post('/admin/get_ai_config', getAIConfigHandler)
+adminApi.post('/admin/update_ai_config', updateAIConfigHandler)
+adminApi.post('/admin/create_ai_channel', createAIChannelHandler)
+adminApi.post('/admin/update_ai_channel', updateAIChannelHandler)
+adminApi.post('/admin/delete_ai_channel', deleteAIChannelHandler)
 adminApi.put('/admin/r2/public/*', uploadR2PublicObjectHandler)
 adminApi.get('/admin/ai_realtime_connect', aiRealtimeConnectHandler)
 

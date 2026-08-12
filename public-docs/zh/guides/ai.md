@@ -27,7 +27,7 @@ OPCStack 将 AI provider 代码放在 `src/backend/ai/` 下。处理器和业务
 ```
 业务代码
   |
-  +-- createAI...Clients(env, userId, tenantDb, options)
+  +-- createAI...Clients(userId, tenantDb, options)
         |
         +-- simple 客户端接口
         |
@@ -97,17 +97,17 @@ src/backend/consumers/
 
 每个 AI 领域的公共 TypeScript 契约中都包含支持的 provider id。
 
-| 领域 | Provider id | 模块 | 默认模型环境变量 |
+| 领域 | Provider id | 模块 | D1 Provider ID |
 | --- | --- | --- | --- |
-| 对话 | `openai` | `chat/openai` | `CHAT_OPENAI_MODEL` |
-| 图像 | `gemini` | `image/gemini` | `IMAGE_GEMINI_MODEL` |
-| 图像 | `openai` | `image/openai` | `IMAGE_OPENAI_MODEL` |
-| 图像 | `seedream` | `image/seedream` | `IMAGE_SEEDDREAM_MODEL` |
-| 图像 | `aliyun` | `image/aliyun` | `IMAGE_ALIYUN_MODEL` |
-| TTS | `gemini` | `tts/gemini` | `TTS_GEMINI_MODEL` |
-| TTS | `seed` | `tts/seed` | `TTS_SEED_MODEL` |
-| 实时 | `doubao` | `realtime/doubao` | `REALTIME_DOUBAO_MODEL` |
-| 视频 | `seedance` | `video/seedance` | `VIDEO_SEEDDANCE_MODEL` |
+| 对话 | `openai` | `chat/openai` | `chat_openai` |
+| 图像 | `gemini` | `image/gemini` | `image_gemini` |
+| 图像 | `openai` | `image/openai` | `image_openai` |
+| 图像 | `seedream` | `image/seedream` | `image_seedream` |
+| 图像 | `aliyun` | `image/aliyun` | `image_aliyun` |
+| TTS | `gemini` | `tts/gemini` | `tts_gemini` |
+| TTS | `seed` | `tts/seed` | `tts_seed` |
+| 实时 | `doubao` | `realtime/doubao` | `realtime_doubao` |
+| 视频 | `seedance` | `video/seedance` | `video_seedance` |
 
 当调用方需要已知的模型名或语音名时，使用 provider 的 `constants.ts` 文件中的常量。不要在处理器或前端代码中重复硬编码模型列表。
 
@@ -118,7 +118,7 @@ src/backend/consumers/
 ```typescript
 import { createAIClients } from '$backend/ai/chat'
 
-const clients = createAIClients(env)
+const clients = createAIClients({ provider: 'openai', model, endpoint })
 const text = await clients.simple.generateText('Explain D1 sharding in three lines')
 ```
 
@@ -133,19 +133,13 @@ const schema = z.object({
   summary: z.string()
 })
 
-const result = await createAIClients(env).simple.generateObject(
+const result = await createAIClients({ provider: 'openai', model, endpoint }).simple.generateObject(
   'Summarize this product idea',
   schema
 )
 ```
 
-对话配置：
-
-| 键 | 文件 | 用途 |
-| --- | --- | --- |
-| `CHAT_OPENAI_BASE_URL` | `.env.dev`, `.env.prod` | OpenAI 兼容 base URL |
-| `CHAT_OPENAI_MODEL` | `.env.dev`, `.env.prod` | 默认对话模型 |
-| `CHAT_OPENAI_API_KEY` | `.env.secret.example` | API key 占位符 |
+对话配置从 `system_settings.ai_config` 读取。API Key 在创建客户端前解密，配置读取 API 永远不返回明文。
 
 ## 图像
 
@@ -155,7 +149,9 @@ const result = await createAIClients(env).simple.generateObject(
 import { createAIImageClients } from '$backend/ai/image'
 
 const clients = createAIImageClients(env, userId, tenantDb, {
-  provider: 'gemini'
+  provider: 'gemini',
+  model,
+  endpoint
 })
 
 const images = await clients.simple.generate({
@@ -218,7 +214,9 @@ TTS 接受明确的发言人和台词列表。调用方负责脚本质量。客�
 import { createAITTSClients } from '$backend/ai/tts'
 
 const clients = createAITTSClients(env, userId, tenantDb, {
-  provider: 'gemini'
+  provider: 'gemini',
+  model,
+  endpoint
 })
 
 const audio = await clients.simple.generateSpeech({
@@ -251,7 +249,7 @@ Provider 行为：
 | Seed `seed-tts-2.0-standard` | MP3 | 标准语音生成 |
 | Seed `doubao-seed-podcast` | MP3 | 支持基于源内容的播客生成 |
 
-`generateSpeechFromSource` 仅在 Seed 配合 `TTS_SEED_MODEL=doubao-seed-podcast` 时可用。其他 TTS 模型会抛出 `TTS_SOURCE_NOT_SUPPORTED`。
+`generateSpeechFromSource` 仅在 Seed 使用 `doubao-seed-podcast` 模型时可用。其他 TTS 模型会抛出 `TTS_SOURCE_NOT_SUPPORTED`。
 
 `uploadToR2=true` 时，TTS 输出写入 `audio/` 目录。
 
@@ -262,8 +260,10 @@ Provider 行为：
 ```typescript
 import { createAIRealtimeClient } from '$backend/ai/realtime'
 
-const client = createAIRealtimeClient(env, userId, {
-  provider: 'doubao'
+const client = createAIRealtimeClient(userId, {
+  provider: 'doubao',
+  model,
+  endpoint
 })
 
 const session = await client.startSession({
@@ -306,7 +306,8 @@ Doubao 模型别名在代码中校验。未知的实时模型会抛出 `DOUBAO_R
 import { createAIVideoClients } from '$backend/ai/video'
 
 const clients = createAIVideoClients(env, userId, tenantDb, {
-  provider: 'seedance'
+  provider: 'seedance',
+  model
 })
 
 const task = await clients.simple.generate({
@@ -384,7 +385,7 @@ API 或业务代码
 
 Consumer 跳过缺失的任务和非 processing 状态的任务，然后对队列消息执行 `ack()`。这使重试在任务行边界上具有幂等性。
 
-现有的 `*/10 * * * *` scheduled job 会删除 `updated_at` 早于 `AI_TASK_RETENTION_DAYS` 的 `completed` 和 `failed` 任务行，但绝不删除 `processing` 任务。数据库清理不读取任务结果，也不删除生成的 R2 对象；对象保留仍由 R2 lifecycle rules 管理。
+现有的 `*/10 * * * *` scheduled job 每次触发只从 D1 读取一次 `taskRetentionDays`，并删除更早的 `completed` 和 `failed` 任务行。它绝不删除 `processing` 任务。数据库清理不读取任务结果，也不删除生成的 R2 对象；对象保留仍由 R2 lifecycle rules 管理。
 
 ## 队列 Consumer
 
@@ -470,7 +471,7 @@ Meta DB
 
 ## Channel Router
 
-Channel Router 仅用于 Image、TTS 和 Video 异步 consumer。任务创建仍只接受 provider 和 model。Consumer 从 `Env` 发现完整渠道前缀，筛选声明支持该任务模型的渠道，并在调用 provider 前选择分数最高的渠道。
+Channel Router 仅用于 Image、TTS 和 Video 异步 consumer。任务创建仍只接受 provider 和 model。每个 Consumer 从 D1 读取一份 AI 配置快照，筛选声明支持该任务模型的已启用渠道，并在调用 Provider 前选择分数最高的渠道。
 
 评分使用当前 Tenant Shard 最近 5 分钟和 1 小时的 1 分钟桶：
 
@@ -488,66 +489,11 @@ Video 仅在创建新的远程 provider 任务时选择渠道。Provider 返回 
 
 ## 配置
 
-公共 AI 配置位于 `.env.dev` 和 `.env.prod` 中。
+`META_DB` 是 AI 业务配置的唯一来源。`system_settings.ai_config` 保存路由权重、任务保留期和九个固定 Provider 配置。`ai_channels` 保存独立版本控制的异步执行端点。Provider 和 Channel 凭据使用 `CONFIG_ENCRYPTION_KEY` 做 AES-GCM 加密；读取 API 只返回 `api_key_configured`。
 
-| 键 | 用途 |
-| --- | --- |
-| `CHAT_OPENAI_BASE_URL` | OpenAI 兼容对话 base URL |
-| `CHAT_OPENAI_MODEL` | 默认对话模型 |
-| `IMAGE_GEMINI_BASE_URL` | Gemini 图像 base URL |
-| `IMAGE_GEMINI_MODEL` | 默认 Gemini 图像模型 |
-| `IMAGE_OPENAI_BASE_URL` | OpenAI 图像 base URL |
-| `IMAGE_OPENAI_MODEL` | 默认 OpenAI 图像模型 |
-| `IMAGE_SEEDDREAM_BASE_URL` | SeedDream base URL |
-| `IMAGE_SEEDDREAM_MODEL` | 默认 SeedDream 图像模型 |
-| `IMAGE_ALIYUN_BASE_URL` | Aliyun DashScope base URL |
-| `IMAGE_ALIYUN_MODEL` | 默认 Aliyun 图像模型 |
-| `TTS_GEMINI_BASE_URL` | Gemini TTS base URL |
-| `TTS_GEMINI_MODEL` | 默认 Gemini TTS 模型 |
-| `TTS_SEED_BASE_URL` | Seed TTS base URL |
-| `TTS_SEED_MODEL` | 默认 Seed TTS 模型 |
-| `REALTIME_DOUBAO_BASE_URL` | Doubao 实时 base URL |
-| `REALTIME_DOUBAO_MODEL` | 默认 Doubao 实时模型 |
-| `VIDEO_SEEDDANCE_BASE_URL` | SeedDance 视频 base URL |
-| `VIDEO_SEEDDANCE_MODEL` | 默认 SeedDance 视频模型 |
-| `AI_ROUTING_ERROR_WEIGHT` | 异步渠道错误率评分权重 |
-| `AI_ROUTING_LATENCY_WEIGHT` | 异步渠道延迟评分权重 |
-| `AI_ROUTING_PRICE_WEIGHT` | 异步渠道价格评分权重 |
-| `AI_TASK_RETENTION_DAYS` | completed 和 failed 异步任务保留天数 |
+配置保存后对下一个请求、Queue 消息、WebSocket 连接或 Cron 触发生效。已经开始的操作继续使用启动时的快照。已经取得远程任务 ID 的 Video 任务即使对应 Channel 后来被停用，也继续使用持久化的 Channel。
 
-密钥占位符位于 `.env.secret.example`。
-
-| 密钥 | 用途 |
-| --- | --- |
-| `CHAT_OPENAI_API_KEY` | 对话 key |
-| `IMAGE_GEMINI_API_KEY` | Gemini 图像 key |
-| `IMAGE_OPENAI_API_KEY` | OpenAI 图像 key |
-| `IMAGE_SEEDDREAM_API_KEY` | SeedDream key |
-| `IMAGE_ALIYUN_API_KEY` | Aliyun key |
-| `TTS_GEMINI_API_KEY` | Gemini TTS key |
-| `TTS_SEED_API_KEY` | Seed TTS key |
-| `REALTIME_DOUBAO_API_KEY` | Doubao 实时 key |
-| `VIDEO_SEEDDANCE_API_KEY` | SeedDance key |
-| `IMAGE_GEMINI_OFFICIAL_API_KEY` | Gemini 图像渠道 key |
-| `IMAGE_OPENAI_OFFICIAL_API_KEY` | OpenAI 图像渠道 key |
-| `IMAGE_SEEDDREAM_OFFICIAL_API_KEY` | SeedDream 图像渠道 key |
-| `IMAGE_ALIYUN_OFFICIAL_API_KEY` | Aliyun 图像渠道 key |
-| `TTS_GEMINI_OFFICIAL_API_KEY` | Gemini TTS 渠道 key |
-| `TTS_SEED_OFFICIAL_API_KEY` | Seed TTS 渠道 key |
-| `VIDEO_SEEDDANCE_OFFICIAL_API_KEY` | SeedDance 视频渠道 key |
-
-不要将 API key 放在公共环境文件或前端配置中。
-
-异步渠道使用一个完整的 ENV 前缀配置：
-
-```bash
-IMAGE_OPENAI_OFFICIAL_BASE_URL=https://api.openai.com/v1
-IMAGE_OPENAI_OFFICIAL_MODELS=gpt-image-2
-IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER=1
-IMAGE_OPENAI_OFFICIAL_API_KEY=
-```
-
-`MODELS` 接受分号分隔的模型名。`PRICE_MULTIPLIER` 必须为正数。Cloudflare 准备脚本会发现完整渠道前缀，并把公共字段和 secret key 注入生成的运行时配置。
+任何 AI 业务设置或凭据都不应写入 `.env.dev`、`.env.prod`、`.env.secret.*` 或 `wrangler.jsonc`。
 
 ## 添加 Provider
 
@@ -558,7 +504,7 @@ IMAGE_OPENAI_OFFICIAL_API_KEY=
 3. 实现现有的 simple 客户端接口
 4. 将 provider id 添加到该领域的 provider 联合类型中
 5. 在该领域的 `createAI...Clients` 工厂中添加一个分支
-6. 将环境变量添加到 `.env.dev`、`.env.prod`、`.env.secret.example`、`wrangler.jsonc.tpl` 和 `SECRET_KEYS`
+6. 增加固定 Provider 身份和初始化时默认禁用的 D1 结构
 7. 针对请求映射、任务创建和 provider 错误映射添加专项单元测试
 
 除非至少有两个领域需要完全相同的动态注册行为，否则不要创建通用 provider 注册表。当前显式的 `switch`/分支写法更简单易读。

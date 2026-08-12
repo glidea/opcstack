@@ -27,7 +27,7 @@ flowchart TB
   subgraph DeployControl["Deployment control plane"]
     Operator["Developer / CI"]
     BuildEnv["Node + pnpm"]
-    EnvFiles["public env + secret env"]
+    EnvFiles["fixed topology env"]
     ApiToken["Cloudflare API token"]
     Deploy["prepare-cloudflare<br/>wrangler deploy"]
   end
@@ -198,13 +198,13 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - `scripts/prepare-public.mjs` generates `src/frontend/lib/config/client.generated.ts`, web logo, and extension icons.
 - `scripts/prepare-cloudflare.mjs` generates `wrangler.jsonc`, `.wrangler/wrangler.types.jsonc`, Cloudflare resources, bindings, migrations, runtime secrets, and public artifacts.
 - `wrangler.jsonc` is the runtime config and should include only secrets required by enabled features.
-- `.wrangler/wrangler.types.jsonc` is type-generation-only config and may include the full secret schema so `Env` stays stable.
+- `.wrangler/wrangler.types.jsonc` is type-generation-only config and includes the three generated system secrets so `Env` stays stable.
 - Fixed public deployment config lives in `.env.dev` and `.env.prod`. `.env` is a local override.
 - User-provided secret config lives in `.env.secret.dev` and `.env.secret.prod`.
 - Agents must not read, print, search, edit, create, or copy secret files or token caches: `.env.secret.dev`, `.env.secret.prod`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
 - Any work involving secret values must be performed by the user.
 - Env loading order: `.env.dev` or `.env.prod` -> `.env.secret.dev` or `.env.secret.prod` -> `.env` -> `process.env`.
-- Env files are ordered by shared product identity first, then domains, frontend exposure, auth, business features, infrastructure, payments, and AI providers.
+- Env files contain fixed deployment topology only and are ordered by shared product identity, domains, frontend exposure, and infrastructure.
 - Keep related env keys together. Put a feature switch before its provider selection and provider-specific settings.
 - Keep optional settings after required settings inside the same group.
 - Keep `.env.secret.example` in the same business order as public env files.
@@ -216,8 +216,8 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Signup rewards, daily check-in, affiliate rewards, and credit transaction retention read one domain snapshot per operation and never use ENV fallbacks.
 - Better Auth, beta gate, Turnstile, social OAuth, and email delivery share one request-scoped Authentication and Email snapshot. Disabled email delivery keeps password login available but disables signup, verification, and password-reset email actions.
 - Migrate one business domain atomically: after its runtime reads D1, delete the same ENV keys and parsers in that change. Never keep ENV fallback for a migrated setting.
-- Async AI channels are discovered from complete `<AREA>_<PROVIDER>_<CHANNEL>_{BASE_URL,MODELS,PRICE_MULTIPLIER,API_KEY}` ENV groups. ENV is the single channel registry; do not add channel ids, adapter registries, or parallel endpoint config.
-- `AI_ROUTING_ERROR_WEIGHT`, `AI_ROUTING_LATENCY_WEIGHT`, `AI_ROUTING_PRICE_WEIGHT`, and `AI_TASK_RETENTION_DAYS` are required and strictly validated during Cloudflare preparation.
+- Runtime business configuration lives in `META_DB`. Do not add an Env fallback for a D1-owned setting.
+- AI providers, routing weights, task retention, and async channels are D1-owned. Provider and channel credentials are encrypted with `CONFIG_ENCRYPTION_KEY`.
 - `APP_CN_DOMAIN` is optional. When set without `APP_CN_CNAME_TARGET`, `prepare-cloudflare.mjs` adds it as a second Worker custom domain. It always adds it as an R2 CORS origin and Turnstile domain.
 - `APP_CN_CNAME_TARGET` is optional. When set with `APP_CN_DOMAIN` in prod mode, `prepare-cloudflare.mjs` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`, skips the Worker custom domain for that hostname, and adds a normal Worker zone route. It does not choose acceleration targets.
 - Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.
@@ -306,7 +306,7 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - Use a single R2 bucket by default.
 - Payment settings, provider credentials, country routing, and products are read from Meta D1. Enabled providers are Dodo and Creem via `src/backend/payment/`.
 - AI providers live under `src/backend/ai/`; async AI queue payloads carry only task id and user id.
-- Only Image, TTS, and Video async consumers use Channel Router. Task creation still stores provider and model only; the consumer selects a matching ENV channel at execution time.
+- Only Image, TTS, and Video async consumers use Channel Router. Task creation stores provider and model only; each consumer reads one D1 AI configuration snapshot and selects a matching enabled channel at execution time.
 - Image and TTS may try ranked channels within one queue attempt. Video selects a channel only when creating a remote task and polls that task through the persisted channel until the provider reports a terminal failure.
 - Synchronous AI calls use their provider's configured endpoint. Providers accept an explicit endpoint from async consumers but never select or retry channels themselves.
 - Generated video output must be downloaded from provider and streamed into R2. Do not use `arrayBuffer` or base64 for video output upload.
@@ -324,7 +324,7 @@ Before changing these areas, inspect the source directory and related tests.
 - Queue handlers live in `src/backend/consumers/index.ts`.
 - Configure cron triggers with `CRONS`, separated by semicolon.
 - Cron handlers live in `src/backend/jobs/index.ts`.
-- The existing `*/10 * * * *` job deletes AI channel metric buckets older than 24 hours and terminal AI tasks older than `AI_TASK_RETENTION_DAYS` from every active or draining Tenant Shard. It must not delete processing tasks or access R2.
+- The existing `*/10 * * * *` job deletes AI channel metric buckets older than 24 hours and terminal AI tasks older than the D1-configured retention period from every active or draining Tenant Shard. It reads one AI configuration snapshot per trigger and must not delete processing tasks or access R2.
 - Configure Durable Object names with `DO_NAMES`, separated by semicolon.
 - Durable Object binding convention: `DO_<NAME_UPPER>`, for example `rate-limiter` -> `DO_RATE_LIMITER`.
 - Durable Object class convention: PascalCase name plus `DO` suffix, for example `RateLimiterDO`.

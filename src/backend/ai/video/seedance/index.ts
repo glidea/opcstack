@@ -89,7 +89,7 @@ class seedDanceSimpleVideoClient implements AISimpleVideoClient {
 		this.env = env
 		this.userId = userId
 		this.tenantDb = tenantDb
-		this.model = options.model ?? env.VIDEO_SEEDDANCE_MODEL
+		this.model = options.model
 	}
 
 	async generate(input: AIVideoGenerateInput): Promise<AIVideoTask> {

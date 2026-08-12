@@ -177,7 +177,9 @@ describe('seedance video client', () => {
 				send: sendMock
 			}
 		} as unknown as Env
-		const client = createSeedDanceSimpleVideoClient(env, 'u1', createDb(updateSetMock), {})
+		const client = createSeedDanceSimpleVideoClient(env, 'u1', createDb(updateSetMock), {
+			model: 'doubao-seedance-2-0-fast-260128'
+		})
 
 		const task = await client.generate({
 			prompt: 'make a video',
@@ -220,9 +222,6 @@ describe('seedance video client', () => {
 
 function createEnv(): Env {
 	return {
-		VIDEO_SEEDDANCE_BASE_URL: 'https://ark.cn-beijing.volces.com/api/v3',
-		VIDEO_SEEDDANCE_API_KEY: 'key',
-		VIDEO_SEEDDANCE_MODEL: 'doubao-seedance-2-0-fast-260128',
 		APP_BASE_URL: 'https://app',
 		R2_ORIGIN_SIGNING_SECRET: 'secret'
 	} as unknown as Env

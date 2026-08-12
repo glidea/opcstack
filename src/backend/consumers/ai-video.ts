@@ -26,6 +26,7 @@ import type {
 } from '../ai/video'
 import type { AIVideoGenerateQueueMessage } from '../ai/video/task'
 import type { AIVideoTaskRow } from '../db/schema.shard'
+import { getAIRuntimeConfig, type AIRuntimeConfig } from '../ai/config'
 
 const AI_VIDEO_MAX_ATTEMPTS = 3
 const AI_VIDEO_POLL_DELAY_SECONDS = 30
@@ -59,11 +60,16 @@ async function handleAIVideoMessage(
 		message.ack()
 		return
 	}
+	const aiConfig: AIRuntimeConfig = await getAIRuntimeConfig(
+		metaDb,
+		env.CONFIG_ENCRYPTION_KEY
+	)
 
 	const metricQueries: D1RawRunQuery[] = []
 	try {
 		const execution: AIVideoExecution | undefined = await ensureProviderTask(
 			env,
+			aiConfig,
 			tenant.db,
 			task,
 			metricQueries
@@ -146,6 +152,7 @@ async function handleAIVideoMessage(
 
 async function ensureProviderTask(
 	env: Env,
+	aiConfig: AIRuntimeConfig,
 	db: TenantShardDb,
 	task: AIVideoTaskRow,
 	metricQueries: D1RawRunQuery[]
@@ -163,13 +170,13 @@ async function ensureProviderTask(
 		}
 		return {
 			providerTaskId: task.providerTaskId,
-			channel: resolveAIChannel(env, task.channel, target, task.model),
+			channel: resolveAIChannel(aiConfig, task.channel, target, task.model),
 			channelStartedAt: task.channelStartedAt
 		}
 	}
 
 	const failedChannels: string[] = JSON.parse(task.failedChannelsJson) as string[]
-	const rankedChannels: AIRankedChannel[] = await rankAIChannels(db, env, {
+	const rankedChannels: AIRankedChannel[] = await rankAIChannels(db, aiConfig, {
 		target,
 		model: task.model,
 		excludedChannels: failedChannels,

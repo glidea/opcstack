@@ -16,7 +16,8 @@ const creditsMock = vi.hoisted(() => {
 
 const configMock = vi.hoisted(() => {
 	return {
-		getCreditsConfig: vi.fn()
+		getCreditsConfig: vi.fn(),
+		getAIConfig: vi.fn()
 	}
 })
 
@@ -47,6 +48,12 @@ vi.mock('../config', () => {
 	}
 })
 
+vi.mock('../ai/config', () => {
+	return {
+		getAIConfig: configMock.getAIConfig
+	}
+})
+
 describe('handleScheduled', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
@@ -71,6 +78,7 @@ describe('handleScheduled', () => {
 			historyRetentionDays: 90,
 			version: 1
 		})
+		configMock.getAIConfig.mockResolvedValue({ taskRetentionDays: 30 })
 	})
 
 	type GivenDetail = {
@@ -85,6 +93,7 @@ describe('handleScheduled', () => {
 		cleanupCalls: number
 		cleanupRetentionDays: number
 		aiCleanupCalls: number
+		aiConfigCalls: number
 	}
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
@@ -105,6 +114,7 @@ describe('handleScheduled', () => {
 				cleanupCalls: 0,
 				cleanupRetentionDays: 0,
 				aiCleanupCalls: 0
+				,aiConfigCalls: 0
 			}
 		},
 		{
@@ -124,6 +134,7 @@ describe('handleScheduled', () => {
 				cleanupCalls: 1,
 				cleanupRetentionDays: 30,
 				aiCleanupCalls: 1
+				,aiConfigCalls: 1
 			}
 		},
 	]
@@ -137,10 +148,7 @@ describe('handleScheduled', () => {
 			historyRetentionDays: given.retentionDays,
 			version: 1
 		})
-		const env = {
-			META_DB: {},
-			AI_TASK_RETENTION_DAYS: '30'
-		} as unknown as Env
+		const env = { META_DB: {} } as unknown as Env
 
 		await handleScheduled(
 			{ cron: given.cron, scheduledTime: 1890000000000 } as ScheduledController,
@@ -158,7 +166,8 @@ describe('handleScheduled', () => {
 			expireCalls: vi.mocked(creditsMock.expire).mock.calls.length,
 			cleanupCalls: vi.mocked(creditsMock.cleanupTransactions).mock.calls.length,
 			cleanupRetentionDays: cleanupInput?.retentionDays ?? 0,
-			aiCleanupCalls: creditsMock.runRawD1Batch.mock.calls.length
+			aiCleanupCalls: creditsMock.runRawD1Batch.mock.calls.length,
+			aiConfigCalls: configMock.getAIConfig.mock.calls.length
 		}
 	})
 
@@ -183,10 +192,7 @@ describe('handleScheduled', () => {
 
 		await handleScheduled(
 			{ cron: '*/10 * * * *', scheduledTime } as ScheduledController,
-			{
-				META_DB: {},
-				AI_TASK_RETENTION_DAYS: '30'
-			} as unknown as Env,
+			{ META_DB: {} } as unknown as Env,
 			{} as ExecutionContext
 		)
 

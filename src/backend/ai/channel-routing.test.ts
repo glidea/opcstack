@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SQLiteSyncDialect } from 'drizzle-orm/sqlite-core'
 import type { TenantShardDb } from '../db'
+import type { AIRuntimeConfig } from './config'
 import { AIError } from './error'
 import {
 	createAIChannelMetricQuery,
@@ -14,7 +15,7 @@ const minuteMs = 60_000
 
 describe('rankAIChannels', () => {
 	it('ranks channels by weighted error, latency, and price score', async () => {
-		const env = createEnv()
+		const config = createConfig()
 		const nowMs = 10 * minuteMs + 12_345
 		const db = createMetricDb([
 			{
@@ -35,7 +36,7 @@ describe('rankAIChannels', () => {
 			}
 		])
 
-		const ranked = await rankAIChannels(db, env, {
+		const ranked = await rankAIChannels(db, config, {
 			target: { taskType: 'image', provider: 'openai' },
 			model: 'gpt-image-2',
 			excludedChannels: [],
@@ -49,7 +50,7 @@ describe('rankAIChannels', () => {
 	})
 
 	it('uses neutral cold-start metrics and price to rank an empty pool', async () => {
-		const ranked = await rankAIChannels(createMetricDb([]), createEnv(), {
+		const ranked = await rankAIChannels(createMetricDb([]), createConfig(), {
 			target: { taskType: 'image', provider: 'openai' },
 			model: 'gpt-image-2',
 			excludedChannels: [],
@@ -80,7 +81,7 @@ describe('rankAIChannels', () => {
 				errorCount: 3,
 				successLatencyMsTotal: 0
 			}
-		]), createEnv(), {
+		]), createConfig(), {
 			target: { taskType: 'image', provider: 'openai' },
 			model: 'gpt-image-2',
 			excludedChannels: [],
@@ -94,7 +95,7 @@ describe('rankAIChannels', () => {
 	})
 
 	it('returns no channels after exclusions and throws when the pool is empty', async () => {
-		const env = createEnv()
+		const config = createConfig()
 		const db = createMetricDb([])
 		const input: Omit<AIChannelRouteInput, 'excludedChannels'> = {
 			target: { taskType: 'image', provider: 'openai' as const },
@@ -103,14 +104,14 @@ describe('rankAIChannels', () => {
 		}
 
 		await expect(
-			rankAIChannels(db, env, {
+			rankAIChannels(db, config, {
 				...input,
 				excludedChannels: ['IMAGE_OPENAI_OFFICIAL', 'IMAGE_OPENAI_RESELLER_A']
 			})
 		).resolves.toEqual([])
 
 		await expect(
-			rankAIChannels(db, env, {
+			rankAIChannels(db, config, {
 			...input,
 			model: 'gpt-image-1',
 			excludedChannels: []
@@ -122,7 +123,7 @@ describe('rankAIChannels', () => {
 describe('resolveAIChannel', () => {
 	it('resolves a configured channel for the requested target and model', () => {
 		const channel = resolveAIChannel(
-			createEnv(),
+			createConfig(),
 			'IMAGE_OPENAI_OFFICIAL',
 			{ taskType: 'image', provider: 'openai' },
 			'gpt-image-2'
@@ -147,7 +148,7 @@ describe('resolveAIChannel', () => {
 	it('throws a typed error for a channel outside the requested target', () => {
 		expect(() => {
 			resolveAIChannel(
-				createEnv(),
+				createConfig(),
 				'IMAGE_OPENAI_OFFICIAL',
 				{ taskType: 'tts', provider: 'seed' },
 				'gpt-image-2'
@@ -195,20 +196,35 @@ describe('createAIChannelMetricQuery', () => {
 	})
 })
 
-function createEnv(): Env {
+function createConfig(): AIRuntimeConfig {
 	return {
-		AI_ROUTING_ERROR_WEIGHT: '1',
-		AI_ROUTING_LATENCY_WEIGHT: '0.8',
-		AI_ROUTING_PRICE_WEIGHT: '0.2',
-		IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://official.example.com/v1',
-		IMAGE_OPENAI_OFFICIAL_MODELS: 'gpt-image-2',
-		IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '1',
-		IMAGE_OPENAI_OFFICIAL_API_KEY: 'official-key',
-		IMAGE_OPENAI_RESELLER_A_BASE_URL: 'https://reseller.example.com/v1',
-		IMAGE_OPENAI_RESELLER_A_MODELS: 'gpt-image-2',
-		IMAGE_OPENAI_RESELLER_A_PRICE_MULTIPLIER: '0.8',
-		IMAGE_OPENAI_RESELLER_A_API_KEY: 'reseller-key'
-	} as unknown as Env
+		routing: { errorWeight: 1, latencyWeight: 0.8, priceWeight: 0.2 },
+		taskRetentionDays: 30,
+		providers: {},
+		channels: [
+			{
+				id: 'IMAGE_OPENAI_OFFICIAL',
+				area: 'image',
+				provider: 'openai',
+				name: 'Official',
+				models: ['gpt-image-2'],
+				priceMultiplier: 1,
+				endpoint: { baseURL: 'https://official.example.com/v1', apiKey: 'official-key' },
+				enabled: true
+			},
+			{
+				id: 'IMAGE_OPENAI_RESELLER_A',
+				area: 'image',
+				provider: 'openai',
+				name: 'Reseller A',
+				models: ['gpt-image-2'],
+				priceMultiplier: 0.8,
+				endpoint: { baseURL: 'https://reseller.example.com/v1', apiKey: 'reseller-key' },
+				enabled: true
+			}
+		],
+		version: 1
+	}
 }
 
 interface MetricRow {

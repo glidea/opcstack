@@ -68,7 +68,7 @@ export function createSeedSimpleTTSClient(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
-	options: AISimpleTTSClientOptions = {}
+	options: AISimpleTTSClientOptions
 ): AISimpleTTSClient {
 	return new seedSimpleTTSClient(env, userId, tenantDb, options)
 }
@@ -87,11 +87,8 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 		options: AISimpleTTSClientOptions
 	) {
 		this.env = env
-		this.endpoint = options.endpoint ?? {
-			baseURL: env.TTS_SEED_BASE_URL,
-			apiKey: env.TTS_SEED_API_KEY
-		}
-		this.model = options.model ?? env.TTS_SEED_MODEL
+		this.endpoint = options.endpoint
+		this.model = options.model
 		this.userId = userId
 		this.tenantDb = tenantDb
 	}

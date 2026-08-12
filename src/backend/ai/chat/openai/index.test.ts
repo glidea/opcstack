@@ -160,9 +160,9 @@ describe('createOpenAISimpleChatClient', () => {
 			return { __name: name }
 		})
 
-		const env = createEnv(given.envModel)
-		const client = createOpenAISimpleChatClient(env, {
-			model: given.optionsModel,
+		const client = createOpenAISimpleChatClient({
+			model: given.optionsModel ?? given.envModel,
+			endpoint: { baseURL: 'https://api.openai.com/v1', apiKey: 'k' },
 			temperature: given.optionsTemperature
 		})
 
@@ -236,8 +236,7 @@ describe('createOpenAINativeChatClient', () => {
 
 	runCases(cases, (given, _when) => {
 		vi.clearAllMocks()
-		const env = createEnv('gpt-env', given.apiKey, given.baseURL)
-		createOpenAINativeChatClient(env)
+		createOpenAINativeChatClient({ apiKey: given.apiKey, baseURL: given.baseURL })
 		const config = openAIConstructorMock.mock.calls[0]?.[0] as
 			| { apiKey?: string; baseURL?: string }
 			| undefined
@@ -249,15 +248,3 @@ describe('createOpenAINativeChatClient', () => {
 		}
 	})
 })
-
-function createEnv(
-	model: string,
-	apiKey = 'k',
-	baseURL = 'https://api.openai.com/v1'
-): Env {
-	return {
-		CHAT_OPENAI_API_KEY: apiKey,
-		CHAT_OPENAI_BASE_URL: baseURL,
-		CHAT_OPENAI_MODEL: model
-	} as unknown as Env
-}

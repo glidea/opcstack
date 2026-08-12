@@ -22,10 +22,10 @@ import type {
 
 type R2Env = Env & { R2: R2Bucket }
 
-export function createGeminiNativeImageClient(env: Env): GoogleGenAI {
+export function createGeminiNativeImageClient(endpoint: AIEndpoint): GoogleGenAI {
 	return new GoogleGenAI({
-		apiKey: env.IMAGE_GEMINI_API_KEY,
-		httpOptions: { baseUrl: env.IMAGE_GEMINI_BASE_URL }
+		apiKey: endpoint.apiKey,
+		httpOptions: { baseUrl: endpoint.baseURL }
 	})
 }
 
@@ -52,11 +52,8 @@ class geminiSimpleImageClient implements AISimpleImageClient {
 		options: AISimpleImageClientOptions
 	) {
 		this.env = env
-		this.endpoint = options.endpoint ?? {
-			baseURL: env.IMAGE_GEMINI_BASE_URL,
-			apiKey: env.IMAGE_GEMINI_API_KEY
-		}
-		this.model = options.model ?? env.IMAGE_GEMINI_MODEL
+		this.endpoint = options.endpoint
+		this.model = options.model
 		this.userId = userId
 		this.tenantDb = tenantDb
 	}

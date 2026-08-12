@@ -387,7 +387,10 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 			env,
 			given.optionsUserId ?? 'u',
 			{} as TenantShardDb,
-			{ model: given.optionsModel }
+			{
+				model: given.optionsModel ?? given.envModel,
+				endpoint: { baseURL: 'https://ark.cn-beijing.volces.com/api/v3', apiKey: 'k' }
+			}
 		)
 
 		try {
@@ -411,6 +414,7 @@ describe('createSeedDreamSimpleImageClient.generate', () => {
 			'u',
 			{} as TenantShardDb,
 			{
+				model: 'env-model',
 				endpoint: { baseURL: 'https://channel.example/v1', apiKey: 'channel-key' }
 			}
 		)
@@ -526,8 +530,7 @@ describe('createSeedDreamNativeImageClient', () => {
 
 	runCases(cases, (given): ThenExpected => {
 		vi.clearAllMocks()
-		const env = createEnv('env-model', given.apiKey, given.baseURL)
-		createSeedDreamNativeImageClient(env)
+		createSeedDreamNativeImageClient({ apiKey: given.apiKey, baseURL: given.baseURL })
 
 		const config = openAIConstructorMock.mock.calls[0]?.[0] as
 			| {
@@ -544,14 +547,7 @@ describe('createSeedDreamNativeImageClient', () => {
 	})
 })
 
-function createEnv(
-	model: string,
-	apiKey = 'k',
-	baseURL = 'https://ark.cn-beijing.volces.com/api/v3'
-): Env {
-	return {
-		IMAGE_SEEDDREAM_API_KEY: apiKey,
-		IMAGE_SEEDDREAM_BASE_URL: baseURL,
-		IMAGE_SEEDDREAM_MODEL: model
-	} as unknown as Env
+function createEnv(model: string): Env {
+	void model
+	return {} as Env
 }

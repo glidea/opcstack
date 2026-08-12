@@ -7,6 +7,7 @@ import {
 	type AIRealtimeSession,
 	type AIRealtimeStartSessionInput
 } from '../../ai/realtime'
+import type { AIRuntimeConfig } from '../../ai/config'
 import { bindAIRealtimeWebSocket } from './ai-realtime'
 
 type ClientCall = {
@@ -111,8 +112,8 @@ vi.mock('../../ai/realtime', async () => {
 	}
 	return {
 		...actual,
-		createAIRealtimeClient: (_env: Env, userId: string, options: AIRealtimeClientOptions): AIRealtimeClient => {
-			return new FakeRealtimeClient(userId, options.model ?? 'doubao-realtime-o2')
+		createAIRealtimeClient: (userId: string, options: AIRealtimeClientOptions): AIRealtimeClient => {
+			return new FakeRealtimeClient(userId, options.model)
 		}
 	}
 })
@@ -198,10 +199,20 @@ describe('bindAIRealtimeWebSocket', () => {
 	runCases(cases, async (): Promise<ThenExpected> => {
 		calls.length = 0
 		const socket = new FakeWebSocket()
-		const env: Env = {
-			REALTIME_DOUBAO_MODEL: 'doubao-realtime-o2'
-		} as unknown as Env
-		bindAIRealtimeWebSocket(socket, 'u1', env)
+		const config: AIRuntimeConfig = {
+			routing: { errorWeight: 1, latencyWeight: 0.8, priceWeight: 0.2 },
+			taskRetentionDays: 30,
+			providers: {
+				realtimeDoubao: {
+					identity: { id: 'realtimeDoubao', area: 'realtime', provider: 'doubao' },
+					endpoint: { baseURL: 'wss://example.com', apiKey: 'k' },
+					defaultModel: 'doubao-realtime-o2'
+				}
+			},
+			channels: [],
+			version: 1
+		}
+		bindAIRealtimeWebSocket(socket, 'u1', config)
 
 		socket.dispatchMessage(JSON.stringify({
 			type: 'start_session',

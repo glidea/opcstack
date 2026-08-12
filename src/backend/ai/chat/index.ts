@@ -1,5 +1,6 @@
 import type { z } from 'zod'
 import type OpenAI from 'openai'
+import type { AIEndpoint } from '../endpoint'
 import { AIError } from '../error'
 import { createOpenAISimpleChatClient, createOpenAINativeChatClient } from './openai'
 
@@ -8,12 +9,12 @@ export interface AIClients {
     openai: OpenAI
 }
 
-export function createAIClients(env: Env, options: AIChatClientOptions = {}): AIClients {
+export function createAIClients(options: AIChatClientOptions): AIClients {
     const provider = options.provider ?? 'openai'
     if (provider === 'openai') {
         return {
-            simple: createOpenAISimpleChatClient(env, options),
-            openai: createOpenAINativeChatClient(env)
+            simple: createOpenAISimpleChatClient(options),
+            openai: createOpenAINativeChatClient(options.endpoint)
         }
     }
 
@@ -30,6 +31,7 @@ export interface AISimpleChatClient {
 
 export interface AIChatClientOptions {
     provider?: 'openai'
-    model?: string
+	model: string
+	endpoint: AIEndpoint
     temperature?: number
 }

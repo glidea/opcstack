@@ -418,7 +418,8 @@ describe('createAliyunSimpleImageClient.generate', () => {
 		})
 
 		const client = createAliyunSimpleImageClient(createEnv(given.envModel), 'u', {} as TenantShardDb, {
-			model: given.optionsModel
+			model: given.optionsModel ?? given.envModel,
+			endpoint: { baseURL: 'https://dashscope.aliyuncs.com/api/v1', apiKey: 'key' }
 		})
 
 		try {
@@ -477,6 +478,7 @@ describe('createAliyunSimpleImageClient.generate', () => {
 			'u',
 			{} as TenantShardDb,
 			{
+				model: 'qwen-image-2.0-pro',
 				endpoint: { baseURL: 'https://channel.example/api/v1', apiKey: 'channel-key' }
 			}
 		)
@@ -518,7 +520,7 @@ describe('createAliyunNativeImageClient', () => {
 	]
 
 	runCases(cases, (given): ThenExpected => {
-		const client = createAliyunNativeImageClient(createEnv('qwen-image-2.0-pro', given.apiKey, given.baseURL))
+		const client = createAliyunNativeImageClient({ apiKey: given.apiKey, baseURL: given.baseURL })
 		return {
 			apiKey: client.apiKey,
 			baseURL: client.baseURL
@@ -535,14 +537,7 @@ function toHeader(headers: HeadersInit | undefined, name: string): string {
 	return value ?? ''
 }
 
-function createEnv(
-	model: string,
-	apiKey = 'key',
-	baseURL = 'https://dashscope.aliyuncs.com/api/v1'
-): Env {
-	return {
-		IMAGE_ALIYUN_API_KEY: apiKey,
-		IMAGE_ALIYUN_BASE_URL: baseURL,
-		IMAGE_ALIYUN_MODEL: model
-	} as unknown as Env
+function createEnv(model: string): Env {
+	void model
+	return {} as Env
 }

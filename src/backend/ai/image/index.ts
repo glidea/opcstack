@@ -36,25 +36,25 @@ export function createAIImageClients(
 	if (provider === 'gemini') {
 		return {
 			simple: createGeminiSimpleImageClient(env, userId, tenantDb, options),
-			gemini: createGeminiNativeImageClient(env)
+			gemini: createGeminiNativeImageClient(options.endpoint)
 		}
 	}
 	if (provider === 'openai') {
 		return {
 			simple: createOpenAISimpleImageClient(env, userId, tenantDb, options),
-			openai: createOpenAINativeImageClient(env)
+			openai: createOpenAINativeImageClient(options.endpoint)
 		}
 	}
 	if (provider === 'seedream') {
 		return {
 			simple: createSeedDreamSimpleImageClient(env, userId, tenantDb, options),
-			seedream: createSeedDreamNativeImageClient(env)
+			seedream: createSeedDreamNativeImageClient(options.endpoint)
 		}
 	}
 	if (provider === 'aliyun') {
 		return {
 			simple: createAliyunSimpleImageClient(env, userId, tenantDb, options),
-			aliyun: createAliyunNativeImageClient(env)
+			aliyun: createAliyunNativeImageClient(options.endpoint)
 		}
 	}
 
@@ -69,8 +69,8 @@ export interface AISimpleImageClient {
 
 export interface AISimpleImageClientOptions {
 	provider?: AIImageProvider
-	model?: string
-	endpoint?: AIEndpoint
+	model: string
+	endpoint: AIEndpoint
 }
 
 export type AIImageProvider = 'gemini' | 'openai' | 'seedream' | 'aliyun'

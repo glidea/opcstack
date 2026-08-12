@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { decryptConfigSecret } from '../src/backend/config/crypto.ts'
 import {
 	buildAgentOAuthClientUpsertSql,
-	buildAIChannelVars,
 	buildDnsCnameRecordPayload,
 	buildOAuthClientUpsertSql,
 	buildInitialAdministratorInsertSql,
@@ -337,7 +336,7 @@ describe('prepare cloudflare runtime config validation', () => {
 				isRemote: true,
 				workerExists: false,
 				hasPendingSecrets: false,
-				hasLocalSecrets: false
+				hasLocalEncryptionKey: false
 			})
 		}).toThrow('SYSTEM_SECRETS_RECOVERY_UNAVAILABLE')
 		expect(() => {
@@ -346,7 +345,7 @@ describe('prepare cloudflare runtime config validation', () => {
 				isRemote: false,
 				workerExists: false,
 				hasPendingSecrets: false,
-				hasLocalSecrets: false
+				hasLocalEncryptionKey: false
 			})
 		}).toThrow('SYSTEM_SECRETS_RECOVERY_UNAVAILABLE')
 	})
@@ -358,7 +357,7 @@ describe('prepare cloudflare runtime config validation', () => {
 				isRemote: true,
 				workerExists: false,
 				hasPendingSecrets: true,
-				hasLocalSecrets: false
+				hasLocalEncryptionKey: false
 			})
 		}).not.toThrow()
 		expect(() => {
@@ -367,7 +366,19 @@ describe('prepare cloudflare runtime config validation', () => {
 				isRemote: false,
 				workerExists: false,
 				hasPendingSecrets: false,
-				hasLocalSecrets: true
+				hasLocalEncryptionKey: true
+			})
+		}).not.toThrow()
+	})
+
+	it('allows missing non-encryption local secrets to be generated for existing settings', () => {
+		expect(() => {
+			validateSystemSecretRecovery({
+				settingsExist: true,
+				isRemote: false,
+				workerExists: false,
+				hasPendingSecrets: false,
+				hasLocalEncryptionKey: true
 			})
 		}).not.toThrow()
 	})
@@ -379,118 +390,6 @@ describe('prepare cloudflare runtime config validation', () => {
 				{ isRemote: false }
 			)
 		}).toThrow('CONFIG_ENCRYPTION_KEY_INVALID')
-	})
-
-	it('discovers complete async ai channels', () => {
-		const env = createRuntimeEnv({
-			IMAGE_OPENAI_BASE_URL: 'https://primary.example.com/v1',
-			IMAGE_OPENAI_MODEL: 'gpt-image-2',
-			IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
-			IMAGE_OPENAI_OFFICIAL_MODELS: 'gpt-image-2;gpt-image-1',
-			IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '1',
-			IMAGE_OPENAI_OFFICIAL_API_KEY: 'official-key'
-		})
-
-		validateRuntimeConfig(env, { isRemote: false })
-
-		expect({
-			vars: buildAIChannelVars(env),
-			keys: buildRequiredSecretKeys(env)
-		}).toEqual({
-			vars: {
-				IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
-				IMAGE_OPENAI_OFFICIAL_MODELS: 'gpt-image-2;gpt-image-1',
-				IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '1'
-			},
-			keys: [
-				'BETTER_AUTH_SECRET',
-				'CONFIG_ENCRYPTION_KEY',
-				'R2_ORIGIN_SIGNING_SECRET',
-				'IMAGE_OPENAI_OFFICIAL_API_KEY'
-			]
-		})
-	})
-
-	it('rejects incomplete async ai channel config', () => {
-		const env = createRuntimeEnv({
-			IMAGE_OPENAI_BASE_URL: 'https://primary.example.com/v1',
-			IMAGE_OPENAI_MODEL: 'gpt-image-2',
-			IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
-			IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '1',
-			IMAGE_OPENAI_OFFICIAL_API_KEY: 'official-key'
-		})
-
-		expect(() => {
-			validateRuntimeConfig(env, { isRemote: false })
-		}).toThrow('IMAGE_OPENAI_OFFICIAL_MODELS_MISSING')
-	})
-
-	it('rejects invalid async ai channel price multiplier', () => {
-		const env = createRuntimeEnv({
-			IMAGE_OPENAI_BASE_URL: 'https://primary.example.com/v1',
-			IMAGE_OPENAI_MODEL: 'gpt-image-2',
-			IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
-			IMAGE_OPENAI_OFFICIAL_MODELS: 'gpt-image-2',
-			IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '0',
-			IMAGE_OPENAI_OFFICIAL_API_KEY: 'official-key'
-		})
-
-		expect(() => {
-			validateRuntimeConfig(env, { isRemote: false })
-		}).toThrow('IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER_INVALID')
-	})
-
-	it('rejects async ai provider default model without a matching channel', () => {
-		const env = createRuntimeEnv({
-			IMAGE_OPENAI_BASE_URL: 'https://primary.example.com/v1',
-			IMAGE_OPENAI_MODEL: 'gpt-image-2',
-			IMAGE_OPENAI_OFFICIAL_BASE_URL: 'https://api.openai.com/v1',
-			IMAGE_OPENAI_OFFICIAL_MODELS: 'gpt-image-1',
-			IMAGE_OPENAI_OFFICIAL_PRICE_MULTIPLIER: '1',
-			IMAGE_OPENAI_OFFICIAL_API_KEY: 'official-key'
-		})
-
-		expect(() => {
-			validateRuntimeConfig(env, { isRemote: false })
-		}).toThrow('IMAGE_OPENAI_DEFAULT_MODEL_CHANNEL_MISSING')
-	})
-
-	it('rejects unsupported async ai provider channel config', () => {
-		const env = createRuntimeEnv({
-			IMAGE_UNKNOWN_OFFICIAL_BASE_URL: 'https://example.com/v1',
-			IMAGE_UNKNOWN_OFFICIAL_MODELS: 'model',
-			IMAGE_UNKNOWN_OFFICIAL_PRICE_MULTIPLIER: '1',
-			IMAGE_UNKNOWN_OFFICIAL_API_KEY: 'key'
-		})
-
-		expect(() => {
-			validateRuntimeConfig(env, { isRemote: false })
-		}).toThrow('IMAGE_UNKNOWN_CHANNEL_PROVIDER_UNSUPPORTED')
-	})
-
-	it('rejects invalid async ai routing weights and task retention', () => {
-		expect(() => {
-			validateRuntimeConfig(
-				createRuntimeEnv({
-					AI_ROUTING_ERROR_WEIGHT: '0',
-					AI_ROUTING_LATENCY_WEIGHT: '0',
-					AI_ROUTING_PRICE_WEIGHT: '0'
-				}),
-				{ isRemote: false }
-			)
-		}).toThrow('AI_ROUTING_WEIGHTS_INVALID')
-
-		expect(() => {
-			validateRuntimeConfig(createRuntimeEnv({ AI_ROUTING_PRICE_WEIGHT: '-1' }), {
-				isRemote: false
-			})
-		}).toThrow('AI_ROUTING_PRICE_WEIGHT_INVALID')
-
-		expect(() => {
-			validateRuntimeConfig(createRuntimeEnv({ AI_TASK_RETENTION_DAYS: '0' }), {
-				isRemote: false
-			})
-		}).toThrow('AI_TASK_RETENTION_DAYS_INVALID')
 	})
 
 	it('omits disabled optional secrets from runtime required keys', () => {
@@ -554,24 +453,6 @@ describe('prepare cloudflare runtime config validation', () => {
 		})
 	})
 
-	it('keeps dynamic async ai channel secrets in wrangler types config', () => {
-		const config = {
-			secrets: {
-				required: ['BETTER_AUTH_SECRET', 'IMAGE_OPENAI_OFFICIAL_API_KEY']
-			}
-		}
-
-		const typesConfig = buildTypesWranglerConfig(config)
-
-		expect({
-			hasChannelSecret: typesConfig.secrets.required.includes(
-				'IMAGE_OPENAI_OFFICIAL_API_KEY'
-			)
-		}).toEqual({
-			hasChannelSecret: true
-		})
-	})
-
 })
 
 function createRuntimeEnv(overrides = {}) {
@@ -580,10 +461,6 @@ function createRuntimeEnv(overrides = {}) {
 		CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 		R2_ENABLED: 'false',
 		R2_ORIGIN_SIGNING_SECRET: 'r2-secret',
-		AI_ROUTING_ERROR_WEIGHT: '1',
-		AI_ROUTING_LATENCY_WEIGHT: '0.8',
-		AI_ROUTING_PRICE_WEIGHT: '0.2',
-		AI_TASK_RETENTION_DAYS: '30',
 		...overrides
 	}
 }

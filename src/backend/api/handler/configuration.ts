@@ -1,8 +1,11 @@
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
+	CreateAIChannelApi,
 	CreatePaymentProductApi,
+	DeleteAIChannelApi,
 	DeletePaymentProductApi,
+	GetAIConfigApi,
 	GetAuthenticationConfigApi,
 	GetAffiliateConfigApi,
 	GetCreditsConfigApi,
@@ -10,6 +13,8 @@ import {
 	GetGeneralConfigApi,
 	GetPaymentConfigApi,
 	GetStorageConfigApi,
+	UpdateAIChannelApi,
+	UpdateAIConfigApi,
 	UpdateAuthenticationConfigApi,
 	UpdateAffiliateConfigApi,
 	UpdateCreditsConfigApi,
@@ -18,6 +23,9 @@ import {
 	UpdatePaymentConfigApi,
 	UpdatePaymentProductApi,
 	UpdateStorageConfigApi,
+	type AIChannel as AIChannelResponse,
+	type AIConfig as AIConfigResponse,
+	type AIProviderConfig as AIProviderConfigResponse,
 	type AuthenticationConfig as AuthenticationConfigResponse,
 	type AffiliateConfig as AffiliateConfigResponse,
 	type CreditsConfig as CreditsConfigResponse,
@@ -50,6 +58,19 @@ import {
 } from '../../config'
 
 import {
+	AIConfigError,
+	AI_PROVIDER_IDENTITIES,
+	createAIChannel,
+	deleteAIChannel,
+	getAIConfig,
+	updateAIChannel,
+	updateAIConfig,
+	type AIConfigView,
+	type AIProviderId,
+	type AIProviderUpdate,
+	type UpdateAIConfigInput
+} from '../../ai/config'
+import {
 	createPaymentProduct,
 	deletePaymentProduct,
 	getPaymentConfig,
@@ -59,7 +80,7 @@ import {
 	type PaymentConfigView,
 	type WritePaymentProductInput
 } from '../../payment/config'
-import type { PaymentProduct } from '../../db/schema.meta'
+import type { AIChannel, PaymentProduct } from '../../db/schema.meta'
 
 import { formatDecimal, parseDecimal } from '../../lib/decimal'
 import { logError } from '../../lib/log'
@@ -419,6 +440,233 @@ export async function deletePaymentProductHandler(ctx: Context<ApiEnv>): Promise
 	}
 }
 
+export async function getAIConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, GetAIConfigApi.request)
+	if (!request.success) {
+		const error = GetAIConfigApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		const config: AIConfigView = await getAIConfig(ctx.get('metaDb'))
+		return ctx.json(toAIConfigResponse(config) as AIConfigResponse)
+	} catch (error) {
+		return mapAIConfigurationError(ctx, error)
+	}
+}
+
+export async function updateAIConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, UpdateAIConfigApi.request)
+	if (!request.success) {
+		const error = UpdateAIConfigApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		const providers = {} as Record<AIProviderId, AIProviderUpdate>
+		for (const provider of request.data.providers) {
+			const id: AIProviderId = toAIProviderId(provider.id)
+			if (providers[id]) {
+				throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
+			}
+			providers[id] = {
+				enabled: provider.enabled,
+				baseUrl: provider.base_url,
+				defaultModel: provider.default_model,
+				apiKey: provider.api_key
+			}
+		}
+		for (const identity of AI_PROVIDER_IDENTITIES) {
+			if (!providers[identity.id]) {
+				throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
+			}
+		}
+		const input: UpdateAIConfigInput = {
+			routing: {
+				errorWeight: request.data.routing_error_weight,
+				latencyWeight: request.data.routing_latency_weight,
+				priceWeight: request.data.routing_price_weight
+			},
+			taskRetentionDays: request.data.task_retention_days,
+			providers,
+			expectedVersion: request.data.expected_version,
+			nowMs: Date.now()
+		}
+		const config: AIConfigView = await updateAIConfig(
+			ctx.get('metaDb'),
+			ctx.env.CONFIG_ENCRYPTION_KEY,
+			input
+		)
+		return ctx.json(toAIConfigResponse(config) as AIConfigResponse)
+	} catch (error) {
+		return mapAIConfigurationError(ctx, error)
+	}
+}
+
+export async function createAIChannelHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, CreateAIChannelApi.request)
+	if (!request.success) {
+		const error = CreateAIChannelApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		const channel: AIChannel = await createAIChannel(
+			ctx.get('metaDb'),
+			ctx.env.CONFIG_ENCRYPTION_KEY,
+			{
+				id: request.data.id,
+				area: request.data.area,
+				provider: request.data.provider,
+				name: request.data.name,
+				baseUrl: request.data.base_url,
+				models: request.data.models,
+				priceMultiplier: request.data.price_multiplier,
+				apiKey: request.data.api_key,
+				enabled: request.data.enabled,
+				nowMs: Date.now()
+			}
+		)
+		return ctx.json(toAIChannelResponse(channel) as AIChannelResponse)
+	} catch (error) {
+		return mapAIConfigurationError(ctx, error)
+	}
+}
+
+export async function updateAIChannelHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, UpdateAIChannelApi.request)
+	if (!request.success) {
+		const error = UpdateAIChannelApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		const channel: AIChannel = await updateAIChannel(
+			ctx.get('metaDb'),
+			ctx.env.CONFIG_ENCRYPTION_KEY,
+			{
+				id: request.data.id,
+				area: request.data.area,
+				provider: request.data.provider,
+				name: request.data.name,
+				baseUrl: request.data.base_url,
+				models: request.data.models,
+				priceMultiplier: request.data.price_multiplier,
+				apiKey: request.data.api_key,
+				enabled: request.data.enabled,
+				expectedVersion: request.data.expected_version,
+				nowMs: Date.now()
+			}
+		)
+		return ctx.json(toAIChannelResponse(channel) as AIChannelResponse)
+	} catch (error) {
+		return mapAIConfigurationError(ctx, error)
+	}
+}
+
+export async function deleteAIChannelHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, DeleteAIChannelApi.request)
+	if (!request.success) {
+		const error = DeleteAIChannelApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		await deleteAIChannel(ctx.get('metaDb'), {
+			id: request.data.id,
+			expectedVersion: request.data.expected_version
+		})
+		return ctx.json({ id: request.data.id })
+	} catch (error) {
+		return mapAIConfigurationError(ctx, error)
+	}
+}
+
+function toAIConfigResponse(config: AIConfigView): AIConfigResponse {
+	return {
+		routing_error_weight: config.routing.errorWeight,
+		routing_latency_weight: config.routing.latencyWeight,
+		routing_price_weight: config.routing.priceWeight,
+		task_retention_days: config.taskRetentionDays,
+		providers: AI_PROVIDER_IDENTITIES.map((identity): AIProviderConfigResponse => {
+			const provider = config.providers[identity.id]
+			return {
+				id: toAIProviderResponseId(identity.id),
+				area: identity.area,
+				provider: identity.provider,
+				enabled: provider.enabled,
+				base_url: provider.baseUrl,
+				default_model: provider.defaultModel,
+				api_key_configured: provider.apiKey !== null
+			}
+		}),
+		channels: config.channels.map(toAIChannelResponse),
+		version: config.version
+	}
+}
+
+function toAIChannelResponse(channel: AIChannel): AIChannelResponse {
+	return {
+		id: channel.id,
+		area: channel.area as AIChannelResponse['area'],
+		provider: channel.provider,
+		name: channel.name,
+		base_url: channel.baseUrl,
+		models: channel.models,
+		price_multiplier: channel.priceMultiplier,
+		api_key_configured: true,
+		enabled: channel.enabled,
+		version: channel.version
+	}
+}
+
+function toAIProviderId(id: AIProviderConfigResponse['id']): AIProviderId {
+	switch (id) {
+		case 'chat_openai': return 'chatOpenai'
+		case 'image_gemini': return 'imageGemini'
+		case 'image_openai': return 'imageOpenai'
+		case 'image_seedream': return 'imageSeedream'
+		case 'image_aliyun': return 'imageAliyun'
+		case 'tts_gemini': return 'ttsGemini'
+		case 'tts_seed': return 'ttsSeed'
+		case 'realtime_doubao': return 'realtimeDoubao'
+		case 'video_seedance': return 'videoSeedance'
+	}
+}
+
+function toAIProviderResponseId(id: AIProviderId): AIProviderConfigResponse['id'] {
+	switch (id) {
+		case 'chatOpenai': return 'chat_openai'
+		case 'imageGemini': return 'image_gemini'
+		case 'imageOpenai': return 'image_openai'
+		case 'imageSeedream': return 'image_seedream'
+		case 'imageAliyun': return 'image_aliyun'
+		case 'ttsGemini': return 'tts_gemini'
+		case 'ttsSeed': return 'tts_seed'
+		case 'realtimeDoubao': return 'realtime_doubao'
+		case 'videoSeedance': return 'video_seedance'
+	}
+}
+
+function mapAIConfigurationError(ctx: Context<ApiEnv>, error: unknown): Response {
+	if (error instanceof ConfigStoreError) {
+		return mapConfigurationError(ctx, error, 'ai')
+	}
+	if (!(error instanceof AIConfigError)) {
+		throw error
+	}
+	switch (error.code) {
+		case 'AI_CHANNEL_NOT_FOUND': {
+			const response = GetAIConfigApi.errors.CONFIG_NOT_FOUND()
+			return ctx.json(response.body, response.status)
+		}
+		case 'AI_CHANNEL_CONFLICT': {
+			const response = GetAIConfigApi.errors.CONFIG_CONFLICT()
+			return ctx.json(response.body, response.status)
+		}
+		case 'AI_PROVIDER_CONFIG_INVALID':
+		case 'AI_CHANNEL_CONFIG_INVALID': {
+			const response = GetAIConfigApi.errors.INVALID_REQUEST(error.message)
+			return ctx.json(response.body, response.status)
+		}
+	}
+}
+
 function toPaymentConfigResponse(config: PaymentConfigView, baseUrl: string): PaymentConfigResponse {
 	return {
 		enabled: config.enabled,
@@ -593,7 +841,7 @@ function parseConfigCreditAmount(raw: string): number {
 function mapConfigurationError(
 	ctx: Context<ApiEnv>,
 	error: unknown,
-	domain: 'general' | 'authentication' | 'email' | 'storage' | 'credits' | 'affiliate' | 'payment'
+	domain: 'general' | 'authentication' | 'email' | 'storage' | 'credits' | 'affiliate' | 'payment' | 'ai'
 ): Response {
 	if (!(error instanceof ConfigStoreError)) {
 		throw error

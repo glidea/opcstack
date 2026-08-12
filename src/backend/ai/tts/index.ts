@@ -17,13 +17,13 @@ export function createAITTSClients(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
-	options: AISimpleTTSClientOptions = {}
+	options: AISimpleTTSClientOptions
 ): AITTSClients {
 	const provider = options.provider ?? 'gemini'
 	if (provider === 'gemini') {
 		return {
 			simple: createGeminiSimpleTTSClient(env, userId, tenantDb, options),
-			gemini: createGeminiNativeTTSClient(env)
+			gemini: createGeminiNativeTTSClient(options.endpoint)
 		}
 	}
 	if (provider === 'seed') {
@@ -45,8 +45,8 @@ export interface AISimpleTTSClient {
 
 export interface AISimpleTTSClientOptions {
 	provider?: AITTSProvider
-	model?: string
-	endpoint?: AIEndpoint
+	model: string
+	endpoint: AIEndpoint
 }
 
 export type AITTSProvider = 'gemini' | 'seed'

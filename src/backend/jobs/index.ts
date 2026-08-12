@@ -3,6 +3,7 @@ import { CreditsService } from '../credits'
 import { getMetaDb, runRawD1Batch } from '../db'
 import { createTenantShardAccess } from '../db/shard-router'
 import { getCreditsConfig, type CreditsConfig } from '../config'
+import { getAIConfig, type AIConfigView } from '../ai/config'
 import { logInfo } from '../lib/log'
 
 export type ScheduledJobHandler = (
@@ -29,9 +30,9 @@ export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 		const db = getMetaDb(env.META_DB)
 		const nowMs = controller.scheduledTime
 		const creditsConfig: CreditsConfig = await getCreditsConfig(db)
+		const aiConfig: AIConfigView = await getAIConfig(db)
 		const metricCutoff: number = nowMs - 24 * 60 * 60 * 1000
-		const taskRetentionDays: number = Number(env.AI_TASK_RETENTION_DAYS)
-		const taskCutoff: number = nowMs - taskRetentionDays * 24 * 60 * 60 * 1000
+		const taskCutoff: number = nowMs - aiConfig.taskRetentionDays * 24 * 60 * 60 * 1000
 		const shards = await createTenantShardAccess(db, env).listShardDbs()
 
 		for (const shard of shards) {

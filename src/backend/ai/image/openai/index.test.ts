@@ -350,7 +350,8 @@ describe('createOpenAISimpleImageClient.generate', () => {
 
 		const env: Env = createEnv(given.envModel)
 		const client = createOpenAISimpleImageClient(env, given.optionsUserId ?? 'u', {} as TenantShardDb, {
-			model: given.optionsModel
+			model: given.optionsModel ?? given.envModel,
+			endpoint: { baseURL: 'https://api.openai.com/v1', apiKey: 'k' }
 		})
 		const outputs = await client.generate(when.input)
 
@@ -410,6 +411,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 			'u',
 			{} as TenantShardDb,
 			{
+				model: 'env-model',
 				endpoint: { baseURL: 'https://channel.example/v1', apiKey: 'channel-key' }
 			}
 		)
@@ -461,8 +463,7 @@ describe('createOpenAINativeImageClient', () => {
 
 	runCases(cases, (given, _when) => {
 		vi.clearAllMocks()
-		const env = createEnv('env-model', given.apiKey, given.baseURL)
-		createOpenAINativeImageClient(env)
+		createOpenAINativeImageClient({ apiKey: given.apiKey, baseURL: given.baseURL })
 
 		const config = openAIConstructorMock.mock.calls[0]?.[0] as
 			| {
@@ -479,10 +480,7 @@ describe('createOpenAINativeImageClient', () => {
 	})
 })
 
-function createEnv(model: string, apiKey = 'k', baseURL = 'https://api.openai.com/v1'): Env {
-	return {
-		IMAGE_OPENAI_API_KEY: apiKey,
-		IMAGE_OPENAI_BASE_URL: baseURL,
-		IMAGE_OPENAI_MODEL: model
-	} as unknown as Env
+function createEnv(model: string): Env {
+	void model
+	return {} as Env
 }

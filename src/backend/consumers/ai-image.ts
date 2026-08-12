@@ -19,6 +19,7 @@ import type {
 	AIImageTask
 } from '../ai/image'
 import type { AIImageGenerateQueueMessage } from '../ai/image/task'
+import { getAIRuntimeConfig, type AIRuntimeConfig } from '../ai/config'
 
 const AI_IMAGE_MAX_ATTEMPTS = 3
 
@@ -45,6 +46,10 @@ async function handleAIImageMessage(
 		message.ack()
 		return
 	}
+	const aiConfig: AIRuntimeConfig = await getAIRuntimeConfig(
+		metaDb,
+		env.CONFIG_ENCRYPTION_KEY
+	)
 
 	const metricQueries: D1RawRunQuery[] = []
 	const attemptCount: number = task.attemptCount + 1
@@ -53,7 +58,7 @@ async function handleAIImageMessage(
 			throw new AIError('AI_CHANNEL_CONFIG_INVALID')
 		}
 
-		const rankedChannels: AIRankedChannel[] = await rankAIChannels(tenant.db, env, {
+		const rankedChannels: AIRankedChannel[] = await rankAIChannels(tenant.db, aiConfig, {
 			target: {
 				taskType: 'image',
 				provider: task.provider as AIImageTask['provider']

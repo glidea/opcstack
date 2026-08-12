@@ -381,7 +381,8 @@ describe('createGeminiSimpleImageClient.generate', () => {
 
 		const env: Env = createEnv(given.envModel)
 		const client = createGeminiSimpleImageClient(env, given.optionsUserId ?? 'u', {} as TenantShardDb, {
-			model: given.optionsModel
+			model: given.optionsModel ?? given.envModel,
+			endpoint: { baseURL: 'https://generativelanguage.googleapis.com', apiKey: 'k' }
 		})
 		const outputs = await client.generate(when.input)
 
@@ -447,6 +448,7 @@ describe('createGeminiSimpleImageClient.generate', () => {
 			'u',
 			{} as TenantShardDb,
 			{
+				model: 'env-model',
 				endpoint: { baseURL: 'https://channel.example', apiKey: 'channel-key' }
 			}
 		)
@@ -460,9 +462,6 @@ describe('createGeminiSimpleImageClient.generate', () => {
 })
 
 function createEnv(model: string): Env {
-	return {
-		IMAGE_GEMINI_API_KEY: 'k',
-		IMAGE_GEMINI_BASE_URL: 'https://generativelanguage.googleapis.com',
-		IMAGE_GEMINI_MODEL: model
-	} as unknown as Env
+	void model
+	return {} as Env
 }

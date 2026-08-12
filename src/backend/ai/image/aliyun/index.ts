@@ -23,10 +23,10 @@ export interface AliyunNativeImageClient {
 	apiKey: string
 }
 
-export function createAliyunNativeImageClient(env: Env): AliyunNativeImageClient {
+export function createAliyunNativeImageClient(endpoint: AIEndpoint): AliyunNativeImageClient {
 	return {
-		baseURL: env.IMAGE_ALIYUN_BASE_URL,
-		apiKey: env.IMAGE_ALIYUN_API_KEY
+		baseURL: endpoint.baseURL,
+		apiKey: endpoint.apiKey
 	}
 }
 
@@ -96,11 +96,8 @@ class aliyunSimpleImageClient implements AISimpleImageClient {
 		options: AISimpleImageClientOptions
 	) {
 		this.env = env
-		this.endpoint = options.endpoint ?? {
-			baseURL: env.IMAGE_ALIYUN_BASE_URL,
-			apiKey: env.IMAGE_ALIYUN_API_KEY
-		}
-		this.model = options.model ?? env.IMAGE_ALIYUN_MODEL
+		this.endpoint = options.endpoint
+		this.model = options.model
 		this.userId = userId
 		this.tenantDb = tenantDb
 	}

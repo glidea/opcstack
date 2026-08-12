@@ -4,15 +4,15 @@ import type { z } from 'zod'
 import type { AIEndpoint } from '../../endpoint'
 import type { AISimpleChatClient, AIChatClientOptions } from '..'
 
-export function createOpenAINativeChatClient(env: Env): OpenAI {
+export function createOpenAINativeChatClient(endpoint: AIEndpoint): OpenAI {
 	return new OpenAI({
-		apiKey: env.CHAT_OPENAI_API_KEY,
-		baseURL: env.CHAT_OPENAI_BASE_URL
+		apiKey: endpoint.apiKey,
+		baseURL: endpoint.baseURL
 	})
 }
 
-export function createOpenAISimpleChatClient(env: Env, options: AIChatClientOptions = {}): AISimpleChatClient {
-	return new openAISimpleChatClient(env, options)
+export function createOpenAISimpleChatClient(options: AIChatClientOptions): AISimpleChatClient {
+	return new openAISimpleChatClient(options)
 }
 
 class openAISimpleChatClient implements AISimpleChatClient {
@@ -20,12 +20,9 @@ class openAISimpleChatClient implements AISimpleChatClient {
 	private readonly model: string
 	private readonly temperature: number | undefined
 
-	constructor(env: Env, options: AIChatClientOptions) {
-		this.endpoint = {
-			baseURL: env.CHAT_OPENAI_BASE_URL,
-			apiKey: env.CHAT_OPENAI_API_KEY
-		}
-		this.model = options.model ?? env.CHAT_OPENAI_MODEL
+	constructor(options: AIChatClientOptions) {
+		this.endpoint = options.endpoint
+		this.model = options.model
 		this.temperature = options.temperature
 	}
 
