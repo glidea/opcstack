@@ -39,6 +39,12 @@ export const ListCreditTransactionsResponseSchema = z.object({
 })
 export type ListCreditTransactionsResponse = z.infer<typeof ListCreditTransactionsResponseSchema>
 
+export const ListAdminCreditTransactionsRequestSchema = ListCreditTransactionsRequestSchema.extend({
+	user_id: z.string().min(1)
+})
+export type ListAdminCreditTransactionsRequest = z.infer<typeof ListAdminCreditTransactionsRequestSchema>
+export type ListAdminCreditTransactionsResponse = ListCreditTransactionsResponse
+
 export const DailyCheckinRequestSchema = z.object({})
 export type DailyCheckinRequest = z.infer<typeof DailyCheckinRequestSchema>
 
@@ -151,6 +157,12 @@ export const ListCreditTransactionsApi = {
 			}
 		}
 	}
+}
+
+export const ListAdminCreditTransactionsApi = {
+	request: ListAdminCreditTransactionsRequestSchema,
+	response: ListCreditTransactionsResponseSchema,
+	errors: ListCreditTransactionsApi.errors
 }
 
 export const DailyCheckinApi = {

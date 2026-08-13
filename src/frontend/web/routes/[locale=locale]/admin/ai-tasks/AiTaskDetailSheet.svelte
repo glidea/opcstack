@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { ListAdminUsersResponseItem } from '$apiContract/admin-users'
 	import type { AdminAiTask, AdminAiTaskSummary } from '$apiContract/admin-ai-tasks'
 	import { client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
@@ -33,7 +32,7 @@
 	type DetailState =
 		| { status: 'idle' }
 		| { status: 'loading' }
-		| { status: 'loaded'; task: AdminAiTask; databaseId: string | null }
+		| { status: 'loaded'; task: AdminAiTask }
 		| { status: 'error' }
 
 	let {
@@ -58,7 +57,7 @@
 		task
 			? createCloudflareTaskLinks(
 					cloudflare,
-					detailState.status === 'loaded' ? detailState.databaseId : null,
+					null,
 					task.task_type
 				)
 			: null
@@ -83,21 +82,14 @@
 		}
 		detailState = { status: 'loading' }
 		try {
-			const [taskResponse, usersResponse] = await Promise.all([
-				client.api.getAdminAiTask({
-					task_type: summary.task_type,
-					shard_id: summary.shard_id,
-					id: summary.id
-				}),
-				client.api.listAdminUsers({ search: summary.user_id, page: 1, page_size: 20 })
-			])
-			const user: ListAdminUsersResponseItem | undefined = usersResponse.items.find(
-				(item: ListAdminUsersResponseItem): boolean => item.id === summary.user_id
-			)
+			const taskResponse = await client.api.getAdminAiTask({
+				task_type: summary.task_type,
+				shard_id: summary.shard_id,
+				id: summary.id
+			})
 			detailState = {
 				status: 'loaded',
-				task: taskResponse.task,
-				databaseId: user?.shard?.database_id ?? null
+				task: taskResponse.task
 			}
 		} catch {
 			detailState = { status: 'error' }

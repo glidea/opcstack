@@ -11,25 +11,15 @@ export const AdminUserInviterSchema = z.object({
 	email: z.string()
 })
 
-export const AdminUserShardSchema = z.object({
-	id: z.string(),
-	region: z.string(),
-	database_name: z.string(),
-	database_id: z.string()
-})
-
 export const ListAdminUsersResponseItemSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	email: z.string(),
-	email_verified: z.boolean(),
 	registration_utm_source: z.string().nullable(),
 	created_at: z.number(),
 	updated_at: z.number(),
 	credit_balance: z.string(),
-	beta_access: z.boolean(),
-	inviter: AdminUserInviterSchema.nullable(),
-	shard: AdminUserShardSchema.nullable()
+	inviter: AdminUserInviterSchema.nullable()
 })
 export type ListAdminUsersResponseItem = z.infer<typeof ListAdminUsersResponseItemSchema>
 

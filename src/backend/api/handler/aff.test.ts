@@ -1,7 +1,7 @@
-import { beforeEach, describe, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import { AffError, type AffErrorCode } from '../../aff'
-import { bindAffHandler, getAffSummaryHandler } from './aff'
+import { bindAffHandler, getAffSummaryHandler, listAdminAffiliateReferralsHandler } from './aff'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 
@@ -21,8 +21,57 @@ const affServiceMocks = vi.hoisted(() => {
 	return {
 		bind: vi.fn(),
 		getSummary: vi.fn(),
+		listReferrals: vi.fn(),
 		markRewardGranted: vi.fn()
 	}
+})
+
+describe('listAdminAffiliateReferralsHandler', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+	})
+
+	it('returns inviter and invitee identities with reward status', async () => {
+		vi.mocked(affServiceMocks.listReferrals).mockResolvedValue({
+			referrals: [
+				{
+					id: 'referral-1',
+					inviterUserId: 'inviter-1',
+					inviterName: 'Lin',
+					inviterEmail: 'lin@example.com',
+					inviteeUserId: 'invitee-1',
+					inviteeName: 'Ada',
+					inviteeEmail: 'ada@example.com',
+					inviterGrantedAt: 100,
+					inviteeGrantedAt: null,
+					createdAt: 99
+				}
+			],
+			total: 1
+		})
+		const ctx = createJsonContext({
+			env: {},
+			userId: 'admin',
+			db: { name: 'meta' },
+			body: { page: 1, page_size: 20, reward_status: 'pending' }
+		})
+
+		const response: Response = await listAdminAffiliateReferralsHandler(ctx)
+		const body = (await response.json()) as {
+			items?: Array<{ inviter: { email: string }; invitee: { email: string }; reward_status: string }>
+		}
+
+		expect({ status: response.status, item: body.items?.[0] }).toEqual({
+			status: 200,
+			item: {
+				id: 'referral-1',
+				inviter: { id: 'inviter-1', name: 'Lin', email: 'lin@example.com' },
+				invitee: { id: 'invitee-1', name: 'Ada', email: 'ada@example.com' },
+				reward_status: 'pending',
+				created_at: 99
+			}
+		})
+	})
 })
 
 const creditServiceMocks = vi.hoisted(() => {

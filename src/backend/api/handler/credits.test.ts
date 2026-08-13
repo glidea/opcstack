@@ -1,10 +1,11 @@
-import { beforeEach, describe, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
 	dailyCheckinHandler,
 	generateCreditCodesHandler,
 	grantCreditsHandler,
 	getCreditSummaryHandler,
+	listAdminCreditTransactionsHandler,
 	listCreditCodesHandler,
 	listCreditTransactionsHandler,
 	redeemCreditCodeHandler
@@ -884,6 +885,75 @@ describe('listCreditTransactionsHandler', () => {
 			firstBalanceAfter: payload.items?.[0]?.balance_after ?? '',
 			usesTenantDb: creditServiceMocks.constructorArgs[0]?.[0] === ctx.get('tenantDb')
 		}
+	})
+})
+
+describe('listAdminCreditTransactionsHandler', () => {
+	beforeEach(() => {
+		vi.clearAllMocks()
+		creditServiceMocks.constructorArgs = []
+	})
+
+	it('rejects a request without a selected user', async () => {
+		const ctx = createJsonContext({
+			env: {},
+			userId: 'admin',
+			metaDb: { name: 'meta' },
+			tenantDb: { name: 'admin-tenant' },
+			body: { page: 1, page_size: 20 }
+		})
+
+		const response: Response = await listAdminCreditTransactionsHandler(ctx)
+		const body = (await response.json()) as { code?: string }
+
+		expect({ status: response.status, code: body.code }).toEqual({
+			status: 400,
+			code: 'INVALID_REQUEST'
+		})
+	})
+
+	it('opens the selected user shard and lists that user transactions', async () => {
+		vi.mocked(creditServiceMocks.listTransactions).mockResolvedValue({
+			transactions: [
+				{
+					id: 't1',
+					type: 'manual_grant',
+					amount: 10_000_000,
+					balanceAfter: 99_000_000,
+					sourceType: 'manual_grant',
+					sourceId: 'grant-1',
+					description: 'Support adjustment',
+					expiresAt: null,
+					createdAt: 123
+				}
+			],
+			total: 1
+		})
+		const ctx = createJsonContext({
+			env: {},
+			userId: 'admin',
+			metaDb: { name: 'meta' },
+			tenantDb: { name: 'admin-tenant' },
+			body: { user_id: 'target-user', page: 1, page_size: 20 }
+		})
+
+		const response: Response = await listAdminCreditTransactionsHandler(ctx)
+		const body = (await response.json()) as { items?: Array<{ balance_after: string }> }
+		const listInput = vi.mocked(creditServiceMocks.listTransactions).mock.calls[0]?.[0]
+
+		expect({
+			status: response.status,
+			openedUser: shardRouterMocks.openUserDb.mock.calls[0]?.[0],
+			usesOpenedDb: creditServiceMocks.constructorArgs[0]?.[0],
+			listedUser: listInput?.userId,
+			balanceAfter: body.items?.[0]?.balance_after
+		}).toEqual({
+			status: 200,
+			openedUser: 'target-user',
+			usesOpenedDb: { name: 'admin-tenant' },
+			listedUser: 'target-user',
+			balanceAfter: '99.000000'
+		})
 	})
 })
 

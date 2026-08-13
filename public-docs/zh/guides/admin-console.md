@@ -27,12 +27,16 @@ order: 10
 | 页面 | 路由 | 用途 |
 | --- | --- | --- |
 | 概览 | `/{locale}/admin/overview` | 查看核心指标、待处理异常和 AI 任务分布 |
-| 用户 | `/{locale}/admin/users` | 查找用户、查看账号状态并发放积分 |
+| 用户 | `/{locale}/admin/users` | 查找用户、查看业务信息并发放积分 |
+| 积分流水 | `/{locale}/admin/credit-transactions` | 查看指定用户的积分余额变化 |
+| 邀请记录 | `/{locale}/admin/affiliate-referrals` | 查看邀请人与被邀请人的关系及奖励状态 |
 | 内测码 | `/{locale}/admin/beta-codes` | 批量生成并查看可用或使用状态 |
 | 兑换码 | `/{locale}/admin/credit-codes` | 批量生成并查看领取或发放状态 |
 | 反馈 | `/{locale}/admin/feedback` | 查询反馈并查看完整内容 |
 | 公告 | `/{locale}/admin/notifications` | 发布全站或定向公告并查看历史 |
 | 系统设置 | `/{locale}/admin/configuration` | 按业务域管理保存在 D1 的动态配置 |
+| 支付商品 | `/{locale}/admin/payment-products` | 将已配置支付平台的远端商品关联到用户权益 |
+| AI 服务商 | `/{locale}/admin/ai-providers` | 管理 AI 端点、模型和路由可用性 |
 | 支付 | `/{locale}/admin/payments` | 查看交易和争议支付 |
 | AI 任务 | `/{locale}/admin/ai-tasks` | 跨用户查看图像、TTS 和视频任务 |
 
@@ -46,7 +50,7 @@ order: 10
 
 已关闭的功能区默认收起。开启功能会展开配置，也可以通过独立展开按钮在保持关闭时预先配置。关闭且完全为空的 Provider 可以保存，但只填写部分字段会被拒绝。必填项缺失时，错误显示在对应控件旁，旧配置继续生效。密钥字段永远不显示明文，保存前只能选择“保留当前值”“替换值”或“删除值”。Provider Callback URL 从应用地址派生，只读展示并提供复制操作。
 
-支付的 Provider 配置与商品相互独立。AI 路由设置与 Provider 使用独立保存边界。商品和 Provider 分别使用独立的新建、编辑、删除抽屉。保存成功后只替换目标行，删除前必须确认。版本过期时返回 `CONFIG_CONFLICT`，需要显式刷新后重新编辑。页面不会展示任何密钥值。
+支付平台凭据保留在系统设置。支付商品和 AI 服务商使用独立工作区，因为运营人员会更频繁地单独修改这些集合。每个实体都有独立的新建、编辑和删除流程。保存成功后只替换目标行，删除前必须确认。版本过期时返回 `CONFIG_CONFLICT`，需要显式刷新后重新编辑。页面不会展示任何密钥值。
 
 ## 查找用户并发放积分
 
@@ -57,6 +61,8 @@ order: 10
 5. 核对用户和发放内容后确认。
 
 幂等所需的 `source_id` 由控制台内部生成，运营人员不需要填写，也不会看到该字段。
+
+可以从侧栏或用户详情进入“积分流水”，查看该用户每次余额变化。进入“邀请记录”可以搜索邀请关系，并查看每条邀请奖励是否完成。
 
 ## 批量生成码
 
@@ -84,7 +90,7 @@ order: 10
 1. 打开 `/{locale}/admin/ai-tasks`。
 2. 按任务类型、状态或用户筛选。Provider、模型、任务 ID 和日期位于高级筛选中。
 3. 打开任务详情，查看 Provider 状态、尝试次数、时间、已存输出和最后错误。
-4. 使用详情旁的 Cloudflare 外链继续查看对应 Queue、D1 数据库、R2 Bucket 或 Worker。
+4. 使用详情旁的 Cloudflare 外链继续查看对应 Queue、R2 Bucket 或 Worker。
 
 控制台中的 AI 任务仅供查看，不支持重试、取消、重放或修改参数。
 
@@ -105,9 +111,8 @@ Cloudflare 外链放在对应资源旁：
 | 控制台位置 | Cloudflare 目标 |
 | --- | --- |
 | 控制台顶部 | 已部署 Worker |
-| 用户详情 | 用户所在 D1 Tenant Shard |
 | AI 任务列表 | 相关 Queues |
-| AI 任务详情 | 可用的 Queue、D1 Shard、R2 Bucket 和 Worker |
+| AI 任务详情 | 可用的 Queue、R2 Bucket 和 Worker |
 
 缺少 Cloudflare 账号或资源标识时，对应外链会隐藏。控制台用于查看产品业务状态，Cloudflare 用于查看日志、指标、队列投递、数据库和对象等平台状态。
 
@@ -116,7 +121,7 @@ Cloudflare 外链放在对应资源旁：
 - Public assets 暂时只保留 API，没有管理页面。
 - 支付、反馈和 AI 任务只支持查看。
 - 控制台不支持作废内测码或兑换码。
-- 公告发布后不能编辑或撤回。
+- 生效中的公告可以编辑或归档；已归档公告只保留在后台历史中，不能恢复。
 - 暂不支持细粒度管理员权限，浏览器访问权只属于唯一 D1 `admin` 账号。
 
 ## 常见问题

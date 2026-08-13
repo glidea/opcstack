@@ -13,11 +13,11 @@ export const clientConfig: ClientConfig = {
 	"appName": "opcstack",
 	"appVersion": "0.1.0",
 	"designSystem": "apple-saas",
-	"apiBaseUrl": "https://opcstack.glidea.app",
-	"webBaseUrl": "https://opcstack.glidea.app",
+	"apiBaseUrl": "http://localhost:5173",
+	"webBaseUrl": "http://localhost:5173",
 	"extension": {
 		"hostPermissions": [
-			"https://opcstack.glidea.app/*"
+			"http://localhost:5173/*"
 		]
 	}
 }

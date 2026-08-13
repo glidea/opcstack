@@ -90,6 +90,8 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await verifyAdminCreditCodes(page)
 	await verifyAdminListLayout(page)
 	await verifyAdminUsers(page, initialEmail)
+	await verifyCreditActivity(page, initialEmail)
+	await verifyInvitations(page)
 	await verifyAdminNotifications(page)
 
 	await goToHydrated(page, '/en')
@@ -148,6 +150,8 @@ async function verifyAdminCreditCodes(page: Page): Promise<void> {
 async function verifyAdminListLayout(page: Page): Promise<void> {
 	const listPages: string[] = [
 		'/en/admin/users',
+		'/en/admin/credit-transactions',
+		'/en/admin/affiliate-referrals',
 		'/en/admin/beta-codes',
 		'/en/admin/credit-codes',
 		'/en/admin/feedback',
@@ -179,7 +183,7 @@ async function verifyAdminUsers(page: Page, administratorEmail: string): Promise
 	await expect(page.getByText('No beta access', { exact: true })).toHaveCount(0)
 	const administratorRow = page.getByRole('row').filter({ hasText: administratorEmail })
 	await expect(administratorRow).toBeVisible()
-	await expect(administratorRow.getByRole('cell').nth(3)).toHaveText('0')
+	await expect(administratorRow.getByRole('cell').nth(2)).toHaveText('0')
 	await administratorRow.getByRole('button', { name: 'View', exact: true }).click()
 	const userSheet = page.getByRole('dialog')
 	await expect(userSheet.getByRole('heading', { name: administratorEmail, exact: true })).toBeVisible()
@@ -198,9 +202,27 @@ async function verifyAdminUsers(page: Page, administratorEmail: string): Promise
 	await page.getByRole('button', { name: 'Confirm grant', exact: true }).click()
 	await expect(page.getByText('Balance updated to 2.500000', { exact: true })).toBeVisible()
 	await page.keyboard.press('Escape')
-	await expect(administratorRow.getByRole('cell').nth(3)).toHaveText('2.5')
+	await expect(administratorRow.getByRole('cell').nth(2)).toHaveText('2.5')
 	await goToHydrated(page, '/en/admin/users')
-	await expect(page.getByRole('row').filter({ hasText: administratorEmail }).getByRole('cell').nth(3)).toHaveText('2.5')
+	await expect(page.getByRole('row').filter({ hasText: administratorEmail }).getByRole('cell').nth(2)).toHaveText('2.5')
+}
+
+async function verifyCreditActivity(page: Page, administratorEmail: string): Promise<void> {
+	await goToHydrated(page, '/en/admin/credit-transactions')
+	await expect(page.getByRole('heading', { name: 'Credit activity', exact: true })).toBeVisible()
+	await expect(page.getByRole('link', { name: 'Credit activity', exact: true })).toBeVisible()
+	await page.locator('#credit-transaction-user').click()
+	await page.getByPlaceholder('Search by name or email').fill(administratorEmail)
+	await page.getByRole('option').filter({ hasText: administratorEmail }).click()
+	await page.getByRole('button', { name: 'View activity', exact: true }).click()
+	await expect(page.getByRole('row').filter({ hasText: '2.5' })).toBeVisible()
+}
+
+async function verifyInvitations(page: Page): Promise<void> {
+	await goToHydrated(page, '/en/admin/affiliate-referrals')
+	await expect(page.getByRole('heading', { name: 'Invitations', exact: true })).toBeVisible()
+	await expect(page.getByRole('link', { name: 'Invitations', exact: true })).toBeVisible()
+	await expect(page.getByText('No invitations found', { exact: true })).toBeVisible()
 }
 
 async function verifyAdminNotifications(page: Page): Promise<void> {

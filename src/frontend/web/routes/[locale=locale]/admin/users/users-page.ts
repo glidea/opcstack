@@ -2,8 +2,10 @@ import type { ListAdminUsersRequest } from '$apiContract/admin-users'
 import type { AdminGrantCreditsRequest } from '$apiContract/credits'
 
 export type UserContextLinks = {
+	creditTransactions: string
 	feedbacks: string
 	payments: string
+	affiliateReferrals: string
 	aiTasks: string
 	notification: string
 }
@@ -12,7 +14,7 @@ export type GrantAttempt = {
 	sourceId: string
 }
 
-export type GrantExpiryOption = 'never' | 'week' | 'month'
+export type GrantExpiryOption = 'never' | 'week' | 'month' | 'custom'
 
 export type GrantCreditsInput = {
 	userId: string
@@ -45,8 +47,10 @@ export function createUserContextLinks(locale: string, userId: string): UserCont
 		compose: '1'
 	})
 	return {
+		creditTransactions: `/${locale}/admin/credit-transactions?${userParams.toString()}`,
 		feedbacks: `/${locale}/admin/feedback?${userParams.toString()}`,
 		payments: `/${locale}/admin/payments?${userParams.toString()}`,
+		affiliateReferrals: `/${locale}/admin/affiliate-referrals?${userParams.toString()}`,
 		aiTasks: `/${locale}/admin/ai-tasks?${userParams.toString()}`,
 		notification: `/${locale}/admin/notifications?${notificationParams.toString()}`
 	}
@@ -56,7 +60,11 @@ export function validateCreditAmount(value: string): boolean {
 	return /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value) && Number(value) > 0
 }
 
-export function resolveGrantExpiry(option: GrantExpiryOption, now: number = Date.now()): number | null {
+export function resolveGrantExpiry(
+	option: GrantExpiryOption,
+	now: number = Date.now(),
+	customExpiresAt: number | null = null
+): number | null {
 	switch (option) {
 		case 'never':
 			return null
@@ -64,6 +72,8 @@ export function resolveGrantExpiry(option: GrantExpiryOption, now: number = Date
 			return now + 7 * 24 * 60 * 60 * 1000
 		case 'month':
 			return now + 30 * 24 * 60 * 60 * 1000
+		case 'custom':
+			return customExpiresAt
 	}
 }
 

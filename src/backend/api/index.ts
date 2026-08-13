@@ -21,11 +21,12 @@ import {
 	generateCreditCodesHandler,
 	grantCreditsHandler,
 	getCreditSummaryHandler,
+	listAdminCreditTransactionsHandler,
 	listCreditCodesHandler,
 	listCreditTransactionsHandler,
 	redeemCreditCodeHandler
 } from './handler/credits'
-import { bindAffHandler, getAffSummaryHandler } from './handler/aff'
+import { bindAffHandler, getAffSummaryHandler, listAdminAffiliateReferralsHandler } from './handler/aff'
 import { listFeedbacksHandler, submitFeedbackHandler } from './handler/feedback'
 import {
 	archiveNotificationHandler,
@@ -166,6 +167,8 @@ adminApi.post('/admin/list_beta_codes', requireApiScope(getProtectedJsonRouteSco
 adminApi.post('/admin/generate_credit_codes', requireApiScope(getProtectedJsonRouteScope('/api/admin/generate_credit_codes')), generateCreditCodesHandler)
 adminApi.post('/admin/list_credit_codes', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_credit_codes')), listCreditCodesHandler)
 adminApi.post('/admin/grant_credits', requireApiScope(getProtectedJsonRouteScope('/api/admin/grant_credits')), grantCreditsHandler)
+adminApi.post('/admin/list_credit_transactions', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_credit_transactions')), listAdminCreditTransactionsHandler)
+adminApi.post('/admin/list_affiliate_referrals', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_affiliate_referrals')), listAdminAffiliateReferralsHandler)
 adminApi.post('/admin/list_feedbacks', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_feedbacks')), listFeedbacksHandler)
 adminApi.post('/admin/create_notification', requireApiScope(getProtectedJsonRouteScope('/api/admin/create_notification')), createNotificationHandler)
 adminApi.post('/admin/list_notifications', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_notifications')), listAdminNotificationsHandler)

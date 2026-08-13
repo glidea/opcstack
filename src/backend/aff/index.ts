@@ -1,4 +1,5 @@
-import { eq, sql } from 'drizzle-orm'
+import { and, desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/sqlite-core'
 import type { MetaDb } from '../db'
 import { affReferral } from '../db/schema'
 import { user } from '../db/schema.auth'
@@ -38,6 +39,36 @@ export interface MarkAffRewardGrantedInput {
 	target: 'inviter' | 'invitee'
 	nowMs?: number
 }
+
+export type AffiliateRewardStatus = 'pending' | 'completed'
+
+export interface ListAffiliateReferralsInput {
+	limit: number
+	offset: number
+	search?: string
+	rewardStatus?: AffiliateRewardStatus
+}
+
+export interface AffiliateReferralItem {
+	id: string
+	inviterUserId: string
+	inviterName: string
+	inviterEmail: string
+	inviteeUserId: string
+	inviteeName: string
+	inviteeEmail: string
+	inviterGrantedAt: number | null
+	inviteeGrantedAt: number | null
+	createdAt: number
+}
+
+export interface ListAffiliateReferralsResult {
+	referrals: AffiliateReferralItem[]
+	total: number
+}
+
+const inviterUser = alias(user, 'affiliate_inviter_user')
+const inviteeUser = alias(user, 'affiliate_invitee_user')
 
 export type AffErrorCode =
 	| 'AFF_CODE_GENERATE_FAILED'
@@ -207,6 +238,52 @@ export class AffService {
 					.where(eq(affReferral.id, input.affId))
 				return
 		}
+	}
+
+	async listReferrals(input: ListAffiliateReferralsInput): Promise<ListAffiliateReferralsResult> {
+		const conditions: SQL[] = []
+		if (input.search !== undefined) {
+			conditions.push(or(
+				like(inviterUser.name, `%${input.search}%`),
+				like(inviterUser.email, `%${input.search}%`),
+				like(inviteeUser.name, `%${input.search}%`),
+				like(inviteeUser.email, `%${input.search}%`)
+			)!)
+		}
+		if (input.rewardStatus === 'completed') {
+			conditions.push(sql`${affReferral.inviterGrantedAt} is not null and ${affReferral.inviteeGrantedAt} is not null`)
+		}
+		if (input.rewardStatus === 'pending') {
+			conditions.push(sql`${affReferral.inviterGrantedAt} is null or ${affReferral.inviteeGrantedAt} is null`)
+		}
+		const where: SQL | undefined = conditions.length === 0 ? undefined : and(...conditions)
+		const totalRows: Array<{ total: number }> = await this.db
+			.select({ total: sql<number>`count(*)` })
+			.from(affReferral)
+			.innerJoin(inviterUser, eq(inviterUser.id, affReferral.inviterUserId))
+			.innerJoin(inviteeUser, eq(inviteeUser.id, affReferral.inviteeUserId))
+			.where(where)
+		const rows: AffiliateReferralItem[] = await this.db
+			.select({
+				id: affReferral.id,
+				inviterUserId: inviterUser.id,
+				inviterName: inviterUser.name,
+				inviterEmail: inviterUser.email,
+				inviteeUserId: inviteeUser.id,
+				inviteeName: inviteeUser.name,
+				inviteeEmail: inviteeUser.email,
+				inviterGrantedAt: affReferral.inviterGrantedAt,
+				inviteeGrantedAt: affReferral.inviteeGrantedAt,
+				createdAt: affReferral.createdAt
+			})
+			.from(affReferral)
+			.innerJoin(inviterUser, eq(inviterUser.id, affReferral.inviterUserId))
+			.innerJoin(inviteeUser, eq(inviteeUser.id, affReferral.inviteeUserId))
+			.where(where)
+			.orderBy(desc(affReferral.createdAt))
+			.limit(input.limit)
+			.offset(input.offset)
+		return { referrals: rows, total: Number(totalRows[0]?.total ?? 0) }
 	}
 }
 

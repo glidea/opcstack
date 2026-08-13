@@ -26,12 +26,16 @@ Run `opc auth connect --name <project> --server <origin> --scopes <scope-list>`.
 | Page | Route | Purpose |
 | --- | --- | --- |
 | Overview | `/{locale}/admin/overview` | Review core metrics, actionable exceptions, and AI task distribution |
-| Users | `/{locale}/admin/users` | Find users, inspect account state, and grant credits |
+| Users | `/{locale}/admin/users` | Find users, inspect business details, and grant credits |
+| Credit activity | `/{locale}/admin/credit-transactions` | Review one user's credit balance changes |
+| Invitations | `/{locale}/admin/affiliate-referrals` | Review inviter and invited-user relationships |
 | Beta codes | `/{locale}/admin/beta-codes` | Generate codes and inspect availability or usage |
 | Credit codes | `/{locale}/admin/credit-codes` | Generate credit codes and inspect claim or grant state |
 | Feedback | `/{locale}/admin/feedback` | Search feedback and inspect full submissions |
 | Notifications | `/{locale}/admin/notifications` | Publish global or targeted announcements and review history |
 | System settings | `/{locale}/admin/configuration` | Manage D1-backed business configuration by domain |
+| Payment products | `/{locale}/admin/payment-products` | Link configured payment platforms to customer entitlements |
+| AI providers | `/{locale}/admin/ai-providers` | Manage AI endpoints, models, and routing availability |
 | Payments | `/{locale}/admin/payments` | Inspect transactions and disputed payments |
 | AI tasks | `/{locale}/admin/ai-tasks` | Inspect image, TTS, and video tasks across users |
 
@@ -45,7 +49,7 @@ Changing a field marks only the current tab as unsaved. Switching tabs or leavin
 
 Disabled feature sections are collapsed by default. Enable a feature to expand its settings, or use the section expand control to configure it while it remains disabled. An empty disabled provider is valid, but a partially configured provider is rejected. Missing required fields are shown beside the affected control and the old configuration remains active. Secret fields never display plaintext. Choose **Keep current value**, **Replace value**, or **Remove value** before saving. Provider callback URLs are derived from the application URL and are read-only with a copy action.
 
-Payment keeps provider settings and products independent. Save provider routing, credentials, test mode, and the read-only webhook URLs in the upper form. AI routing weights are saved in the upper form, while Providers have independent create, edit, and delete sheets.
+Payment platform credentials stay in System settings. Payment products and AI Providers are separate workspaces because operators change those collections independently and more frequently. Each entity has an independent create, edit, and delete flow.
 
 Product and Provider saves replace only the changed row in the current page. They do not reload or overwrite sibling rows. Deletion always asks for confirmation. If another browser has already changed the same entity, the operation returns `CONFIG_CONFLICT`; refresh the current data and review it before editing again. Secret values are never shown. Provider rows expose only whether an API key is configured.
 
@@ -58,6 +62,8 @@ Product and Provider saves replace only the changed row in the current page. The
 5. Review the selected user and grant details, then confirm.
 
 The console creates the idempotency source reference internally. Operators do not enter or see `source_id`.
+
+Open **Credit activity** from the sidebar or a user detail sheet to review balance changes for that user. Open **Invitations** to search inviter and invited-user relationships and inspect whether each reward has completed.
 
 ## Generate access codes
 
@@ -85,7 +91,7 @@ The history list supports type, audience, user, and date filters. Open an active
 1. Open `/{locale}/admin/ai-tasks`.
 2. Filter by task type, status, or user. Provider, model, task ID, and date filters are under advanced filters.
 3. Open a task to inspect provider state, attempts, timestamps, stored output, and the last error.
-4. Use the contextual Cloudflare links to continue in the related Queue, D1 database, R2 bucket, or Worker dashboard.
+4. Use the contextual Cloudflare links to continue in the related Queue, R2 bucket, or Worker dashboard.
 
 The console is read-only for AI tasks. It does not retry, cancel, replay, or modify a task.
 
@@ -106,9 +112,8 @@ Cloudflare links are placed beside the resource they represent:
 | Console context | Cloudflare destination |
 | --- | --- |
 | Console header | Deployed Worker |
-| User details | Assigned D1 tenant shard |
 | AI task list | Related Queues |
-| AI task details | Queue, D1 shard, R2 bucket, and Worker when available |
+| AI task details | Queue, R2 bucket, and Worker when available |
 
 A link is hidden when the required Cloudflare account or resource identifier is unavailable. Use the console for product state and Cloudflare for platform state such as logs, metrics, queue delivery, database queries, and objects.
 
@@ -117,7 +122,7 @@ A link is hidden when the required Cloudflare account or resource identifier is 
 - Public assets remain API-only and have no admin page.
 - Payments, feedback, and AI task operations are read-only.
 - Codes cannot be revoked from the console.
-- Notifications cannot be edited or withdrawn after publishing.
+- Active notifications can be edited or archived. Archived notifications remain in administrator history and cannot be restored.
 - Fine-grained administrator permissions are not included. One D1 `admin` account owns browser access.
 
 ## Troubleshooting

@@ -22,26 +22,31 @@ describe('admin user list state', () => {
 
 	test('builds links that preserve user context', (): void => {
 		expect(createUserContextLinks('zh', 'user 1')).toEqual({
-		feedbacks: '/zh/admin/feedback?user_id=user+1',
-		payments: '/zh/admin/payments?user_id=user+1',
-		aiTasks: '/zh/admin/ai-tasks?user_id=user+1',
-		notification: '/zh/admin/notifications?target_user_id=user+1&compose=1'
-	})
+			creditTransactions: '/zh/admin/credit-transactions?user_id=user+1',
+			feedbacks: '/zh/admin/feedback?user_id=user+1',
+			payments: '/zh/admin/payments?user_id=user+1',
+			affiliateReferrals: '/zh/admin/affiliate-referrals?user_id=user+1',
+			aiTasks: '/zh/admin/ai-tasks?user_id=user+1',
+			notification: '/zh/admin/notifications?target_user_id=user+1&compose=1'
+		})
 	})
 })
 
 describe('admin credit grant state', () => {
-	test('resolves the three supported expiry choices from one reference time', (): void => {
+	test('resolves preset and custom expiry choices from one reference time', (): void => {
 		const now: number = Date.UTC(2026, 7, 13)
+		const customExpiry: number = Date.UTC(2026, 7, 20, 12)
 
 		expect({
 			never: resolveGrantExpiry('never', now),
 			week: resolveGrantExpiry('week', now),
-			month: resolveGrantExpiry('month', now)
+			month: resolveGrantExpiry('month', now),
+			custom: resolveGrantExpiry('custom', now, customExpiry)
 		}).toEqual({
 			never: null,
 			week: now + 7 * 24 * 60 * 60 * 1000,
-			month: now + 30 * 24 * 60 * 60 * 1000
+			month: now + 30 * 24 * 60 * 60 * 1000,
+			custom: customExpiry
 		})
 	})
 

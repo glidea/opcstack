@@ -7,8 +7,10 @@ const adminLayoutSource: string = readFileSync(`${adminDirectory}+layout.svelte`
 const pageDirectories: string[] = [
 	'overview',
 	'users',
+	'credit-transactions',
 	'beta-codes',
 	'credit-codes',
+	'affiliate-referrals',
 	'feedback',
 	'notifications',
 	'payments',

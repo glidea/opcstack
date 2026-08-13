@@ -1,8 +1,10 @@
 export type AdminSection =
 	| 'overview'
 	| 'users'
+	| 'credit-transactions'
 	| 'beta-codes'
 	| 'credit-codes'
+	| 'affiliate-referrals'
 	| 'feedback'
 	| 'notifications'
 	| 'payments'
@@ -20,8 +22,10 @@ export type AdminNavigationItem = {
 const ADMIN_SECTIONS: AdminSection[] = [
 	'overview',
 	'users',
+	'credit-transactions',
 	'beta-codes',
 	'credit-codes',
+	'affiliate-referrals',
 	'feedback',
 	'notifications',
 	'payments',

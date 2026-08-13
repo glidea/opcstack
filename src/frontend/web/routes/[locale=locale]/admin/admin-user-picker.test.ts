@@ -6,14 +6,11 @@ const user: ListAdminUsersResponseItem = {
 	id: 'user-1',
 	name: 'Ada Lovelace',
 	email: 'ada@example.com',
-	email_verified: true,
 	registration_utm_source: null,
 	created_at: 1,
 	updated_at: 1,
 	credit_balance: '0.000000',
-	beta_access: false,
-	inviter: null,
-	shard: null
+	inviter: null
 }
 
 describe('admin user picker', (): void => {

@@ -6,8 +6,9 @@
 	import CoinsIcon from '@lucide/svelte/icons/coins'
 	import CopyIcon from '@lucide/svelte/icons/copy'
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card'
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link'
+	import HistoryIcon from '@lucide/svelte/icons/history'
 	import MessageSquareTextIcon from '@lucide/svelte/icons/message-square-text'
+	import UserRoundPlusIcon from '@lucide/svelte/icons/user-round-plus'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
@@ -20,13 +21,11 @@
 		open = $bindable(false),
 		user,
 		locale,
-		cloudflareDatabaseUrl,
 		onCreditsGranted
 	}: {
 		open?: boolean
 		user: ListAdminUsersResponseItem | null
 		locale: string
-		cloudflareDatabaseUrl: string | null
 		onCreditsGranted: (balance: string) => void
 	} = $props()
 
@@ -113,33 +112,11 @@
 
 				<Separator />
 
-				<section aria-labelledby="user-shard-title">
-					<div class="mb-3 flex items-center justify-between gap-3">
-						<h3 id="user-shard-title" class="text-sm font-semibold">{$_('admin.users.detail.shard')}</h3>
-						{#if cloudflareDatabaseUrl}
-							<Button variant="ghost" size="sm" href={cloudflareDatabaseUrl} target="_blank" rel="noopener">
-								<ExternalLinkIcon />
-								D1
-							</Button>
-						{/if}
-					</div>
-					{#if user.shard}
-						<dl class="grid gap-3 text-sm">
-							<div class="grid grid-cols-2 gap-3">
-								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.users.shardId')}</dt><dd class="break-all font-mono text-xs">{user.shard.id}</dd></div>
-								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.users.region')}</dt><dd>{user.shard.region}</dd></div>
-							</div>
-						</dl>
-					{:else}
-						<p class="text-sm text-muted-foreground">{$_('admin.users.noShard')}</p>
-					{/if}
-				</section>
-
-				<Separator />
-
 				<section aria-labelledby="user-related-title">
 					<h3 id="user-related-title" class="mb-3 text-sm font-semibold">{$_('admin.users.detail.related')}</h3>
-					<div class="grid gap-2 sm:grid-cols-3">
+					<div class="grid gap-2 sm:grid-cols-2">
+						<Button variant="outline" size="sm" href={links.creditTransactions}><HistoryIcon />{$_('admin.nav.credit-transactions')}</Button>
+						<Button variant="outline" size="sm" href={links.affiliateReferrals}><UserRoundPlusIcon />{$_('admin.nav.affiliate-referrals')}</Button>
 						<Button variant="outline" size="sm" href={links.feedbacks}><MessageSquareTextIcon />{$_('admin.nav.feedback')}</Button>
 						<Button variant="outline" size="sm" href={links.payments}><CreditCardIcon />{$_('admin.nav.payments')}</Button>
 						<Button variant="outline" size="sm" href={links.aiTasks}><BotIcon />{$_('admin.nav.ai-tasks')}</Button>

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { ApiErrorResult } from './common'
+import { PageRequestSchema, type ApiErrorResult } from './common'
 
 export const GetAffSummaryRequestSchema = z.object({})
 export type GetAffSummaryRequest = z.infer<typeof GetAffSummaryRequestSchema>
@@ -18,6 +18,33 @@ export type BindAffRequest = z.infer<typeof BindAffRequestSchema>
 
 export const BindAffResponseSchema = z.object({})
 export type BindAffResponse = z.infer<typeof BindAffResponseSchema>
+
+export const ListAdminAffiliateReferralsRequestSchema = PageRequestSchema.extend({
+	search: z.string().min(1).optional(),
+	reward_status: z.enum(['pending', 'completed']).optional()
+})
+export type ListAdminAffiliateReferralsRequest = z.infer<typeof ListAdminAffiliateReferralsRequestSchema>
+
+export const AffiliateReferralUserSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	email: z.string()
+})
+
+export const AdminAffiliateReferralItemSchema = z.object({
+	id: z.string(),
+	inviter: AffiliateReferralUserSchema,
+	invitee: AffiliateReferralUserSchema,
+	reward_status: z.enum(['pending', 'completed']),
+	created_at: z.number()
+})
+export type AdminAffiliateReferralItem = z.infer<typeof AdminAffiliateReferralItemSchema>
+
+export const ListAdminAffiliateReferralsResponseSchema = z.object({
+	items: z.array(AdminAffiliateReferralItemSchema),
+	total: z.number()
+})
+export type ListAdminAffiliateReferralsResponse = z.infer<typeof ListAdminAffiliateReferralsResponseSchema>
 
 export const GetAffSummaryApi = {
 	request: GetAffSummaryRequestSchema,
@@ -64,6 +91,19 @@ export const BindAffApi = {
 					code: 'AFF_ALREADY_BOUND',
 					message: 'Affiliate code is already bound'
 				}
+			}
+		}
+	}
+}
+
+export const ListAdminAffiliateReferralsApi = {
+	request: ListAdminAffiliateReferralsRequestSchema,
+	response: ListAdminAffiliateReferralsResponseSchema,
+	errors: {
+		INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
+			return {
+				status: 400,
+				body: { code: 'INVALID_REQUEST', message }
 			}
 		}
 	}

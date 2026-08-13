@@ -8,7 +8,7 @@ import {
 	type ListAdminUsersResponseItem
 } from '../../../api-contract/admin-users'
 import { user } from '../../db/schema.auth'
-import { affReferral, betaCode, d1Shard, userShard } from '../../db/schema'
+import { affReferral, d1Shard, userShard } from '../../db/schema'
 import { createTenantShardAccess, type TenantShardAccess } from '../../db/shard-router'
 import { creditBalance } from '../../db/schema.shard'
 import { formatDecimal } from '../../lib/decimal'
@@ -18,17 +18,12 @@ type AdminUserRow = {
 	id: string
 	name: string
 	email: string
-	emailVerified: boolean
 	registrationUtmSource: string | null
 	createdAt: Date
 	updatedAt: Date
-	betaCodeId: string | null
 	inviterName: string | null
 	inviterEmail: string | null
 	shardId: string | null
-	shardRegion: string | null
-	shardDatabaseName: string | null
-	shardDatabaseId: string | null
 	shardBindingName: string | null
 }
 
@@ -69,21 +64,15 @@ export async function listAdminUsersHandler(ctx: Context<ApiEnv>): Promise<Respo
 			id: user.id,
 			name: user.name,
 			email: user.email,
-			emailVerified: user.emailVerified,
 			registrationUtmSource: user.registrationUtmSource,
 			createdAt: user.createdAt,
 			updatedAt: user.updatedAt,
-			betaCodeId: betaCode.id,
 			inviterName: inviterUser.name,
 			inviterEmail: inviterUser.email,
 			shardId: userShard.shardId,
-			shardRegion: d1Shard.region,
-			shardDatabaseName: d1Shard.databaseName,
-			shardDatabaseId: d1Shard.databaseId,
 			shardBindingName: d1Shard.bindingName
 		})
 		.from(user)
-		.leftJoin(betaCode, eq(betaCode.usedBy, user.id))
 		.leftJoin(affReferral, eq(affReferral.inviteeUserId, user.id))
 		.leftJoin(inviterUser, eq(inviterUser.id, affReferral.inviterUserId))
 		.leftJoin(userShard, eq(userShard.userId, user.id))
@@ -136,30 +125,14 @@ function toResponseItem(row: AdminUserRow, balance: number): ListAdminUsersRespo
 		row.inviterName === null || row.inviterEmail === null
 			? null
 			: { name: row.inviterName, email: row.inviterEmail }
-	const shard: ListAdminUsersResponseItem['shard'] =
-		row.shardId === null ||
-		row.shardRegion === null ||
-		row.shardDatabaseName === null ||
-		row.shardDatabaseId === null
-			? null
-			: {
-				id: row.shardId,
-				region: row.shardRegion,
-				database_name: row.shardDatabaseName,
-				database_id: row.shardDatabaseId
-			}
-
 	return {
 		id: row.id,
 		name: row.name,
 		email: row.email,
-		email_verified: row.emailVerified,
 		registration_utm_source: row.registrationUtmSource,
 		created_at: row.createdAt.getTime(),
 		updated_at: row.updatedAt.getTime(),
 		credit_balance: formatDecimal(balance),
-		beta_access: row.betaCodeId !== null,
-		inviter,
-		shard
+		inviter
 	}
 }

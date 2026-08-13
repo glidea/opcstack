@@ -1,6 +1,6 @@
 import { createAuthClient } from 'better-auth/svelte'
 import { emailOTPClient, genericOAuthClient } from 'better-auth/client/plugins'
-import type { GetAffSummaryResponse, BindAffRequest } from '../aff'
+import type { GetAffSummaryResponse, BindAffRequest, ListAdminAffiliateReferralsRequest, ListAdminAffiliateReferralsResponse } from '../aff'
 import type {
 	GetAdminAiTaskRequest,
 	GetAdminAiTaskResponse,
@@ -27,6 +27,8 @@ import type {
 	ListCreditCodesResponse,
 	ListCreditTransactionsRequest,
 	ListCreditTransactionsResponse,
+	ListAdminCreditTransactionsRequest,
+	ListAdminCreditTransactionsResponse,
 	RedeemCreditCodeRequest,
 	RedeemCreditCodeResponse
 } from '../credits'
@@ -184,6 +186,8 @@ type ApiMethods = {
 		input: ListAdminNotificationsRequest
 	): Promise<ListAdminNotificationsResponse>
 	listAdminUsers(input: ListAdminUsersRequest): Promise<ListAdminUsersResponse>
+	listAdminCreditTransactions(input: ListAdminCreditTransactionsRequest): Promise<ListAdminCreditTransactionsResponse>
+	listAdminAffiliateReferrals(input: ListAdminAffiliateReferralsRequest): Promise<ListAdminAffiliateReferralsResponse>
 	listBetaCodes(input: ListBetaCodesRequest): Promise<ListBetaCodesResponse>
 	listCreditCodes(input: ListCreditCodesRequest): Promise<ListCreditCodesResponse>
 	listCreditTransactions(
@@ -468,6 +472,12 @@ function createApiMethods(
 		},
 		listAdminUsers(input: ListAdminUsersRequest): Promise<ListAdminUsersResponse> {
 			return call({ path: '/api/admin/list_users', body: input })
+		},
+		listAdminCreditTransactions(input: ListAdminCreditTransactionsRequest): Promise<ListAdminCreditTransactionsResponse> {
+			return call({ path: '/api/admin/list_credit_transactions', body: input })
+		},
+		listAdminAffiliateReferrals(input: ListAdminAffiliateReferralsRequest): Promise<ListAdminAffiliateReferralsResponse> {
+			return call({ path: '/api/admin/list_affiliate_referrals', body: input })
 		},
 		listBetaCodes(input: ListBetaCodesRequest): Promise<ListBetaCodesResponse> {
 			return call({ path: '/api/admin/list_beta_codes', body: input })

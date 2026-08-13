@@ -7,6 +7,7 @@
 	import CpuIcon from '@lucide/svelte/icons/cpu'
 	import CloudIcon from '@lucide/svelte/icons/cloud'
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card'
+	import HistoryIcon from '@lucide/svelte/icons/history'
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link'
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round'
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard'
@@ -15,6 +16,7 @@
 	import Settings2Icon from '@lucide/svelte/icons/settings-2'
 	import TicketCheckIcon from '@lucide/svelte/icons/ticket-check'
 	import UsersIcon from '@lucide/svelte/icons/users'
+	import UserRoundPlusIcon from '@lucide/svelte/icons/user-round-plus'
 	import AppHeader from '$frontend/app-ui/shell/AppHeader.svelte'
 	import UserMenu from '$frontend/app-ui/shell/UserMenu.svelte'
 	import { _ } from '$frontend/i18n'
@@ -42,8 +44,10 @@
 	const sectionIcons: Record<AdminSection, Component> = {
 		overview: LayoutDashboardIcon,
 		users: UsersIcon,
+		'credit-transactions': HistoryIcon,
 		'beta-codes': KeyRoundIcon,
 		'credit-codes': TicketCheckIcon,
+		'affiliate-referrals': UserRoundPlusIcon,
 		feedback: MessageSquareTextIcon,
 		notifications: BellIcon,
 		payments: CreditCardIcon,

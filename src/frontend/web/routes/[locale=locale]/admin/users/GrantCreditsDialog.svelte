@@ -38,7 +38,9 @@
 	let amount: string = $state('')
 	let description: string = $state('')
 	let expiryOption: GrantExpiryOption = $state('never')
+	let customExpiry: string = $state('')
 	let amountError: string = $state('')
+	let expiryError: string = $state('')
 	let requestError: string = $state('')
 	let confirming: boolean = $state(false)
 	let submitting: boolean = $state(false)
@@ -51,7 +53,9 @@
 			amount = ''
 			description = ''
 			expiryOption = 'never'
+			customExpiry = ''
 			amountError = ''
+			expiryError = ''
 			requestError = ''
 			confirming = false
 			submitting = false
@@ -69,17 +73,25 @@
 			return
 		}
 		amountError = ''
-		const input: GrantCreditsInput = createGrantInput()
+		const customExpiresAt: number | null = expiryOption === 'custom'
+			? new Date(customExpiry).getTime()
+			: null
+		if (expiryOption === 'custom' && (customExpiresAt === null || !Number.isFinite(customExpiresAt) || customExpiresAt <= Date.now())) {
+			expiryError = $_('admin.users.grant.customError')
+			return
+		}
+		expiryError = ''
+		const input: GrantCreditsInput = createGrantInput(customExpiresAt)
 		confirmation = createGrantConfirmation(input)
 		confirming = true
 	}
 
-	function createGrantInput(): GrantCreditsInput {
+	function createGrantInput(customExpiresAt: number | null): GrantCreditsInput {
 		return {
 			userId: user.id,
 			amount: amount.trim(),
 			description: description.trim(),
-			expiresAt: resolveGrantExpiry(expiryOption)
+			expiresAt: resolveGrantExpiry(expiryOption, Date.now(), customExpiresAt)
 		}
 	}
 
@@ -201,7 +213,12 @@
 						<ToggleGroup.Item value="never" class="flex-1" aria-label={$_('admin.users.grant.never')}>{$_('admin.users.grant.never')}</ToggleGroup.Item>
 						<ToggleGroup.Item value="week" class="flex-1" aria-label={$_('admin.users.grant.oneWeek')}>{$_('admin.users.grant.oneWeek')}</ToggleGroup.Item>
 						<ToggleGroup.Item value="month" class="flex-1" aria-label={$_('admin.users.grant.oneMonth')}>{$_('admin.users.grant.oneMonth')}</ToggleGroup.Item>
+						<ToggleGroup.Item value="custom" class="flex-1" aria-label={$_('admin.users.grant.custom')}>{$_('admin.users.grant.custom')}</ToggleGroup.Item>
 					</ToggleGroup.Root>
+					{#if expiryOption === 'custom'}
+						<Input id="grant-custom-expiry" type="datetime-local" bind:value={customExpiry} aria-invalid={expiryError !== ''} />
+					{/if}
+					{#if expiryError !== ''}<Field.Error class="min-h-0">{expiryError}</Field.Error>{/if}
 				</Field.Field>
 				<Dialog.Footer>
 					<Button type="submit">{$_('admin.users.grant.review')}</Button>

@@ -37,18 +37,12 @@ describe('listAdminUsersHandler', () => {
 				id: 'usr_1',
 				name: 'Maya Chen',
 				email: 'maya@example.com',
-				emailVerified: true,
-				image: 'https://example.com/maya.png',
 				registrationUtmSource: 'launch',
 				createdAt: new Date(1000),
 				updatedAt: new Date(2000),
-				betaCodeId: 'beta-1',
 				inviterName: 'Robin Lee',
 				inviterEmail: 'robin@example.com',
 				shardId: 'apac-0000',
-				shardRegion: 'apac',
-				shardDatabaseName: 'tenant-apac-0000',
-				shardDatabaseId: 'db-1',
 				shardBindingName: 'TENANT_DB_APAC_0000'
 			}
 		]
@@ -64,23 +58,15 @@ describe('listAdminUsersHandler', () => {
 			items: [
 				{
 					id: 'usr_1',
-				name: 'Maya Chen',
-				email: 'maya@example.com',
-				email_verified: true,
-				registration_utm_source: 'launch',
+					name: 'Maya Chen',
+					email: 'maya@example.com',
+					registration_utm_source: 'launch',
 					created_at: 1000,
 					updated_at: 2000,
 					credit_balance: '12.500000',
-					beta_access: true,
 					inviter: {
 						name: 'Robin Lee',
 						email: 'robin@example.com'
-					},
-					shard: {
-						id: 'apac-0000',
-						region: 'apac',
-						database_name: 'tenant-apac-0000',
-						database_id: 'db-1'
 					}
 				}
 			],
@@ -98,18 +84,12 @@ type AdminUserRow = {
 	id: string
 	name: string
 	email: string
-	emailVerified: boolean
-	image: string | null
 	registrationUtmSource: string | null
 	createdAt: Date
 	updatedAt: Date
-	betaCodeId: string | null
 	inviterName: string | null
 	inviterEmail: string | null
 	shardId: string | null
-	shardRegion: string | null
-	shardDatabaseName: string | null
-	shardDatabaseId: string | null
 	shardBindingName: string | null
 }
 

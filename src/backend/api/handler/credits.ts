@@ -7,6 +7,7 @@ import {
 	GetCreditSummaryApi,
 	ListCreditCodesApi,
 	ListCreditTransactionsApi,
+	ListAdminCreditTransactionsApi,
 	RedeemCreditCodeApi
 } from '../../../api-contract/credits'
 import {
@@ -62,6 +63,32 @@ export async function listCreditTransactionsHandler(ctx: Context<ApiEnv>): Promi
 	const credits = new CreditsService(ctx.get('tenantDb'))
 	const result = await credits.listTransactions({
 		userId: ctx.get('userId'),
+		limit: req.page_size,
+		offset: (req.page - 1) * req.page_size,
+		type: req.type,
+		sourceType: req.source_type,
+		sourceId: req.source_id,
+		createdAtStart: req.created_at_start,
+		createdAtEnd: req.created_at_end
+	})
+
+	return ctx.json({
+		items: result.transactions.map(toApiTransaction),
+		total: result.total
+	})
+}
+
+export async function listAdminCreditTransactionsHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, ListAdminCreditTransactionsApi.request)
+	if (!request.success) {
+		const error = ListAdminCreditTransactionsApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	const req = request.data
+	const tenant = await createTenantShardAccess(ctx.get('metaDb'), ctx.env).openUserDb(req.user_id)
+	const credits = new CreditsService(tenant.db)
+	const result = await credits.listTransactions({
+		userId: req.user_id,
 		limit: req.page_size,
 		offset: (req.page - 1) * req.page_size,
 		type: req.type,
