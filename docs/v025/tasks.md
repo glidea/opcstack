@@ -3,8 +3,8 @@
 ## 当前执行状态
 
 - Task-001 至 Task-007 和 Task-006A 已实现、验证、提交并推送
-- Task-001 至 Task-008 和 Task-006A 已实现并验证；Task-009 至 Task-010 未完成
-- Task-008 已通过空数据首次启动的真实浏览器旅程、配置 HTTP E2E、91 个测试文件和 593 个单元测试；Task-009 再收口 Payment Product 与 AI Provider，Task-010 最后完成文档、旧逻辑搜索、OAuth HTTP 流程和真实 Cloudflare 远程验收
+- Task-001 至 Task-009 和 Task-006A 已实现并验证；Task-010 未完成
+- Task-009 已通过空数据首次启动的真实浏览器旅程及 10 个针对性测试文件、65 个测试；Task-010 最后完成文档、旧逻辑搜索、OAuth HTTP 流程和真实 Cloudflare 远程验收
 - 未通过对应任务的行为测试、真实用户流程和完整回归前，不把已有局部代码视为完成
 
 # Task-001: 建立 D1 配置存储与加密内核
@@ -252,13 +252,13 @@
 - 不展示任何密钥明文、密文或 IV
 
 ## TODO 清单
-- [ ] 1. 用状态测试和真实浏览器测试覆盖 Product、Provider 新建、编辑、删除、停用、版本冲突和 Secret 操作，不使用源码字符串断言
-- [ ] 2. 完成 Payment 开关、默认 Provider、Provider 凭据、Webhook URL 复制和国家路由结构化行编辑；关闭时允许独立展开预配置
-- [ ] 3. 完成 Product 表格和右侧抽屉，只支持可执行的 `remote_product`，实体保存只替换目标 Product，不重置 Payment 单例草稿
-- [ ] 4. 基于 Task-006A 完成 AI Provider 表格和右侧抽屉，字段仅为 `id`、`name`、完整 `type`、`models`、`base_url`、`api_key`、`price_multiplier`、`enabled`，不展示 Area、Channel、Capability 或 Adapter
+- [x] 1. 用状态测试和真实浏览器测试覆盖 Product、Provider 新建、编辑、删除、停用、版本冲突和 Secret 操作，不使用源码字符串断言
+- [x] 2. 完成 Payment 开关、默认 Provider、Provider 凭据、Webhook URL 复制和国家路由结构化行编辑；关闭时允许独立展开预配置
+- [x] 3. 完成 Product 表格和右侧抽屉，只支持可执行的 `remote_product`，实体保存只替换目标 Product，不重置 Payment 单例草稿
+- [x] 4. 基于 Task-006A 完成 AI Provider 表格和右侧抽屉，字段仅为 `id`、`name`、完整 `type`、`models`、`base_url`、`api_key`、`price_multiplier`、`enabled`，不展示 Area、Channel、Capability 或 Adapter
 - [x] 5. 在 AI 系统设置中暴露错误率、延迟和价格三个非负相对权重并校验总和大于零；Task-006A 迁移时保持该配置与下一次选择立即生效语义
-- [ ] 6. Product 与 Provider 使用各自版本处理 loading、empty、error、删除确认和 `CONFIG_CONFLICT`；冲突不覆盖新版本且保留抽屉输入
-- [ ] 7. 同步 Admin Console、Payment 和 AI 操作文档，统一使用 Provider 术语
+- [x] 6. Product 与 Provider 使用各自版本处理 loading、empty、error、删除确认和 `CONFIG_CONFLICT`；冲突不覆盖新版本且保留抽屉输入
+- [x] 7. 同步 Admin Console、Payment 和 AI 操作文档，统一使用 Provider 术语
 
 ## 验收测试步骤
 1. 在 Payment Tab 保存 Provider 后新建、编辑和删除 Product，确认每次只更新目标实体

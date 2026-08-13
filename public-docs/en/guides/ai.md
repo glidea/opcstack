@@ -493,7 +493,7 @@ Video selects a Provider only when creating a new remote task. After the Provide
 
 Configuration saves take effect for the next request, queue message, WebSocket connection, or cron trigger. One operation keeps the snapshot it started with. A Video task that already has a remote task ID keeps its persisted Provider.
 
-Open **Admin > Configuration > AI** to save routing weights and task retention. Manage Providers below that form. A Provider requires a name, Provider Type, at least one model, base URL, price multiplier, enabled state, and an API key when first enabled. Provider create, edit, and delete operations update only the target row. Stale versions require an explicit refresh. The page shows only whether an API key is configured.
+Open **Admin > Configuration > AI** to save routing weights and task retention. Manage Providers below that form. A Provider requires a name, Provider Type, at least one model, base URL, price multiplier, enabled state, and an API key when created. Provider create, edit, and delete operations update only the target row without resetting the routing form. Stale versions require an explicit refresh. The page shows only whether an API key is configured.
 
 No AI business setting or credential belongs in `.env.dev`, `.env.prod`, `.env.secret.*`, or `wrangler.jsonc`.
 

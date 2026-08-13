@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { AIProvider, PaymentProduct } from '$apiContract/configuration'
 import {
@@ -8,8 +6,6 @@ import {
 	validateAIProviderForm,
 	validatePaymentProductForm
 } from './configuration-collections'
-
-const routeDirectory: string = fileURLToPath(new URL('.', import.meta.url))
 
 const oneTimeProduct: PaymentProduct = {
 	product_id: 'credits-100',
@@ -67,10 +63,34 @@ describe('configuration entity validation', () => {
 			creemProductId: ''
 		})).toEqual({
 			subscriptionPlan: 'Subscription plan is required',
-			upgradeRank: 'Upgrade rank is required',
-			periodCreditsAmount: 'Period credit amount is required',
+			upgradeRank: 'Upgrade rank must be a non-negative whole number',
+			periodCreditsAmount: 'Enter a positive credit amount with at most six decimal places',
 			providerProductId: 'At least one provider product ID is required'
 		})
+	})
+
+	it('rejects invalid payment product numbers before submission', () => {
+		expect(validatePaymentProductForm({
+			productId: 'credits-100',
+			type: 'one_time',
+			creditsAmount: '0',
+			subscriptionPlan: '',
+			upgradeRank: '',
+			periodCreditsAmount: '',
+			dodoProductId: 'prod-100',
+			creemProductId: ''
+		})).toEqual({ creditsAmount: 'Enter a positive credit amount with at most six decimal places' })
+
+		expect(validatePaymentProductForm({
+			productId: 'monthly-pro',
+			type: 'subscription',
+			creditsAmount: '',
+			subscriptionPlan: 'pro',
+			upgradeRank: '1.5',
+			periodCreditsAmount: '100',
+			dodoProductId: 'prod-pro',
+			creemProductId: ''
+		})).toEqual({ upgradeRank: 'Upgrade rank must be a non-negative whole number' })
 	})
 
 	it('requires a new provider secret but lets edits keep the configured secret', () => {
@@ -87,33 +107,18 @@ describe('configuration entity validation', () => {
 		expect(validateAIProviderForm({ ...baseInput, editing: false, apiKeyAction: 'replace' })).toEqual({ apiKey: 'API key is required' })
 		expect(validateAIProviderForm({ ...baseInput, editing: true, apiKeyAction: 'keep' })).toEqual({})
 	})
-})
 
-describe('configuration collection interface', () => {
-		it('implements independent sheets, conflict refresh, secret state, and delete confirmation', () => {
-		const paymentSource: string = readFileSync(`${routeDirectory}PaymentConfigurationForm.svelte`, 'utf8')
-		const aiSource: string = readFileSync(`${routeDirectory}AIConfigurationForm.svelte`, 'utf8')
-		const productSource: string = readFileSync(`${routeDirectory}PaymentProductDialog.svelte`, 'utf8')
-		const providerSource: string = readFileSync(`${routeDirectory}AIProviderDialog.svelte`, 'utf8')
-		const combined: string = `${paymentSource}\n${aiSource}\n${productSource}\n${providerSource}`
-
-		expect(combined).toContain('CONFIG_CONFLICT')
-		expect(combined).toContain('AlertDialog')
-			expect(productSource).toContain("$frontend/ui/sheet")
-			expect(providerSource).toContain("$frontend/ui/sheet")
-			expect(productSource).not.toContain("$frontend/ui/dialog")
-			expect(providerSource).not.toContain("$frontend/ui/dialog")
-		expect(combined).toContain('api_key_configured')
-		expect(combined).toContain('Empty')
-		})
-
-		it('renders country provider overrides as rows and copies payment webhook URLs', () => {
-			const paymentSource: string = readFileSync(`${routeDirectory}PaymentConfigurationForm.svelte`, 'utf8')
-
-			expect(paymentSource).toContain('{#each countryOverrides as override, index}')
-			expect(paymentSource).toContain('addCountryOverride')
-			expect(paymentSource).toContain('removeCountryOverride')
-			expect(paymentSource).toContain('copyWebhookUrl')
-			expect(paymentSource).not.toContain('<Textarea id="payment-country-overrides"')
-		})
+	it('rejects a non-finite provider price multiplier', () => {
+		expect(validateAIProviderForm({
+			editing: false,
+			id: 'gemini-primary',
+			type: 'image_gemini',
+			name: 'Gemini primary',
+			baseUrl: 'https://generativelanguage.googleapis.com',
+			models: 'gemini-2.5-flash-image',
+			priceMultiplier: 'not-a-number',
+			apiKeyAction: 'replace',
+			apiKeyValue: 'secret'
+		})).toEqual({ priceMultiplier: 'Price multiplier must be greater than zero' })
 	})
+})

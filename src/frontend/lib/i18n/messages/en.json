@@ -345,6 +345,7 @@
 	"admin.configuration.saved": "Configuration saved",
 	"admin.configuration.discard": "Discard",
 	"admin.configuration.copy": "Copy",
+	"admin.configuration.copied": "Copied",
 	"admin.configuration.expand": "Expand configuration",
 	"admin.configuration.collapse": "Collapse configuration",
 	"admin.configuration.loadError": "Configuration could not be loaded",

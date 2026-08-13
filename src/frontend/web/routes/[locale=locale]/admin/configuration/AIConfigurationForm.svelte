@@ -229,7 +229,6 @@
 				<Field.Error>{errors['retention'] ?? ''}</Field.Error>
 			</Field.Field>
 		</ConfigurationSection>
-		<ConfigurationActions {dirty} {saving} onSave={saveConfig} onDiscard={discardChanges} />
 	</form>
 
 	<section class="space-y-4 border-t pt-6">
@@ -290,4 +289,5 @@
 			</AlertDialog.Footer>
 		</AlertDialog.Content>
 	</AlertDialog.Root>
+	<ConfigurationActions {dirty} {saving} onSave={saveConfig} onDiscard={discardChanges} />
 {/if}

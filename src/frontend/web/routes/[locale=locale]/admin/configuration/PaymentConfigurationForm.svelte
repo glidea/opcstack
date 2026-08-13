@@ -295,7 +295,6 @@
 				<Field.Field><Field.Label for="payment-creem-webhook-url">{$_('admin.configuration.payment.webhookUrl')}</Field.Label><div class="flex gap-2"><Input id="payment-creem-webhook-url" value={creemWebhookUrl} readonly /><Button type="button" size="icon" variant="outline" onclick={() => copyWebhookUrl(creemWebhookUrl)} aria-label={$_('admin.configuration.copy')} title={$_('admin.configuration.copy')}><CopyIcon /></Button></div></Field.Field>
 			</ConfigurationSection>
 		{/if}
-		<ConfigurationActions {dirty} {saving} onSave={saveConfig} onDiscard={discardChanges} />
 	</form>
 
 	<section class="space-y-4 border-t pt-6">
@@ -309,4 +308,5 @@
 
 	<PaymentProductDialog bind:open={productDialogOpen} product={selectedProduct} onSaved={handleProductSaved} onRefresh={loadConfig} />
 	<AlertDialog.Root open={deleteTarget !== null} onOpenChange={(open: boolean): void => { if (!open && !deleting) deleteTarget = null }}><AlertDialog.Content><AlertDialog.Header><AlertDialog.Title>{$_('admin.configuration.payment.products.deleteTitle')}</AlertDialog.Title><AlertDialog.Description>{$_('admin.configuration.payment.products.deleteDescription', { values: { id: deleteTarget?.product_id ?? '' } })}</AlertDialog.Description></AlertDialog.Header><AlertDialog.Footer><AlertDialog.Cancel disabled={deleting}>{$_('admin.configuration.entity.cancel')}</AlertDialog.Cancel><AlertDialog.Action variant="destructive" disabled={deleting} onclick={deleteProduct}>{deleting ? $_('admin.configuration.entity.deleting') : $_('admin.configuration.entity.delete')}</AlertDialog.Action></AlertDialog.Footer></AlertDialog.Content></AlertDialog.Root>
+	<ConfigurationActions {dirty} {saving} onSave={saveConfig} onDiscard={discardChanges} />
 {/if}

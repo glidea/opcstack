@@ -4,7 +4,7 @@
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
-	import * as Dialog from '$frontend/ui/dialog'
+	import * as Sheet from '$frontend/ui/sheet'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import * as Select from '$frontend/ui/select'
@@ -96,13 +96,13 @@
 	}
 </script>
 
-<Dialog.Root bind:open>
-	<Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-		<Dialog.Header>
-			<Dialog.Title>{product === null ? $_('admin.configuration.payment.products.create') : $_('admin.configuration.payment.products.edit')}</Dialog.Title>
-			<Dialog.Description class="sr-only">{$_('admin.configuration.payment.products.dialogDescription')}</Dialog.Description>
-		</Dialog.Header>
-		<form class="space-y-5" onsubmit={saveProduct}>
+<Sheet.Root bind:open>
+	<Sheet.Content class="w-full overflow-y-auto sm:max-w-2xl">
+		<Sheet.Header>
+			<Sheet.Title>{product === null ? $_('admin.configuration.payment.products.create') : $_('admin.configuration.payment.products.edit')}</Sheet.Title>
+			<Sheet.Description class="sr-only">{$_('admin.configuration.payment.products.dialogDescription')}</Sheet.Description>
+		</Sheet.Header>
+		<form class="space-y-5 px-4 pb-4" onsubmit={saveProduct}>
 			{#if requestError !== ''}
 				<Alert.Root variant="destructive">
 					<Alert.Description>{requestError}</Alert.Description>
@@ -140,10 +140,10 @@
 				<Field.Field><Field.Label for="payment-product-dodo">{$_('admin.configuration.payment.products.dodoId')}</Field.Label><Input id="payment-product-dodo" bind:value={dodoProductId} autocomplete="off" /></Field.Field>
 				<Field.Field data-invalid={fieldError('providerProductId') !== ''}><Field.Label for="payment-product-creem">{$_('admin.configuration.payment.products.creemId')}</Field.Label><Input id="payment-product-creem" bind:value={creemProductId} autocomplete="off" aria-invalid={fieldError('providerProductId') !== ''} /><Field.Error>{fieldError('providerProductId')}</Field.Error></Field.Field>
 			</div>
-			<Dialog.Footer>
+			<Sheet.Footer class="border-t px-0 pb-0">
 				<Button type="button" variant="outline" onclick={() => (open = false)} disabled={saving}>{$_('admin.configuration.entity.cancel')}</Button>
 				<Button type="submit" disabled={saving}>{saving ? $_('admin.configuration.saving') : $_('admin.configuration.save')}</Button>
-			</Dialog.Footer>
+			</Sheet.Footer>
 		</form>
-	</Dialog.Content>
-</Dialog.Root>
+	</Sheet.Content>
+</Sheet.Root>

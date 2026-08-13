@@ -493,7 +493,7 @@ Video 仅在创建新的远程任务时选择 Provider。Provider 返回任务 I
 
 配置保存后对下一个请求、Queue 消息、WebSocket 连接或 Cron 触发生效。已经开始的操作继续使用启动时的快照。已经取得远程任务 ID 的 Video 任务继续使用持久化的 Provider。
 
-在**后台 > Configuration > AI** 保存路由权重和任务保留期，并在下方管理 Provider。Provider 必须填写名称、Provider Type、至少一个模型、Base URL、价格系数、启用状态，并在首次启用时填写 API Key。新建、编辑、删除成功后只更新目标行。版本过期时需要显式刷新。页面只显示 API Key 是否已配置。
+在**后台 > Configuration > AI** 保存路由权重和任务保留期，并在下方管理 Provider。创建 Provider 时必须填写名称、Provider Type、至少一个模型、Base URL、价格系数、启用状态和 API Key。新建、编辑、删除成功后只更新目标行，不会重置路由表单草稿。版本过期时需要显式刷新。页面只显示 API Key 是否已配置。
 
 任何 AI 业务设置或凭据都不应写入 `.env.dev`、`.env.prod`、`.env.secret.*` 或 `wrangler.jsonc`。
 

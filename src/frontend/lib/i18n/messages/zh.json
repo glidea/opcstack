@@ -345,6 +345,7 @@
 	"admin.configuration.saved": "配置已保存",
 	"admin.configuration.discard": "放弃",
 	"admin.configuration.copy": "复制",
+	"admin.configuration.copied": "已复制",
 	"admin.configuration.expand": "展开配置",
 	"admin.configuration.collapse": "收起配置",
 	"admin.configuration.loadError": "无法加载配置",
