@@ -14,6 +14,12 @@ describe.skipIf(!remote)('deployed Cloudflare public entrypoints', (): void => {
 		expect(response.status).toBe(200)
 	})
 
+	test('serves the published getting started documentation', async (): Promise<void> => {
+		const response: Response = await fetch(`${appBaseUrl}/en/docs/getting-started`)
+		expect(response.status).toBe(200)
+		expect(await response.text()).toContain('Getting Started')
+	})
+
 	test('redirects the configuration deep link to administrator sign in', async (): Promise<void> => {
 		const response: Response = await fetch(
 			`${appBaseUrl}/en/admin/configuration/general`,

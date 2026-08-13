@@ -1,4 +1,4 @@
-import { describe } from 'vitest'
+import { describe, vi } from 'vitest'
 import { runCases, type TestCase } from '../../../../backend/testing/bdd'
 import {
 	buildDocsManifest,
@@ -15,6 +15,15 @@ type EmptyWhenDetail = Record<string, never>
 
 const adminConsoleDocs: Record<string, string> = import.meta.glob<string>(
 	'/public-docs/{en,zh}/guides/admin-console.md',
+	{
+		eager: true,
+		import: 'default',
+		query: '?raw'
+	}
+)
+
+const gettingStartedDocs: Record<string, string> = import.meta.glob<string>(
+	'/public-docs/{en,zh}/getting-started.md',
 	{
 		eager: true,
 		import: 'default',
@@ -64,6 +73,32 @@ describe('admin console operator docs', () => {
 			coversAllRoutes: entries.every(([, content]: [string, string]): boolean => {
 				return routes.every((route: string): boolean => content.includes(route))
 			})
+		}
+	})
+})
+
+describe('published getting started docs', () => {
+	const cases: TestCase<EmptyWhenDetail, EmptyWhenDetail, { locales: string[] }>[] = [
+		{
+			scenario: 'render localized getting started pages',
+			given: 'the published English and Chinese markdown files',
+			when: 'building the runtime docs manifest',
+			then: 'renders both pages without runtime WebAssembly',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: { locales: ['en', 'zh'] }
+		}
+	]
+
+	runCases(cases, async (): Promise<{ locales: string[] }> => {
+		const instantiate = vi.spyOn(WebAssembly, 'instantiate').mockImplementation((): never => {
+			throw new WebAssembly.CompileError('Wasm code generation disallowed by embedder')
+		})
+		try {
+			const manifest: DocsManifest = await buildDocsManifest(gettingStartedDocs)
+			return { locales: manifest.locales }
+		} finally {
+			instantiate.mockRestore()
 		}
 	})
 })

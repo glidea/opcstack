@@ -375,6 +375,8 @@ order: 1
 
 Docs images should live under `src/frontend/web/static/images/` and be referenced as `/images/...`.
 
+Syntax highlighting uses Shiki's JavaScript regex engine. Do not switch the request-time renderer to the Oniguruma WASM engine because Cloudflare Workers reject runtime WASM compilation.
+
 `template-docs/` is different. It is for template maintainers and agents, not rendered by the app.
 
 ## Chrome Extension

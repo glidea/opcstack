@@ -77,11 +77,11 @@
 		"hono": "^4.12.12",
 		"mermaid": "^11.14.0",
 		"openai": "^6.34.0",
-		"rehype-shiki": "^0.0.9",
 		"rehype-stringify": "^10.0.1",
 		"remark-parse": "^11.0.0",
 		"remark-rehype": "^11.1.2",
 		"resend": "^6.12.2",
+		"shiki": "4.0.2",
 		"svelte-i18n": "^4.0.1",
 		"unified": "^11.0.5",
 		"zod": "^4.3.6"

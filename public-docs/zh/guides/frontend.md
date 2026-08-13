@@ -68,3 +68,5 @@ OpcStack 的前端架构优先考虑简单性以及类型安全，主要基于 *
 前端作为统一 of Cloudflare Worker 项目的一部分进行构建和部署。
 - 静态资源通过 Vite 进行打包。
 - 根据 Worker 配置，静态资源会直接通过 Cloudflare KV/R2 或标准的静态资源路由进行分发和处理。
+
+产品文档的语法高亮使用 Shiki 的 JavaScript 正则引擎。不要把请求时渲染器切换为 Oniguruma WASM 引擎，Cloudflare Workers 会拒绝运行时 WASM 编译。

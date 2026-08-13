@@ -3,10 +3,22 @@ import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import rehypeSlug from 'rehype-slug'
-import rehypeShiki from '@shikijs/rehype'
+import rehypeShikiFromHighlighter from '@shikijs/rehype/core'
 import rehypeStringify from 'rehype-stringify'
+import {
+	createHighlighter,
+	createJavaScriptRegexEngine,
+	type Highlighter
+} from 'shiki'
+import type { Processor } from 'unified'
 import { posix } from 'node:path'
 import type { Root, Element } from 'hast'
+
+const markdownHighlighter: Promise<Highlighter> = createHighlighter({
+	engine: createJavaScriptRegexEngine(),
+	themes: ['github-light', 'github-dark'],
+	langs: ['typescript', 'javascript', 'bash', 'json', 'jsonc', 'yaml', 'svelte', 'go', 'sql']
+})
 
 function walkElements(node: Root | Element, fn: (el: Element) => void): void {
 	if ('children' in node) {
@@ -94,14 +106,15 @@ function rehypeMermaid(): (tree: Root) => void {
 	}
 }
 
-function createMarkdownProcessor(linkContext: DocLinkContext) {
+async function createMarkdownProcessor(linkContext: DocLinkContext): Promise<Processor> {
+	const highlighter: Highlighter = await markdownHighlighter
 	return unified()
 		.use(remarkParse)
 		.use(remarkGfm)
 		.use(remarkRehype)
 		.use(rehypeSlug)
 		.use(rehypeMermaid)
-		.use(rehypeShiki, {
+		.use(rehypeShikiFromHighlighter, highlighter, {
 			themes: {
 				light: 'github-light',
 				dark: 'github-dark'
@@ -539,7 +552,8 @@ function decodeHtmlEntities(text: string): string {
 }
 
 async function renderMarkdown(raw: string, linkContext: DocLinkContext): Promise<string> {
-	const result = await createMarkdownProcessor(linkContext).process(raw)
+	const processor = await createMarkdownProcessor(linkContext)
+	const result = await processor.process(raw)
 	return String(result)
 }
 

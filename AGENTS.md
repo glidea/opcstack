@@ -388,6 +388,7 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 - Admin console operator usage lives in `template-docs/guides/admin-console.md` and the localized public copies. Keep them synchronized when admin routes or workflows change.
 - Docs route is `/docs/[...slug]` when the General domain `docs_enabled` setting is true.
 - Docs use Markdown frontmatter with `title`, `description`, `group`, `group_order`, and `order`.
+- Docs syntax highlighting uses Shiki's JavaScript regex engine because Workers cannot instantiate Oniguruma WASM during a request.
 - In docs frontmatter, `group_order` sorts groups and `order` sorts docs inside the same group.
 - Docs images live in `src/frontend/web/static/images/` and are referenced as `/images/...`.
 
