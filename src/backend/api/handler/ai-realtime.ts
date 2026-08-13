@@ -121,6 +121,7 @@ async function handleAIRealtimeWebSocketMessage(
 			)
 			const provider = ranked[0]!.provider
 			const client: AIRealtimeClient = createAIRealtimeClient(userId, {
+				type: 'realtime_doubao',
 				model: message.model,
 				endpoint: provider.endpoint
 			})

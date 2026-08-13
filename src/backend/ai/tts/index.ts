@@ -18,22 +18,21 @@ export function createAITTSClients(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
-	options: AISimpleTTSClientOptions
+	options: AITTSClientFactoryOptions
 ): AITTSClients {
-	const provider = options.provider ?? 'gemini'
-	if (provider === 'gemini') {
-		return {
-			simple: createGeminiSimpleTTSClient(env, userId, tenantDb, options),
-			gemini: createGeminiNativeTTSClient(options.endpoint)
-		}
+	switch (options.type) {
+		case 'tts_gemini':
+			return {
+				simple: createGeminiSimpleTTSClient(env, userId, tenantDb, options),
+				gemini: createGeminiNativeTTSClient(options.endpoint)
+			}
+		case 'tts_seed':
+			return {
+				simple: createSeedSimpleTTSClient(env, userId, tenantDb, options)
+			}
+		default:
+			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider type: ${options.type}`)
 	}
-	if (provider === 'seed') {
-		return {
-			simple: createSeedSimpleTTSClient(env, userId, tenantDb, options)
-		}
-	}
-
-	throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${provider}`)
 }
 
 export interface AISimpleTTSClient {
@@ -44,13 +43,14 @@ export interface AISimpleTTSClient {
 	getTask(id: string): Promise<AITTSTask | undefined>
 }
 
+export interface AITTSClientFactoryOptions extends AISimpleTTSClientOptions {
+	type: AITTSProviderType
+}
+
 export interface AISimpleTTSClientOptions {
-	provider?: AITTSProvider
 	model: string
 	endpoint: AIEndpoint
 }
-
-export type AITTSProvider = 'gemini' | 'seed'
 
 export interface AITTSSpeaker {
 	name: string

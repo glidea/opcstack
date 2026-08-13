@@ -258,9 +258,6 @@ describe('handleAIImageQueue', () => {
 					lastErrorMessage?: string
 			  }
 			| undefined
-		const clientOptions = vi.mocked(createAIImageClients).mock.calls[0]?.[1] as
-			| { provider?: string; model?: string }
-			| undefined
 		const clientUserId = vi.mocked(createAIImageClients).mock.calls[0]?.[1] as string | undefined
 		const clientTenantDb = vi.mocked(createAIImageClients).mock.calls[0]?.[2] as unknown
 		const generateInput = mocks.generate.mock.calls[0]?.[0] as
@@ -308,7 +305,7 @@ describe('handleAIImageQueue', () => {
 		expect(mocks.getAIRuntimeConfig).toHaveBeenCalledTimes(1)
 		expect(vi.mocked(createAIImageClients).mock.calls.map((call) => call[3])).toEqual([
 			{
-				provider: 'gemini',
+				type: 'image_gemini',
 				model: 'gemini-model',
 				endpoint: {
 					baseURL: 'https://gemini-primary.example/v1',
@@ -316,7 +313,7 @@ describe('handleAIImageQueue', () => {
 				}
 			},
 			{
-				provider: 'gemini',
+				type: 'image_gemini',
 				model: 'gemini-model',
 				endpoint: {
 					baseURL: 'https://gemini-backup.example/v1',

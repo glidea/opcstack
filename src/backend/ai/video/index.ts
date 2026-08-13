@@ -1,29 +1,6 @@
-import type { TenantShardDb } from '../../db'
-import { AIError } from '../error'
-import { createSeedDanceSimpleVideoClient } from './seedance'
 import type { AIVideoProviderType } from '../config'
 
 export * from './seedance/constants'
-
-export interface AIVideoClients {
-	simple: AISimpleVideoClient
-}
-
-export function createAIVideoClients(
-	env: Env,
-	userId: string,
-	tenantDb: TenantShardDb,
-	options: AISimpleVideoClientOptions
-): AIVideoClients {
-	const provider: AIVideoProvider = options.provider ?? 'seedance'
-	if (provider === 'seedance') {
-		return {
-			simple: createSeedDanceSimpleVideoClient(env, userId, tenantDb, options)
-		}
-	}
-
-	throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${provider}`)
-}
 
 export interface AISimpleVideoClient {
 	generate(input: AIVideoGenerateInput): Promise<AIVideoTask>
@@ -31,11 +8,8 @@ export interface AISimpleVideoClient {
 }
 
 export interface AISimpleVideoClientOptions {
-	provider?: AIVideoProvider
 	model: string
 }
-
-export type AIVideoProvider = 'seedance'
 export type AIVideoRatio = '21:9' | '16:9' | '4:3' | '1:1' | '3:4' | '9:16'
 export type AIVideoResolution = '480p' | '720p' | '1080p'
 

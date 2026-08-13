@@ -21,7 +21,7 @@ The current AI surface is backend-only:
 
 ## AI Model
 
-Every AI area exposes a small `createAI...Clients` factory. The factory returns a `simple` client and, where useful, the native provider client.
+Each AI module exposes a small `createAI...Clients` factory. The factory returns a `simple` client and, where useful, the native provider client.
 
 ```
 Business code
@@ -38,17 +38,9 @@ Business code
               +-- optional R2 output
 ```
 
-Provider selection is explicit in `options.provider`. Defaults exist only where the product has one clear default:
+The business operation determines the required combined Provider Type and model before loading configuration. The configuration component filters enabled D1 Provider entities by exact `type + model`, Provider Router ranks those entities, and the selected entity supplies the endpoint and API key to the factory. There is no default Provider or second provider selection inside the factory.
 
-| Area | Default provider |
-| --- | --- |
-| Chat | `openai` |
-| Image | `gemini` |
-| TTS | `gemini` |
-| Realtime | `doubao` |
-| Video | `seedance` |
-
-Unsupported provider names throw `AIError('UNSUPPORTED_AI_PROVIDER')`.
+Unsupported Provider Types throw `AIError('UNSUPPORTED_AI_PROVIDER')`.
 
 ## Module Layout
 
@@ -94,19 +86,19 @@ src/backend/consumers/
 
 ## Providers
 
-Supported provider ids are part of the public TypeScript contract for each AI area.
+Supported combined Provider Types are part of the public TypeScript contract.
 
-| Area | Provider id | Module | D1 provider id |
-| --- | --- | --- | --- |
-| Chat | `openai` | `chat/openai` | `chat_openai` |
-| Image | `gemini` | `image/gemini` | `image_gemini` |
-| Image | `openai` | `image/openai` | `image_openai` |
-| Image | `seedream` | `image/seedream` | `image_seedream` |
-| Image | `aliyun` | `image/aliyun` | `image_aliyun` |
-| TTS | `gemini` | `tts/gemini` | `tts_gemini` |
-| TTS | `seed` | `tts/seed` | `tts_seed` |
-| Realtime | `doubao` | `realtime/doubao` | `realtime_doubao` |
-| Video | `seedance` | `video/seedance` | `video_seedance` |
+| Module | Provider Type | Implementation |
+| --- | --- | --- |
+| Chat | `chat_openai` | `chat/openai` |
+| Image | `image_gemini` | `image/gemini` |
+| Image | `image_openai` | `image/openai` |
+| Image | `image_seedream` | `image/seedream` |
+| Image | `image_aliyun` | `image/aliyun` |
+| TTS | `tts_gemini` | `tts/gemini` |
+| TTS | `tts_seed` | `tts/seed` |
+| Realtime | `realtime_doubao` | `realtime/doubao` |
+| Video | `video_seedance` | `video/seedance` |
 
 Use provider constants from the provider `constants.ts` files when the caller needs a known model or voice name. Do not duplicate literal model lists in handlers or frontend code.
 
@@ -138,7 +130,7 @@ const result = await createAIClients({ provider: 'openai', model, endpoint }).si
 )
 ```
 
-Chat configuration is loaded from `system_settings.ai_config`. The API key is decrypted before the client is created and is never returned by configuration read APIs.
+Chat selects an enabled `chat_openai` Provider entity for the requested model. Its API key is decrypted before the client is created and is never returned by configuration read APIs.
 
 ## Image
 

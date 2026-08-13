@@ -31,35 +31,32 @@ export function createAIImageClients(
 	env: Env,
 	userId: string,
 	tenantDb: TenantShardDb,
-	options: AISimpleImageClientOptions
+	options: AIImageClientFactoryOptions
 ): AIImageClients {
-	const provider = options.provider ?? 'gemini'
-	if (provider === 'gemini') {
-		return {
-			simple: createGeminiSimpleImageClient(env, userId, tenantDb, options),
-			gemini: createGeminiNativeImageClient(options.endpoint)
-		}
+	switch (options.type) {
+		case 'image_gemini':
+			return {
+				simple: createGeminiSimpleImageClient(env, userId, tenantDb, options),
+				gemini: createGeminiNativeImageClient(options.endpoint)
+			}
+		case 'image_openai':
+			return {
+				simple: createOpenAISimpleImageClient(env, userId, tenantDb, options),
+				openai: createOpenAINativeImageClient(options.endpoint)
+			}
+		case 'image_seedream':
+			return {
+				simple: createSeedDreamSimpleImageClient(env, userId, tenantDb, options),
+				seedream: createSeedDreamNativeImageClient(options.endpoint)
+			}
+		case 'image_aliyun':
+			return {
+				simple: createAliyunSimpleImageClient(env, userId, tenantDb, options),
+				aliyun: createAliyunNativeImageClient(options.endpoint)
+			}
+		default:
+			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider type: ${options.type}`)
 	}
-	if (provider === 'openai') {
-		return {
-			simple: createOpenAISimpleImageClient(env, userId, tenantDb, options),
-			openai: createOpenAINativeImageClient(options.endpoint)
-		}
-	}
-	if (provider === 'seedream') {
-		return {
-			simple: createSeedDreamSimpleImageClient(env, userId, tenantDb, options),
-			seedream: createSeedDreamNativeImageClient(options.endpoint)
-		}
-	}
-	if (provider === 'aliyun') {
-		return {
-			simple: createAliyunSimpleImageClient(env, userId, tenantDb, options),
-			aliyun: createAliyunNativeImageClient(options.endpoint)
-		}
-	}
-
-	throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${provider}`)
 }
 
 export interface AISimpleImageClient {
@@ -68,13 +65,14 @@ export interface AISimpleImageClient {
 	getTask(id: string): Promise<AIImageTask | undefined>
 }
 
+export interface AIImageClientFactoryOptions extends AISimpleImageClientOptions {
+	type: AIImageProviderType
+}
+
 export interface AISimpleImageClientOptions {
-	provider?: AIImageProvider
 	model: string
 	endpoint: AIEndpoint
 }
-
-export type AIImageProvider = 'gemini' | 'openai' | 'seedream' | 'aliyun'
 
 export type AIImageAspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9'
 export type AIImageSize = '1K' | '2K' | '4K'

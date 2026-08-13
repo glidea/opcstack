@@ -16,7 +16,6 @@ import type {
 	AITTSResult,
 	AITTSSourceInput,
 	AITTSSpeaker,
-	AITTSProvider,
 	AITTSTaskStatus
 } from '../ai/tts'
 import type { AITTSGenerateQueueMessage } from '../ai/tts/task'
@@ -87,7 +86,7 @@ async function handleAITTSMessage(
 			const startedAt: number = Date.now()
 			try {
 				const client = createAITTSClients(env, task.userId, tenant.db, {
-					provider: toAITTSProvider(providerType),
+					type: providerType,
 					model: task.model,
 					endpoint: rankedProvider.provider.endpoint
 				}).simple
@@ -220,15 +219,6 @@ function isAITTSProviderFailure(error: unknown): boolean {
 			return false
 		default:
 			return true
-	}
-}
-
-function toAITTSProvider(type: AITTSProviderType): AITTSProvider {
-	switch (type) {
-		case 'tts_gemini':
-			return 'gemini'
-		case 'tts_seed':
-			return 'seed'
 	}
 }
 

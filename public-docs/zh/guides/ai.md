@@ -22,7 +22,7 @@ OPCStack 将 AI provider 代码放在 `src/backend/ai/` 下。处理器和业务
 
 ## AI 模型
 
-每个 AI 领域都暴露一个小型的 `createAI...Clients` 工厂函数。工厂返回一个 `simple` 客户端，以及在有需要时返回原生 provider 客户端。
+每个 AI 模块都暴露一个小型的 `createAI...Clients` 工厂函数。工厂返回一个 `simple` 客户端，以及在需要时返回原生 Provider 客户端。
 
 ```
 业务代码
@@ -39,17 +39,9 @@ OPCStack 将 AI provider 代码放在 `src/backend/ai/` 下。处理器和业务
               +-- 可选：R2 输出
 ```
 
-Provider 在 `options.provider` 中显式指定。仅在产品有明确默认值时才设置默认值：
+业务操作在读取配置前确定组合后的 Provider Type 和模型。配置组件按精确的 `type + model` 筛选已启用的 D1 Provider 实体，Provider Router 对这些实体排序，选中的实体再把 endpoint 和 API Key 传给工厂。工厂内部不存在默认 Provider 或第二次 Provider 选择。
 
-| 领域 | 默认 provider |
-| --- | --- |
-| 对话 | `openai` |
-| 图像 | `gemini` |
-| TTS | `gemini` |
-| 实时 | `doubao` |
-| 视频 | `seedance` |
-
-不支持的 provider 名称会抛出 `AIError('UNSUPPORTED_AI_PROVIDER')`。
+不支持的 Provider Type 会抛出 `AIError('UNSUPPORTED_AI_PROVIDER')`。
 
 ## 模块结构
 
@@ -95,19 +87,19 @@ src/backend/consumers/
 
 ## Providers
 
-每个 AI 领域的公共 TypeScript 契约中都包含支持的 provider id。
+公共 TypeScript 契约包含所有支持的组合 Provider Type。
 
-| 领域 | Provider id | 模块 | D1 Provider ID |
-| --- | --- | --- | --- |
-| 对话 | `openai` | `chat/openai` | `chat_openai` |
-| 图像 | `gemini` | `image/gemini` | `image_gemini` |
-| 图像 | `openai` | `image/openai` | `image_openai` |
-| 图像 | `seedream` | `image/seedream` | `image_seedream` |
-| 图像 | `aliyun` | `image/aliyun` | `image_aliyun` |
-| TTS | `gemini` | `tts/gemini` | `tts_gemini` |
-| TTS | `seed` | `tts/seed` | `tts_seed` |
-| 实时 | `doubao` | `realtime/doubao` | `realtime_doubao` |
-| 视频 | `seedance` | `video/seedance` | `video_seedance` |
+| 模块 | Provider Type | 实现目录 |
+| --- | --- | --- |
+| 对话 | `chat_openai` | `chat/openai` |
+| 图像 | `image_gemini` | `image/gemini` |
+| 图像 | `image_openai` | `image/openai` |
+| 图像 | `image_seedream` | `image/seedream` |
+| 图像 | `image_aliyun` | `image/aliyun` |
+| TTS | `tts_gemini` | `tts/gemini` |
+| TTS | `tts_seed` | `tts/seed` |
+| 实时 | `realtime_doubao` | `realtime/doubao` |
+| 视频 | `video_seedance` | `video/seedance` |
 
 当调用方需要已知的模型名或语音名时，使用 provider 的 `constants.ts` 文件中的常量。不要在处理器或前端代码中重复硬编码模型列表。
 
@@ -139,7 +131,7 @@ const result = await createAIClients({ provider: 'openai', model, endpoint }).si
 )
 ```
 
-对话配置从 `system_settings.ai_config` 读取。API Key 在创建客户端前解密，配置读取 API 永远不返回明文。
+对话按请求模型选择已启用的 `chat_openai` Provider 实体。API Key 在创建客户端前解密，配置读取 API 永远不返回明文。
 
 ## 图像
 

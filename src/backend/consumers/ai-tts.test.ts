@@ -168,7 +168,7 @@ describe('handleAITTSQueue', () => {
 				generateUploadToR2: true,
 				generateSourceInputUrl: '',
 				generateUserId: '',
-				clientProvider: 'gemini',
+				clientProvider: 'tts_gemini',
 				logErrorCalls: 0,
 				logTaskId: '',
 				logAttemptCount: 0
@@ -196,7 +196,7 @@ describe('handleAITTSQueue', () => {
 				generateUploadToR2: true,
 				generateSourceInputUrl: '',
 				generateUserId: '',
-				clientProvider: 'gemini',
+				clientProvider: 'tts_gemini',
 				logErrorCalls: 1,
 				logTaskId: 't1',
 				logAttemptCount: 1
@@ -224,7 +224,7 @@ describe('handleAITTSQueue', () => {
 				generateUploadToR2: true,
 				generateSourceInputUrl: '',
 				generateUserId: '',
-				clientProvider: 'gemini',
+				clientProvider: 'tts_gemini',
 				logErrorCalls: 1,
 				logTaskId: 't1',
 				logAttemptCount: 3
@@ -257,7 +257,7 @@ describe('handleAITTSQueue', () => {
 				generateUploadToR2: true,
 				generateSourceInputUrl: '',
 				generateUserId: '',
-				clientProvider: 'seed',
+				clientProvider: 'tts_seed',
 				logErrorCalls: 0,
 				logTaskId: '',
 				logAttemptCount: 0
@@ -293,7 +293,7 @@ describe('handleAITTSQueue', () => {
 				generateUploadToR2: true,
 				generateSourceInputUrl: 'https://example.com/article',
 				generateUserId: '',
-				clientProvider: 'seed',
+				clientProvider: 'tts_seed',
 				logErrorCalls: 0,
 				logTaskId: '',
 				logAttemptCount: 0
@@ -338,7 +338,7 @@ describe('handleAITTSQueue', () => {
 		const clientUserId = vi.mocked(createAITTSClients).mock.calls[0]?.[1] as string | undefined
 		const clientTenantDb = vi.mocked(createAITTSClients).mock.calls[0]?.[2] as unknown
 		const clientOptions = vi.mocked(createAITTSClients).mock.calls[0]?.[3] as
-			| { provider?: string }
+			| { type?: string }
 			| undefined
 		const generateInput = mocks.generateSpeech.mock.calls[0]?.[0] as
 			| { userId?: string; uploadToR2?: boolean }
@@ -366,7 +366,7 @@ describe('handleAITTSQueue', () => {
 			generateUploadToR2: generateInput?.uploadToR2 ?? generateSourceInput?.uploadToR2 ?? false,
 			generateSourceInputUrl: generateSourceInput?.inputUrl ?? '',
 			generateUserId: generateInput?.userId ?? '',
-			clientProvider: clientOptions?.provider ?? '',
+			clientProvider: clientOptions?.type ?? '',
 			logErrorCalls: mocks.logError.mock.calls.length,
 			logTaskId: logFields?.taskId ?? '',
 			logAttemptCount: logFields?.attemptCount ?? 0
@@ -390,7 +390,7 @@ describe('handleAITTSQueue', () => {
 		expect(mocks.getAIRuntimeConfig).toHaveBeenCalledTimes(1)
 		expect(vi.mocked(createAITTSClients).mock.calls.map((call) => call[3])).toEqual([
 			{
-				provider: 'gemini',
+				type: 'tts_gemini',
 				model: 'gemini-model',
 				endpoint: {
 					baseURL: 'https://gemini-primary.example/v1',
@@ -398,7 +398,7 @@ describe('handleAITTSQueue', () => {
 				}
 			},
 			{
-				provider: 'gemini',
+				type: 'tts_gemini',
 				model: 'gemini-model',
 				endpoint: {
 					baseURL: 'https://gemini-backup.example/v1',

@@ -1,9 +1,11 @@
 import { createDoubaoRealtimeClient } from './doubao'
 import type { AIEndpoint } from '../endpoint'
+import type { AIRealtimeProviderType } from '../config'
 
 export * from './doubao/constants'
 
 export interface AIRealtimeClientOptions {
+	type: AIRealtimeProviderType
 	model: string
 	endpoint: AIEndpoint
 }

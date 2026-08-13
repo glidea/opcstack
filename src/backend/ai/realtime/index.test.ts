@@ -119,6 +119,7 @@ describe('createAIRealtimeClient', () => {
 		constructorCalls.length = 0
 		startSessionCalls.length = 0
 		const client: AIRealtimeClient = createAIRealtimeClient('u1', {
+			type: 'realtime_doubao',
 			model: given.optionsModel ?? DOUBAO_REALTIME_MODEL_O2,
 			endpoint: { baseURL: 'wss://example.com', apiKey: 'k' }
 		})

@@ -15,8 +15,7 @@ import type {
 	AIImageAspectRatio,
 	AIImageReference,
 	AIImageResult,
-	AIImageSize,
-	AIImageProvider
+	AIImageSize
 } from '../ai/image'
 import type { AIImageGenerateQueueMessage } from '../ai/image/task'
 import {
@@ -87,7 +86,7 @@ async function handleAIImageMessage(
 			const startedAt: number = Date.now()
 			try {
 				const client = createAIImageClients(env, task.userId, tenant.db, {
-					provider: toAIImageProvider(providerType),
+					type: providerType,
 					model: task.model,
 					endpoint: rankedProvider.provider.endpoint
 				}).simple
@@ -224,19 +223,6 @@ function isAIProviderFailure(error: unknown): boolean {
 			return false
 		default:
 			return true
-	}
-}
-
-function toAIImageProvider(type: AIImageProviderType): AIImageProvider {
-	switch (type) {
-		case 'image_gemini':
-			return 'gemini'
-		case 'image_openai':
-			return 'openai'
-		case 'image_seedream':
-			return 'seedream'
-		case 'image_aliyun':
-			return 'aliyun'
 	}
 }
 
