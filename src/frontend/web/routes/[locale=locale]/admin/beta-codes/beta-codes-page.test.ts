@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import {
 	createBetaCodeSearchParams,
@@ -5,6 +7,11 @@ import {
 	parseBetaCodeListQuery,
 	validateGenerateCount
 } from './beta-codes-page'
+
+const pageSource: string = readFileSync(
+	fileURLToPath(new URL('./+page.svelte', import.meta.url)),
+	'utf8'
+)
 
 describe('admin beta codes page', (): void => {
 	test('parses filters and pagination from the URL', (): void => {
@@ -53,5 +60,10 @@ describe('admin beta codes page', (): void => {
 		expect({ text: joinBetaCodes([{ code: 'AAAA1111' }, { code: 'BBBB2222' }]) }).toEqual({
 			text: 'AAAA1111\nBBBB2222'
 		})
+	})
+
+	test('uses a standard primary action and an unframed filter toolbar', (): void => {
+		expect(pageSource).toContain('<Button onclick={() => (generateOpen = true)}>')
+		expect(pageSource).toContain('class="admin-filter-bar border-0 bg-transparent p-0"')
 	})
 })

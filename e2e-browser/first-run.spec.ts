@@ -86,6 +86,7 @@ test('completes the first-run administrator journey in the browser', async ({ br
 
 	await verifyPaymentProductJourney(page, concurrentPage)
 	await verifyAIProviderJourney(page, concurrentPage)
+	await verifyAdminBetaCodes(page)
 	await verifyAdminUsers(page, nextEmail)
 
 	await goToHydrated(page, '/en')
@@ -104,6 +105,24 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await expect(changedPage.getByRole('heading', { name: 'Configuration' })).toBeVisible()
 	await changedContext.close()
 })
+
+async function verifyAdminBetaCodes(page: Page): Promise<void> {
+	await goToHydrated(page, '/en/admin/beta-codes')
+	const generateButton = page.getByRole('button', { name: 'Generate codes', exact: true })
+	await expect(generateButton).toHaveCSS('height', '36px')
+	const positions = await Promise.all([
+		page.locator('#beta-code-filter').boundingBox(),
+		page.locator('#beta-user-filter').boundingBox(),
+		page.locator('#beta-status-filter').boundingBox(),
+		page.getByRole('button', { name: 'Apply filters', exact: true }).boundingBox()
+	])
+	for (const position of positions) {
+		expect(position).not.toBeNull()
+	}
+	const controlTopPositions: number[] = positions.map((position): number => position?.y ?? -1)
+	expect(Math.max(...controlTopPositions) - Math.min(...controlTopPositions)).toBeLessThanOrEqual(1)
+	await expect(page.getByText('Advanced filters', { exact: true })).toBeVisible()
+}
 
 async function verifyAdminUsers(page: Page, administratorEmail: string): Promise<void> {
 	await goToHydrated(page, '/en/admin/users')

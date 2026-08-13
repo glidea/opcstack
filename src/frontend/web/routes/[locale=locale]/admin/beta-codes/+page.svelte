@@ -169,18 +169,18 @@
 	<header class="admin-page-header">
 		<h1>{$_('admin.betaCodes.title')}</h1>
 		<div class="admin-page-actions">
-			<Button variant="outline" size="icon-sm" onclick={loadCodes} aria-label={$_('admin.betaCodes.refresh')} title={$_('admin.betaCodes.refresh')}>
+			<Button variant="outline" size="icon" onclick={loadCodes} aria-label={$_('admin.betaCodes.refresh')} title={$_('admin.betaCodes.refresh')}>
 				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 			</Button>
-			<Button size="sm" onclick={() => (generateOpen = true)}>
+			<Button onclick={() => (generateOpen = true)}>
 				<PlusIcon />
 				{$_('admin.betaCodes.generate.action')}
 			</Button>
 		</div>
 	</header>
 
-	<form class="admin-filter-bar" onsubmit={applyFilters}>
-		<div class="admin-filter-primary md:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_minmax(15rem,1.3fr)_minmax(10rem,0.8fr)_auto] xl:items-end">
+	<form class="admin-filter-bar border-0 bg-transparent p-0" onsubmit={applyFilters}>
+		<div class="admin-filter-primary md:grid-cols-2 lg:grid-cols-[minmax(11rem,1fr)_minmax(14rem,1.3fr)_minmax(9rem,0.7fr)_auto] lg:items-end">
 			<Field.Field>
 				<Field.Label for="beta-code-filter">{$_('admin.betaCodes.code')}</Field.Label>
 				<Input id="beta-code-filter" bind:value={codeInput} autocomplete="off" placeholder={$_('admin.betaCodes.codePlaceholder')} />
@@ -199,7 +199,7 @@
 					</Select.Content>
 				</Select.Root>
 			</Field.Field>
-			<div class="admin-filter-actions md:col-span-2 xl:col-span-1">
+			<div class="admin-filter-actions md:col-span-2 lg:col-span-1">
 				<Button type="submit">{$_('admin.betaCodes.apply')}</Button>
 				{#if hasFilters()}
 					<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.betaCodes.reset')}</Button>
