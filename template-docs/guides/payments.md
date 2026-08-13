@@ -12,7 +12,9 @@ Payment settings and products are stored in Meta D1. Environment variables are n
 - Dodo and Creem test mode
 - AES-GCM encrypted API keys and webhook secrets
 
-`payment_products` owns the product catalog. Each product has an independent version and maps one internal product ID to a Dodo product ID, a Creem product ID, or both. Provider dashboards remain the source of truth for name, description, price, currency, and billing mode.
+`payment_products` owns the product catalog. Each product has an independent version and maps one internal product ID to exactly one configured payment Provider and one remote product ID. Provider dashboards remain the source of truth for name, description, price, currency, and billing mode.
+
+The product row snapshots the selected Provider's current test or live environment. Test and live products are separate records. Switching a Provider's environment does not rewrite existing products; checkout only lists products whose snapshot matches the current Provider environment.
 
 The admin configuration API exposes derived webhook URLs:
 
@@ -66,4 +68,4 @@ Provider secrets use `keep`, `replace`, and `remove` mutations. Read responses o
 
 Open **Admin > Configuration > Payment**. Enable payment, select the default provider, and optionally add `COUNTRY:provider` overrides. Each provider section exposes test mode, secret operations, and the derived read-only webhook URL. Saving this form changes only the Payment singleton.
 
-Products are managed below the provider form. Create, edit, and delete one Product at a time. A successful response replaces only that Product in the page. Deletion requires confirmation. When another page has changed the same Product, `CONFIG_CONFLICT` keeps the newer value and offers an explicit refresh.
+Open **Admin > Payment products** to manage the catalog. The Provider selector contains only platforms with both an API key and webhook secret configured in **Admin > System settings > Payment**. Create, edit, and delete one Product at a time. Provider and environment are fixed after creation. A successful response replaces only that Product in the page. Deletion requires confirmation. When another page has changed the same Product, `CONFIG_CONFLICT` keeps the newer value and offers an explicit refresh.

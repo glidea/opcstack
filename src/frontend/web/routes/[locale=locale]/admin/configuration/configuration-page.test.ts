@@ -74,11 +74,6 @@ describe('configuration editor state', () => {
 describe('configuration validation', () => {
 	it('requires expanded authentication provider fields', () => {
 		expect(validateAuthenticationForm({
-			turnstileEnabled: false,
-			turnstileSiteKey: '',
-			turnstileSecretConfigured: false,
-			turnstileSecretAction: 'keep',
-			turnstileSecretValue: '',
 			googleEnabled: true,
 			googleClientId: '',
 			googleSecretConfigured: false,
@@ -102,11 +97,6 @@ describe('configuration validation', () => {
 
 	it('rejects a partially configured disabled authentication provider', () => {
 		expect(validateAuthenticationForm({
-			turnstileEnabled: false,
-			turnstileSiteKey: '',
-			turnstileSecretConfigured: false,
-			turnstileSecretAction: 'keep',
-			turnstileSecretValue: '',
 			googleEnabled: false,
 			googleClientId: 'client-id',
 			googleSecretConfigured: false,

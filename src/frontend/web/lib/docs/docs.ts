@@ -10,7 +10,6 @@ import {
 	createJavaScriptRegexEngine,
 	type Highlighter
 } from 'shiki'
-import type { Processor } from 'unified'
 import { posix } from 'node:path'
 import type { Root, Element } from 'hast'
 
@@ -104,33 +103,6 @@ function rehypeMermaid(): (tree: Root) => void {
 	return (tree: Root) => {
 		replaceMermaidCodeBlocks(tree)
 	}
-}
-
-async function createMarkdownProcessor(linkContext: DocLinkContext): Promise<Processor> {
-	const highlighter: Highlighter = await markdownHighlighter
-	return unified()
-		.use(remarkParse)
-		.use(remarkGfm)
-		.use(remarkRehype)
-		.use(rehypeSlug)
-		.use(rehypeMermaid)
-		.use(rehypeShikiFromHighlighter, highlighter, {
-			themes: {
-				light: 'github-light',
-				dark: 'github-dark'
-			},
-			langs: ['typescript', 'javascript', 'bash', 'json', 'jsonc', 'yaml', 'svelte', 'go', 'sql'],
-			langAlias: {
-				ts: 'typescript',
-				js: 'javascript',
-				shell: 'bash',
-				sh: 'bash',
-				yml: 'yaml'
-			}
-		})
-		.use(rehypeDocLinks, linkContext)
-		.use(rehypeLazyImages)
-		.use(rehypeStringify)
 }
 
 export interface DocMetadata {
@@ -552,7 +524,30 @@ function decodeHtmlEntities(text: string): string {
 }
 
 async function renderMarkdown(raw: string, linkContext: DocLinkContext): Promise<string> {
-	const processor = await createMarkdownProcessor(linkContext)
+	const highlighter: Highlighter = await markdownHighlighter
+	const processor = unified()
+		.use(remarkParse)
+		.use(remarkGfm)
+		.use(remarkRehype)
+		.use(rehypeSlug)
+		.use(rehypeMermaid)
+		.use(rehypeShikiFromHighlighter, highlighter, {
+			themes: {
+				light: 'github-light',
+				dark: 'github-dark'
+			},
+			langs: ['typescript', 'javascript', 'bash', 'json', 'jsonc', 'yaml', 'svelte', 'go', 'sql'],
+			langAlias: {
+				ts: 'typescript',
+				js: 'javascript',
+				shell: 'bash',
+				sh: 'bash',
+				yml: 'yaml'
+			}
+		})
+		.use(rehypeDocLinks, linkContext)
+		.use(rehypeLazyImages)
+		.use(rehypeStringify)
 	const result = await processor.process(raw)
 	return String(result)
 }

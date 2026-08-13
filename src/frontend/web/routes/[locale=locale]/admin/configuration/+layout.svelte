@@ -3,9 +3,7 @@
 	import { page } from '$app/state'
 	import type { BeforeNavigate } from '@sveltejs/kit'
 	import { onMount, type Snippet } from 'svelte'
-	import SettingsIcon from '@lucide/svelte/icons/settings'
 	import { _ } from '$frontend/i18n'
-	import { Button } from '$frontend/ui/button'
 	import * as AlertDialog from '$frontend/ui/alert-dialog'
 	import * as Tabs from '$frontend/ui/tabs'
 	import {
@@ -76,10 +74,6 @@
 <div class="admin-page">
 	<header class="admin-page-header">
 		<h1>{$_('admin.configuration.title')}</h1>
-		<Button variant="outline" href={`/${data.locale}/settings`}>
-			<SettingsIcon />
-			{$_('admin.configuration.accountSecurity')}
-		</Button>
 	</header>
 
 	<Tabs.Root value={activeDomain} orientation="horizontal" class="min-w-0 gap-5">

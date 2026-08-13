@@ -129,6 +129,7 @@ describe('notification api e2e', () => {
 		type FlowWhen = Record<string, never>
 		type FlowThen = {
 			createStatus: number
+			updateStatus: number
 			firstListStatus: number
 			firstListTenantShardHeader: boolean
 			firstListContainsNotification: boolean
@@ -136,25 +137,32 @@ describe('notification api e2e', () => {
 			readStatus: number
 			readTenantShardHeader: boolean
 			secondReadState: boolean
+			archiveStatus: number
+			archivedHiddenFromUser: boolean
+			archivedRetainedInAdminHistory: boolean
 		}
 
 		const flowCases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 			{
-				scenario: 'admin creates global notification and user can read it',
+				scenario: 'admin creates edits and archives a global notification',
 				given: 'an administrator session and a signed in user',
-				when: 'creating listing and reading a notification',
-				then: 'notification read state changes from false to true',
+				when: 'editing reading and archiving the notification',
+				then: 'changes are visible and archived notifications disappear only from users',
 				givenDetail: {},
 				whenDetail: {},
 				thenExpected: {
 					createStatus: 200,
+					updateStatus: 200,
 					firstListStatus: 200,
 					firstListTenantShardHeader: true,
 					firstListContainsNotification: true,
 					firstReadState: false,
 					readStatus: 200,
 					readTenantShardHeader: true,
-					secondReadState: true
+					secondReadState: true,
+					archiveStatus: 200,
+					archivedHiddenFromUser: true,
+					archivedRetainedInAdminHistory: true
 				}
 			}
 		]
@@ -175,6 +183,19 @@ describe('notification api e2e', () => {
 					cookie: adminSessionCookie
 				}
 			)
+			const createPayload = (await createRes.json()) as { id: string }
+			const updatedTitle: string = `${title}-updated`
+			const updateRes = await postJson(
+				'/api/admin/update_notification',
+				{
+					id: createPayload.id,
+					type: 'system',
+					title: updatedTitle,
+					content,
+					target_user_id: null
+				},
+				{ cookie: adminSessionCookie }
+			)
 
 			const firstListRes = await postJson(
 				'/api/list_notifications',
@@ -185,18 +206,22 @@ describe('notification api e2e', () => {
 			)
 			const firstListPayload = (await firstListRes.json()) as NotificationListResponse
 			const firstNotification = firstListPayload.items.find((item) => {
-				return item.title === title && item.content === content
+				return item.title === updatedTitle && item.content === content
 			})
 			if (!firstNotification) {
 				return {
 					createStatus: createRes.status,
+					updateStatus: updateRes.status,
 					firstListStatus: firstListRes.status,
 					firstListTenantShardHeader: Boolean(firstListRes.headers.get('x-d1-tenant-shard')),
 					firstListContainsNotification: false,
 					firstReadState: true,
 					readStatus: 0,
 					readTenantShardHeader: false,
-					secondReadState: false
+					secondReadState: false,
+					archiveStatus: 0,
+					archivedHiddenFromUser: false,
+					archivedRetainedInAdminHistory: false
 				}
 			}
 
@@ -221,16 +246,41 @@ describe('notification api e2e', () => {
 			const secondNotification = secondListPayload.items.find((item) => {
 				return item.id === firstNotification.id
 			})
+			const archiveRes = await postJson(
+				'/api/admin/archive_notification',
+				{ id: firstNotification.id },
+				{ cookie: adminSessionCookie }
+			)
+			const finalUserListRes = await postJson(
+				'/api/list_notifications',
+				{},
+				{ authorization: `Bearer ${token}` }
+			)
+			const finalUserList = (await finalUserListRes.json()) as NotificationListResponse
+			const adminListRes = await postJson(
+				'/api/admin/list_notifications',
+				{ id: firstNotification.id },
+				{ cookie: adminSessionCookie }
+			)
+			const adminList = (await adminListRes.json()) as {
+				items: Array<{ id: string; archived_at: number | null }>
+			}
 
 			return {
 				createStatus: createRes.status,
+				updateStatus: updateRes.status,
 				firstListStatus: firstListRes.status,
 				firstListTenantShardHeader: Boolean(firstListRes.headers.get('x-d1-tenant-shard')),
 				firstListContainsNotification: true,
 				firstReadState: firstNotification.read,
 				readStatus: readRes.status,
 				readTenantShardHeader: Boolean(readRes.headers.get('x-d1-tenant-shard')),
-				secondReadState: secondNotification?.read ?? false
+				secondReadState: secondNotification?.read ?? false,
+				archiveStatus: archiveRes.status,
+				archivedHiddenFromUser: !finalUserList.items.some((item) => item.id === firstNotification.id),
+				archivedRetainedInAdminHistory: adminList.items.some((item) => {
+					return item.id === firstNotification.id && item.archived_at !== null
+				})
 			}
 		})
 	})

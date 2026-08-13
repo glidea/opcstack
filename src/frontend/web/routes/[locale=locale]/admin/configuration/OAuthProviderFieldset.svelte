@@ -58,13 +58,13 @@
 		</Button>
 	</div>
 	{#if expanded}
-		<Field.Field>
-			<Field.Label for={`${id}-callback-url`}>{$_('admin.configuration.authentication.callbackUrl')}</Field.Label>
-			<div class="flex gap-2">
-				<Input id={`${id}-callback-url`} value={callbackUrl} readonly />
-				<Button type="button" size="icon" variant="outline" onclick={copyCallbackUrl} aria-label={$_('admin.configuration.copy')} title={$_('admin.configuration.copy')}><CopyIcon /></Button>
+		<div class="space-y-2">
+			<Field.Label for={`${id}-callback-copy`}>{$_('admin.configuration.authentication.callbackUrl')}</Field.Label>
+			<div class="flex items-center gap-2">
+				<span class="min-w-0 flex-1 break-all font-mono text-xs text-muted-foreground">{callbackUrl}</span>
+				<Button id={`${id}-callback-copy`} type="button" size="icon-sm" variant="ghost" onclick={copyCallbackUrl} aria-label={$_('admin.configuration.copy')} title={$_('admin.configuration.copy')}><CopyIcon /></Button>
 			</div>
-		</Field.Field>
+		</div>
 		<Field.Field data-invalid={clientIdError !== ''}>
 			<Field.Label for={`${id}-client-id`}>{$_('admin.configuration.authentication.clientId')}</Field.Label>
 			<Input id={`${id}-client-id`} autocomplete="off" bind:value={clientId} aria-invalid={clientIdError !== ''} />

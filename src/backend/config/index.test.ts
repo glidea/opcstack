@@ -50,7 +50,6 @@ describe('system configuration store', () => {
 			domain: 'general',
 			expectedVersion: 1,
 			values: {
-				designSystem: 'brutalism',
 				docsEnabled: false
 			},
 			nowMs: 2000
@@ -59,7 +58,6 @@ describe('system configuration store', () => {
 		expect({ version: result.generalVersion, config: result.generalConfig }).toEqual({
 			version: 2,
 			config: {
-				designSystem: 'brutalism',
 				docsEnabled: false
 			}
 		})
@@ -72,7 +70,7 @@ describe('system configuration store', () => {
 			updateSystemSettingsDomain(db, {
 				domain: 'general',
 				expectedVersion: 1,
-				values: { designSystem: 'brutalism', docsEnabled: false },
+				values: { docsEnabled: false },
 				nowMs: 2000
 			})
 		).rejects.toEqual(new ConfigStoreError('VERSION_CONFLICT', 'System settings version conflict'))
@@ -92,7 +90,6 @@ describe('system configuration store', () => {
 		expect({ result, reads }).toEqual({
 			result: {
 				support_email: 'admin@opcstack.local',
-				design_system: 'apple-saas',
 				docs_enabled: true,
 				payment_enabled: false,
 				email_provider_configured: false,
@@ -134,6 +131,55 @@ describe('system configuration store', () => {
 		})
 	})
 
+	it('preserves deployment-managed Turnstile credentials when changing its switch', async (): Promise<void> => {
+		const row: SystemSettings = createSettingsRow(1)
+		row.authenticationConfig.turnstile = {
+			enabled: false,
+			siteKey: 'site-key',
+			secretKey: { ciphertext: 'ciphertext', iv: 'iv' }
+		}
+		const updated: SystemSettings = createSettingsRow(1)
+		updated.authenticationVersion = 2
+		updated.authenticationConfig = {
+			...row.authenticationConfig,
+			turnstile: { ...row.authenticationConfig.turnstile, enabled: true }
+		}
+		let written: Partial<SystemSettings> | null = null
+		const db: MetaDb = createConfigDb({
+			row,
+			updated,
+			onWrite: (values: Partial<SystemSettings>): void => {
+				written = values
+			}
+		})
+
+		await updateAuthenticationConfig(db, TEST_ENCRYPTION_KEY, {
+			betaCodeEnabled: false,
+			registrationEnabled: false,
+			emailSignupDomainAllowlist: [],
+			emailRequireVerification: false,
+			emailUserActionCooldownSeconds: 50,
+			turnstile: { enabled: true },
+			providers: {
+				google: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
+				github: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
+				linuxdo: { enabled: false, clientId: null, clientSecret: { action: 'keep' } }
+			},
+			expectedVersion: 1,
+			nowMs: 2000
+		})
+
+		expect(written).toMatchObject({
+			authenticationConfig: {
+				turnstile: {
+					enabled: true,
+					siteKey: 'site-key',
+					secretKey: { ciphertext: 'ciphertext', iv: 'iv' }
+				}
+			}
+		})
+	})
+
 	it('rejects enabling an OAuth provider without complete credentials before writing', async (): Promise<void> => {
 		let writes: number = 0
 		const db: MetaDb = createConfigDb({
@@ -150,7 +196,7 @@ describe('system configuration store', () => {
 				emailSignupDomainAllowlist: [],
 				emailRequireVerification: false,
 				emailUserActionCooldownSeconds: 50,
-				turnstile: { enabled: false, siteKey: null, secretKey: { action: 'keep' } },
+				turnstile: { enabled: false },
 				providers: {
 					google: { enabled: true, clientId: null, clientSecret: { action: 'keep' } },
 					github: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
@@ -177,7 +223,7 @@ describe('system configuration store', () => {
 			emailSignupDomainAllowlist: [],
 			emailRequireVerification: false,
 			emailUserActionCooldownSeconds: 50,
-			turnstile: { enabled: false, siteKey: null, secretKey: { action: 'keep' } },
+			turnstile: { enabled: false },
 			providers: {
 				google: { enabled: false, clientId: 'client-id', clientSecret: { action: 'keep' } },
 				github: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
@@ -302,7 +348,7 @@ describe('system configuration store', () => {
 			emailSignupDomainAllowlist: [],
 			emailRequireVerification: true,
 			emailUserActionCooldownSeconds: 50,
-			turnstile: { enabled: false, siteKey: null, secretKey: { action: 'keep' } },
+			turnstile: { enabled: false },
 			providers: {
 				google: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
 				github: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
@@ -486,7 +532,6 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 		affiliateVersion: 1,
 		affiliateUpdatedAt: 1000,
 		generalConfig: {
-			designSystem: generalVersion === 1 ? 'apple-saas' : 'brutalism',
 			docsEnabled: generalVersion === 1
 		},
 		authenticationConfig: {

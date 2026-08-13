@@ -1,27 +1,29 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte'
-	import { defaultLocale, locale } from "$frontend/i18n";
-	import { SidebarTrigger } from "$frontend/ui/sidebar";
-	import ThemeSwitcher from "./ThemeSwitcher.svelte";
-	import LocaleSwitcher from "./LocaleSwitcher.svelte";
+	import { defaultLocale, locale } from '$frontend/i18n'
+	import { SidebarTrigger } from '$frontend/ui/sidebar'
+	import ThemeSwitcher from './ThemeSwitcher.svelte'
+	import LocaleSwitcher from './LocaleSwitcher.svelte'
 
 	type AppHeaderProps = {
 		logoHref?: string
 		showSidebarTrigger?: boolean
 		showThemeSwitcher?: boolean
 		showLocaleSwitcher?: boolean
+		leadingActions?: Snippet
 		center?: Snippet
 		actions?: Snippet
 	}
 
 	let {
-		logoHref = "/",
+		logoHref = '/',
 		showSidebarTrigger = false,
 		showThemeSwitcher = true,
 		showLocaleSwitcher = true,
+		leadingActions,
 		center,
 		actions
-	}: AppHeaderProps = $props();
+	}: AppHeaderProps = $props()
 </script>
 
 <header
@@ -34,6 +36,9 @@
 		<a href={logoHref} class="shrink-0">
 			<img src="/logo.svg" alt="logo" class="block h-6 w-auto [color-scheme:light] dark:[color-scheme:dark]" />
 		</a>
+		{#if leadingActions}
+			{@render leadingActions()}
+		{/if}
 		{#if center}
 			{@render center()}
 		{/if}

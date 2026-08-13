@@ -33,9 +33,6 @@
 		emailRequireVerification: boolean
 		emailCooldownSeconds: string
 		turnstileEnabled: boolean
-		turnstileSiteKey: string
-		turnstileSecretAction: SecretAction
-		turnstileSecretValue: string
 		googleEnabled: boolean
 		googleClientId: string
 		googleSecretAction: SecretAction
@@ -56,10 +53,6 @@
 	let emailRequireVerification: boolean = $state(false)
 	let emailCooldownSeconds: string = $state('60')
 	let turnstileEnabled: boolean = $state(false)
-	let turnstileSiteKey: string = $state('')
-	let turnstileSecretConfigured: boolean = $state(false)
-	let turnstileSecretAction: SecretAction = $state('keep')
-	let turnstileSecretValue: string = $state('')
 	let googleEnabled: boolean = $state(false)
 	let googleClientId: string = $state('')
 	let googleSecretConfigured: boolean = $state(false)
@@ -87,13 +80,11 @@
 	let errors: Record<string, string> = $state({})
 	let dirty: boolean = $state(false)
 	let registrationExpanded: boolean = $state(false)
-	let turnstileExpanded: boolean = $state(false)
 
 	function fields(): AuthenticationFields {
 		return {
 			betaCodeEnabled, registrationEnabled, emailDomainAllowlist, emailRequireVerification,
-			emailCooldownSeconds, turnstileEnabled, turnstileSiteKey, turnstileSecretAction,
-			turnstileSecretValue, googleEnabled, googleClientId, googleSecretAction,
+			emailCooldownSeconds, turnstileEnabled, googleEnabled, googleClientId, googleSecretAction,
 			googleSecretValue, githubEnabled, githubClientId, githubSecretAction,
 			githubSecretValue, linuxdoEnabled, linuxdoClientId, linuxdoSecretAction,
 			linuxdoSecretValue
@@ -109,10 +100,6 @@
 		emailRequireVerification = config.email_require_verification
 		emailCooldownSeconds = String(config.email_user_action_cooldown_seconds)
 		turnstileEnabled = config.turnstile_enabled
-		turnstileSiteKey = config.turnstile_site_key ?? ''
-		turnstileSecretConfigured = config.turnstile_secret_key_configured
-		turnstileSecretAction = 'keep'
-		turnstileSecretValue = ''
 		googleEnabled = config.google_auth_enabled
 		googleClientId = config.google_client_id ?? ''
 		googleSecretConfigured = config.google_client_secret_configured
@@ -137,7 +124,6 @@
 		error = ''
 		conflict = false
 		registrationExpanded = config.registration_enabled
-		turnstileExpanded = config.turnstile_enabled
 	}
 
 	function fieldError(name: string): string {
@@ -146,8 +132,7 @@
 
 	function validate(): boolean {
 		errors = validateAuthenticationForm({
-			turnstileEnabled, turnstileSiteKey, turnstileSecretConfigured, turnstileSecretAction,
-			turnstileSecretValue, googleEnabled, googleClientId, googleSecretConfigured,
+			googleEnabled, googleClientId, googleSecretConfigured,
 			googleSecretAction, googleSecretValue, githubEnabled, githubClientId,
 			githubSecretConfigured, githubSecretAction, githubSecretValue, linuxdoEnabled,
 			linuxdoClientId, linuxdoSecretConfigured, linuxdoSecretAction, linuxdoSecretValue
@@ -175,8 +160,6 @@
 				email_require_verification: emailRequireVerification,
 				email_user_action_cooldown_seconds: Number(emailCooldownSeconds),
 				turnstile_enabled: turnstileEnabled,
-				turnstile_site_key: turnstileSiteKey.trim() === '' ? null : turnstileSiteKey.trim(),
-				turnstile_secret_key: buildSecretMutation(turnstileSecretAction, turnstileSecretValue),
 				google_auth_enabled: googleEnabled,
 				google_client_id: googleClientId.trim() === '' ? null : googleClientId.trim(),
 				google_client_secret: buildSecretMutation(googleSecretAction, googleSecretValue),
@@ -202,9 +185,6 @@
 		emailRequireVerification = value.emailRequireVerification
 		emailCooldownSeconds = value.emailCooldownSeconds
 		turnstileEnabled = value.turnstileEnabled
-		turnstileSiteKey = value.turnstileSiteKey
-		turnstileSecretAction = value.turnstileSecretAction
-		turnstileSecretValue = value.turnstileSecretValue
 		googleEnabled = value.googleEnabled
 		googleClientId = value.googleClientId
 		googleSecretAction = value.googleSecretAction
@@ -232,20 +212,16 @@
 	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
 		<ConfigurationSection title={$_('admin.configuration.authentication.access')}>
-			<Field.Field orientation="horizontal"><Field.Label for="auth-beta-code">{$_('admin.configuration.authentication.betaCode')}</Field.Label><Switch id="auth-beta-code" bind:checked={betaCodeEnabled} /></Field.Field>
 			<div class="flex items-center justify-between gap-3"><Field.Field orientation="horizontal" class="flex-1"><Field.Label for="auth-registration">{$_('admin.configuration.authentication.registration')}</Field.Label><Switch id="auth-registration" bind:checked={registrationEnabled} /></Field.Field><Button type="button" size="icon-sm" variant="ghost" onclick={() => (registrationExpanded = !registrationExpanded)} aria-label={registrationExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={registrationExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}><ChevronDownIcon class={registrationExpanded ? 'rotate-180' : ''} /></Button></div>
 			{#if registrationEnabled || registrationExpanded}
 				<Field.Field><Field.Label for="auth-email-allowlist">{$_('admin.configuration.authentication.domainAllowlist')}</Field.Label><Textarea id="auth-email-allowlist" bind:value={emailDomainAllowlist} /><Field.Description>{$_('admin.configuration.authentication.domainAllowlistDescription')}</Field.Description></Field.Field>
+				<Field.Field orientation="horizontal"><Field.Label for="auth-beta-code">{$_('admin.configuration.authentication.betaCode')}</Field.Label><Switch id="auth-beta-code" bind:checked={betaCodeEnabled} /></Field.Field>
 				<Field.Field orientation="horizontal"><Field.Label for="auth-email-verification">{$_('admin.configuration.authentication.requireVerification')}</Field.Label><Switch id="auth-email-verification" bind:checked={emailRequireVerification} /></Field.Field>
 				<Field.Field data-invalid={fieldError('emailCooldownSeconds') !== ''}><Field.Label for="auth-email-cooldown">{$_('admin.configuration.authentication.cooldown')}</Field.Label><Input id="auth-email-cooldown" type="number" min="1" inputmode="numeric" bind:value={emailCooldownSeconds} aria-invalid={fieldError('emailCooldownSeconds') !== ''} /><Field.Error>{fieldError('emailCooldownSeconds')}</Field.Error></Field.Field>
 			{/if}
 		</ConfigurationSection>
 		<ConfigurationSection title={$_('admin.configuration.authentication.turnstile')}>
-			<div class="flex items-center justify-between gap-3"><Field.Field orientation="horizontal" class="flex-1"><Field.Label for="auth-turnstile-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="auth-turnstile-enabled" bind:checked={turnstileEnabled} /></Field.Field><Button type="button" size="icon-sm" variant="ghost" onclick={() => (turnstileExpanded = !turnstileExpanded)} aria-label={turnstileExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={turnstileExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}><ChevronDownIcon class={turnstileExpanded ? 'rotate-180' : ''} /></Button></div>
-			{#if turnstileEnabled || turnstileExpanded}
-				<Field.Field data-invalid={fieldError('turnstileSiteKey') !== ''}><Field.Label for="auth-turnstile-site-key">{$_('admin.configuration.authentication.siteKey')}</Field.Label><Input id="auth-turnstile-site-key" autocomplete="off" bind:value={turnstileSiteKey} aria-invalid={fieldError('turnstileSiteKey') !== ''} /><Field.Error>{fieldError('turnstileSiteKey')}</Field.Error></Field.Field>
-				<SecretField id="auth-turnstile-secret" label={$_('admin.configuration.authentication.secretKey')} configured={turnstileSecretConfigured} bind:action={turnstileSecretAction} bind:value={turnstileSecretValue} error={fieldError('turnstileSecretKey')} />
-			{/if}
+			<Field.Field orientation="horizontal"><Field.Label for="auth-turnstile-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="auth-turnstile-enabled" bind:checked={turnstileEnabled} /></Field.Field>
 		</ConfigurationSection>
 		<OAuthProviderFieldset id="auth-google" title="Google" bind:enabled={googleEnabled} bind:clientId={googleClientId} secretConfigured={googleSecretConfigured} bind:secretAction={googleSecretAction} bind:secretValue={googleSecretValue} callbackUrl={googleCallbackUrl} clientIdError={fieldError('googleClientId')} secretError={fieldError('googleClientSecret')} />
 		<OAuthProviderFieldset id="auth-github" title="GitHub" bind:enabled={githubEnabled} bind:clientId={githubClientId} secretConfigured={githubSecretConfigured} bind:secretAction={githubSecretAction} bind:secretValue={githubSecretValue} callbackUrl={githubCallbackUrl} clientIdError={fieldError('githubClientId')} secretError={fieldError('githubClientSecret')} />

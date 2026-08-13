@@ -107,11 +107,13 @@ CREATE TABLE `notifications` (
 	`content` text NOT NULL,
 	`target_user_id` text,
 	`created_at` integer NOT NULL,
+	`archived_at` integer,
 	FOREIGN KEY (`target_user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX `notifications_target_user_id_idx` ON `notifications` (`target_user_id`);--> statement-breakpoint
 CREATE INDEX `notifications_created_at_idx` ON `notifications` (`created_at`);--> statement-breakpoint
+CREATE INDEX `notifications_archived_at_idx` ON `notifications` (`archived_at`);--> statement-breakpoint
 CREATE TABLE `oauth_authorization_requests` (
 	`id` text PRIMARY KEY NOT NULL,
 	`client_id` text NOT NULL,
@@ -159,24 +161,24 @@ CREATE INDEX `oauth_grants_user_id_status_idx` ON `oauth_grants` (`user_id`,`sta
 CREATE INDEX `oauth_grants_client_id_status_idx` ON `oauth_grants` (`client_id`,`status`);--> statement-breakpoint
 CREATE TABLE `payment_products` (
 	`id` text PRIMARY KEY NOT NULL,
+	`provider` text NOT NULL,
+	`test_mode` integer NOT NULL,
+	`provider_product_id` text NOT NULL,
 	`type` text NOT NULL,
 	`credits_amount` integer,
 	`subscription_plan` text,
 	`upgrade_rank` integer,
 	`period_credits_amount` integer,
-	`dodo_product_id` text,
-	`creem_product_id` text,
 	`version` integer NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	CONSTRAINT "payment_products_type_check" CHECK("payment_products"."type" in ('one_time', 'subscription')),
-	CONSTRAINT "payment_products_provider_check" CHECK("payment_products"."dodo_product_id" is not null or "payment_products"."creem_product_id" is not null),
+	CONSTRAINT "payment_products_provider_check" CHECK("payment_products"."provider" in ('dodo', 'creem')),
 	CONSTRAINT "payment_products_fields_check" CHECK(("payment_products"."type" = 'one_time' and "payment_products"."credits_amount" > 0 and "payment_products"."subscription_plan" is null and "payment_products"."upgrade_rank" is null and "payment_products"."period_credits_amount" is null) or ("payment_products"."type" = 'subscription' and "payment_products"."credits_amount" is null and "payment_products"."subscription_plan" is not null and length("payment_products"."subscription_plan") > 0 and "payment_products"."upgrade_rank" >= 0 and "payment_products"."period_credits_amount" > 0)),
 	CONSTRAINT "payment_products_version_check" CHECK("payment_products"."version" >= 1)
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `payment_products_dodo_product_id_unique` ON `payment_products` (`dodo_product_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `payment_products_creem_product_id_unique` ON `payment_products` (`creem_product_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `payment_products_provider_environment_product_id_unique` ON `payment_products` (`provider`,`test_mode`,`provider_product_id`);--> statement-breakpoint
 CREATE TABLE `payment_transactions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,

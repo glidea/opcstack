@@ -1,21 +1,16 @@
 import { z } from 'zod'
 import type { ApiErrorResult } from './common'
 
-export const DesignSystemSchema = z.enum(['apple-saas', 'brutalism'])
-export type DesignSystem = z.infer<typeof DesignSystemSchema>
-
 export const GetGeneralConfigRequestSchema = z.object({})
 export type GetGeneralConfigRequest = z.infer<typeof GetGeneralConfigRequestSchema>
 
 export const GeneralConfigSchema = z.object({
-	design_system: DesignSystemSchema,
 	docs_enabled: z.boolean(),
 	version: z.number().int().min(1)
 })
 export type GeneralConfig = z.infer<typeof GeneralConfigSchema>
 
 export const UpdateGeneralConfigRequestSchema = z.object({
-	design_system: DesignSystemSchema,
 	docs_enabled: z.boolean(),
 	expected_version: z.number().int().min(1)
 })
@@ -62,8 +57,6 @@ export const AuthenticationConfigSchema = z.object({
 	email_require_verification: z.boolean(),
 	email_user_action_cooldown_seconds: z.number().int().positive(),
 	turnstile_enabled: z.boolean(),
-	turnstile_site_key: z.string().nullable(),
-	turnstile_secret_key_configured: z.boolean(),
 	google_auth_enabled: z.boolean(),
 	google_client_id: z.string().nullable(),
 	google_client_secret_configured: z.boolean(),
@@ -87,8 +80,6 @@ export const UpdateAuthenticationConfigRequestSchema = z.object({
 	email_require_verification: z.boolean(),
 	email_user_action_cooldown_seconds: z.number().int().positive(),
 	turnstile_enabled: z.boolean(),
-	turnstile_site_key: z.string().trim().min(1).nullable(),
-	turnstile_secret_key: SecretMutationSchema,
 	google_auth_enabled: z.boolean(),
 	google_client_id: z.string().trim().min(1).nullable(),
 	google_client_secret: SecretMutationSchema,
@@ -99,7 +90,7 @@ export const UpdateAuthenticationConfigRequestSchema = z.object({
 	linuxdo_client_id: z.string().trim().min(1).nullable(),
 	linuxdo_client_secret: SecretMutationSchema,
 	expected_version: z.number().int().min(1)
-})
+}).strict()
 export type UpdateAuthenticationConfigRequest = z.infer<
 	typeof UpdateAuthenticationConfigRequestSchema
 >
@@ -281,15 +272,16 @@ export type PaymentProviderName = z.infer<typeof PaymentProviderNameSchema>
 
 export const PaymentProductSchema = z.object({
 	product_id: z.string().trim().min(1),
+	provider: PaymentProviderNameSchema,
+	test_mode: z.boolean(),
+	provider_product_id: z.string().trim().min(1),
 	type: z.enum(['one_time', 'subscription']),
 	credits_amount: CreditConfigAmountSchema.nullable(),
 	subscription_plan: z.string().trim().min(1).nullable(),
 	upgrade_rank: z.number().int().nonnegative().nullable(),
 	period_credits_amount: CreditConfigAmountSchema.nullable(),
-	dodo_product_id: z.string().trim().min(1).nullable(),
-	creem_product_id: z.string().trim().min(1).nullable(),
 	version: z.number().int().min(1)
-})
+}).strict()
 export type PaymentProduct = z.infer<typeof PaymentProductSchema>
 
 const PaymentProviderConfigSchema = z.object({
@@ -329,12 +321,24 @@ export const UpdatePaymentConfigRequestSchema = z.object({
 })
 export type UpdatePaymentConfigRequest = z.infer<typeof UpdatePaymentConfigRequestSchema>
 
-const PaymentProductFieldsSchema = PaymentProductSchema.omit({ version: true })
-export const CreatePaymentProductRequestSchema = PaymentProductFieldsSchema
-export type CreatePaymentProductRequest = z.infer<typeof CreatePaymentProductRequestSchema>
-export const UpdatePaymentProductRequestSchema = PaymentProductFieldsSchema.extend({
-	expected_version: z.number().int().min(1)
+const PaymentProductBusinessFieldsSchema = z.object({
+	product_id: z.string().trim().min(1),
+	type: z.enum(['one_time', 'subscription']),
+	credits_amount: CreditConfigAmountSchema.nullable(),
+	subscription_plan: z.string().trim().min(1).nullable(),
+	upgrade_rank: z.number().int().nonnegative().nullable(),
+	period_credits_amount: CreditConfigAmountSchema.nullable()
 })
+export const CreatePaymentProductRequestSchema = PaymentProductBusinessFieldsSchema.extend({
+	provider: PaymentProviderNameSchema,
+	provider_product_id: z.string().trim().min(1)
+}).strict()
+export type CreatePaymentProductRequest = z.infer<typeof CreatePaymentProductRequestSchema>
+
+export const UpdatePaymentProductRequestSchema = PaymentProductBusinessFieldsSchema.extend({
+	provider_product_id: z.string().trim().min(1),
+	expected_version: z.number().int().min(1)
+}).strict()
 export type UpdatePaymentProductRequest = z.infer<typeof UpdatePaymentProductRequestSchema>
 export const DeletePaymentProductRequestSchema = z.object({
 	product_id: z.string().trim().min(1),

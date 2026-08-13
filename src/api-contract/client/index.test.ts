@@ -47,6 +47,39 @@ describe('api contract client', () => {
 		}
 	]
 
+	type NotificationLifecycleThenExpected = {
+		paths: string[]
+		bodies: string[]
+	}
+
+	const notificationLifecycleCases: TestCase<
+		Record<string, never>,
+		Record<string, never>,
+		NotificationLifecycleThenExpected
+	>[] = [
+		{
+			scenario: 'manage notification lifecycle',
+			given: 'an administrator client',
+			when: 'updating and archiving a notification',
+			then: 'calls the lifecycle endpoints with explicit payloads',
+			givenDetail: {},
+			whenDetail: {},
+			thenExpected: {
+				paths: ['/api/admin/update_notification', '/api/admin/archive_notification'],
+				bodies: [
+					JSON.stringify({
+						id: 'notification-1',
+						type: 'system',
+						title: 'Updated',
+						content: 'Updated content',
+						target_user_id: null
+					}),
+					JSON.stringify({ id: 'notification-1' })
+				]
+			}
+		}
+	]
+
 	type UploadGivenDetail = Record<string, never>
 	type UploadWhenDetail = Record<string, never>
 	type UploadThenExpected = {
@@ -276,6 +309,42 @@ describe('api contract client', () => {
 			resultBalance: result.balance,
 			storedMetaBookmark: bookmarks.meta ?? '',
 			storedTenantBookmark: bookmarks.tenant ?? ''
+		}
+	})
+
+	runCases(notificationLifecycleCases, async (): Promise<NotificationLifecycleThenExpected> => {
+		const requests: Request[] = []
+		const fetchApi = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+			requests.push(new Request(input, init))
+			return Response.json({
+				id: 'notification-1',
+				type: 'system',
+				title: 'Updated',
+				content: 'Updated content',
+				target_user_id: null,
+				created_at: 1,
+				archived_at: null
+			})
+		}
+		const testClient = createClient({
+			baseUrl: 'https://app.example.com',
+			fetchApi,
+			auth: { type: 'cookie' },
+			bookmarks: { type: 'cookie' }
+		})
+
+		await testClient.api.updateNotification({
+			id: 'notification-1',
+			type: 'system',
+			title: 'Updated',
+			content: 'Updated content',
+			target_user_id: null
+		})
+		await testClient.api.archiveNotification({ id: 'notification-1' })
+
+		return {
+			paths: requests.map((request: Request): string => new URL(request.url).pathname),
+			bodies: await Promise.all(requests.map((request: Request): Promise<string> => request.text()))
 		}
 	})
 

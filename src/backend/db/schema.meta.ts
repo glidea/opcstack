@@ -13,7 +13,6 @@ export type EncryptedConfigValue = {
 }
 
 export type GeneralSettingsDocument = {
-	designSystem: 'apple-saas' | 'brutalism'
 	docsEnabled: boolean
 }
 
@@ -149,23 +148,26 @@ export const paymentProduct = sqliteTable(
 	'payment_products',
 	{
 		id: text('id').primaryKey(),
+		provider: text('provider').notNull(),
+		testMode: integer('test_mode', { mode: 'boolean' }).notNull(),
+		providerProductId: text('provider_product_id').notNull(),
 		type: text('type').notNull(),
 		creditsAmount: integer('credits_amount'),
 		subscriptionPlan: text('subscription_plan'),
 		upgradeRank: integer('upgrade_rank'),
 		periodCreditsAmount: integer('period_credits_amount'),
-		dodoProductId: text('dodo_product_id').unique(),
-		creemProductId: text('creem_product_id').unique(),
 		version: integer('version').notNull(),
 		createdAt: integer('created_at').notNull(),
 		updatedAt: integer('updated_at').notNull()
 	},
 	(table) => [
-		check('payment_products_type_check', sql`${table.type} in ('one_time', 'subscription')`),
-		check(
-			'payment_products_provider_check',
-			sql`${table.dodoProductId} is not null or ${table.creemProductId} is not null`
+		uniqueIndex('payment_products_provider_environment_product_id_unique').on(
+			table.provider,
+			table.testMode,
+			table.providerProductId
 		),
+		check('payment_products_type_check', sql`${table.type} in ('one_time', 'subscription')`),
+		check('payment_products_provider_check', sql`${table.provider} in ('dodo', 'creem')`),
 		check(
 			'payment_products_fields_check',
 			sql`(${table.type} = 'one_time' and ${table.creditsAmount} > 0 and ${table.subscriptionPlan} is null and ${table.upgradeRank} is null and ${table.periodCreditsAmount} is null) or (${table.type} = 'subscription' and ${table.creditsAmount} is null and ${table.subscriptionPlan} is not null and length(${table.subscriptionPlan}) > 0 and ${table.upgradeRank} >= 0 and ${table.periodCreditsAmount} > 0)`
@@ -349,11 +351,13 @@ export const notification = sqliteTable(
 		title: text('title').notNull(),
 		content: text('content').notNull(),
 		targetUserId: text('target_user_id').references(() => user.id, { onDelete: 'cascade' }),
-		createdAt: integer('created_at').notNull()
+		createdAt: integer('created_at').notNull(),
+		archivedAt: integer('archived_at')
 	},
 	(table) => [
 		index('notifications_target_user_id_idx').on(table.targetUserId),
-		index('notifications_created_at_idx').on(table.createdAt)
+		index('notifications_created_at_idx').on(table.createdAt),
+		index('notifications_archived_at_idx').on(table.archivedAt)
 	]
 )
 

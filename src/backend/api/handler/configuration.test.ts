@@ -31,7 +31,6 @@ describe('configuration handlers', () => {
 		expect({ status: response.status, body: await response.json() }).toEqual({
 			status: 200,
 			body: {
-				design_system: 'apple-saas',
 				docs_enabled: true,
 				version: 1
 			}
@@ -42,14 +41,12 @@ describe('configuration handlers', () => {
 		vi.spyOn(Date, 'now').mockReturnValue(2000)
 		const updated: SystemSettings = createSettingsRow()
 		updated.generalConfig = {
-			designSystem: 'brutalism',
 			docsEnabled: false
 		}
 		updated.generalVersion = 2
 		const response: Response = await updateGeneralConfigHandler(
 			createContext(
 				{
-					design_system: 'brutalism',
 					docs_enabled: false,
 					expected_version: 1
 				},
@@ -60,7 +57,6 @@ describe('configuration handlers', () => {
 		expect({ status: response.status, body: await response.json() }).toEqual({
 			status: 200,
 			body: {
-				design_system: 'brutalism',
 				docs_enabled: false,
 				version: 2
 			}
@@ -157,8 +153,6 @@ describe('configuration handlers', () => {
 				email_require_verification: false,
 				email_user_action_cooldown_seconds: 50,
 				turnstile_enabled: false,
-				turnstile_site_key: null,
-				turnstile_secret_key_configured: true,
 				google_auth_enabled: false,
 				google_client_id: null,
 				google_client_secret_configured: true,
@@ -184,10 +178,8 @@ describe('configuration handlers', () => {
 					registration_enabled: false,
 					email_signup_domain_allowlist: [],
 					email_require_verification: false,
-					email_user_action_cooldown_seconds: 50,
-					turnstile_enabled: false,
-					turnstile_site_key: null,
-					turnstile_secret_key: { action: 'keep' },
+				email_user_action_cooldown_seconds: 50,
+				turnstile_enabled: false,
 					google_auth_enabled: true,
 					google_client_id: null,
 					google_client_secret: { action: 'keep' },
@@ -384,7 +376,6 @@ function createSettingsRow(): SystemSettings {
 		affiliateVersion: 1,
 		affiliateUpdatedAt: 1000,
 		generalConfig: {
-			designSystem: 'apple-saas',
 			docsEnabled: true
 		},
 		authenticationConfig: {

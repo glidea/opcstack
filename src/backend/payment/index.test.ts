@@ -1888,62 +1888,35 @@ function createService(
 		products: [
 			{
 				productId: 'credits_1000',
+				provider: options?.withoutCurrentProvider === true ? 'creem' : 'dodo',
+				providerProductId: options?.withoutCurrentProvider === true ? 'cp_credits_1000' : 'dp_credits_1000',
 				type: 'one_time',
 				creditsAmount: 1000,
 				subscriptionPlan: null,
 				upgradeRank: null,
-				periodCreditsAmount: null,
-				providers: {
-					dodo: {
-						kind: 'remote_product',
-						productId: 'dp_credits_1000'
-					},
-					creem: {
-						kind: 'remote_product',
-						productId: 'cp_credits_1000'
-					}
-				}
+				periodCreditsAmount: null
 			},
 			{
 				productId: 'pro_monthly',
+				provider: 'dodo',
+				providerProductId: 'dp_pro_monthly',
 				type: 'subscription',
 				creditsAmount: null,
 				subscriptionPlan: 'pro',
 				upgradeRank: 20,
-				periodCreditsAmount: 3000,
-				providers: {
-					dodo: {
-						kind: 'remote_product',
-						productId: 'dp_pro_monthly'
-					},
-					creem: {
-						kind: 'remote_product',
-						productId: 'cp_pro_monthly'
-					}
-				}
+				periodCreditsAmount: 3000
 			},
 			{
 				productId: 'team_monthly',
+				provider: 'dodo',
+				providerProductId: 'dp_team_monthly',
 				type: 'subscription',
 				creditsAmount: null,
 				subscriptionPlan: 'team',
 				upgradeRank: 30,
-				periodCreditsAmount: 6000,
-				providers: {
-					dodo: {
-						kind: 'remote_product',
-						productId: 'dp_team_monthly'
-					},
-					creem: {
-						kind: 'remote_product',
-						productId: 'cp_team_monthly'
-					}
-				}
+				periodCreditsAmount: 6000
 			}
 		]
-	}
-	if (options?.withoutCurrentProvider === true) {
-		delete config.products[0]?.providers.dodo
 	}
 	const providerRouter = new PaymentProviderRouter({
 		defaultProvider: config.defaultProvider,

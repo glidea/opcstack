@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte'
-	import type { DesignSystem, GeneralConfig } from '$apiContract/configuration'
+	import CircleHelpIcon from '@lucide/svelte/icons/circle-help'
+	import type { GeneralConfig } from '$apiContract/configuration'
 	import { ApiClientError, client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
+	import { Button } from '$frontend/ui/button'
 	import * as Field from '$frontend/ui/field'
-	import * as Select from '$frontend/ui/select'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import { Switch } from '$frontend/ui/switch'
+	import * as Tooltip from '$frontend/ui/tooltip'
 	import { toast } from 'svelte-sonner'
 	import ConfigurationActions from './ConfigurationActions.svelte'
 	import ConfigurationLoadError from './ConfigurationLoadError.svelte'
@@ -14,7 +16,6 @@
 	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
 	import { dispatchConfigurationEditorState, isConfigurationConflict } from './configuration-page'
 
-	let designSystem: DesignSystem = $state('apple-saas')
 	let docsEnabled: boolean = $state(false)
 	let version: number = $state(1)
 	let savedSnapshot: string = $state('')
@@ -25,11 +26,10 @@
 	let dirty: boolean = $state(false)
 
 	function snapshot(): string {
-		return JSON.stringify({ designSystem, docsEnabled })
+		return JSON.stringify({ docsEnabled })
 	}
 
 	function applyConfig(config: GeneralConfig): void {
-		designSystem = config.design_system
 		docsEnabled = config.docs_enabled
 		version = config.version
 		savedSnapshot = snapshot()
@@ -52,7 +52,6 @@
 		error = ''
 		try {
 			applyConfig(await client.api.updateGeneralConfig({
-				design_system: designSystem,
 				docs_enabled: docsEnabled,
 				expected_version: version
 			}))
@@ -68,8 +67,7 @@
 	}
 
 	function discardChanges(): void {
-		const value: { designSystem: DesignSystem; docsEnabled: boolean } = JSON.parse(savedSnapshot)
-		designSystem = value.designSystem
+		const value: { docsEnabled: boolean } = JSON.parse(savedSnapshot)
 		docsEnabled = value.docsEnabled
 		error = ''
 	}
@@ -88,21 +86,23 @@
 {:else}
 	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
-		<ConfigurationSection title={$_('admin.configuration.general.appearance')}>
-			<Field.Field>
-				<Field.Label for="configuration-design-system">{$_('admin.configuration.general.designSystem')}</Field.Label>
-				<Select.Root type="single" bind:value={designSystem}>
-					<Select.Trigger id="configuration-design-system" class="w-full"><span>{$_(`admin.configuration.general.designSystems.${designSystem}`)}</span></Select.Trigger>
-					<Select.Content>
-						<Select.Item value="apple-saas">{$_('admin.configuration.general.designSystems.apple-saas')}</Select.Item>
-						<Select.Item value="brutalism">{$_('admin.configuration.general.designSystems.brutalism')}</Select.Item>
-					</Select.Content>
-				</Select.Root>
-			</Field.Field>
-		</ConfigurationSection>
 		<ConfigurationSection title={$_('admin.configuration.general.documentation')}>
 			<Field.Field orientation="horizontal">
-				<div><Field.Label for="configuration-docs-enabled">{$_('admin.configuration.general.docsEnabled')}</Field.Label></div>
+				<div class="flex items-center gap-1">
+					<Field.Label for="configuration-docs-enabled">{$_('admin.configuration.general.docsEnabled')}</Field.Label>
+					<Tooltip.Provider>
+						<Tooltip.Root>
+							<Tooltip.Trigger>
+								{#snippet child({ props })}
+									<Button variant="ghost" size="icon-sm" class="size-7 text-muted-foreground" aria-label={$_('admin.configuration.general.docsEnabledHelp')} {...props}>
+										<CircleHelpIcon />
+									</Button>
+								{/snippet}
+							</Tooltip.Trigger>
+							<Tooltip.Content>{$_('admin.configuration.general.docsEnabledHelp')}</Tooltip.Content>
+						</Tooltip.Root>
+					</Tooltip.Provider>
+				</div>
 				<Switch id="configuration-docs-enabled" bind:checked={docsEnabled} />
 			</Field.Field>
 		</ConfigurationSection>

@@ -2,7 +2,6 @@ import { beforeAll, describe, expect, test } from 'vitest'
 import { getAdminSessionCookie } from './support/auth'
 
 type GeneralConfig = {
-	design_system: 'apple-saas' | 'brutalism'
 	docs_enabled: boolean
 	version: number
 }
@@ -22,8 +21,6 @@ type AuthenticationConfig = {
 	email_require_verification: boolean
 	email_user_action_cooldown_seconds: number
 	turnstile_enabled: boolean
-	turnstile_site_key: string | null
-	turnstile_secret_key_configured: boolean
 	google_auth_enabled: boolean
 	google_client_id: string | null
 	google_client_secret_configured: boolean
@@ -61,14 +58,10 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 	test('saved General and Storage configuration affects the next operation', async (): Promise<void> => {
 		const originalGeneral: GeneralConfig = await readConfig<GeneralConfig>('get_general_config')
 		const originalStorage: StorageConfig = await readConfig<StorageConfig>('get_storage_config')
-		const nextDesignSystem: GeneralConfig['design_system'] =
-			originalGeneral.design_system === 'apple-saas' ? 'brutalism' : 'apple-saas'
-
 		let generalVersion: number = originalGeneral.version
 		let storageVersion: number = originalStorage.version
 		try {
 			const generalResponse: Response = await callAdminConfig('update_general_config', {
-				design_system: nextDesignSystem,
 				docs_enabled: false,
 				expected_version: generalVersion
 			})
@@ -82,7 +75,7 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 				}
 			})
 			const pageHtml: string = await pageResponse.text()
-			expect(pageHtml).toContain(`data-design="${nextDesignSystem}"`)
+			expect(pageHtml).toMatch(/data-design="(?:apple-saas|brutalism)"/)
 			expect(pageHtml).not.toContain('href="/en/docs"')
 
 			const docsResponse: Response = await fetch(`${appBaseUrl}/en/docs`, {
@@ -121,7 +114,6 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 			})
 		} finally {
 			await callAdminConfig('update_general_config', {
-				design_system: originalGeneral.design_system,
 				docs_enabled: originalGeneral.docs_enabled,
 				expected_version: generalVersion
 			})
@@ -344,8 +336,6 @@ function buildAuthenticationUpdate(
 			overrides.emailRequireVerification ?? config.email_require_verification,
 		email_user_action_cooldown_seconds: config.email_user_action_cooldown_seconds,
 		turnstile_enabled: config.turnstile_enabled,
-		turnstile_site_key: config.turnstile_site_key,
-		turnstile_secret_key: { action: 'keep' },
 		google_auth_enabled: enableGoogleWithoutCredentials
 			? true
 			: disableSocialProviders

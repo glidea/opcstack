@@ -30,7 +30,8 @@ export const ListAdminNotificationsResponseItemSchema = z.object({
 	title: z.string(),
 	content: z.string(),
 	target_user_id: z.string().nullable(),
-	created_at: z.number()
+	created_at: z.number(),
+	archived_at: z.number().nullable()
 })
 export type ListAdminNotificationsResponseItem = z.infer<
 	typeof ListAdminNotificationsResponseItemSchema
@@ -43,6 +44,26 @@ export const ListAdminNotificationsResponseSchema = z.object({
 export type ListAdminNotificationsResponse = z.infer<
 	typeof ListAdminNotificationsResponseSchema
 >
+
+export const UpdateNotificationRequestSchema = z.object({
+	id: z.string().min(1),
+	type: z.string().min(1),
+	title: z.string().min(1),
+	content: z.string().min(1),
+	target_user_id: z.string().min(1).nullable()
+})
+export type UpdateNotificationRequest = z.infer<typeof UpdateNotificationRequestSchema>
+
+export const UpdateNotificationResponseSchema = ListAdminNotificationsResponseItemSchema
+export type UpdateNotificationResponse = z.infer<typeof UpdateNotificationResponseSchema>
+
+export const ArchiveNotificationRequestSchema = z.object({
+	id: z.string().min(1)
+})
+export type ArchiveNotificationRequest = z.infer<typeof ArchiveNotificationRequestSchema>
+
+export const ArchiveNotificationResponseSchema = ListAdminNotificationsResponseItemSchema
+export type ArchiveNotificationResponse = z.infer<typeof ArchiveNotificationResponseSchema>
 
 export const ListNotificationsRequestSchema = PageRequestSchema.extend({
 	type: z.string().min(1).optional(),
@@ -119,6 +140,44 @@ export const ListNotificationsApi = {
 					code: 'INVALID_REQUEST',
 					message
 				}
+			}
+		}
+	}
+}
+
+export const UpdateNotificationApi = {
+	request: UpdateNotificationRequestSchema,
+	response: UpdateNotificationResponseSchema,
+	errors: {
+		INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
+			return {
+				status: 400,
+				body: { code: 'INVALID_REQUEST', message }
+			}
+		},
+		NOT_FOUND(): ApiErrorResult<'NOT_FOUND', 404> {
+			return {
+				status: 404,
+				body: { code: 'NOT_FOUND', message: 'Notification not found' }
+			}
+		}
+	}
+}
+
+export const ArchiveNotificationApi = {
+	request: ArchiveNotificationRequestSchema,
+	response: ArchiveNotificationResponseSchema,
+	errors: {
+		INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
+			return {
+				status: 400,
+				body: { code: 'INVALID_REQUEST', message }
+			}
+		},
+		NOT_FOUND(): ApiErrorResult<'NOT_FOUND', 404> {
+			return {
+				status: 404,
+				body: { code: 'NOT_FOUND', message: 'Notification not found' }
 			}
 		}
 	}

@@ -451,8 +451,9 @@ Configuration
 │                                                       │
 │ Routing settings                                      │
 │ ───────────────────────────────────────────────────── │
-│ Providers                                             │
-│ provider             models                   actions │
+│ Routing settings                                      │
+│ error weight       latency weight       price weight │
+│ task retention                                      │
 │                                                       │
 │                                      Save changes     │
 └───────────────────────────────────────────────────────┘
@@ -461,7 +462,7 @@ Configuration
 不采用以下结构：
 
 - 一个包含所有配置的超长 `Settings` 表单，因为它破坏按业务域原子保存的边界
-- 每个配置域都占用后台主侧栏，因为它会让配置淹没日常运营入口
+- Payment Products 和 AI Providers 是高频实体工作区，直接作为一级页面；系统设置只保留单例配置
 - 配置卡片网格，因为配置是重复操作的工作台，不是营销展示面板
 
 ### 1.14 配置编辑与保存
@@ -563,14 +564,14 @@ General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
 
 | Tab | 配置内容 |
 | --- | --- |
-| `General` | 设计系统、公开文档等全局产品行为 |
+| `General` | 公开文档等可完整动态生效的全局产品行为 |
 | `Authentication` | 注册策略、邮箱验证、域名白名单、Turnstile、Beta Gate 和外部登录方式 |
 | `Email` | 邮件提供商及其运行凭据 |
 | `Storage` | R2 业务开关、用户上传类型和大小限制 |
 | `Credits` | 注册奖励、每日签到和流水保留规则 |
 | `Affiliate` | 邀请奖励规则 |
-| `Payment` | 支付开关、提供商路由、测试模式、凭据和商品 |
-| `AI` | Provider 执行端点、模型列表、路由权重和任务保留期 |
+| `Payment` | 支付开关、提供商路由、测试模式、凭据和 Webhook |
+| `AI` | 路由权重和任务保留期；Provider 执行端点与模型在独立 AI Providers 页面 |
 
 这些 Tab 只呈现 D1 权威的运行时业务配置。应用域名、D1 Shards、Queue、Cron、R2 Bucket 与生命周期规则等部署拓扑继续只属于 ENV 和部署流程，不在后台以只读或可编辑字段重复展示。
 
@@ -584,10 +585,9 @@ General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
 
 | 目标配置 | D1 字段 | UI 控件 |
 | --- | --- | --- |
-| Design system | `generalConfig.designSystem` | Segmented control：`apple-saas` / `brutalism` |
 | Product docs | `generalConfig.docsEnabled` | Toggle |
 
-`APP_NAME` 和 `APP_VERSION` 不在此处。前者决定 Cloudflare 资源身份，后者进入发布产物，均不能在运行时完整生效。
+`APP_NAME`、`APP_VERSION` 和 `DESIGN_SYSTEM` 不在此处。主题会影响静态预渲染页面和构建产物，必须通过 ENV 修改后重新构建部署，不能伪装成保存后立即生效的动态配置。
 
 #### Authentication
 
@@ -599,8 +599,6 @@ General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
 | Require email verification | `authenticationConfig.emailRequireVerification` | Toggle |
 | Email action cooldown seconds | `authenticationConfig.emailUserActionCooldownSeconds` | Number input |
 | Turnstile | `authenticationConfig.turnstile.enabled` | Toggle |
-| Turnstile site key | `authenticationConfig.turnstile.siteKey` | Text input |
-| Turnstile secret key | `authenticationConfig.turnstile.secretKey` | 密钥替换控件 |
 | Google login enabled | `authenticationConfig.providers.google.enabled` | Toggle |
 | Google client ID | `authenticationConfig.providers.google.clientId` | Text input |
 | Google client secret | `authenticationConfig.providers.google.clientSecret` | 密钥替换控件 |
@@ -611,7 +609,7 @@ General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
 | LinuxDO client ID | `authenticationConfig.providers.linuxdo.clientId` | Text input |
 | LinuxDO client secret | `authenticationConfig.providers.linuxdo.clientSecret` | 密钥替换控件 |
 
-Cloudflare 部署始终准备 Turnstile Widget，并把远程凭据写入默认关闭的 Authentication 配置；本地初始化写入 Cloudflare 测试凭据。后台允许替换自有 Widget 凭据。运行时是否启用只由 D1 开关决定。
+Cloudflare 部署始终准备 Turnstile Widget，并把远程凭据写入默认关闭的 Authentication 配置；本地初始化写入 Cloudflare 测试凭据。后台只允许切换启用状态，凭据不属于用户动态配置。运行时是否启用只由 D1 开关决定，保存后下一次请求立即生效。
 
 #### Email
 
@@ -697,6 +695,7 @@ AI 通用设置：
 | --- | --- |
 | `APP_NAME` | Worker、D1、R2、KV 等资源稳定标识和命名前缀 |
 | `APP_VERSION` | Worker 与 Chrome 扩展发布产物版本 |
+| `DESIGN_SYSTEM` | Web 与静态预渲染页面的构建设计系统，修改后重新构建部署 |
 | `APP_DOMAIN` | Worker route、OAuth callback、Webhook、CORS 和 canonical URL |
 | `APP_CN_DOMAIN` | 可选第二入口、Worker route、CORS 和 Turnstile domain |
 | `APP_CN_CNAME_TARGET` | 部署时 DNS CNAME 目标 |
@@ -734,13 +733,13 @@ AI 通用设置：
 
 #### 前端公开配置的读取变化
 
-当前 `scripts/prepare-public.mjs` 会把 `DESIGN_SYSTEM`、`DOCS_ENABLED`、认证开关、Turnstile site key 和 `PAYMENT_ENABLED` 编译进 `client.generated.ts`。这些字段迁入 D1 后必须删除该生成路径，否则浏览器仍读取构建时旧值。
+`scripts/prepare-public.mjs` 只把构建期固定值写入 `client.generated.ts`。`DESIGN_SYSTEM` 必须保留在该生成路径中，确保 SSR、客户端导航和静态预渲染页面使用同一主题。Docs、认证、Turnstile 和 Payment 等动态字段不得进入生成文件。
 
 迁移后的 `client.generated.ts` 只保留必须进入 Web 或 Extension 构建产物的固定值：
 
 - App identity 和 version
+- Design system
 - Web/API base URL
-- Support email
 - Extension host permissions
 
 Web 端的 D1 公开配置由服务端 Layout 读取并随页面数据下发；保存后的下一次导航或刷新使用 Meta D1 bookmark 读取新值。需要在不导航的当前页面立即反映时，配置保存响应直接更新前端公开配置状态。Chrome Extension 的业务请求以服务端配置为准，不在扩展包内复制 D1 配置。
@@ -972,7 +971,7 @@ flowchart TB
 
 写入接口直接返回已保存的新配置和新 `version`。当前配置页面不需要为了确认结果再发起一次读取，也不依赖副本同步速度。
 
-公共 Web 配置通过 Server Layout 下发，不新增 `/api/get_public_config`。这样登录方式、Turnstile、Payment 入口、Docs 入口和 Design System 在首屏就使用同一配置快照，不产生加载后闪烁。依赖动态配置的页面不再 Prerender；不依赖 D1 配置的纯静态资源继续静态提供。
+公共 Web 动态配置通过 Server Layout 下发，不新增 `/api/get_public_config`。登录方式、Turnstile、Payment 和 Docs 入口在首屏使用同一 D1 快照。Design System 由固定 ENV 在构建和 SSR 阶段确定，不依赖 D1。依赖动态配置的页面不再 Prerender；不依赖 D1 配置的纯静态资源继续静态提供。
 
 ### 2.3 配置 API 边界
 
@@ -1215,7 +1214,7 @@ sequenceDiagram
   Auth->>Meta: Verify administrator credentials and create session
   Auth-->>User: Set session cookie
   User->>Web: GET /{locale}/admin/configuration/general
-  Web-->>User: Configuration workspace
+  Web-->>User: System settings workspace
 ```
 
 本地流程跳过远程 Cloudflare 资源创建，使用本地 D1 和测试 Turnstile 凭据，其余 Schema、初始化记录、登录路径和后续配置流程完全一致。
@@ -1402,7 +1401,7 @@ CLI 只能把 Token 发送到 `shop-local` 记录的同一 Origin。更新和删
 
 ### 3.5 Web 首屏读取公开配置
 
-公开配置必须在渲染 HTML 前确定，避免登录按钮、功能入口或 Design System 在页面加载后跳变。
+公开动态配置必须在渲染 HTML 前确定，避免登录按钮和功能入口在页面加载后跳变。Design System 由固定 ENV 在构建阶段确定，Worker SSR 使用同一值写入 HTML。
 
 ```mermaid
 sequenceDiagram
@@ -1422,7 +1421,7 @@ sequenceDiagram
   Meta-->>Config: General, Authentication and Payment documents
   Config-->>Hook: PublicConfig snapshot
   Hook->>Layout: event.locals.publicConfig
-  Layout->>Page: {design_system, docs_enabled, signup and login flags, turnstile_site_key, payment_enabled}
+  Layout->>Page: {docs_enabled, signup and login flags, turnstile_site_key, payment_enabled}
   Page-->>Worker: HTML rendered from one snapshot
   Worker-->>User: First response with correct theme and enabled controls
 ```
@@ -1563,7 +1562,7 @@ erDiagram
 
 | Domain | JSON paths | Rules |
 | --- | --- | --- |
-| General | `designSystem`、`docsEnabled` | Design System 为 `apple-saas` / `brutalism` |
+| General | `docsEnabled` | Boolean |
 | Authentication | `betaCodeEnabled`、`registrationEnabled`、`emailSignupDomainAllowlist`、`emailRequireVerification`、`emailUserActionCooldownSeconds` | allowlist 为小写唯一域名；cooldown `> 0` |
 | Authentication | `turnstile.{enabled,siteKey,secretKey}` | 启用时 site key 和加密 secret 完整存在 |
 | Authentication | `providers.{google,github,linuxdo}.{enabled,clientId,clientSecret}` | 启用时 client id 和加密 secret 完整存在 |
@@ -1588,7 +1587,7 @@ AI Provider 不保存在单例文档内。`ai_config` 只拥有路由权重和�
 Migration 写入可见、可编辑的明确值，而不是运行时代码默认值：
 
 - 所有业务功能和 AI Provider 开关为 `false`
-- `design_system = apple-saas`，`docs_enabled = true`
+- `docs_enabled = true`；Design System 由 `DESIGN_SYSTEM` ENV 决定
 - 上传类型为当前三种图片 MIME，最大 5 MiB
 - Credits 和 Affiliate 金额保留当前模板值，但对应开关关闭
 - Payment Provider 为空，Country overrides 为空，测试模式为 `true`
@@ -1606,15 +1605,17 @@ Migration 写入可见、可编辑的明确值，而不是运行时代码默认�
 | `subscription_plan` | TEXT nullable | subscription 时非空 |
 | `upgrade_rank` | INTEGER nullable | subscription 时 `>= 0` |
 | `period_credits_amount` | INTEGER nullable | subscription credit units，`> 0` |
-| `dodo_product_id` | TEXT nullable | UNIQUE |
-| `creem_product_id` | TEXT nullable | UNIQUE |
+| `provider` | TEXT | `dodo` / `creem` |
+| `test_mode` | INTEGER | `0` / `1`，创建时快照，不可编辑 |
+| `provider_product_id` | TEXT | NOT NULL，按 `provider + test_mode` 唯一 |
 | `version` | INTEGER | NOT NULL，初始 `1` |
 | `created_at` | INTEGER | NOT NULL |
 | `updated_at` | INTEGER | NOT NULL |
 
 完整性规则：
 
-- Product 至少配置一个远程 Provider Product ID
+- Product 只关联一个远程 Provider Product ID。创建时只能选择已配置完整凭据的 Provider，并快照该 Provider 当前环境
+- Provider 或测试/生产环境不可在编辑时修改；需要迁移时删除并在目标环境重新创建
 - `one_time` 只允许 `credits_amount`，三个 subscription 字段必须为空
 - `subscription` 必须同时具有 `subscription_plan`、`upgrade_rank` 和 `period_credits_amount`，`credits_amount` 必须为空
 - 不保存远程商品名称、描述、价格和币种；Checkout 创建时继续从 Provider 读取并写入 Order 快照
@@ -1741,7 +1742,7 @@ type SecretMutation =
 
 | Domain | Read / update response | Update request |
 | --- | --- | --- |
-| General | `{design_system, docs_enabled, version}` | `{design_system, docs_enabled, expected_version}` |
+| General | `{docs_enabled, version}` | `{docs_enabled, expected_version}` |
 | Storage | `{allowed_content_types: string[], max_upload_bytes: integer, version}` | 同字段加 `expected_version` |
 | Credits | `{signup_enabled, signup_amount: decimal string, daily_checkin_enabled, daily_checkin_amount: decimal string, history_retention_days, version}` | 同字段加 `expected_version` |
 | Affiliate | `{enabled, inviter_credit_amount: decimal string, invitee_credit_amount: decimal string, version}` | 同字段加 `expected_version` |
@@ -1756,8 +1757,6 @@ type AuthenticationConfigView = {
 	email_require_verification: boolean
 	email_user_action_cooldown_seconds: number
 	turnstile_enabled: boolean
-	turnstile_site_key: string | null
-	turnstile_secret_key_configured: boolean
 	google_auth_enabled: boolean
 	google_client_id: string | null
 	google_client_secret_configured: boolean
@@ -1774,7 +1773,7 @@ type AuthenticationConfigView = {
 }
 ```
 
-Update Request 使用相同非派生字段，将四个 `*_configured` 替换成对应 `SecretMutation`，删除三个 `*_callback_url`，并将 `version` 替换成 `expected_version`。Response 返回新的 `AuthenticationConfigView`。
+Update Request 使用相同非派生字段，将 OAuth 的三个密钥替换成对应 `SecretMutation`，删除三个 `*_callback_url`。Turnstile 只接受 `turnstile_enabled`，site key 和 secret 由初始化流程写入 D1，不能通过动态配置 API 修改。Response 返回新的 `AuthenticationConfigView`。
 
 Email 契约：
 
@@ -1847,8 +1846,9 @@ type PaymentProductView = {
 	subscription_plan: string | null
 	upgrade_rank: number | null
 	period_credits_amount: string | null
-	dodo_product_id: string | null
-	creem_product_id: string | null
+	provider: PaymentProviderName
+	test_mode: boolean
+	provider_product_id: string
 	version: number
 }
 
@@ -1980,7 +1980,6 @@ opc api request --name <connection> --method <method> --url <path> [--query JSON
 
 ```ts
 type PublicRuntimeConfig = {
-	design_system: 'apple-saas' | 'brutalism'
 	docs_enabled: boolean
 	email_provider_configured: boolean
 	registration_enabled: boolean

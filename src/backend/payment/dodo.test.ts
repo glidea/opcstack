@@ -109,10 +109,7 @@ describe('DodoPaymentProvider.createCheckout', () => {
 		const provider = new DodoPaymentProvider(client, 'whsec')
 		const result = await provider.createCheckout({
 			checkoutOrderId: given.checkoutOrderId,
-			providerConfig: {
-				kind: 'remote_product',
-				productId: given.providerProductId
-			},
+			providerProductId: given.providerProductId,
 			productName: 'Product',
 			productDescription: null,
 			amount: 1000,

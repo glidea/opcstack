@@ -132,6 +132,7 @@ export function buildClientConfig(vars) {
 	return {
 		appName: vars.APP_NAME,
 		appVersion: vars.APP_VERSION,
+		designSystem: vars.DESIGN_SYSTEM,
 		apiBaseUrl: vars.APP_BASE_URL,
 		webBaseUrl: vars.APP_BASE_URL,
 		extension: {
@@ -144,6 +145,7 @@ function validatePublicConfig(vars) {
 	const requiredKeys = [
 		'APP_NAME',
 		'APP_VERSION',
+		'DESIGN_SYSTEM',
 		'APP_BASE_URL',
 		'EXTENSION_HOST_PERMISSIONS'
 	]
@@ -154,6 +156,10 @@ function validatePublicConfig(vars) {
 			process.exit(1)
 		}
 	}
+	if (vars.DESIGN_SYSTEM !== 'apple-saas' && vars.DESIGN_SYSTEM !== 'brutalism') {
+		console.error('Error: PUBLIC_CONFIG_INVALID_DESIGN_SYSTEM')
+		process.exit(1)
+	}
 
 }
 
@@ -163,6 +169,7 @@ export function writeClientConfig(vars) {
 	const content = `export type ClientConfig = {
 	appName: string
 	appVersion: string
+	designSystem: 'apple-saas' | 'brutalism'
 	apiBaseUrl: string
 	webBaseUrl: string
 	extension: {

@@ -74,7 +74,7 @@ import {
 	updatePaymentConfig,
 	updatePaymentProduct,
 	type PaymentConfigView,
-	type WritePaymentProductInput
+	type PaymentProductValues
 } from '../../payment/config'
 import type { AIProvider, PaymentProduct } from '../../db/schema.meta'
 
@@ -132,9 +132,7 @@ export async function updateAuthenticationConfigHandler(ctx: Context<ApiEnv>): P
 				emailRequireVerification: request.data.email_require_verification,
 				emailUserActionCooldownSeconds: request.data.email_user_action_cooldown_seconds,
 				turnstile: {
-					enabled: request.data.turnstile_enabled,
-					siteKey: request.data.turnstile_site_key,
-					secretKey: request.data.turnstile_secret_key
+					enabled: request.data.turnstile_enabled
 				},
 				providers: {
 					google: {
@@ -213,7 +211,6 @@ export async function updateGeneralConfigHandler(ctx: Context<ApiEnv>): Promise<
 
 	try {
 		const config: GeneralConfig = await updateGeneralConfig(ctx.get('metaDb'), {
-			designSystem: request.data.design_system,
 			docsEnabled: request.data.docs_enabled,
 			expectedVersion: request.data.expected_version,
 			nowMs: Date.now()
@@ -392,6 +389,7 @@ export async function createPaymentProductHandler(ctx: Context<ApiEnv>): Promise
 	try {
 		const product: PaymentProduct = await createPaymentProduct(ctx.get('metaDb'), {
 			...toPaymentProductInput(request.data),
+			provider: request.data.provider,
 			nowMs: Date.now()
 		})
 		return ctx.json(toPaymentProductResponse(product) as PaymentProductResponse)
@@ -627,8 +625,9 @@ function toPaymentProductResponse(product: PaymentProduct): PaymentProductRespon
 		upgrade_rank: product.upgradeRank,
 		period_credits_amount:
 			product.periodCreditsAmount === null ? null : formatDecimal(product.periodCreditsAmount),
-		dodo_product_id: product.dodoProductId,
-		creem_product_id: product.creemProductId,
+		provider: product.provider as PaymentProductResponse['provider'],
+		test_mode: product.testMode,
+		provider_product_id: product.providerProductId,
 		version: product.version
 	}
 }
@@ -640,9 +639,8 @@ function toPaymentProductInput(product: {
 	subscription_plan: string | null
 	upgrade_rank: number | null
 	period_credits_amount: string | null
-	dodo_product_id: string | null
-	creem_product_id: string | null
-}): Omit<WritePaymentProductInput, 'nowMs'> {
+	provider_product_id: string
+}): PaymentProductValues {
 	return {
 		id: product.product_id,
 		type: product.type,
@@ -654,8 +652,7 @@ function toPaymentProductInput(product: {
 			product.period_credits_amount === null
 				? null
 				: parseConfigCreditAmount(product.period_credits_amount),
-		dodoProductId: product.dodo_product_id,
-		creemProductId: product.creem_product_id
+		providerProductId: product.provider_product_id
 	}
 }
 
@@ -679,6 +676,7 @@ function mapPaymentConfigurationError(ctx: Context<ApiEnv>, error: unknown): Res
 		case 'PAYMENT_PROVIDER_INVALID':
 		case 'PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID':
 		case 'PAYMENT_PROVIDER_CREDENTIALS_MISSING':
+		case 'PAYMENT_PRODUCT_ENVIRONMENT_MISMATCH':
 		case 'PAYMENT_PRODUCTS_INVALID': {
 			const response = GetPaymentConfigApi.errors.INVALID_REQUEST(error.message)
 			return ctx.json(response.body, response.status)
@@ -688,7 +686,6 @@ function mapPaymentConfigurationError(ctx: Context<ApiEnv>, error: unknown): Res
 
 function toGeneralConfigResponse(config: GeneralConfig): GeneralConfigResponse {
 	return {
-		design_system: config.designSystem,
 		docs_enabled: config.docsEnabled,
 		version: config.version
 	}
@@ -713,8 +710,6 @@ function toAuthenticationConfigResponse(
 		email_require_verification: config.emailRequireVerification,
 		email_user_action_cooldown_seconds: config.emailUserActionCooldownSeconds,
 		turnstile_enabled: config.turnstile.enabled,
-		turnstile_site_key: config.turnstile.siteKey,
-		turnstile_secret_key_configured: config.turnstile.secretKey !== null,
 		google_auth_enabled: config.providers.google.enabled,
 		google_client_id: config.providers.google.clientId,
 		google_client_secret_configured: config.providers.google.clientSecret !== null,

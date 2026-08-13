@@ -656,7 +656,6 @@ export function encryptInitializationSecret(encryptionKey, value) {
 
 export function buildSystemSettingsInitializationSql(input) {
 	const generalConfig = {
-		designSystem: 'apple-saas',
 		docsEnabled: true
 	}
 	const authenticationConfig = {

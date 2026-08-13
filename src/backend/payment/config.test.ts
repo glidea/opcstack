@@ -33,13 +33,13 @@ describe('Payment D1 configuration', (): void => {
 		await expect(
 			createPaymentProduct({} as MetaDb, {
 				id: 'credits-100',
+				provider: 'dodo',
+				providerProductId: 'prod-1',
 				type: 'one_time',
 				creditsAmount: null,
 				subscriptionPlan: null,
 				upgradeRank: null,
 				periodCreditsAmount: null,
-				dodoProductId: 'prod-1',
-				creemProductId: null,
 				nowMs: 1000
 			})
 		).rejects.toEqual(new PaymentConfigError('PAYMENT_PRODUCTS_INVALID'))
@@ -82,26 +82,28 @@ function createPaymentSettings(): PaymentSettingsDocument {
 
 function createProductRow(): {
 	id: string
+	provider: string
+	testMode: boolean
+	providerProductId: string
 	type: string
 	creditsAmount: number
 	subscriptionPlan: null
 	upgradeRank: null
 	periodCreditsAmount: null
-	dodoProductId: string
-	creemProductId: null
 	version: number
 	createdAt: number
 	updatedAt: number
 } {
 	return {
 		id: 'credits-100',
+		provider: 'dodo',
+		testMode: true,
+		providerProductId: 'prod-1',
 		type: 'one_time',
 		creditsAmount: 100_000_000,
 		subscriptionPlan: null,
 		upgradeRank: null,
 		periodCreditsAmount: null,
-		dodoProductId: 'prod-1',
-		creemProductId: null,
 		version: 1,
 		createdAt: 1000,
 		updatedAt: 1000

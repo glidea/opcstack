@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 
 const adminDirectory: string = fileURLToPath(new URL('.', import.meta.url))
+const adminLayoutSource: string = readFileSync(`${adminDirectory}+layout.svelte`, 'utf8')
 const pageDirectories: string[] = [
 	'overview',
 	'users',
@@ -11,6 +12,8 @@ const pageDirectories: string[] = [
 	'feedback',
 	'notifications',
 	'payments',
+	'payment-products',
+	'ai-providers',
 	'ai-tasks'
 ]
 const listPageDirectories: string[] = pageDirectories.filter(
@@ -22,6 +25,16 @@ function readPage(pageDirectory: string): string {
 }
 
 describe('admin page layout', (): void => {
+	test('places Worker logs in the leading header actions', (): void => {
+		const leadingActionsIndex: number = adminLayoutSource.indexOf('{#snippet leadingActions()}')
+		const workerLinkIndex: number = adminLayoutSource.indexOf("admin.cloudflare.worker")
+		const trailingActionsIndex: number = adminLayoutSource.indexOf('{#snippet actions()}')
+
+		expect(leadingActionsIndex).toBeGreaterThan(-1)
+		expect(workerLinkIndex).toBeGreaterThan(leadingActionsIndex)
+		expect(trailingActionsIndex).toBeGreaterThan(workerLinkIndex)
+	})
+
 	test('aligns every page to the shared workspace frame and header baseline', (): void => {
 		for (const pageDirectory of pageDirectories) {
 			const source: string = readPage(pageDirectory)

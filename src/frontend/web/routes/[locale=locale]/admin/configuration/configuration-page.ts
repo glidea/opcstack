@@ -33,11 +33,6 @@ export type ConfigurationNavigationDecision =
 	| { action: 'confirm'; href: string }
 
 export type AuthenticationFormValidationInput = {
-	turnstileEnabled: boolean
-	turnstileSiteKey: string
-	turnstileSecretConfigured: boolean
-	turnstileSecretAction: SecretAction
-	turnstileSecretValue: string
 	googleEnabled: boolean
 	googleClientId: string
 	googleSecretConfigured: boolean
@@ -115,13 +110,6 @@ export function validateAuthenticationForm(
 	input: AuthenticationFormValidationInput
 ): Record<string, string> {
 	const errors: Record<string, string> = {}
-	const turnstileConfigured: boolean = input.turnstileEnabled || input.turnstileSiteKey.trim() !== '' || hasSecretValue(input.turnstileSecretConfigured, input.turnstileSecretAction, input.turnstileSecretValue)
-	if (turnstileConfigured) {
-		if (input.turnstileSiteKey.trim() === '') errors['turnstileSiteKey'] = 'Site key is required'
-		if (!hasSecret(input.turnstileSecretConfigured, input.turnstileSecretAction, input.turnstileSecretValue)) {
-			errors['turnstileSecretKey'] = 'Secret key is required'
-		}
-	}
 	validateProvider(errors, 'google', input.googleEnabled, input.googleClientId, input.googleSecretConfigured, input.googleSecretAction, input.googleSecretValue)
 	validateProvider(errors, 'github', input.githubEnabled, input.githubClientId, input.githubSecretConfigured, input.githubSecretAction, input.githubSecretValue)
 	validateProvider(errors, 'linuxdo', input.linuxdoEnabled, input.linuxdoClientId, input.linuxdoSecretConfigured, input.linuxdoSecretAction, input.linuxdoSecretValue)

@@ -31,15 +31,15 @@ Run `opc auth connect --name <project> --server <origin> --scopes <scope-list>`.
 | Credit codes | `/{locale}/admin/credit-codes` | Generate credit codes and inspect claim or grant state |
 | Feedback | `/{locale}/admin/feedback` | Search feedback and inspect full submissions |
 | Notifications | `/{locale}/admin/notifications` | Publish global or targeted announcements and review history |
-| Configuration | `/{locale}/admin/configuration` | Manage D1-backed business configuration by domain |
+| System settings | `/{locale}/admin/configuration` | Manage D1-backed business configuration by domain |
 | Payments | `/{locale}/admin/payments` | Inspect transactions and disputed payments |
 | AI tasks | `/{locale}/admin/ai-tasks` | Inspect image, TTS, and video tasks across users |
 
 The locale can be `en` or `zh`. Language switching keeps the current admin path and query state.
 
-## Manage configuration
+## Manage system settings
 
-Open **Configuration** and use the horizontal business tabs. General, Authentication, Email, Storage, Credits, and Affiliate each have one explicit form. Saving one tab immediately changes subsequent requests in that domain. An operation already in progress keeps the snapshot it started with.
+Open **System settings** and use the horizontal business tabs. General, Authentication, Email, Storage, Credits, and Affiliate each have one explicit form. Saving one tab immediately changes subsequent requests in that domain. An operation already in progress keeps the snapshot it started with.
 
 Changing a field marks only the current tab as unsaved. Switching tabs or leaving the page requires choosing **Save**, **Discard**, or **Cancel**. Save validates and persists the current domain before navigating. Discard restores the last saved values and navigates. Cancel stays on the current form. There is no draft, publish step, automatic save, or cross-domain Save All.
 
@@ -78,7 +78,7 @@ Open `/{locale}/admin/credit-codes`, choose the quantity, credit amount, and opt
 3. Keep the audience global or find a target user by name or email.
 4. Review the audience and content, then publish.
 
-The history list supports type, audience, user, and date filters. Published notifications cannot currently be edited or withdrawn from the console.
+The history list supports type, audience, user, and date filters. Open an active notification to edit its audience, type, title, or content. Archiving removes it from every user's notification list while retaining the record in administrator history. Archived notifications cannot be edited or restored.
 
 ## Investigate AI tasks
 

@@ -7,7 +7,6 @@ type AuthenticationConfig = {
 	email_require_verification: boolean
 	email_user_action_cooldown_seconds: number
 	turnstile_enabled: boolean
-	turnstile_site_key: string | null
 	google_auth_enabled: boolean
 	google_client_id: string | null
 	github_auth_enabled: boolean
@@ -192,8 +191,6 @@ function buildAuthenticationUpdate(
 			overrides.emailRequireVerification ?? config.email_require_verification,
 		email_user_action_cooldown_seconds: config.email_user_action_cooldown_seconds,
 		turnstile_enabled: overrides.turnstileEnabled ?? config.turnstile_enabled,
-		turnstile_site_key: config.turnstile_site_key,
-		turnstile_secret_key: { action: 'keep' },
 		google_auth_enabled: config.google_auth_enabled,
 		google_client_id: config.google_client_id,
 		google_client_secret: { action: 'keep' },

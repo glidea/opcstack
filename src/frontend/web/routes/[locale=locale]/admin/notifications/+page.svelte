@@ -170,6 +170,22 @@
 		void loadNotifications()
 	}
 
+	function handleNotificationChanged(notification: ListAdminNotificationsResponseItem): void {
+		selectedNotification = notification
+		if (listState.status !== 'loaded') {
+			return
+		}
+		listState = {
+			status: 'loaded',
+			data: {
+				...listState.data,
+				items: listState.data.items.map((item: ListAdminNotificationsResponseItem): ListAdminNotificationsResponseItem => {
+					return item.id === notification.id ? notification : item
+				})
+			}
+		}
+	}
+
 	function formatDate(value: number): string {
 		return new Intl.DateTimeFormat(data.locale, {
 			dateStyle: 'medium',
@@ -294,6 +310,7 @@
 						<Table.Head>{$_('admin.notifications.type')}</Table.Head>
 						<Table.Head>{$_('admin.notifications.targetUser')}</Table.Head>
 						<Table.Head>{$_('admin.notifications.created')}</Table.Head>
+						<Table.Head>{$_('admin.notifications.status')}</Table.Head>
 						<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.notifications.actions')}</span></Table.Head>
 					</Table.Row>
 				</Table.Header>
@@ -301,7 +318,7 @@
 					{#if listState.status === 'loading'}
 						{#each Array(6) as _item}
 							<Table.Row>
-								{#each Array(6) as _cell}
+								{#each Array(7) as _cell}
 									<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>
 								{/each}
 							</Table.Row>
@@ -316,6 +333,7 @@
 									{#if item.target_user_id}<AdminUserReference userId={item.target_user_id} href={`/${data.locale}/admin/users?search=${encodeURIComponent(item.target_user_id)}`} />{:else}{$_('admin.common.none')}{/if}
 								</Table.Cell>
 								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
+								<Table.Cell><Badge variant={item.archived_at === null ? 'secondary' : 'outline'}>{item.archived_at === null ? $_('admin.notifications.active') : $_('admin.notifications.archived')}</Badge></Table.Cell>
 								<Table.Cell class="sticky right-0 z-10 bg-background text-right group-hover:bg-accent"><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openNotification(item)} aria-label={$_('admin.notifications.view')} title={$_('admin.notifications.view')}><ChevronRightIcon /></Button></Table.Cell>
 							</Table.Row>
 						{/each}
@@ -344,7 +362,13 @@
 </main>
 
 {#key selectedNotification?.id}
-	<NotificationDetailSheet bind:open={detailOpen} notification={selectedNotification} locale={data.locale} />
+	<NotificationDetailSheet
+		bind:open={detailOpen}
+		notification={selectedNotification}
+		locale={data.locale}
+		onUpdated={handleNotificationChanged}
+		onArchived={handleNotificationChanged}
+	/>
 {/key}
 
 <PublishNotificationDialog bind:open={publishOpen} prefillTargetUserId={publishTargetUserId} onPublished={handlePublished} />

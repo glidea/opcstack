@@ -179,7 +179,7 @@ export class CreemPaymentProvider implements PaymentProvider {
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
 		const checkout: CreemCheckout = await this.client.checkouts.create({
 			requestId: input.checkoutOrderId,
-			productId: input.providerConfig.productId,
+			productId: input.providerProductId,
 			units: 1,
 			customer: {
 				email: input.customerEmail

@@ -248,6 +248,7 @@ describe('prepare cloudflare configuration initialization', () => {
 
 		expect(sql).toContain('INSERT INTO system_settings')
 		expect(sql).toContain('general_config')
+		expect(sql).not.toContain('designSystem')
 		expect(sql).toContain('authentication_config')
 		expect(sql).toContain('storage_config')
 		expect(sql).toContain('ON CONFLICT(id) DO NOTHING')

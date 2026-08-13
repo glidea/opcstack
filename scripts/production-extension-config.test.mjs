@@ -6,6 +6,7 @@ describe('production extension configuration', () => {
 	it('grants the packaged extension access to the production app', () => {
 		const env = readFileSync('.env.prod', 'utf8')
 		expect(env).toContain('EXTENSION_HOST_PERMISSIONS=https://opcstack.glidea.app/*')
+		expect(env).toContain('DESIGN_SYSTEM=apple-saas')
 		expect(env).not.toContain('EXTENSION_HOST_PERMISSIONS=http://localhost:5173/*')
 	})
 

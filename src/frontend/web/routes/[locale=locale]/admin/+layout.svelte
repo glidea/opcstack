@@ -4,12 +4,14 @@
 	import type { Component, Snippet } from 'svelte'
 	import BellIcon from '@lucide/svelte/icons/bell'
 	import BotIcon from '@lucide/svelte/icons/bot'
+	import CpuIcon from '@lucide/svelte/icons/cpu'
 	import CloudIcon from '@lucide/svelte/icons/cloud'
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card'
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link'
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round'
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard'
 	import MessageSquareTextIcon from '@lucide/svelte/icons/message-square-text'
+	import PackageIcon from '@lucide/svelte/icons/package'
 	import Settings2Icon from '@lucide/svelte/icons/settings-2'
 	import TicketCheckIcon from '@lucide/svelte/icons/ticket-check'
 	import UsersIcon from '@lucide/svelte/icons/users'
@@ -27,11 +29,6 @@
 		cloudflareWorkerUrl: string | null
 	}
 
-	type AdminNavigationGroup = {
-		labelKey: string | null
-		items: AdminNavigationItem[]
-	}
-
 	let {
 		data,
 		children
@@ -42,24 +39,6 @@
 
 	const navigation: AdminNavigationItem[] = $derived(createAdminNavigation(data.locale))
 	const currentItem: AdminNavigationItem = $derived(navigation.find((item: AdminNavigationItem): boolean => page.url.pathname === item.href || page.url.pathname.startsWith(`${item.href}/`)) ?? navigation[0]!)
-	const navigationGroups: AdminNavigationGroup[] = $derived([
-		{
-			labelKey: null,
-			items: navigation.filter((item: AdminNavigationItem): boolean => item.id === 'overview')
-		},
-		{
-			labelKey: 'admin.nav.management',
-			items: navigation.filter((item: AdminNavigationItem): boolean => item.id !== 'overview' && item.id !== 'configuration' && item.id !== 'ai-tasks')
-		},
-		{
-			labelKey: 'admin.nav.system',
-			items: navigation.filter((item: AdminNavigationItem): boolean => item.id === 'configuration')
-		},
-		{
-			labelKey: 'admin.nav.operations',
-			items: navigation.filter((item: AdminNavigationItem): boolean => item.id === 'ai-tasks')
-		}
-	])
 	const sectionIcons: Record<AdminSection, Component> = {
 		overview: LayoutDashboardIcon,
 		users: UsersIcon,
@@ -67,9 +46,11 @@
 		'credit-codes': TicketCheckIcon,
 		feedback: MessageSquareTextIcon,
 		notifications: BellIcon,
-		configuration: Settings2Icon,
 		payments: CreditCardIcon,
-		'ai-tasks': BotIcon
+		'payment-products': PackageIcon,
+		'ai-tasks': BotIcon,
+		'ai-providers': CpuIcon,
+		configuration: Settings2Icon
 	}
 
 	function handleSignOut(): void {
@@ -83,16 +64,19 @@
 	<link rel="canonical" href={data.canonicalUrl} />
 </svelte:head>
 
+
 <Sidebar.Provider class="admin-shell flex min-h-svh flex-col" style="--sidebar-width: 14rem;">
 	<AppHeader logoHref={`/${data.locale}/admin/overview`} showSidebarTrigger>
-		{#snippet actions()}
+		{#snippet leadingActions()}
 			{#if data.cloudflareWorkerUrl}
 				<a href={data.cloudflareWorkerUrl} target="_blank" rel="noopener" class={buttonVariants({ variant: 'ghost', size: 'sm' })}>
 					<CloudIcon class="size-4" />
-					<span class="hidden sm:inline">{$_('admin.cloudflare.worker')}</span>
+					<span>{$_('admin.cloudflare.worker')}</span>
 					<ExternalLinkIcon class="size-3.5 text-muted-foreground" />
 				</a>
 			{/if}
+		{/snippet}
+		{#snippet actions()}
 			<UserMenu onSignOut={handleSignOut} settingsHref={`/${data.locale}/settings`} />
 		{/snippet}
 	</AppHeader>
@@ -100,31 +84,26 @@
 	<div class="flex min-h-0 flex-1">
 		<Sidebar.Root class="border-r md:top-12 md:h-[calc(100svh-3rem)]">
 			<Sidebar.Content class="py-3">
-				{#each navigationGroups as group}
-					<Sidebar.Group class="px-3 py-1.5">
-						{#if group.labelKey}
-							<Sidebar.GroupLabel class="px-2">{$_(group.labelKey)}</Sidebar.GroupLabel>
-						{/if}
-						<Sidebar.GroupContent>
-							<Sidebar.Menu class="gap-0.5">
-								{#each group.items as item}
-									{@const Icon: Component = sectionIcons[item.id]}
-					{@const isActive: boolean = item.id === currentItem.id}
-									<Sidebar.MenuItem>
-										<Sidebar.MenuButton {isActive} class="h-9 px-2.5 data-active:bg-sidebar-primary data-active:text-sidebar-primary-foreground">
-											{#snippet child({ props })}
-												<a href={item.href} aria-current={isActive ? 'page' : undefined} {...props}>
-													<Icon class="size-4" />
-													<span>{$_(item.labelKey)}</span>
-												</a>
-											{/snippet}
-										</Sidebar.MenuButton>
-									</Sidebar.MenuItem>
-								{/each}
-							</Sidebar.Menu>
-						</Sidebar.GroupContent>
-					</Sidebar.Group>
-				{/each}
+				<Sidebar.Group class="px-3 py-1.5">
+					<Sidebar.GroupContent>
+						<Sidebar.Menu class="gap-0.5">
+							{#each navigation as item}
+								{@const Icon: Component = sectionIcons[item.id]}
+								{@const isActive: boolean = item.id === currentItem.id}
+								<Sidebar.MenuItem>
+									<Sidebar.MenuButton {isActive} class="h-9 px-2.5 data-active:bg-sidebar-primary data-active:text-sidebar-primary-foreground">
+										{#snippet child({ props })}
+											<a href={item.href} aria-current={isActive ? 'page' : undefined} {...props}>
+												<Icon class="size-4" />
+												<span>{$_(item.labelKey)}</span>
+											</a>
+										{/snippet}
+									</Sidebar.MenuButton>
+								</Sidebar.MenuItem>
+							{/each}
+						</Sidebar.Menu>
+					</Sidebar.GroupContent>
+				</Sidebar.Group>
 			</Sidebar.Content>
 		</Sidebar.Root>
 

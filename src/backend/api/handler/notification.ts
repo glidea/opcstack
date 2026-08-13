@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, isNotNull, isNull, lte, or, sql, type SQL 
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
+	ArchiveNotificationApi,
 	CreateNotificationApi,
 	ListAdminNotificationsApi,
 	type ListAdminNotificationsResponse,
@@ -9,9 +10,11 @@ import {
 	ListNotificationsApi,
 	type ListNotificationsResponse,
 	type ListNotificationsResponseItem,
-	ReadNotificationApi
+	ReadNotificationApi,
+	UpdateNotificationApi,
+	type UpdateNotificationResponse
 } from '../../../api-contract/notifications'
-import type { NewNotification } from '../../db/schema'
+import type { NewNotification, Notification } from '../../db/schema'
 import { notification } from '../../db/schema'
 import type { NewNotificationRead } from '../../db/schema.shard'
 import { notificationRead } from '../../db/schema.shard'
@@ -36,6 +39,62 @@ export async function createNotificationHandler(ctx: Context<ApiEnv>): Promise<R
 
 	await ctx.get('metaDb').insert(notification).values(row)
 	return ctx.json({ id: row.id })
+}
+
+function toAdminNotificationItem(row: Notification): ListAdminNotificationsResponseItem {
+	return {
+		id: row.id,
+		type: row.type,
+		title: row.title,
+		content: row.content,
+		target_user_id: row.targetUserId,
+		created_at: row.createdAt,
+		archived_at: row.archivedAt
+	}
+}
+
+export async function updateNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, UpdateNotificationApi.request)
+	if (!request.success) {
+		const error = UpdateNotificationApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	const req = request.data
+	const rows: Notification[] = await ctx.get('metaDb')
+		.update(notification)
+		.set({
+			type: req.type,
+			title: req.title,
+			content: req.content,
+			targetUserId: req.target_user_id
+		})
+		.where(and(eq(notification.id, req.id), isNull(notification.archivedAt)))
+		.returning()
+	const row: Notification | undefined = rows[0]
+	if (!row) {
+		const error = UpdateNotificationApi.errors.NOT_FOUND()
+		return ctx.json(error.body, error.status)
+	}
+	return ctx.json(toAdminNotificationItem(row) as UpdateNotificationResponse)
+}
+
+export async function archiveNotificationHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, ArchiveNotificationApi.request)
+	if (!request.success) {
+		const error = ArchiveNotificationApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	const rows: Notification[] = await ctx.get('metaDb')
+		.update(notification)
+		.set({ archivedAt: Date.now() })
+		.where(and(eq(notification.id, request.data.id), isNull(notification.archivedAt)))
+		.returning()
+	const row: Notification | undefined = rows[0]
+	if (!row) {
+		const error = ArchiveNotificationApi.errors.NOT_FOUND()
+		return ctx.json(error.body, error.status)
+	}
+	return ctx.json(toAdminNotificationItem(row))
 }
 
 export async function listAdminNotificationsHandler(ctx: Context<ApiEnv>): Promise<Response> {
@@ -80,16 +139,7 @@ export async function listAdminNotificationsHandler(ctx: Context<ApiEnv>): Promi
 		limit: req.page_size,
 		offset: (req.page - 1) * req.page_size
 	})
-	const items: ListAdminNotificationsResponseItem[] = rows.map((row) => {
-		return {
-			id: row.id,
-			type: row.type,
-			title: row.title,
-			content: row.content,
-			target_user_id: row.targetUserId,
-			created_at: row.createdAt
-		}
-	})
+	const items: ListAdminNotificationsResponseItem[] = rows.map(toAdminNotificationItem)
 	return ctx.json({
 		items,
 		total: Number(totalRows[0]?.total ?? 0)
@@ -106,7 +156,7 @@ export async function listNotificationsHandler(ctx: Context<ApiEnv>): Promise<Re
 
 	const userId = ctx.get('userId')
 	const visibleWhere = or(isNull(notification.targetUserId), eq(notification.targetUserId, userId))
-	const conditions: SQL[] = []
+	const conditions: SQL[] = [isNull(notification.archivedAt)]
 	if (visibleWhere) {
 		conditions.push(visibleWhere)
 	}

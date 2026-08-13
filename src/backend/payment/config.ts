@@ -24,19 +24,15 @@ export interface PaymentProviderCountryOverride {
 	provider: PaymentProviderName
 }
 
-export interface PaymentProviderProductConfig {
-	kind: 'remote_product'
-	productId: string
-}
-
 export interface PaymentProductConfig {
 	productId: string
+	provider: PaymentProviderName
+	providerProductId: string
 	type: PaymentProductType
 	creditsAmount: number | null
 	subscriptionPlan: string | null
 	upgradeRank: number | null
 	periodCreditsAmount: number | null
-	providers: Partial<Record<PaymentProviderName, PaymentProviderProductConfig>>
 }
 
 export interface PaymentProviderRuntimeConfig {
@@ -64,6 +60,7 @@ export type PaymentConfigErrorCode =
 	| 'PAYMENT_PRODUCTS_INVALID'
 	| 'PAYMENT_PRODUCT_NOT_FOUND'
 	| 'PAYMENT_PRODUCT_CONFLICT'
+	| 'PAYMENT_PRODUCT_ENVIRONMENT_MISMATCH'
 	| 'PAYMENT_PRODUCT_REFERENCED'
 
 export class PaymentConfigError extends Error {
@@ -90,6 +87,8 @@ function paymentConfigErrorMessage(code: PaymentConfigErrorCode): string {
 			return 'Payment product was not found'
 		case 'PAYMENT_PRODUCT_CONFLICT':
 			return 'Payment product has changed'
+		case 'PAYMENT_PRODUCT_ENVIRONMENT_MISMATCH':
+			return 'Payment product belongs to another provider environment'
 		case 'PAYMENT_PRODUCT_REFERENCED':
 			return 'Payment product is referenced by an effective subscription'
 	}
@@ -148,15 +147,23 @@ export interface PaymentProviderUpdate {
 	webhookSecret: SecretMutation
 }
 
-export interface WritePaymentProductInput {
+export interface PaymentProductValues {
 	id: string
 	type: PaymentProductType
 	creditsAmount: number | null
 	subscriptionPlan: string | null
 	upgradeRank: number | null
 	periodCreditsAmount: number | null
-	dodoProductId: string | null
-	creemProductId: string | null
+	providerProductId: string
+}
+
+export interface CreatePaymentProductInput extends PaymentProductValues {
+	provider: PaymentProviderName
+	nowMs: number
+}
+
+export interface UpdatePaymentProductInput extends PaymentProductValues {
+	expectedVersion: number
 	nowMs: number
 }
 
@@ -222,7 +229,11 @@ export async function getPaymentRuntimeConfig(
 		providerCountryOverrides: view.providerCountryOverrides,
 		providers,
 		providerConfigs,
-		products: view.products.map(toRuntimeProduct)
+		products: view.products
+			.filter((product: PaymentProduct): boolean => {
+				return view.providers[product.provider as PaymentProviderName].testMode === product.testMode
+			})
+			.map(toRuntimeProduct)
 	}
 }
 
@@ -249,7 +260,7 @@ export function validatePaymentSettings(
 			throw new PaymentConfigError('PAYMENT_PROVIDER_CREDENTIALS_MISSING')
 		}
 		const hasProduct: boolean = products.some((product: PaymentProduct): boolean => {
-			return provider === 'dodo' ? product.dodoProductId !== null : product.creemProductId !== null
+			return product.provider === provider && product.testMode === credentials.testMode
 		})
 		if (!hasProduct) {
 			throw new PaymentConfigError('PAYMENT_PROVIDER_INVALID')
@@ -259,20 +270,27 @@ export function validatePaymentSettings(
 
 export async function createPaymentProduct(
 	db: MetaDb,
-	input: WritePaymentProductInput
+	input: CreatePaymentProductInput
 ): Promise<PaymentProduct> {
 	validatePaymentProduct(input)
+	const settings = await readSystemSettingsSnapshot(db)
+	const paymentSettings: PaymentSettingsDocument = parsePaymentSettings(settings.paymentConfig)
+	const providerSettings = paymentSettings.providers[input.provider]
+	if (providerSettings.apiKey === null || providerSettings.webhookSecret === null) {
+		throw new PaymentConfigError('PAYMENT_PROVIDER_CREDENTIALS_MISSING')
+	}
 	const rows: PaymentProduct[] = await db
 		.insert(paymentProduct)
 		.values({
 			id: input.id,
+			provider: input.provider,
+			testMode: providerSettings.testMode,
+			providerProductId: input.providerProductId,
 			type: input.type,
 			creditsAmount: input.creditsAmount,
 			subscriptionPlan: input.subscriptionPlan,
 			upgradeRank: input.upgradeRank,
 			periodCreditsAmount: input.periodCreditsAmount,
-			dodoProductId: input.dodoProductId,
-			creemProductId: input.creemProductId,
 			version: 1,
 			createdAt: input.nowMs,
 			updatedAt: input.nowMs
@@ -288,19 +306,36 @@ export async function createPaymentProduct(
 
 export async function updatePaymentProduct(
 	db: MetaDb,
-	input: WritePaymentProductInput & { expectedVersion: number }
+	input: UpdatePaymentProductInput
 ): Promise<PaymentProduct> {
 	validatePaymentProduct(input)
+	const existing: PaymentProduct | undefined = await db.query.paymentProduct.findFirst({
+		where: eq(paymentProduct.id, input.id)
+	})
+	if (!existing) {
+		throw new PaymentConfigError('PAYMENT_PRODUCT_NOT_FOUND')
+	}
+	if (existing.version !== input.expectedVersion) {
+		throw new PaymentConfigError('PAYMENT_PRODUCT_CONFLICT')
+	}
+	const settings = await readSystemSettingsSnapshot(db)
+	const paymentSettings: PaymentSettingsDocument = parsePaymentSettings(settings.paymentConfig)
+	const providerSettings = paymentSettings.providers[existing.provider as PaymentProviderName]
+	if (providerSettings.apiKey === null || providerSettings.webhookSecret === null) {
+		throw new PaymentConfigError('PAYMENT_PROVIDER_CREDENTIALS_MISSING')
+	}
+	if (providerSettings.testMode !== existing.testMode) {
+		throw new PaymentConfigError('PAYMENT_PRODUCT_ENVIRONMENT_MISMATCH')
+	}
 	const rows: PaymentProduct[] = await db
 		.update(paymentProduct)
 		.set({
+			providerProductId: input.providerProductId,
 			type: input.type,
 			creditsAmount: input.creditsAmount,
 			subscriptionPlan: input.subscriptionPlan,
 			upgradeRank: input.upgradeRank,
 			periodCreditsAmount: input.periodCreditsAmount,
-			dodoProductId: input.dodoProductId,
-			creemProductId: input.creemProductId,
 			version: sql`${paymentProduct.version} + 1`,
 			updatedAt: input.nowMs
 		})
@@ -310,10 +345,7 @@ export async function updatePaymentProduct(
 	if (row) {
 		return row
 	}
-	const existing: PaymentProduct | undefined = await db.query.paymentProduct.findFirst({
-		where: eq(paymentProduct.id, input.id)
-	})
-	throw new PaymentConfigError(existing ? 'PAYMENT_PRODUCT_CONFLICT' : 'PAYMENT_PRODUCT_NOT_FOUND')
+	throw new PaymentConfigError('PAYMENT_PRODUCT_CONFLICT')
 }
 
 export async function deletePaymentProduct(
@@ -356,12 +388,9 @@ function parsePaymentSettings(value: unknown): PaymentSettingsDocument {
 	return result.data
 }
 
-function validatePaymentProduct(input: WritePaymentProductInput): void {
+function validatePaymentProduct(input: PaymentProductValues & { nowMs: number }): void {
 	const result = PaymentProductInputSchema.safeParse(input)
 	if (!result.success) {
-		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
-	}
-	if (input.dodoProductId === null && input.creemProductId === null) {
 		throw new PaymentConfigError('PAYMENT_PRODUCTS_INVALID')
 	}
 	if (input.type === 'one_time') {
@@ -388,21 +417,15 @@ function validatePaymentProduct(input: WritePaymentProductInput): void {
 }
 
 function toRuntimeProduct(row: PaymentProduct): PaymentProductConfig {
-	const providers: Partial<Record<PaymentProviderName, PaymentProviderProductConfig>> = {}
-	if (row.dodoProductId !== null) {
-		providers.dodo = { kind: 'remote_product', productId: row.dodoProductId }
-	}
-	if (row.creemProductId !== null) {
-		providers.creem = { kind: 'remote_product', productId: row.creemProductId }
-	}
 	return {
 		productId: row.id,
+		provider: row.provider as PaymentProviderName,
+		providerProductId: row.providerProductId,
 		type: row.type as PaymentProductType,
 		creditsAmount: row.creditsAmount,
 		subscriptionPlan: row.subscriptionPlan,
 		upgradeRank: row.upgradeRank,
-		periodCreditsAmount: row.periodCreditsAmount,
-		providers
+		periodCreditsAmount: row.periodCreditsAmount
 	}
 }
 
@@ -447,12 +470,12 @@ const PaymentSettingsSchema = z.object({
 })
 const PaymentProductInputSchema = z.object({
 	id: z.string().trim().min(1),
+	provider: z.enum(['dodo', 'creem']).optional(),
+	providerProductId: z.string().trim().min(1),
 	type: z.enum(['one_time', 'subscription']),
 	creditsAmount: z.number().int().positive().safe().nullable(),
 	subscriptionPlan: z.string().trim().min(1).nullable(),
 	upgradeRank: z.number().int().nonnegative().nullable(),
 	periodCreditsAmount: z.number().int().positive().safe().nullable(),
-	dodoProductId: z.string().trim().min(1).nullable(),
-	creemProductId: z.string().trim().min(1).nullable(),
 	nowMs: z.number().int().nonnegative()
 })

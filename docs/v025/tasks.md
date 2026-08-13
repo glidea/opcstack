@@ -31,7 +31,7 @@
 # Task-002: 迁移 General 与 Storage 配置
 
 ## 描述
-实现 General、Storage 配置契约和 Admin API，并将 Web 首屏、文档入口、设计系统和 R2 上传限制切换到 D1。切换完成后删除这些配置的 ENV 定义、生成字段和运行时读取。
+实现 General、Storage 配置契约和 Admin API，并将 Web 首屏、文档入口和 R2 上传限制切换到 D1。Design System 保留为构建与部署级 ENV，确保静态页面与 SSR 使用同一主题。
 
 ## 不包含
 - 不实现后台配置页面
@@ -42,12 +42,12 @@
 - [x] 2. 实现 General、Storage API 契约、Handler、校验和按域版本更新
 - [x] 3. 在 SvelteKit 请求中读取一次 `PublicRuntimeConfig` 并下发 General 字段
 - [x] 4. 将 R2 运行时读取切换到 Storage 快照
-- [x] 5. 删除 `DESIGN_SYSTEM`、`DOCS_ENABLED` 和上传限制的 ENV、模板、生成字段及旧读取
+- [x] 5. 删除 `DOCS_ENABLED` 和上传限制的 ENV、模板、生成字段及旧读取；保留 `DESIGN_SYSTEM` 为唯一主题来源
 
 ## 验收测试步骤
 1. 调用 General 和 Storage 更新接口并携带返回 bookmark，确认随后读取立即得到新值
-2. 刷新页面确认设计系统和文档入口按 D1 配置变化，上传接口按新的类型和大小限制校验
-3. 搜索仓库并运行配置准备与测试，确认对应配置只存在于 D1 契约而不再来自 ENV
+2. 刷新页面确认文档入口按 D1 配置变化，上传接口按新的类型和大小限制校验
+3. 修改 `DESIGN_SYSTEM` 后重新构建，确认 SSR 与客户端使用同一主题且后台 General 不再提供主题字段
 
 # Task-003: 迁移 Authentication 与 Email 配置
 
@@ -292,3 +292,62 @@
 3. 按 `QUICK_START.md` 和 `CREATE_OPCSTACK_APP.md` 分别走本地与 Cloudflare 引导，确认没有要求填写已迁入 D1 的业务 ENV
 4. 全仓搜索旧 ENV、Agent 授权和兼容关键词，确认没有旧逻辑残留
 5. 对真实 Cloudflare URL 运行远程 E2E，确认测试只使用公开页面和 HTTP API，且不执行部署、Migration、资源创建或直接 D1 写入
+
+# Task-011: 收口主题来源与通知生命周期
+
+## 描述
+主题只由构建期 `DESIGN_SYSTEM` ENV 决定，不在动态配置中暴露。通知详情移除内部 ID，增加直接编辑与归档能力；归档通知对用户隐藏但保留在后台历史中。
+
+## TODO 清单
+- [x] 1. 删除 General D1 文档、API 和后台表单中的 Design System，改由公开 ENV 生成并在 SSR 与客户端统一使用
+- [x] 2. 为通知增加 `archived_at`、更新与归档 API，用户列表只读取未归档通知
+- [x] 3. 后台通知详情移除 ID，提供原位编辑和归档确认，列表显示生效或归档状态
+- [x] 4. 同步模板文档、公开文档和本地 E2E 验收
+
+## 验收测试步骤
+1. 修改 `DESIGN_SYSTEM` 并重新构建，确认 SSR 与客户端主题一致，General API 和后台不存在主题字段
+2. 发布通知后修改标题与内容，确认用户立即读取到修改结果
+3. 归档通知，确认用户列表不再返回，后台列表仍保留并标记已归档
+4. 打开通知详情，确认不显示内部通知 ID，已归档通知不能再编辑
+
+# Task-012: 重构后台导航与高频配置实体工作区
+
+## 描述
+删除后台侧栏的运营和运维分组，将 Payment Product 与 AI Provider 从 System Settings 拆成独立工作区。Payment Product 只关联一个已完成凭据配置的支付 Provider，并记录创建时对应的测试或生产环境；Provider 的密钥和环境仍由 System Settings 统一管理。
+
+## TODO 清单
+- [x] 1. 增加导航、Payment Product 单 Provider 契约、Schema 和独立页面的失败测试
+- [x] 2. 将 Payment Product 数据模型收口为 `provider + test_mode + provider_product_id`，删除 Dodo、Creem 双列及运行时兼容结构
+- [x] 3. 创建 Payment Products 独立工作区，按 Provider 分区展示并只允许选择已配置 Provider
+- [x] 4. 创建 AI Providers 独立工作区，将 System Settings 的 Payment、AI 页面分别收口为平台凭据和 AI 路由设置
+- [x] 5. 删除侧栏分组，统一后台导航顺序、命名、表格、筛选栏和右侧编辑抽屉的视觉层级
+- [x] 6. 重建预发布初始 Migration，同步技术设计、后台操作文档和 `AGENTS.md`
+- [x] 7. 运行完整类型检查、单元测试、构建、本地 HTTP E2E 和真实浏览器 E2E，不部署线上
+
+## 验收测试步骤
+1. 登录后台，确认侧栏没有运营或运维分组，并能直接进入 Payment Products、AI Providers 和 System Settings
+2. 在 System Settings 配置 Dodo 或 Creem 凭据后进入 Payment Products，确认创建时只能选择已配置 Provider，并自动绑定该 Provider 当前测试或生产环境
+3. 切换 Provider 环境后确认旧环境商品不会进入当前 Checkout；新建商品使用新环境且不会覆盖旧记录
+4. 在 AI Providers 独立页面完成创建、编辑、停用和删除，确认 AI Routing 草稿和 Provider 实体互不影响
+5. 从空本地数据执行真实浏览器流程，确认导航、空状态、表格、抽屉、冲突和删除确认均可操作且布局一致
+
+# Task-013: 收口认证设置与后台工作区交互
+
+## 描述
+根据后台验收反馈，收口认证配置层级、部署托管凭据边界、OAuth 回调展示和后台顶栏操作；同时统一通知、用户、积分、内测码、兑换码及配置工作区的视觉交互。
+
+## TODO 清单
+- [x] 1. 将开放注册作为账号准入父开关，邮箱域名、内测码和邮箱验证作为嵌套选项；关闭父开关时收起子配置
+- [x] 2. Turnstile 仅保留动态启用开关，Site Key 和 Secret Key 由部署配置管理，后台不再编辑或回显
+- [x] 3. OAuth Callback URL 改为只读文本和复制操作，不允许误编辑
+- [x] 4. 删除配置页多余的账号/安全入口，Worker 日志移到后台顶栏左侧首个操作位
+- [x] 5. 清理配置和 AI/邮件工作区不协调的小状态徽标，统一使用页面现有文本层级
+- [x] 6. 通知详情移除内部 ID，支持编辑和归档；用户详情移除准入、验证、邀请码、数据库技术字段
+- [x] 7. 统一用户、积分发放、内测码、兑换码和所有后台列表的筛选栏、间距、空状态和抽屉布局
+- [x] 8. 通过真实浏览器首轮流程验证上述交互，并执行完整类型检查、单元测试和构建
+
+## 验收测试步骤
+1. 登录后台进入认证设置，确认开放注册下的子项层级正确，Turnstile 凭据不可编辑，OAuth 回调可复制但不是输入框
+2. 确认配置页没有账号/安全重复入口，Worker 日志位于顶栏左侧首个操作
+3. 创建、编辑、归档通知并查看用户、积分、内测码、兑换码页面，确认技术字段和小徽标已移除且布局一致
+4. 从空本地数据执行 `pnpm test:e2e:first-run`，确认真实浏览器和 HTTP 验收通过

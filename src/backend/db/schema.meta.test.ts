@@ -2,10 +2,10 @@ import { describe } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import { jwks, user } from './schema.auth'
 import {
+	aiProvider,
 	checkoutOrder,
 	creditRedemptionCode,
 	d1Shard,
-		aiProvider,
 	oauthAuthorizationRequest,
 	oauthGrant,
 	paymentProduct,
@@ -32,7 +32,7 @@ describe('schema.meta', () => {
 			scenario: 'dynamic configuration ownership',
 			given: 'meta schema',
 			when: 'checking configuration tables',
-				then: 'singleton domain documents payment products and ai providers stay in meta',
+			then: 'singleton domain documents payment products and ai providers stay in meta',
 			givenDetail: { schema: 'meta' },
 			whenDetail: { check: 'configuration-tables' },
 			thenExpected: { result: true }
@@ -97,6 +97,7 @@ describe('schema.meta', () => {
 		switch (when.check) {
 			case 'configuration-tables': {
 				const settingsColumns: string[] = Object.keys(systemSettings)
+				const paymentProductColumns: string[] = Object.keys(paymentProduct)
 				return {
 					result:
 						settingsColumns.includes('generalConfig') &&
@@ -107,12 +108,16 @@ describe('schema.meta', () => {
 						settingsColumns.includes('affiliateConfig') &&
 						settingsColumns.includes('paymentConfig') &&
 						settingsColumns.includes('aiConfig') &&
-						!settingsColumns.includes('designSystem') &&
 						!settingsColumns.includes('chatOpenaiEnabled') &&
+						paymentProductColumns.includes('provider') &&
+						paymentProductColumns.includes('testMode') &&
+						paymentProductColumns.includes('providerProductId') &&
+						!paymentProductColumns.includes('dodoProductId') &&
+						!paymentProductColumns.includes('creemProductId') &&
 						paymentProduct.version !== undefined &&
-							aiProvider.type !== undefined &&
-							aiProvider.models !== undefined &&
-							aiProvider.apiKeyCiphertext !== undefined
+						aiProvider.type !== undefined &&
+						aiProvider.models !== undefined &&
+						aiProvider.apiKeyCiphertext !== undefined
 				}
 			}
 			case 'oauth-api-access-tables':

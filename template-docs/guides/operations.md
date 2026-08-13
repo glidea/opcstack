@@ -21,7 +21,7 @@ For the browser workflows that inspect feedback and publish notifications, see [
 
 Feedback is user-scoped data that grows with the user base, so it lives in the shard. Notifications are global state that the admin writes and all users read, so they live in Meta. The read state is per-user, so it lives in the shard.
 
-The `notifications` table has a `target_user_id` column with a foreign key to `user.id` and `onDelete: cascade`. If an admin deletes a user, targeted notifications for that user are removed. Global notifications (`target_user_id IS NULL`) are unaffected.
+The `notifications` table has a `target_user_id` column with a foreign key to `user.id` and `onDelete: cascade`. If an admin deletes a user, targeted notifications for that user are removed. Global notifications (`target_user_id IS NULL`) are unaffected. `archived_at` is null while a notification is active and records the archive time after it is removed from user-facing lists.
 
 ## Feedback
 
@@ -98,6 +98,15 @@ Admin only. Writes to Meta DB:
 
 Returns `{ "id": "notification_id" }`.
 
+### Admin Update And Archive
+
+```http
+POST /api/admin/update_notification
+POST /api/admin/archive_notification
+```
+
+Active notifications can be updated in place. The update request includes `id`, `type`, `title`, `content`, and nullable `target_user_id`. Archiving sets `archived_at` and is irreversible. Archived notifications remain in administrator history but cannot be edited and are excluded from every user notification query.
+
 ### User List Notifications
 
 ```http
@@ -109,7 +118,8 @@ Authenticated. This is a cross-database read. The handler first queries Meta DB 
 ```
 Step 1: Meta DB
   SELECT * FROM notifications
-  WHERE (target_user_id IS NULL OR target_user_id = current_user)
+  WHERE archived_at IS NULL
+    AND (target_user_id IS NULL OR target_user_id = current_user)
     AND [optional type, created_at filters]
   ORDER BY created_at DESC
 
@@ -163,6 +173,8 @@ The handler does not verify that the notification id exists. It inserts the read
 | `POST /api/submit_feedback` | User | Tenant Shard |
 | `POST /api/admin/list_feedbacks` | Admin | All Shards (fan-out) |
 | `POST /api/admin/create_notification` | Admin | Meta |
+| `POST /api/admin/update_notification` | Admin | Meta |
+| `POST /api/admin/archive_notification` | Admin | Meta |
 | `POST /api/list_notifications` | User | Meta + Tenant Shard |
 | `POST /api/read_notification` | User | Tenant Shard |
 
@@ -175,5 +187,7 @@ The handler does not verify that the notification id exists. It inserts the read
 **Repeated mark-as-read does not error.** `onConflictDoNothing` on `(notification_id, user_id)` means duplicate calls are silently ignored. This is by design.
 
 **`target_user_id` shares a foreign key with `user.id`.** Deleting a user cascades to remove their targeted notifications. Global notifications are not affected.
+
+**Archive is the only notification lifecycle state.** Do not add a second active flag or remove archived rows from administrator history. User queries always require `archived_at IS NULL`.
 
 **Feedback `type` is free-form.** The backend does not validate it against a fixed enum. If you need consistent types, validate on the frontend or add a schema constraint.

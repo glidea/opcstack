@@ -4,8 +4,8 @@
 
 ## Task-009 Payment 与 AI 配置界面
 
-- `pnpm exec vitest run src/api-contract/configuration.test.ts src/backend/config/index.test.ts src/backend/ai/config.test.ts src/backend/payment/config.test.ts src/backend/api/handler/configuration-ai.test.ts src/backend/api/handler/configuration-payment.test.ts src/backend/api/handler/configuration.test.ts "src/frontend/web/routes/[locale=locale]/admin/configuration/configuration-collections.test.ts" "src/frontend/web/routes/[locale=locale]/admin/configuration/configuration-page.test.ts" "src/frontend/web/routes/[locale=locale]/admin/configuration/configuration-route.test.ts"`
-  - 通过 10 个测试文件、65 个测试
+- `pnpm exec vitest run src/api-contract/configuration.test.ts src/backend/config/index.test.ts src/backend/ai/config.test.ts src/backend/payment/config.test.ts src/backend/api/handler/configuration-ai.test.ts src/backend/api/handler/configuration-payment.test.ts src/backend/api/handler/configuration.test.ts "src/frontend/web/routes/[locale=locale]/admin/admin-navigation.test.ts" "src/frontend/web/routes/[locale=locale]/admin/admin-layout.test.ts" "src/frontend/web/routes/[locale=locale]/admin/payment-products/payment-products-page.test.ts" "src/frontend/web/routes/[locale=locale]/admin/ai-providers/ai-providers-page.test.ts"`
+  - 通过当前配置契约、支付运行时、导航、布局和两个独立工作区测试
 - `pnpm test:e2e:first-run`
   - 使用临时检出目录和空本地 D1 运行通过
   - 浏览器流程验证首次管理员凭据只显示一次、登录、修改邮箱和密码、全部 Configuration Tab、显式保存、冲突处理、Payment Product 与 AI Provider 的创建、编辑、停用、删除、Secret 脱敏和独立草稿
@@ -52,7 +52,8 @@
   - `/api/health` 返回 `200`
   - Configuration 深链接正确重定向登录页
   - OAuth Authorization Request 对非法 PKCE 请求返回 `400`
-  - 管理员 Session 成功读取并保存 General 配置，携带 D1 bookmark 的下一次前台请求立即使用新设计系统与文档开关
+  - 管理员 Session 成功读取并保存 General 配置，携带 D1 bookmark 的下一次前台请求立即使用新文档开关
+  - Design System 只由 `DESIGN_SYSTEM` ENV 决定，后台与 General API 不再暴露主题字段
   - OAuth PKCE 授权后可调用获批的 Storage API，未获批 AI API 返回 `403`
   - OAuth Token 可修改 Storage 配置，撤销 Grant 后 Access Token 返回 `401` 且 Refresh Token 无法刷新
   - 测试在 finally 中恢复 General 和 Storage 原值
@@ -65,3 +66,24 @@
   - Email Tab 明确显示 `Not configured`，Account / Security 页面显示密码修改表单
   - 浏览器中残留的旧远程 D1 bookmark 在预发布数据库重建后失效；删除该站点旧 bookmark 后新部署页面正常。这是本轮预发布 D1 重建产生的一次性测试状态，不增加兼容逻辑
 - 远程验收只使用公开页面和 HTTP API，没有由测试执行部署、Migration、资源创建或直接 D1 写入
+
+## Task-011 主题来源与通知生命周期
+
+- Design System 已从 D1、General API 和后台表单移除，只由构建期 `DESIGN_SYSTEM` ENV 生成
+- 通知支持编辑和归档；用户查询排除已归档通知，后台历史保留并显示归档状态
+- 通知详情不再显示内部通知 ID，归档确认在详情面板内完成，不叠加弹窗
+
+## Task-012/013 后台导航、配置实体与认证交互收口
+
+- `pnpm test:e2e:first-run`
+	- 通过 1 个真实浏览器首轮测试
+	- 通过 1 个本地 HTTP 首轮测试文件、43 个测试；10 个不适用场景按显式条件跳过
+	- 浏览器覆盖首次管理员邮箱和密码修改、八个配置域、配置保存与冲突、Payment Product 创建/编辑/冲突/删除、AI Provider 创建/停用/冲突/删除、认证配置层级、Turnstile 凭据只读、OAuth Callback URL 复制、通知编辑/归档、用户详情技术字段清理和后台列表布局
+- `CI=1 pnpm test`
+	- 通过类型检查、Svelte 检查和 92 个测试文件、609 个测试，0 error、0 warning
+- `pnpm exec vite build`
+	- Web SSR 和客户端生产构建通过
+- `pnpm build:extension`
+	- Chrome MV3 扩展生产构建和打包通过
+
+本轮只执行本地验收，未部署线上。

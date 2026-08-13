@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { SecretAction } from './configuration-page'
 	import { _ } from '$frontend/i18n'
-	import { Badge } from '$frontend/ui/badge'
 	import { Button } from '$frontend/ui/button'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
@@ -41,7 +40,7 @@
 <Field.Field data-invalid={error !== ''}>
 	<div class="flex items-center justify-between gap-3">
 		<Field.Label for={`${id}-action`}>{label}</Field.Label>
-		<Badge variant="secondary">{configured ? $_('admin.configuration.secret.configured') : $_('admin.configuration.secret.notConfigured')}</Badge>
+		<span class="text-sm text-muted-foreground">{configured ? $_('admin.configuration.secret.configured') : $_('admin.configuration.secret.notConfigured')}</span>
 	</div>
 	{#if action === 'keep'}
 		<div class="flex flex-wrap gap-2">

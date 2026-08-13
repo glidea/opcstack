@@ -239,10 +239,10 @@ Global styles live in `src/frontend/lib/styles/app.css`. The root layout imports
 import '$frontend/styles/app.css'
 ```
 
-The active design system comes from the General configuration saved in Meta D1:
+The active design system comes from the public build and deployment environment:
 
-```json
-{"design_system":"apple-saas","docs_enabled":true}
+```env
+DESIGN_SYSTEM=apple-saas
 ```
 
 Supported values in CSS:
@@ -252,7 +252,7 @@ apple-saas
 brutalism
 ```
 
-The selected design is written to `<html data-design="...">` by the SvelteKit hook and the client layout. `demo-design/[theme]` can override it by URL.
+The selected design is written to `<html data-design="...">` by the SvelteKit hook and the client layout. Changing it requires a rebuild and redeploy so SSR, client navigation, and prerendered pages stay consistent. `demo-design/[theme]` can override it by URL for previews.
 
 Use semantic Tailwind tokens instead of raw colors in page code:
 
@@ -290,7 +290,7 @@ Common fields:
 | `webBaseUrl` | Canonical URLs and extension navigation |
 | `extension.hostPermissions` | WXT manifest and content script matches |
 
-Runtime settings such as support email, design system, auth switches, docs, Turnstile, and payment are loaded from D1 through `PublicRuntimeConfig`. Frontend code must not read secret env files or add an env fallback for these fields.
+Runtime settings such as support email, auth switches, docs, Turnstile, and payment are loaded from D1 through `PublicRuntimeConfig`. Design System is the fixed build-time exception and comes only from `DESIGN_SYSTEM`. Frontend code must not read secret env files or add an env fallback for D1-owned fields.
 
 ## Prerender
 

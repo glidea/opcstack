@@ -13,8 +13,7 @@ import {
 	PaymentProviderRouter,
 	type PaymentConfig,
 	type PaymentProductConfig,
-	type PaymentProviderName,
-	type PaymentProviderProductConfig
+	type PaymentProviderName
 } from './config'
 import {
 	PAYMENT_BILLING_MODE_ONE_TIME,
@@ -74,7 +73,6 @@ export type PaymentProviderMap = Partial<Record<PaymentProviderName, PaymentProv
 
 interface ResolvedPaymentProduct {
 	product: PaymentProductConfig
-	providerConfig: PaymentProviderProductConfig
 	providerProductId: string
 	name: string
 	description: string | null
@@ -287,7 +285,7 @@ export class PaymentService {
 		const provider = this.getProvider(providerName)
 		const items: PaymentProductItem[] = []
 		for (const product of this.config.products) {
-			if (!product.providers[providerName]) {
+			if (product.provider !== providerName) {
 				continue
 			}
 			const resolved = await this.resolveProduct(provider, product, providerName)
@@ -352,7 +350,7 @@ export class PaymentService {
 		const notifyUrl = buildWebhookUrl(input.appDomain, providerName)
 		const created = await provider.createCheckout({
 			checkoutOrderId,
-			providerConfig: resolved.providerConfig,
+			providerProductId: resolved.providerProductId,
 			productName: resolved.name,
 			productDescription: resolved.description,
 			amount: resolved.priceAmount,
@@ -1267,34 +1265,27 @@ export class PaymentService {
 		product: PaymentProductConfig,
 		providerName: PaymentProviderName
 	): Promise<ResolvedPaymentProduct> {
-		const providerConfig = product.providers[providerName]
-		if (!providerConfig) {
+		if (product.provider !== providerName) {
 			throw new PaymentServiceError('PAYMENT_PROVIDER_PRODUCT_ID_MISSING')
 		}
-
-		switch (providerConfig.kind) {
-			case 'remote_product': {
-				const providerProducts = await provider.listProducts({
-					providerProductIds: [providerConfig.productId]
-				})
-				const providerProduct = providerProducts[0]
-				if (!providerProduct) {
-					throw new PaymentServiceError('PAYMENT_PROVIDER_PRODUCT_NOT_FOUND')
-				}
-				if (providerProduct.billingMode !== product.type) {
-					throw new PaymentServiceError('PAYMENT_PRODUCT_TYPE_MISMATCH')
-				}
-				return {
-					product,
-					providerConfig,
-					providerProductId: providerConfig.productId,
-					name: providerProduct.name,
-					description: providerProduct.description,
-					priceAmount: providerProduct.priceAmount,
-					currency: providerProduct.currency,
-					billingMode: providerProduct.billingMode
-				}
-			}
+		const providerProducts = await provider.listProducts({
+			providerProductIds: [product.providerProductId]
+		})
+		const providerProduct = providerProducts[0]
+		if (!providerProduct) {
+			throw new PaymentServiceError('PAYMENT_PROVIDER_PRODUCT_NOT_FOUND')
+		}
+		if (providerProduct.billingMode !== product.type) {
+			throw new PaymentServiceError('PAYMENT_PRODUCT_TYPE_MISMATCH')
+		}
+		return {
+			product,
+			providerProductId: product.providerProductId,
+			name: providerProduct.name,
+			description: providerProduct.description,
+			priceAmount: providerProduct.priceAmount,
+			currency: providerProduct.currency,
+			billingMode: providerProduct.billingMode
 		}
 	}
 

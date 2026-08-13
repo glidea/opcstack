@@ -14,7 +14,6 @@ describe('web public runtime configuration', () => {
 		vi.clearAllMocks()
 		vi.mocked(getPublicRuntimeConfig).mockResolvedValue({
 			support_email: 'admin@opcstack.local',
-			design_system: 'brutalism',
 			docs_enabled: false,
 			payment_enabled: false,
 			email_provider_configured: false,
@@ -45,6 +44,7 @@ describe('web public runtime configuration', () => {
 			platform: {
 				env: {
 					APP_BASE_URL: 'http://localhost:5173',
+					DESIGN_SYSTEM: 'brutalism',
 					META_DB: { withSession }
 				}
 			},
@@ -74,7 +74,6 @@ describe('web public runtime configuration', () => {
 		expect(getPublicRuntimeConfig).toHaveBeenCalledOnce()
 		expect(locals['publicRuntimeConfig']).toEqual({
 			support_email: 'admin@opcstack.local',
-			design_system: 'brutalism',
 			docs_enabled: false,
 			payment_enabled: false,
 			email_provider_configured: false,
@@ -106,6 +105,7 @@ describe('web public runtime configuration', () => {
 			platform: {
 				env: {
 					APP_BASE_URL: 'http://localhost:5173',
+					DESIGN_SYSTEM: 'apple-saas',
 					META_DB: { withSession: vi.fn((): D1DatabaseSession => session) }
 				} as unknown as Env
 			},

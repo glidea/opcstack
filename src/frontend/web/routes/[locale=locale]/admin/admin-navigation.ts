@@ -5,9 +5,11 @@ export type AdminSection =
 	| 'credit-codes'
 	| 'feedback'
 	| 'notifications'
-	| 'configuration'
 	| 'payments'
+	| 'payment-products'
 	| 'ai-tasks'
+	| 'ai-providers'
+	| 'configuration'
 
 export type AdminNavigationItem = {
 	id: AdminSection
@@ -22,9 +24,11 @@ const ADMIN_SECTIONS: AdminSection[] = [
 	'credit-codes',
 	'feedback',
 	'notifications',
-	'configuration',
 	'payments',
-	'ai-tasks'
+	'payment-products',
+	'ai-tasks',
+	'ai-providers',
+	'configuration'
 ]
 
 export function createAdminNavigation(locale: string): AdminNavigationItem[] {

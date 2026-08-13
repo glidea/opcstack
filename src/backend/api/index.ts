@@ -28,10 +28,12 @@ import {
 import { bindAffHandler, getAffSummaryHandler } from './handler/aff'
 import { listFeedbacksHandler, submitFeedbackHandler } from './handler/feedback'
 import {
+	archiveNotificationHandler,
 	createNotificationHandler,
 	listAdminNotificationsHandler,
 	listNotificationsHandler,
-	readNotificationHandler
+	readNotificationHandler,
+	updateNotificationHandler
 } from './handler/notification'
 import {
 	cancelSubscriptionHandler,
@@ -170,6 +172,8 @@ adminApi.post('/admin/grant_credits', requireApiScope(getProtectedJsonRouteScope
 adminApi.post('/admin/list_feedbacks', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_feedbacks')), listFeedbacksHandler)
 adminApi.post('/admin/create_notification', requireApiScope(getProtectedJsonRouteScope('/api/admin/create_notification')), createNotificationHandler)
 adminApi.post('/admin/list_notifications', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_notifications')), listAdminNotificationsHandler)
+adminApi.post('/admin/update_notification', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_notification')), updateNotificationHandler)
+adminApi.post('/admin/archive_notification', requireApiScope(getProtectedJsonRouteScope('/api/admin/archive_notification')), archiveNotificationHandler)
 adminApi.post('/admin/list_payment_transactions', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_payment_transactions')), listAdminPaymentTransactionsHandler)
 adminApi.post('/admin/list_ai_tasks', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_ai_tasks')), listAdminAiTasksHandler)
 adminApi.post('/admin/get_ai_task', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_ai_task')), getAdminAiTaskHandler)

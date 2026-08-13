@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from "svelte";
 	import { page } from "$app/stores";
-	import type { PublicRuntimeConfig } from "$backend/config";
+	import { clientConfig } from "$frontend/config/client";
 	import { locale as localeStore } from "$frontend/i18n";
 	import type { SystemLocale } from "$frontend/i18n/locales";
 	import "$frontend/styles/app.css";
@@ -15,7 +15,7 @@
 		data,
 		children,
 	}: {
-		data: { locale: SystemLocale; websiteJsonLd: string; supportEmail: string; publicRuntimeConfig: PublicRuntimeConfig };
+		data: { locale: SystemLocale; websiteJsonLd: string; supportEmail: string };
 		children: import("svelte").Snippet;
 	} = $props();
 
@@ -25,7 +25,7 @@
 		if (typeof document !== "undefined") {
 			document.documentElement.lang = data.locale;
 			const themeParam = $page.params.theme;
-			document.documentElement.dataset['design'] = themeParam || data.publicRuntimeConfig.design_system;
+			document.documentElement.dataset['design'] = themeParam || clientConfig.designSystem;
 			persistRegistrationUtmSource($page.url.searchParams);
 		}
 	});

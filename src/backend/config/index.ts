@@ -96,7 +96,6 @@ export type AuthRuntimeConfig = {
 
 export type PublicRuntimeConfig = {
 	support_email: string
-	design_system: GeneralSettingsDocument['designSystem']
 	docs_enabled: boolean
 	payment_enabled: boolean
 	email_provider_configured: boolean
@@ -110,7 +109,8 @@ export type PublicRuntimeConfig = {
 	turnstile_site_key: string | null
 }
 
-export type UpdateGeneralConfigInput = GeneralSettingsDocument & {
+export type UpdateGeneralConfigInput = {
+	docsEnabled: boolean
 	expectedVersion: number
 	nowMs: number
 }
@@ -128,8 +128,6 @@ export type UpdateAuthenticationConfigInput = {
 	emailUserActionCooldownSeconds: number
 	turnstile: {
 		enabled: boolean
-		siteKey: string | null
-		secretKey: SecretMutation
 	}
 	providers: {
 		google: AuthenticationProviderUpdate
@@ -181,7 +179,6 @@ type DomainUpdate<TDomain extends string, TValues> = {
 }
 
 const GeneralSettingsSchema = z.object({
-	designSystem: z.enum(['apple-saas', 'brutalism']),
 	docsEnabled: z.boolean()
 })
 
@@ -265,7 +262,6 @@ export async function updateGeneralConfig(
 	input: UpdateGeneralConfigInput
 ): Promise<GeneralConfig> {
 	const values: GeneralSettingsDocument = parseGeneralSettings({
-		designSystem: input.designSystem,
 		docsEnabled: input.docsEnabled
 	})
 	const settings: SystemSettings = await updateSystemSettingsDomain(db, {
@@ -335,12 +331,8 @@ export async function updateAuthenticationConfig(
 		emailUserActionCooldownSeconds: input.emailUserActionCooldownSeconds,
 		turnstile: {
 			enabled: input.turnstile.enabled,
-			siteKey: input.turnstile.siteKey,
-			secretKey: await mutateConfigSecret(
-				encryptionKey,
-				current.turnstile.secretKey,
-				input.turnstile.secretKey
-			)
+			siteKey: current.turnstile.siteKey,
+			secretKey: current.turnstile.secretKey
 		},
 		providers: {
 			google: await applyAuthenticationProviderUpdate(
@@ -480,7 +472,6 @@ export async function getPublicRuntimeConfig(db: MetaDb): Promise<PublicRuntimeC
 	validateAuthenticationEmailDependencies(authentication, email)
 	return {
 		support_email: administrator.email,
-		design_system: general.designSystem,
 		docs_enabled: general.docsEnabled,
 		payment_enabled: parsePaymentEnabled(settings.paymentConfig),
 		email_provider_configured: email.provider !== null,

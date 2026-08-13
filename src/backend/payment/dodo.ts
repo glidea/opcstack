@@ -137,7 +137,7 @@ export class DodoPaymentProvider implements PaymentProvider {
 
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
 		const session: DodoCheckoutSessionResponse = await this.client.checkoutSessions.create({
-			product_cart: [{ product_id: input.providerConfig.productId, quantity: 1 }],
+			product_cart: [{ product_id: input.providerProductId, quantity: 1 }],
 			customer: { email: input.customerEmail },
 			return_url: input.returnUrl,
 			metadata: {

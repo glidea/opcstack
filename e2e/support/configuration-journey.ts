@@ -3,7 +3,6 @@ import { authorizeApiAccess, type OAuthTokenSet } from './oauth'
 import { browserHeaders, type CookieJar, readJson, requireBookmark } from './http'
 
 type GeneralConfig = {
-	design_system: 'apple-saas' | 'brutalism'
 	docs_enabled: boolean
 	version: number
 }
@@ -36,10 +35,7 @@ export async function verifyConfigurationAndOAuthJourney(input: {
 	let grantId: string | undefined
 	let token: OAuthTokenSet | undefined
 	try {
-		const nextDesignSystem: GeneralConfig['design_system'] =
-			originalGeneral.design_system === 'apple-saas' ? 'brutalism' : 'apple-saas'
 		const generalResponse: Response = await callAdminRaw(input, 'update_general_config', {
-			design_system: nextDesignSystem,
 			docs_enabled: false,
 			expected_version: generalVersion
 		})
@@ -54,7 +50,7 @@ export async function verifyConfigurationAndOAuthJourney(input: {
 		})
 		const pageHtml: string = await pageResponse.text()
 		expect(pageResponse.status).toBe(200)
-		expect(pageHtml).toContain(`data-design="${nextDesignSystem}"`)
+		expect(pageHtml).toMatch(/data-design="(?:apple-saas|brutalism)"/)
 		expect(pageHtml).not.toContain('href="/en/docs"')
 
 		token = await authorizeApiAccess({
@@ -152,7 +148,6 @@ export async function verifyConfigurationAndOAuthJourney(input: {
 			}
 		}
 		await callAdmin<GeneralConfig>(input, 'update_general_config', {
-			design_system: originalGeneral.design_system,
 			docs_enabled: originalGeneral.docs_enabled,
 			expected_version: generalVersion
 		})

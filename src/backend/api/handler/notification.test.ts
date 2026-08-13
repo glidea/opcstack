@@ -3,16 +3,19 @@ import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import { runCases, type TestCase } from '../../testing/bdd'
 import {
+	archiveNotificationHandler,
 	createNotificationHandler,
 	listAdminNotificationsHandler,
 	listNotificationsHandler,
-	readNotificationHandler
+	readNotificationHandler,
+	updateNotificationHandler
 } from './notification'
 import type { ListNotificationsResponse } from '../../../api-contract/notifications'
 
 type MockDb = {
 	insert: ReturnType<typeof vi.fn>
 	select: ReturnType<typeof vi.fn>
+	update: ReturnType<typeof vi.fn>
 	query: {
 		notification?: {
 			findMany: ReturnType<typeof vi.fn>
@@ -257,7 +260,8 @@ describe('listAdminNotificationsHandler', () => {
 				title: 'Upgrade',
 				content: 'New version',
 				targetUserId: null,
-				createdAt: 123
+				createdAt: 123,
+				archivedAt: null
 			},
 			{
 				id: 'n2',
@@ -265,7 +269,8 @@ describe('listAdminNotificationsHandler', () => {
 				title: 'Credits',
 				content: 'Granted',
 				targetUserId: 'u1',
-				createdAt: 122
+				createdAt: 122,
+				archivedAt: 456
 			}
 		])
 		const response: Response = await listAdminNotificationsHandler(createJsonContext({
@@ -283,7 +288,8 @@ describe('listAdminNotificationsHandler', () => {
 					title: 'Upgrade',
 					content: 'New version',
 					target_user_id: null,
-					created_at: 123
+					created_at: 123,
+					archived_at: null
 				},
 				{
 					id: 'n2',
@@ -291,10 +297,101 @@ describe('listAdminNotificationsHandler', () => {
 					title: 'Credits',
 					content: 'Granted',
 					target_user_id: 'u1',
-					created_at: 122
+					created_at: 122,
+					archived_at: 456
 				}
 			],
 			total: 1
+		})
+	})
+})
+
+describe('notification administration handlers', () => {
+	test('updates a published notification', async () => {
+		const metaDb: MockDb = createMockMetaDb()
+		metaDb.update.mockReturnValue({
+			set: () => ({
+				where: () => ({
+					returning: async () => [
+						{
+							id: 'n1',
+							type: 'account',
+							title: 'Updated',
+							content: 'Updated content',
+							targetUserId: 'u1',
+							createdAt: 123,
+							archivedAt: null
+						}
+					]
+				})
+		})
+		})
+
+		const response: Response = await updateNotificationHandler(createJsonContext({
+			userId: 'admin',
+			metaDb,
+			tenantDb: createMockTenantDb(),
+			body: {
+				id: 'n1',
+				type: 'account',
+				title: 'Updated',
+				content: 'Updated content',
+				target_user_id: 'u1'
+			}
+		}))
+
+		expect({ status: response.status, body: await response.json() }).toEqual({
+			status: 200,
+			body: {
+				id: 'n1',
+				type: 'account',
+				title: 'Updated',
+				content: 'Updated content',
+				target_user_id: 'u1',
+				created_at: 123,
+				archived_at: null
+			}
+		})
+	})
+
+	test('archives a published notification', async () => {
+		const metaDb: MockDb = createMockMetaDb()
+		metaDb.update.mockReturnValue({
+			set: () => ({
+				where: () => ({
+					returning: async () => [
+						{
+							id: 'n1',
+							type: 'system',
+							title: 'Notice',
+							content: 'Body',
+							targetUserId: null,
+							createdAt: 123,
+							archivedAt: 456
+						}
+					]
+				})
+		})
+		})
+
+		const response: Response = await archiveNotificationHandler(createJsonContext({
+			userId: 'admin',
+			metaDb,
+			tenantDb: createMockTenantDb(),
+			body: { id: 'n1' }
+		}))
+
+		expect({ status: response.status, body: await response.json() }).toEqual({
+			status: 200,
+			body: {
+				id: 'n1',
+				type: 'system',
+				title: 'Notice',
+				content: 'Body',
+				target_user_id: null,
+				created_at: 123,
+				archived_at: 456
+			}
 		})
 	})
 })
@@ -393,6 +490,7 @@ function createMockMetaDb(): MockDb {
 				}
 			}
 		}),
+		update: vi.fn(),
 		query: {
 			notification: {
 				findMany: vi.fn()
@@ -405,6 +503,7 @@ function createMockTenantDb(): MockDb {
 	return {
 		insert: vi.fn(),
 		select: vi.fn(),
+		update: vi.fn(),
 		query: {
 			notificationRead: {
 				findMany: vi.fn()

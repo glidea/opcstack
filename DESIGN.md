@@ -1,6 +1,6 @@
 # Design System
 
-> Active style is controlled by the General domain in Meta D1
+> Active style is selected at build time by the public `DESIGN_SYSTEM` environment variable
 > Valid values: `apple-saas` (default) | `brutalism`
 
 ---
@@ -43,7 +43,7 @@ The admin console is an operational tool. Optimize for scanning, comparison, and
 - Tables use their primitive's own horizontal scroll container; do not wrap them in a second overflow container
 - Table headers use a distinct neutral surface and sticky action columns use a visible divider
 - Overview metrics use one divided metric strip, not an identical card grid; the actionable work queue is the primary content region
-- Sidebar navigation separates overview, management, and operations, with a high-contrast current-page state
+- Sidebar navigation is a single flat ordered list with a high-contrast current-page state. Do not add management or operations group labels
 - Page headers contain the title and relevant actions only
 - Do not add explanatory subtitles that restate the page purpose, data source, or implementation
 - Show timestamps, status, scope, and warnings only when they affect an operator decision

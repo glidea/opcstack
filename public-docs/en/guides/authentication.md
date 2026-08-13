@@ -143,7 +143,7 @@ Use `APP_BASE_URL` as the source of truth for callback URLs. In production it re
 | --- | --- | --- |
 | Cloudflare Email Service | Onboard the sending domain, then use the generated `SEND_EMAIL` binding | Email tab: Cloudflare provider; administrator email as sender |
 | Resend | Verify the sending domain, create an API key with sending permission | Email tab: Resend provider and API key; administrator email as sender |
-| Cloudflare Turnstile | Create or reuse a widget for `APP_DOMAIN` and optional `APP_CN_DOMAIN` | Authentication tab: site key, secret key, and enabled switch |
+| Cloudflare Turnstile | Create or reuse a widget for `APP_DOMAIN` and optional `APP_CN_DOMAIN` | Authentication tab: enabled switch |
 | Google OAuth | Create a Web application OAuth client | Authentication tab: client ID, client secret, and enabled switch |
 | GitHub OAuth | Create an OAuth App | Authentication tab: client ID, client secret, and enabled switch |
 | LinuxDo OAuth | Create an OAuth application in the LinuxDo console | Authentication tab: client ID, client secret, and enabled switch |
@@ -160,7 +160,7 @@ Platform steps:
 4. Let Cloudflare create the required SPF, DKIM, DMARC, and bounce records.
 5. Wait until the sending domain is active.
 6. Change the administrator email under Account / Security to an address on the onboarded domain.
-7. Open the admin Configuration workspace, select the Email tab, choose Cloudflare, and save.
+7. Open the admin System settings workspace, select the Email tab, choose Cloudflare, and save.
 
 Use Resend if you need local real delivery without depending on Cloudflare remote email behavior.
 
@@ -174,7 +174,7 @@ Platform steps:
 2. Add and verify the sending domain.
 3. Create an API key with sending access.
 4. Change the administrator email under Account / Security to an address on the verified domain.
-5. Open the admin Configuration workspace and select the Email tab.
+5. Open the admin System settings workspace and select the Email tab.
 6. Choose Resend, enter the API key, and save.
 
 The `from` address is always the current administrator email. An Email provider cannot be configured while it remains `admin@opcstack.local`. If Resend rejects mail, fix the sender domain first.
@@ -188,7 +188,7 @@ On first production initialization, `prepare-cloudflare` creates or reuses one T
 Normal production steps:
 
 1. Deploy the application.
-2. Open the Authentication tab in the admin Configuration workspace.
+2. Open the Authentication tab in the admin System settings workspace.
 3. Enable Turnstile and save. The generated credentials are already present.
 
 Manual setup steps:
@@ -197,7 +197,7 @@ Manual setup steps:
 2. Go to **Turnstile**.
 3. Create a widget.
 4. Add `APP_DOMAIN` and optional `APP_CN_DOMAIN` as allowed hostnames.
-5. Open the Authentication tab, replace the site key and secret key, enable Turnstile, and save.
+5. Open the Authentication tab, enable or disable Turnstile, and save.
 
 Turnstile is attached to email sign-up, email sign-in, and password reset request endpoints.
 
@@ -231,7 +231,7 @@ Platform steps:
 4. Create an OAuth client of type **Web application**.
 5. Add the callback URL above to **Authorized redirect URIs**.
 6. Add the app domain to **Authorized domains** when Google requires it.
-7. Open the Authentication tab in the admin Configuration workspace.
+7. Open the Authentication tab in the admin System settings workspace.
 8. Enter the client ID and client secret, enable Google, and save.
 
 Google requires the redirect URI to match exactly. A scheme, host, port, or path mismatch returns `redirect_uri_mismatch`.
@@ -265,7 +265,7 @@ Platform steps:
 3. Create a new OAuth App.
 4. Set **Homepage URL** to `APP_BASE_URL`.
 5. Set **Authorization callback URL** to the callback URL above.
-6. Open the Authentication tab in the admin Configuration workspace.
+6. Open the Authentication tab in the admin System settings workspace.
 7. Enter the client ID and generated client secret, enable GitHub, and save.
 
 GitHub OAuth Apps have one callback URL. Use a separate OAuth App for local and production if both need to work at the same time.
@@ -297,7 +297,7 @@ Platform steps:
 1. Open the LinuxDo OAuth application console.
 2. Create an OAuth application.
 3. Set the callback URL above.
-4. Open the Authentication tab in the admin Configuration workspace.
+4. Open the Authentication tab in the admin System settings workspace.
 5. Enter the client ID and client secret, enable LinuxDo, and save.
 
 The runtime uses these LinuxDo endpoints directly:
@@ -425,9 +425,9 @@ These components read feature flags from `clientConfig` to decide which sign-in 
 
 ## Configuration
 
-Authentication and Email configuration live only in the Meta D1 `system_settings` row. Open the admin Configuration workspace, edit one tab, and explicitly save it. Each successful save validates the complete domain and becomes effective for subsequent requests without redeployment.
+Authentication and Email configuration live only in the Meta D1 `system_settings` row. Open the admin System settings workspace, edit one tab, and explicitly save it. Each successful save validates the complete domain and becomes effective for subsequent requests without redeployment.
 
-The Authentication tab owns the beta gate, registration policy, email verification, Turnstile, and Google, GitHub, and LinuxDo credentials. The Email tab owns the Provider and Resend API key. Provider presence is the single source of email availability; there is no separate email switch. Secret reads expose only whether a value is configured; replacing or removing a secret is an explicit save action.
+The Authentication tab owns registration policy, the beta gate, email verification, the Turnstile switch, and Google, GitHub, and LinuxDo credentials. Turnstile credentials are initialized during deployment and cannot be edited from this page. The Email tab owns the Provider and Resend API key. Provider presence is the single source of email availability; there is no separate email switch. Secret reads expose only whether a value is configured; replacing or removing an OAuth or email secret is an explicit save action.
 
 The administrator identity, public support address, and email sender come from the unique D1 administrator account. The first preparation creates `admin@opcstack.local` with a random password and prints the credentials once. `BETTER_AUTH_SECRET` and `CONFIG_ENCRYPTION_KEY` are generated by `prepare-cloudflare`; users do not configure them.
 

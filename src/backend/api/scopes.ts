@@ -75,6 +75,8 @@ export const PROTECTED_JSON_ROUTES: ProtectedJsonRoute[] = [
 	{ method: 'POST', path: '/api/admin/list_feedbacks', scope: 'admin:feedback:read', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/list_notifications', scope: 'admin:notifications:read', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/create_notification', scope: 'admin:notifications:write', access: 'admin' },
+	{ method: 'POST', path: '/api/admin/update_notification', scope: 'admin:notifications:write', access: 'admin' },
+	{ method: 'POST', path: '/api/admin/archive_notification', scope: 'admin:notifications:write', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/list_payment_transactions', scope: 'admin:payment:read', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/list_ai_tasks', scope: 'admin:ai:read', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/get_ai_task', scope: 'admin:ai:read', access: 'admin' },

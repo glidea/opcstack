@@ -49,10 +49,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		})
 	}
 
-	const designSystem: string = getDesignForPath(
-		pathname,
-		publicRuntimeConfig.design_system
-	)
+	const designSystem: string = getDesignForPath(pathname, env.DESIGN_SYSTEM)
 
 	const response = await resolve(event, {
 		transformPageChunk: ({ html }) =>

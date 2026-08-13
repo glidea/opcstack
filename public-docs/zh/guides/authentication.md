@@ -143,7 +143,7 @@ email: `linuxdo-${id}@linuxdo.local`
 | --- | --- | --- |
 | Cloudflare Email Service | 接入发送域名，使用生成的 `SEND_EMAIL` binding | Email Tab：Cloudflare provider；管理员邮箱作为发件人 |
 | Resend | 验证发送域名，创建带发送权限的 API key | Email Tab：Resend provider 和 API key；管理员邮箱作为发件人 |
-| Cloudflare Turnstile | 为 `APP_DOMAIN` 和可选的 `APP_CN_DOMAIN` 创建或复用 widget | Authentication Tab：site key、secret key 和启用开关 |
+| Cloudflare Turnstile | 为 `APP_DOMAIN` 和可选的 `APP_CN_DOMAIN` 创建或复用 widget | Authentication Tab：启用开关 |
 | Google OAuth | 创建 Web application OAuth client | Authentication Tab：client ID、client secret 和启用开关 |
 | GitHub OAuth | 创建 OAuth App | Authentication Tab：client ID、client secret 和启用开关 |
 | LinuxDo OAuth | 在 LinuxDo 控制台创建 OAuth 应用 | Authentication Tab：client ID、client secret 和启用开关 |
@@ -197,7 +197,7 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 2. 进入 **Turnstile**
 3. 创建 widget
 4. 将 `APP_DOMAIN` 和可选的 `APP_CN_DOMAIN` 添加为允许的主机名
-5. 打开 Authentication Tab，替换 site key 和 secret key，启用 Turnstile 并保存
+5. 打开 Authentication Tab，启用或关闭 Turnstile 并保存
 
 Turnstile 附加到邮件注册、邮件登录和密码重置请求端点。
 
@@ -427,7 +427,7 @@ await client.auth.signOut()
 
 Authentication 和 Email 配置只保存在 Meta D1 的 `system_settings` 记录中。打开后台 Configuration，编辑单个 Tab 并显式保存。每次保存都会校验完整业务域，成功后无需重新部署，后续请求立即生效。
 
-Authentication Tab 管理内测门控、注册策略、邮件验证、Turnstile，以及 Google、GitHub 和 LinuxDo 凭据。Email Tab 管理 Provider 和 Resend API key。Provider 是否存在是邮件能力的单一状态源，不再有独立邮件开关。读取密钥时只返回是否已配置；替换或删除密钥都是显式保存动作。
+Authentication Tab 管理注册策略、内测门控、邮件验证、Turnstile 开关，以及 Google、GitHub 和 LinuxDo 凭据。Turnstile 凭据由初始化流程写入，不能在此页面修改。Email Tab 管理 Provider 和 Resend API key。Provider 是否存在是邮件能力的单一状态源，不再有独立邮件开关。读取密钥时只返回是否已配置；替换或删除 OAuth 或邮件密钥都是显式保存动作。
 
 管理员身份、公开支持地址和发件人地址都读取唯一 D1 管理员账号。首次准备会创建 `admin@opcstack.local` 和随机密码，只打印一次凭据。`BETTER_AUTH_SECRET` 和 `CONFIG_ENCRYPTION_KEY` 由 `prepare-cloudflare` 自动生成，用户不配置。
 

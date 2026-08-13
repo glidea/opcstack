@@ -42,13 +42,17 @@ import type {
 	SubmitFeedbackResponse
 } from '../feedback'
 import type {
+	ArchiveNotificationRequest,
+	ArchiveNotificationResponse,
 	CreateNotificationRequest,
 	CreateNotificationResponse,
 	ListAdminNotificationsRequest,
 	ListAdminNotificationsResponse,
 	ListNotificationsRequest,
 	ListNotificationsResponse,
-	ReadNotificationRequest
+	ReadNotificationRequest,
+	UpdateNotificationRequest,
+	UpdateNotificationResponse
 } from '../notifications'
 import type {
 	CancelSubscriptionResponse,
@@ -157,6 +161,7 @@ export type ApiClient = ApiMethods & {
 type ApiMethods = {
 	bindAff(input: BindAffRequest): Promise<Record<string, never>>
 	bindBetaCode(input: BindBetaCodeRequest): Promise<Record<string, never>>
+	archiveNotification(input: ArchiveNotificationRequest): Promise<ArchiveNotificationResponse>
 	cancelSubscription(): Promise<CancelSubscriptionResponse>
 	createNotification(input: CreateNotificationRequest): Promise<CreateNotificationResponse>
 	createAIProvider(input: CreateAIProviderRequest): Promise<AIProvider>
@@ -206,6 +211,7 @@ type ApiMethods = {
 	uploadR2Object(input: UploadR2ObjectRequest): Promise<UploadR2ObjectResponse>
 	uploadR2PublicObject(input: UploadR2PublicObjectRequest): Promise<UploadR2PublicObjectResponse>
 	updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig>
+	updateNotification(input: UpdateNotificationRequest): Promise<UpdateNotificationResponse>
 	updateAIProvider(input: UpdateAIProviderRequest): Promise<AIProvider>
 	updateAIConfig(input: UpdateAIConfigRequest): Promise<AIConfig>
 	updateAffiliateConfig(input: UpdateAffiliateConfigRequest): Promise<AffiliateConfig>
@@ -387,6 +393,9 @@ function createApiMethods(
 	upload: <TResponse>(path: string, input: UploadR2ObjectRequest) => Promise<TResponse>
 ): ApiMethods {
 	return {
+		archiveNotification(input: ArchiveNotificationRequest): Promise<ArchiveNotificationResponse> {
+			return call({ path: '/api/admin/archive_notification', body: input })
+		},
 		bindAff(input: BindAffRequest): Promise<Record<string, never>> {
 			return call({ path: '/api/bind_aff', body: input })
 		},
@@ -523,6 +532,9 @@ function createApiMethods(
 		},
 		updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig> {
 			return call({ path: '/api/admin/update_general_config', body: input })
+		},
+		updateNotification(input: UpdateNotificationRequest): Promise<UpdateNotificationResponse> {
+			return call({ path: '/api/admin/update_notification', body: input })
 		},
 		updateAIProvider(input: UpdateAIProviderRequest): Promise<AIProvider> {
 			return call({ path: '/api/admin/update_ai_provider', body: input })
