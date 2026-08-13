@@ -5,6 +5,7 @@ import {
 	createGrantConfirmation,
 	createUserContextLinks,
 	parseUserListQuery,
+	resolveGrantExpiry,
 	validateCreditAmount
 } from './users-page'
 
@@ -30,6 +31,20 @@ describe('admin user list state', () => {
 })
 
 describe('admin credit grant state', () => {
+	test('resolves the three supported expiry choices from one reference time', (): void => {
+		const now: number = Date.UTC(2026, 7, 13)
+
+		expect({
+			never: resolveGrantExpiry('never', now),
+			week: resolveGrantExpiry('week', now),
+			month: resolveGrantExpiry('month', now)
+		}).toEqual({
+			never: null,
+			week: now + 7 * 24 * 60 * 60 * 1000,
+			month: now + 30 * 24 * 60 * 60 * 1000
+		})
+	})
+
 	test('accepts positive credit amounts with up to six decimals', (): void => {
 		expect([
 			validateCreditAmount('10'),

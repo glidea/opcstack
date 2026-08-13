@@ -10,8 +10,6 @@
 	import MessageSquareTextIcon from '@lucide/svelte/icons/message-square-text'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
-	import * as Avatar from '$frontend/ui/avatar'
-	import { Badge } from '$frontend/ui/badge'
 	import { Button } from '$frontend/ui/button'
 	import { Separator } from '$frontend/ui/separator'
 	import * as Sheet from '$frontend/ui/sheet'
@@ -22,12 +20,14 @@
 		open = $bindable(false),
 		user,
 		locale,
-		cloudflareDatabaseUrl
+		cloudflareDatabaseUrl,
+		onCreditsGranted
 	}: {
 		open?: boolean
 		user: ListAdminUsersResponseItem | null
 		locale: string
 		cloudflareDatabaseUrl: string | null
+		onCreditsGranted: (balance: string) => void
 	} = $props()
 
 	let grantOpen: boolean = $state(false)
@@ -55,27 +55,19 @@
 		}).format(value)
 	}
 
-	function initials(value: string): string {
-		return value.trim().slice(0, 2).toUpperCase()
-	}
 </script>
 
 <Sheet.Root bind:open>
 	<Sheet.Content class="w-full sm:max-w-lg">
 		{#if user && links}
-			<Sheet.Header class="pr-10">
-				<div class="flex items-center gap-3">
-					<Avatar.Root size="lg">
-						{#if user.image}
-							<Avatar.Image src={user.image} alt={user.name} />
-						{/if}
-						<Avatar.Fallback>{initials(user.name)}</Avatar.Fallback>
-					</Avatar.Root>
-					<div class="min-w-0">
-						<Sheet.Title class="truncate">{user.name}</Sheet.Title>
-						<Sheet.Description class="truncate">{user.email}</Sheet.Description>
-					</div>
-				</div>
+			<Sheet.Header class="gap-1 pr-10">
+				<Sheet.Title class="truncate">{user.email}</Sheet.Title>
+				<Sheet.Description class="flex items-center gap-1.5">
+					<code class="min-w-0 truncate text-xs">{user.id}</code>
+					<Button variant="ghost" size="icon-sm" onclick={copyUserId} aria-label={$_('admin.users.copyId')} title={$_('admin.users.copyId')}>
+						{#if copied}<CheckIcon />{:else}<CopyIcon />{/if}
+					</Button>
+				</Sheet.Description>
 			</Sheet.Header>
 
 			<div class="flex-1 space-y-6 overflow-y-auto px-4 pb-6">
@@ -93,35 +85,21 @@
 				{#if lastGrantBalance !== ''}
 					<Alert.Root>
 						<CheckIcon />
-						<Alert.Title>{$_('admin.users.grant.success')}</Alert.Title>
-						<Alert.Description>
+						<Alert.Title>
 							{$_('admin.users.grant.balance', { values: { balance: lastGrantBalance } })}
-						</Alert.Description>
+						</Alert.Title>
 					</Alert.Root>
 				{/if}
 
 				<section aria-labelledby="user-profile-title">
 					<h3 id="user-profile-title" class="mb-3 text-sm font-semibold">{$_('admin.users.detail.profile')}</h3>
 					<dl class="grid gap-3 text-sm">
-						<div class="grid gap-1">
-							<dt class="text-xs text-muted-foreground">{$_('admin.users.id')}</dt>
-							<dd class="flex items-center gap-2">
-								<code class="min-w-0 flex-1 break-all text-xs">{user.id}</code>
-								<Button variant="ghost" size="icon-sm" onclick={copyUserId} aria-label={$_('admin.users.copyId')} title={$_('admin.users.copyId')}>
-									{#if copied}<CheckIcon />{:else}<CopyIcon />{/if}
-								</Button>
-							</dd>
-						</div>
-						<div class="grid grid-cols-2 gap-3">
+						{#if user.inviter}
 							<div class="grid gap-1">
-								<dt class="text-xs text-muted-foreground">{$_('admin.users.verified')}</dt>
-								<dd><Badge variant={user.email_verified ? 'secondary' : 'outline'}>{user.email_verified ? $_('admin.common.yes') : $_('admin.common.no')}</Badge></dd>
+								<dt class="text-xs text-muted-foreground">{$_('admin.users.invitedBy')}</dt>
+								<dd>{user.inviter.name} · {user.inviter.email}</dd>
 							</div>
-							<div class="grid gap-1">
-								<dt class="text-xs text-muted-foreground">{$_('admin.users.affCode')}</dt>
-								<dd>{user.aff_code ?? $_('admin.common.none')}</dd>
-							</div>
-						</div>
+						{/if}
 						<div class="grid gap-1">
 							<dt class="text-xs text-muted-foreground">{$_('admin.users.source')}</dt>
 							<dd>{user.registration_utm_source ?? $_('admin.users.sourceDirect')}</dd>
@@ -131,20 +109,6 @@
 							<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.users.updated')}</dt><dd>{formatDate(user.updated_at)}</dd></div>
 						</div>
 					</dl>
-				</section>
-
-				<Separator />
-
-				<section aria-labelledby="user-access-title">
-					<h3 id="user-access-title" class="mb-3 text-sm font-semibold">{$_('admin.users.detail.access')}</h3>
-					{#if user.beta_access}
-						<dl class="grid gap-3 text-sm">
-							<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.users.betaCode')}</dt><dd class="font-mono text-xs">{user.beta_access.code}</dd></div>
-							<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.users.betaUsedAt')}</dt><dd>{formatDate(user.beta_access.used_at)}</dd></div>
-						</dl>
-					{:else}
-						<p class="text-sm text-muted-foreground">{$_('admin.users.betaUnused')}</p>
-					{/if}
 				</section>
 
 				<Separator />
@@ -165,8 +129,6 @@
 								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.users.shardId')}</dt><dd class="break-all font-mono text-xs">{user.shard.id}</dd></div>
 								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.users.region')}</dt><dd>{user.shard.region}</dd></div>
 							</div>
-							<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.users.database')}</dt><dd class="break-all">{user.shard.database_name}</dd></div>
-							<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.users.databaseId')}</dt><dd class="break-all font-mono text-xs">{user.shard.database_id}</dd></div>
 						</dl>
 					{:else}
 						<p class="text-sm text-muted-foreground">{$_('admin.users.noShard')}</p>
@@ -187,6 +149,7 @@
 
 			<GrantCreditsDialog bind:open={grantOpen} {user} {locale} onGranted={(balance: string): void => {
 				lastGrantBalance = balance
+				onCreditsGranted(balance)
 			}} />
 		{/if}
 	</Sheet.Content>

@@ -9,6 +9,7 @@
 	import SearchIcon from '@lucide/svelte/icons/search'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import UsersIcon from '@lucide/svelte/icons/users'
+	import XIcon from '@lucide/svelte/icons/x'
 	import { client } from '$apiContract/client'
 	import type { ListAdminUsersRequest, ListAdminUsersResponse, ListAdminUsersResponseItem } from '$apiContract/admin-users'
 	import { _ } from '$frontend/i18n'
@@ -17,12 +18,13 @@
 	import { Button } from '$frontend/ui/button'
 	import * as Empty from '$frontend/ui/empty'
 	import * as Field from '$frontend/ui/field'
-	import { Input } from '$frontend/ui/input'
+	import * as InputGroup from '$frontend/ui/input-group'
 	import * as Pagination from '$frontend/ui/pagination'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import * as Table from '$frontend/ui/table'
 	import { createCloudflareDatabaseUrl } from '../admin-cloudflare'
 	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
+	import { formatCreditAmount } from '../admin-presentation'
 	import UserDetailSheet from './UserDetailSheet.svelte'
 	import { parseUserListQuery } from './users-page'
 
@@ -79,6 +81,11 @@
 		try {
 			const response: ListAdminUsersResponse = await client.api.listAdminUsers(query)
 			listState = { status: 'loaded', data: response }
+			if (selectedUser !== null) {
+				selectedUser = response.items.find((user: ListAdminUsersResponseItem): boolean => {
+					return user.id === selectedUser?.id
+				}) ?? selectedUser
+			}
 			if (!detailStateReady) {
 				const selected: ListAdminUsersResponseItem | undefined = response.items.find((user: ListAdminUsersResponseItem): boolean => user.id === initialDetailKey)
 				if (selected !== undefined) {
@@ -133,6 +140,21 @@
 		detailOpen = true
 	}
 
+	function updateUserCreditBalance(balance: string): void {
+		if (selectedUser === null || listState.status !== 'loaded') {
+			return
+		}
+		const userId: string = selectedUser.id
+		const items: ListAdminUsersResponseItem[] = listState.data.items.map((user: ListAdminUsersResponseItem): ListAdminUsersResponseItem => {
+			return user.id === userId ? { ...user, credit_balance: balance } : user
+		})
+		selectedUser = { ...selectedUser, credit_balance: balance }
+		listState = {
+			status: 'loaded',
+			data: { ...listState.data, items }
+		}
+	}
+
 	function formatDate(value: number): string {
 		return new Intl.DateTimeFormat(data.locale, { dateStyle: 'medium' }).format(value)
 	}
@@ -146,20 +168,20 @@
 		</Button>
 	</header>
 
-	<form class="admin-filter-bar sm:grid-cols-[minmax(18rem,36rem)_auto] sm:items-end" onsubmit={submitSearch}>
-		<Field.Field class="flex-1">
-			<Field.Label for="user-search">{$_('admin.users.searchLabel')}</Field.Label>
-			<div class="relative">
-				<SearchIcon class="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-				<Input id="user-search" class="pl-9" bind:value={searchInput} autocomplete="off" placeholder={$_('admin.users.searchPlaceholder')} />
-			</div>
+	<form class="admin-filter-bar w-full border-0 bg-transparent p-0 sm:max-w-xl" onsubmit={submitSearch}>
+		<Field.Field>
+			<Field.Label class="sr-only" for="user-search">{$_('admin.users.searchLabel')}</Field.Label>
+			<InputGroup.Root>
+				<InputGroup.Addon><SearchIcon /></InputGroup.Addon>
+				<InputGroup.Input id="user-search" bind:value={searchInput} autocomplete="off" placeholder={$_('admin.users.searchPlaceholder')} />
+				<InputGroup.Addon align="inline-end">
+					{#if query.search}
+						<InputGroup.Button type="button" size="icon-xs" onclick={resetSearch} aria-label={$_('admin.users.reset')} title={$_('admin.users.reset')}><XIcon /></InputGroup.Button>
+					{/if}
+					<InputGroup.Button type="submit" size="icon-xs" aria-label={$_('admin.users.search')} title={$_('admin.users.search')}><SearchIcon /></InputGroup.Button>
+				</InputGroup.Addon>
+			</InputGroup.Root>
 		</Field.Field>
-		<div class="admin-filter-actions">
-			<Button type="submit">{$_('admin.users.search')}</Button>
-			{#if query.search}
-				<Button type="button" variant="ghost" onclick={resetSearch}>{$_('admin.users.reset')}</Button>
-			{/if}
-		</div>
 	</form>
 
 	{#if listState.status === 'error'}
@@ -182,12 +204,13 @@
 		</Empty.Root>
 	{:else}
 		<div class="admin-table-panel">
-			<Table.Root class="min-w-[920px]">
+			<Table.Root class="min-w-[1000px]">
 				<Table.Header>
 					<Table.Row>
 						<Table.Head>{$_('admin.users.user')}</Table.Head>
 						<Table.Head>{$_('admin.users.access')}</Table.Head>
 						<Table.Head>{$_('admin.users.source')}</Table.Head>
+						<Table.Head>{$_('admin.users.remainingCredits')}</Table.Head>
 						<Table.Head>{$_('admin.users.shard')}</Table.Head>
 						<Table.Head>{$_('admin.users.created')}</Table.Head>
 						<Table.Head class="sticky right-0 z-20 w-12 bg-background text-right"><span class="sr-only">{$_('admin.users.actions')}</span></Table.Head>
@@ -199,6 +222,7 @@
 							<Table.Row>
 								<Table.Cell><Skeleton class="h-5 w-48" /></Table.Cell>
 								<Table.Cell><Skeleton class="h-5 w-32" /></Table.Cell>
+								<Table.Cell><Skeleton class="h-5 w-20" /></Table.Cell>
 								<Table.Cell><Skeleton class="h-5 w-20" /></Table.Cell>
 								<Table.Cell><Skeleton class="h-8 w-32" /></Table.Cell>
 								<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>
@@ -217,10 +241,13 @@
 								<Table.Cell>
 									<div class="flex flex-wrap gap-1.5">
 										<Badge variant={user.email_verified ? 'secondary' : 'outline'}>{user.email_verified ? $_('admin.users.emailVerified') : $_('admin.users.emailUnverified')}</Badge>
-										<Badge variant={user.beta_access ? 'secondary' : 'outline'}>{user.beta_access ? $_('admin.users.betaGranted') : $_('admin.users.betaMissing')}</Badge>
+										{#if user.beta_access}
+											<Badge variant="secondary">{$_('admin.users.betaGranted')}</Badge>
+										{/if}
 									</div>
 								</Table.Cell>
 								<Table.Cell>{user.registration_utm_source ?? $_('admin.users.sourceDirect')}</Table.Cell>
+								<Table.Cell class="tabular-nums">{formatCreditAmount(user.credit_balance, data.locale)}</Table.Cell>
 								<Table.Cell>
 									{#if user.shard}
 										{@const databaseUrl: string | null = createCloudflareDatabaseUrl(data.cloudflareAccountId, user.shard.database_id)}
@@ -278,5 +305,5 @@
 </main>
 
 {#key selectedUser?.id}
-	<UserDetailSheet bind:open={detailOpen} user={selectedUser} locale={data.locale} cloudflareDatabaseUrl={selectedUser?.shard ? createCloudflareDatabaseUrl(data.cloudflareAccountId, selectedUser.shard.database_id) : null} />
+	<UserDetailSheet bind:open={detailOpen} user={selectedUser} locale={data.locale} cloudflareDatabaseUrl={selectedUser?.shard ? createCloudflareDatabaseUrl(data.cloudflareAccountId, selectedUser.shard.database_id) : null} onCreditsGranted={updateUserCreditBalance} />
 {/key}

@@ -1,7 +1,21 @@
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import { listAdminUsersHandler, updateAdministratorEmailHandler } from './admin-users'
+
+const shardRouterMocks = vi.hoisted(() => ({
+	openShardSession: vi.fn()
+}))
+
+vi.mock('../../db/shard-router', () => ({
+	createTenantShardAccess: (): { openShardSession: typeof shardRouterMocks.openShardSession } => ({
+		openShardSession: shardRouterMocks.openShardSession
+	})
+}))
+
+beforeEach((): void => {
+	shardRouterMocks.openShardSession.mockReset()
+})
 
 describe('listAdminUsersHandler', () => {
 	test('rejects invalid pagination', async () => {
@@ -17,7 +31,7 @@ describe('listAdminUsersHandler', () => {
 		})
 	})
 
-	test('returns user access and shard context', async () => {
+	test('returns the current credit balance from the assigned tenant shard', async () => {
 		const rows: AdminUserRow[] = [
 			{
 				id: 'usr_1',
@@ -25,18 +39,22 @@ describe('listAdminUsersHandler', () => {
 				email: 'maya@example.com',
 				emailVerified: true,
 				image: 'https://example.com/maya.png',
-				affCode: 'MAYA1234',
 				registrationUtmSource: 'launch',
 				createdAt: new Date(1000),
 				updatedAt: new Date(2000),
-				betaCode: 'BETA1234',
-				betaUsedAt: 1500,
+				betaCodeId: 'beta-1',
+				inviterName: 'Robin Lee',
+				inviterEmail: 'robin@example.com',
 				shardId: 'apac-0000',
 				shardRegion: 'apac',
 				shardDatabaseName: 'tenant-apac-0000',
-				shardDatabaseId: 'db-1'
+				shardDatabaseId: 'db-1',
+				shardBindingName: 'TENANT_DB_APAC_0000'
 			}
 		]
+		shardRouterMocks.openShardSession.mockReturnValue({
+			db: createBalanceDb([{ userId: 'usr_1', balance: 12_500_000 }])
+		})
 		const response: Response = await listAdminUsersHandler(createContext({
 			body: { search: 'maya', page: 1, page_size: 20 },
 			db: createListDb(rows, 1)
@@ -46,17 +64,17 @@ describe('listAdminUsersHandler', () => {
 			items: [
 				{
 					id: 'usr_1',
-					name: 'Maya Chen',
-					email: 'maya@example.com',
-					email_verified: true,
-					image: 'https://example.com/maya.png',
-					aff_code: 'MAYA1234',
-					registration_utm_source: 'launch',
+				name: 'Maya Chen',
+				email: 'maya@example.com',
+				email_verified: true,
+				registration_utm_source: 'launch',
 					created_at: 1000,
 					updated_at: 2000,
-					beta_access: {
-						code: 'BETA1234',
-						used_at: 1500
+					credit_balance: '12.500000',
+					beta_access: true,
+					inviter: {
+						name: 'Robin Lee',
+						email: 'robin@example.com'
 					},
 					shard: {
 						id: 'apac-0000',
@@ -68,6 +86,10 @@ describe('listAdminUsersHandler', () => {
 			],
 			total: 1
 		})
+		expect(shardRouterMocks.openShardSession).toHaveBeenCalledWith(
+			{ shardId: 'apac-0000', bindingName: 'TENANT_DB_APAC_0000' },
+			'first-unconstrained'
+		)
 	})
 
 	test('updates the administrator email', async (): Promise<void> => {
@@ -103,16 +125,27 @@ type AdminUserRow = {
 	email: string
 	emailVerified: boolean
 	image: string | null
-	affCode: string | null
 	registrationUtmSource: string | null
 	createdAt: Date
 	updatedAt: Date
-	betaCode: string | null
-	betaUsedAt: number | null
+	betaCodeId: string | null
+	inviterName: string | null
+	inviterEmail: string | null
 	shardId: string | null
 	shardRegion: string | null
 	shardDatabaseName: string | null
 	shardDatabaseId: string | null
+	shardBindingName: string | null
+}
+
+function createBalanceDb(rows: Array<{ userId: string; balance: number }>): Record<string, unknown> {
+	return {
+		select: (): Record<string, unknown> => ({
+			from: (): Record<string, unknown> => ({
+				where: async (): Promise<Array<{ userId: string; balance: number }>> => rows
+			})
+		})
+	}
 }
 
 function createListDb(rows: AdminUserRow[], total: number): Record<string, unknown> {

@@ -7,12 +7,12 @@ const user: ListAdminUsersResponseItem = {
 	name: 'Ada Lovelace',
 	email: 'ada@example.com',
 	email_verified: true,
-	image: null,
-	aff_code: null,
 	registration_utm_source: null,
 	created_at: 1,
 	updated_at: 1,
-	beta_access: null,
+	credit_balance: '0.000000',
+	beta_access: false,
+	inviter: null,
 	shard: null
 }
 

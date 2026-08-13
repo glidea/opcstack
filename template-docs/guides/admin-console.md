@@ -52,9 +52,9 @@ Product and Provider saves replace only the changed row in the current page. The
 ## Find a user and grant credits
 
 1. Open `/{locale}/admin/users`.
-2. Search by user name or email. Internal user IDs are shown only as secondary references.
+2. Search by user name or email. The list shows each user's remaining credits from the assigned tenant shard. Internal user IDs are shown only as secondary references.
 3. Open the user details and select **Grant credits**.
-4. Enter the amount, note, and optional expiry date.
+4. Enter the amount and note, then choose **Never expires**, **One week**, or **One month**.
 5. Review the selected user and grant details, then confirm.
 
 The console creates the idempotency source reference internally. Operators do not enter or see `source_id`.

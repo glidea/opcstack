@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ApiClientError, client } from '$apiContract/client'
 	import type { ListAdminUsersResponseItem } from '$apiContract/admin-users'
+	import type { AdminGrantCreditsResponse } from '$apiContract/credits'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
@@ -8,15 +9,18 @@
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import { Textarea } from '$frontend/ui/textarea'
+	import * as ToggleGroup from '$frontend/ui/toggle-group'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import {
 		buildGrantCreditsRequest,
 		createGrantAttempt,
 		createGrantConfirmation,
+		resolveGrantExpiry,
 		validateCreditAmount,
 		type GrantAttempt,
 		type GrantConfirmation,
-		type GrantCreditsInput
+		type GrantCreditsInput,
+		type GrantExpiryOption
 	} from './users-page'
 
 	let {
@@ -33,7 +37,7 @@
 
 	let amount: string = $state('')
 	let description: string = $state('')
-	let expiresAtInput: string = $state('')
+	let expiryOption: GrantExpiryOption = $state('never')
 	let amountError: string = $state('')
 	let requestError: string = $state('')
 	let confirming: boolean = $state(false)
@@ -46,7 +50,7 @@
 		if (open && !wasOpen) {
 			amount = ''
 			description = ''
-			expiresAtInput = ''
+			expiryOption = 'never'
 			amountError = ''
 			requestError = ''
 			confirming = false
@@ -75,19 +79,19 @@
 			userId: user.id,
 			amount: amount.trim(),
 			description: description.trim(),
-			expiresAt: expiresAtInput === '' ? null : new Date(expiresAtInput).getTime()
+			expiresAt: resolveGrantExpiry(expiryOption)
 		}
 	}
 
 	async function submitGrant(): Promise<void> {
-		if (!attempt) {
+		if (!attempt || !confirmation) {
 			return
 		}
 		submitting = true
 		requestError = ''
 		try {
-			const response = await client.api.grantCredits(
-				buildGrantCreditsRequest(attempt, createGrantInput())
+			const response: AdminGrantCreditsResponse = await client.api.grantCredits(
+				buildGrantCreditsRequest(attempt, confirmation)
 			)
 			onGranted(response.balance)
 			open = false
@@ -130,26 +134,22 @@
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>{$_('admin.users.grant.title')}</Dialog.Title>
-			<Dialog.Description class="sr-only">{$_('admin.users.grant.description')}</Dialog.Description>
+			<Dialog.Description>{$_('admin.users.grant.description', { values: { email: user.email } })}</Dialog.Description>
 		</Dialog.Header>
 
 		{#if confirming && confirmation}
-			<div class="space-y-4">
-				<dl class="grid gap-3 rounded-lg border p-3 text-sm">
-					<div class="grid gap-1">
-						<dt class="text-xs text-muted-foreground">{$_('admin.users.grant.user')}</dt>
-						<dd>{user.name} · {user.email}</dd>
+			<div class="space-y-3">
+				<dl class="divide-y rounded-md bg-muted/50 px-3 text-sm">
+					<div class="flex items-center justify-between gap-4 py-2.5">
+						<dt class="text-muted-foreground">{$_('admin.users.grant.amount')}</dt>
+						<dd class="font-medium tabular-nums">{confirmation.amount}</dd>
 					</div>
-					<div class="grid gap-1">
-						<dt class="text-xs text-muted-foreground">{$_('admin.users.grant.amount')}</dt>
-						<dd class="font-medium">{confirmation.amount}</dd>
+					<div class="flex items-start justify-between gap-4 py-2.5">
+						<dt class="text-muted-foreground">{$_('admin.users.grant.note')}</dt>
+						<dd class="max-w-64 text-right">{confirmation.description || $_('admin.users.grant.none')}</dd>
 					</div>
-					<div class="grid gap-1">
-						<dt class="text-xs text-muted-foreground">{$_('admin.users.grant.note')}</dt>
-						<dd>{confirmation.description || $_('admin.users.grant.none')}</dd>
-					</div>
-					<div class="grid gap-1">
-						<dt class="text-xs text-muted-foreground">{$_('admin.users.grant.expires')}</dt>
+					<div class="flex items-center justify-between gap-4 py-2.5">
+						<dt class="text-muted-foreground">{$_('admin.users.grant.expires')}</dt>
 						<dd>{formatExpiry(confirmation.expiresAt)}</dd>
 					</div>
 				</dl>
@@ -172,11 +172,7 @@
 				</Button>
 			</Dialog.Footer>
 		{:else}
-			<form class="space-y-4" onsubmit={reviewGrant}>
-				<Field.Field>
-					<Field.Label for="grant-user">{$_('admin.users.grant.user')}</Field.Label>
-					<Input id="grant-user" value={`${user.name} · ${user.email}`} disabled />
-				</Field.Field>
+			<form class="space-y-3" onsubmit={reviewGrant}>
 				<Field.Field data-invalid={amountError !== ''}>
 					<Field.Label for="grant-amount">{$_('admin.users.grant.amount')}</Field.Label>
 					<Input
@@ -187,8 +183,7 @@
 						placeholder="10"
 						aria-invalid={amountError !== ''}
 					/>
-					<Field.Description>{$_('admin.users.grant.amountHint')}</Field.Description>
-					<Field.Error>{amountError}</Field.Error>
+					{#if amountError !== ''}<Field.Error class="min-h-0">{amountError}</Field.Error>{/if}
 				</Field.Field>
 				<Field.Field>
 					<Field.Label for="grant-description">{$_('admin.users.grant.note')}</Field.Label>
@@ -197,11 +192,16 @@
 						bind:value={description}
 						autocomplete="off"
 						placeholder={$_('admin.users.grant.notePlaceholder')}
+						class="min-h-20 resize-none"
 					/>
 				</Field.Field>
 				<Field.Field>
-					<Field.Label for="grant-expires">{$_('admin.users.grant.expires')}</Field.Label>
-					<Input id="grant-expires" bind:value={expiresAtInput} type="datetime-local" />
+					<Field.Label>{$_('admin.users.grant.expires')}</Field.Label>
+					<ToggleGroup.Root type="single" bind:value={expiryOption} variant="outline" spacing={0} class="w-full">
+						<ToggleGroup.Item value="never" class="flex-1" aria-label={$_('admin.users.grant.never')}>{$_('admin.users.grant.never')}</ToggleGroup.Item>
+						<ToggleGroup.Item value="week" class="flex-1" aria-label={$_('admin.users.grant.oneWeek')}>{$_('admin.users.grant.oneWeek')}</ToggleGroup.Item>
+						<ToggleGroup.Item value="month" class="flex-1" aria-label={$_('admin.users.grant.oneMonth')}>{$_('admin.users.grant.oneMonth')}</ToggleGroup.Item>
+					</ToggleGroup.Root>
 				</Field.Field>
 				<Dialog.Footer>
 					<Button type="submit">{$_('admin.users.grant.review')}</Button>

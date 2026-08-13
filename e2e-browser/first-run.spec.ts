@@ -86,6 +86,7 @@ test('completes the first-run administrator journey in the browser', async ({ br
 
 	await verifyPaymentProductJourney(page, concurrentPage)
 	await verifyAIProviderJourney(page, concurrentPage)
+	await verifyAdminUsers(page, nextEmail)
 
 	await goToHydrated(page, '/en')
 	const docsNavigation = page.locator('header nav a[href="/en/docs"]')
@@ -103,6 +104,37 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await expect(changedPage.getByRole('heading', { name: 'Configuration' })).toBeVisible()
 	await changedContext.close()
 })
+
+async function verifyAdminUsers(page: Page, administratorEmail: string): Promise<void> {
+	await goToHydrated(page, '/en/admin/users')
+	await expect(page.locator('label[for="user-search"]')).toHaveClass(/sr-only/)
+	await expect(page.getByRole('columnheader', { name: 'Remaining credits', exact: true })).toBeVisible()
+	await expect(page.getByText('No beta access', { exact: true })).toHaveCount(0)
+	const administratorRow = page.getByRole('row').filter({ hasText: administratorEmail })
+	await expect(administratorRow).toBeVisible()
+	await expect(administratorRow.getByRole('cell').nth(3)).toHaveText('0')
+	await administratorRow.getByRole('button', { name: 'View', exact: true }).click()
+	const userSheet = page.getByRole('dialog')
+	await expect(userSheet.getByRole('heading', { name: administratorEmail, exact: true })).toBeVisible()
+	await expect(userSheet.getByText('Email verified', { exact: true })).toHaveCount(0)
+	await expect(userSheet.getByRole('heading', { name: 'Access', exact: true })).toHaveCount(0)
+	await expect(userSheet.getByText('Database', { exact: true })).toHaveCount(0)
+	await expect(userSheet.getByText('Database ID', { exact: true })).toHaveCount(0)
+	await page.getByRole('button', { name: 'Grant credits', exact: true }).click()
+	const grantDialog = page.getByRole('dialog', { name: 'Grant credits', exact: true })
+	await expect(grantDialog.getByRole('radio', { name: 'Never expires', exact: true })).toBeVisible()
+	await expect(grantDialog.getByRole('radio', { name: 'One week', exact: true })).toBeVisible()
+	await expect(grantDialog.getByRole('radio', { name: 'One month', exact: true })).toBeVisible()
+	await expect(grantDialog.locator('#grant-expires')).toHaveCount(0)
+	await page.locator('#grant-amount').fill('2.5')
+	await page.getByRole('button', { name: 'Review grant', exact: true }).click()
+	await page.getByRole('button', { name: 'Confirm grant', exact: true }).click()
+	await expect(page.getByText('Balance updated to 2.500000', { exact: true })).toBeVisible()
+	await page.keyboard.press('Escape')
+	await expect(administratorRow.getByRole('cell').nth(3)).toHaveText('2.5')
+	await goToHydrated(page, '/en/admin/users')
+	await expect(page.getByRole('row').filter({ hasText: administratorEmail }).getByRole('cell').nth(3)).toHaveText('2.5')
+}
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
 	await goToHydrated(page, '/en/login')

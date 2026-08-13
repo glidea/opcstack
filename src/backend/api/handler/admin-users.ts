@@ -1,4 +1,5 @@
-import { and, desc, eq, like, ne, or, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, like, ne, or, sql, type SQL } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/sqlite-core'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
@@ -9,7 +10,10 @@ import {
 	type UpdateAdministratorEmailResponse
 } from '../../../api-contract/admin-users'
 import { user } from '../../db/schema.auth'
-import { betaCode, d1Shard, userShard } from '../../db/schema'
+import { affReferral, betaCode, d1Shard, userShard } from '../../db/schema'
+import { createTenantShardAccess, type TenantShardAccess } from '../../db/shard-router'
+import { creditBalance } from '../../db/schema.shard'
+import { formatDecimal } from '../../lib/decimal'
 import { parseRequest } from '../../lib/request'
 
 type AdminUserRow = {
@@ -17,18 +21,30 @@ type AdminUserRow = {
 	name: string
 	email: string
 	emailVerified: boolean
-	image: string | null
-	affCode: string | null
 	registrationUtmSource: string | null
 	createdAt: Date
 	updatedAt: Date
-	betaCode: string | null
-	betaUsedAt: number | null
+	betaCodeId: string | null
+	inviterName: string | null
+	inviterEmail: string | null
 	shardId: string | null
 	shardRegion: string | null
 	shardDatabaseName: string | null
 	shardDatabaseId: string | null
+	shardBindingName: string | null
 }
+
+type CreditBalanceRow = {
+	userId: string
+	balance: number
+}
+
+type ShardUsers = {
+	bindingName: string
+	userIds: string[]
+}
+
+const inviterUser = alias(user, 'inviter_user')
 
 export async function listAdminUsersHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const request = await parseRequest(ctx, ListAdminUsersApi.request)
@@ -56,20 +72,22 @@ export async function listAdminUsersHandler(ctx: Context<ApiEnv>): Promise<Respo
 			name: user.name,
 			email: user.email,
 			emailVerified: user.emailVerified,
-			image: user.image,
-			affCode: user.affCode,
 			registrationUtmSource: user.registrationUtmSource,
 			createdAt: user.createdAt,
 			updatedAt: user.updatedAt,
-			betaCode: betaCode.code,
-			betaUsedAt: betaCode.usedAt,
+			betaCodeId: betaCode.id,
+			inviterName: inviterUser.name,
+			inviterEmail: inviterUser.email,
 			shardId: userShard.shardId,
 			shardRegion: d1Shard.region,
 			shardDatabaseName: d1Shard.databaseName,
-			shardDatabaseId: d1Shard.databaseId
+			shardDatabaseId: d1Shard.databaseId,
+			shardBindingName: d1Shard.bindingName
 		})
 		.from(user)
 		.leftJoin(betaCode, eq(betaCode.usedBy, user.id))
+		.leftJoin(affReferral, eq(affReferral.inviteeUserId, user.id))
+		.leftJoin(inviterUser, eq(inviterUser.id, affReferral.inviterUserId))
 		.leftJoin(userShard, eq(userShard.userId, user.id))
 		.leftJoin(d1Shard, eq(d1Shard.id, userShard.shardId))
 		.where(where)
@@ -77,7 +95,38 @@ export async function listAdminUsersHandler(ctx: Context<ApiEnv>): Promise<Respo
 		.limit(req.page_size)
 		.offset((req.page - 1) * req.page_size)
 
-	const items: ListAdminUsersResponseItem[] = rows.map(toResponseItem)
+	const userIdsByShard: Map<string, ShardUsers> = new Map<string, ShardUsers>()
+	for (const row of rows) {
+		if (row.shardId === null || row.shardBindingName === null) {
+			continue
+		}
+		const shard: ShardUsers = userIdsByShard.get(row.shardId) ?? {
+			bindingName: row.shardBindingName,
+			userIds: []
+		}
+		shard.userIds.push(row.id)
+		userIdsByShard.set(row.shardId, shard)
+	}
+
+	const balancesByUserId: Map<string, number> = new Map<string, number>()
+	const shardAccess: TenantShardAccess = createTenantShardAccess(db, ctx.env)
+	for (const [shardId, shard] of userIdsByShard) {
+		const shardDb = shardAccess.openShardSession(
+			{ shardId, bindingName: shard.bindingName },
+			'first-unconstrained'
+		).db
+		const balances: CreditBalanceRow[] = await shardDb
+			.select({ userId: creditBalance.userId, balance: creditBalance.balance })
+			.from(creditBalance)
+			.where(inArray(creditBalance.userId, shard.userIds))
+		for (const balance of balances) {
+			balancesByUserId.set(balance.userId, balance.balance)
+		}
+	}
+
+	const items: ListAdminUsersResponseItem[] = rows.map((row: AdminUserRow): ListAdminUsersResponseItem => {
+		return toResponseItem(row, balancesByUserId.get(row.id) ?? 0)
+	})
 	return ctx.json({
 		items,
 		total: Number(totalRows[0]?.total ?? 0)
@@ -113,14 +162,11 @@ export async function updateAdministratorEmailHandler(ctx: Context<ApiEnv>): Pro
 	return ctx.json({ email: administrator.email } as UpdateAdministratorEmailResponse)
 }
 
-function toResponseItem(row: AdminUserRow): ListAdminUsersResponseItem {
-	const betaAccess: ListAdminUsersResponseItem['beta_access'] =
-		row.betaCode === null || row.betaUsedAt === null
+function toResponseItem(row: AdminUserRow, balance: number): ListAdminUsersResponseItem {
+	const inviter: ListAdminUsersResponseItem['inviter'] =
+		row.inviterName === null || row.inviterEmail === null
 			? null
-			: {
-				code: row.betaCode,
-				used_at: row.betaUsedAt
-			}
+			: { name: row.inviterName, email: row.inviterEmail }
 	const shard: ListAdminUsersResponseItem['shard'] =
 		row.shardId === null ||
 		row.shardRegion === null ||
@@ -139,12 +185,12 @@ function toResponseItem(row: AdminUserRow): ListAdminUsersResponseItem {
 		name: row.name,
 		email: row.email,
 		email_verified: row.emailVerified,
-		image: row.image,
-		aff_code: row.affCode,
 		registration_utm_source: row.registrationUtmSource,
 		created_at: row.createdAt.getTime(),
 		updated_at: row.updatedAt.getTime(),
-		beta_access: betaAccess,
+		credit_balance: formatDecimal(balance),
+		beta_access: row.betaCodeId !== null,
+		inviter,
 		shard
 	}
 }

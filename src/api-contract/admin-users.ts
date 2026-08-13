@@ -6,9 +6,9 @@ export const ListAdminUsersRequestSchema = PageRequestSchema.extend({
 })
 export type ListAdminUsersRequest = z.infer<typeof ListAdminUsersRequestSchema>
 
-export const AdminUserBetaAccessSchema = z.object({
-	code: z.string(),
-	used_at: z.number()
+export const AdminUserInviterSchema = z.object({
+	name: z.string(),
+	email: z.string()
 })
 
 export const AdminUserShardSchema = z.object({
@@ -23,12 +23,12 @@ export const ListAdminUsersResponseItemSchema = z.object({
 	name: z.string(),
 	email: z.string(),
 	email_verified: z.boolean(),
-	image: z.string().nullable(),
-	aff_code: z.string().nullable(),
 	registration_utm_source: z.string().nullable(),
 	created_at: z.number(),
 	updated_at: z.number(),
-	beta_access: AdminUserBetaAccessSchema.nullable(),
+	credit_balance: z.string(),
+	beta_access: z.boolean(),
+	inviter: AdminUserInviterSchema.nullable(),
 	shard: AdminUserShardSchema.nullable()
 })
 export type ListAdminUsersResponseItem = z.infer<typeof ListAdminUsersResponseItemSchema>

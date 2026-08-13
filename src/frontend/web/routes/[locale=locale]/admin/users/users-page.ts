@@ -12,6 +12,8 @@ export type GrantAttempt = {
 	sourceId: string
 }
 
+export type GrantExpiryOption = 'never' | 'week' | 'month'
+
 export type GrantCreditsInput = {
 	userId: string
 	amount: string
@@ -52,6 +54,17 @@ export function createUserContextLinks(locale: string, userId: string): UserCont
 
 export function validateCreditAmount(value: string): boolean {
 	return /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value) && Number(value) > 0
+}
+
+export function resolveGrantExpiry(option: GrantExpiryOption, now: number = Date.now()): number | null {
+	switch (option) {
+		case 'never':
+			return null
+		case 'week':
+			return now + 7 * 24 * 60 * 60 * 1000
+		case 'month':
+			return now + 30 * 24 * 60 * 60 * 1000
+	}
 }
 
 export function createGrantAttempt(
