@@ -66,14 +66,14 @@ Auth tables do not live in tenant shards because the request layer needs to reso
 
 ### Email and Password
 
-Controlled by the Authentication and Email configuration documents in Meta D1. When email delivery and signup are enabled, users register with email and password. When verification is required, the frontend calls `sendVerificationOtp` after signup to send a 6-digit code.
+Controlled by the Authentication and Email configuration documents in Meta D1. `registrationEnabled` gates every first-time account creation, including social OAuth. Email/password registration does not require an Email provider unless verification is required. When verification is required, the frontend calls `sendVerificationOtp` after signup to send a 6-digit code.
 
 ```
 User enters email + password
   |
   v
 POST /api/auth/sign-up/email
-  -- creates user when Email and signup are enabled
+  -- creates user when registration is enabled
   |
   v
 POST /api/auth/email-otp/send-verification-otp  (if verification is enabled)
@@ -160,7 +160,7 @@ Platform steps:
 4. Let Cloudflare create the required SPF, DKIM, DMARC, and bounce records.
 5. Wait until the sending domain is active.
 6. Change the administrator email under Account / Security to an address on the onboarded domain.
-7. Open the admin Configuration workspace, select the Email tab, enable email, choose Cloudflare, and save.
+7. Open the admin Configuration workspace, select the Email tab, choose Cloudflare, and save.
 
 Use Resend if you need local real delivery without depending on Cloudflare remote email behavior.
 
@@ -175,9 +175,9 @@ Platform steps:
 3. Create an API key with sending access.
 4. Change the administrator email under Account / Security to an address on the verified domain.
 5. Open the admin Configuration workspace and select the Email tab.
-6. Enable email, choose Resend, enter the API key, and save.
+6. Choose Resend, enter the API key, and save.
 
-The `from` address is always the current administrator email. Email configuration cannot be enabled while it remains `admin@opcstack.local`. If Resend rejects mail, fix the sender domain first.
+The `from` address is always the current administrator email. An Email provider cannot be configured while it remains `admin@opcstack.local`. If Resend rejects mail, fix the sender domain first.
 
 Docs: [Resend domains](https://resend.com/docs/dashboard/domains/introduction), [Resend API keys](https://resend.com/docs/create-an-api-key)
 
@@ -312,21 +312,24 @@ LinuxDo does not provide a real email to this app. The mapped user email is synt
 
 ## Email Rules
 
-`emailAuthMiddleware` in `src/backend/api/middleware/email-auth.ts` runs on all `/api/auth/*` requests and enforces four rules:
+`emailAuthMiddleware` in `src/backend/api/middleware/email-auth.ts` runs on all `/api/auth/*` requests and enforces five rules:
 
 1. **OTP sign-in block.** The route `/api/auth/sign-in/email-otp` always returns 400 `EMAIL_OTP_SIGN_IN_DISABLED`.
 
-2. **Signup gate.** If `scene === 'signup'` and the Authentication configuration disables signup, returns 400 `EMAIL_SIGNUP_DISABLED`.
+2. **Registration gate.** Email signup is rejected with `REGISTRATION_DISABLED` when registration is off. Better Auth's user creation hook applies the same rule to first-time social OAuth users.
 
-3. **Domain allowlist.** The Authentication configuration stores the allowed signup domains as a list. Empty means all domains are allowed. A signup email whose domain is not in the list gets 400 `EMAIL_DOMAIN_NOT_ALLOWED`.
+3. **Email provider availability.** Verification, password reset, email change, and other email actions return `EMAIL_PROVIDER_UNAVAILABLE` when no Provider is configured. The login page derives the same state and hides the forgot-password link.
 
-4. **Per-email cooldown.** Each (scene, email) pair has a cooldown window controlled by the Authentication configuration. The cooldown is tracked in both a local in-memory `Map` and in KV. The KV key is `email:cooldown:{scene}:{sha256(email)}`. Within the cooldown, returns 429 `EMAIL_ACTION_RATE_LIMITED`.
+4. **Domain allowlist.** The Authentication configuration stores the allowed signup domains as a list. Empty means all domains are allowed. A signup email whose domain is not in the list gets 400 `EMAIL_DOMAIN_NOT_ALLOWED`.
+
+5. **Per-email cooldown.** Each (scene, email) pair has a cooldown window controlled by the Authentication configuration. The cooldown is tracked in both a local in-memory `Map` and in KV. The KV key is `email:cooldown:{scene}:{sha256(email)}`. Within the cooldown, returns 429 `EMAIL_ACTION_RATE_LIMITED`.
 
 ## User Creation Side Effects
 
 When Better Auth creates a new user, two hooks run in `authCore`:
 
 **`create.before`** runs before the user row is written:
+- Rejects all first-time account creation with `REGISTRATION_DISABLED` when registration is off
 - Calls `aff.createCode()` to generate a unique affiliate code for the new user
 - Reads the `registration_utm_source` cookie from the request headers
 - Adds both fields to the user record
@@ -424,7 +427,7 @@ These components read feature flags from `clientConfig` to decide which sign-in 
 
 Authentication and Email configuration live only in the Meta D1 `system_settings` row. Open the admin Configuration workspace, edit one tab, and explicitly save it. Each successful save validates the complete domain and becomes effective for subsequent requests without redeployment.
 
-The Authentication tab owns the beta gate, email signup policy, Turnstile, and Google, GitHub, and LinuxDo credentials. The Email tab owns delivery enablement, provider selection, and the Resend API key. Secret reads expose only whether a value is configured; replacing or removing a secret is an explicit save action.
+The Authentication tab owns the beta gate, registration policy, email verification, Turnstile, and Google, GitHub, and LinuxDo credentials. The Email tab owns the Provider and Resend API key. Provider presence is the single source of email availability; there is no separate email switch. Secret reads expose only whether a value is configured; replacing or removing a secret is an explicit save action.
 
 The administrator identity, public support address, and email sender come from the unique D1 administrator account. The first preparation creates `admin@opcstack.local` with a random password and prints the credentials once. `BETTER_AUTH_SECRET` and `CONFIG_ENCRYPTION_KEY` are generated by `prepare-cloudflare`; users do not configure them.
 
@@ -434,7 +437,7 @@ The administrator identity, public support address, and email sender come from t
 
 **Assuming LinuxDo users have a real email.** The email is synthesized as `linuxdo-{id}@linuxdo.local`. Email-based features like password reset do not work for LinuxDo users.
 
-**Trying to enable email before changing the initial administrator address.** Change `admin@opcstack.local` to a real address under Account / Security first. Preparation never overwrites the current administrator email or password.
+**Trying to configure an Email provider before changing the initial administrator address.** Change `admin@opcstack.local` to a real address under Account / Security first. Preparation never overwrites the current administrator email or password.
 
 **Expecting a cross-DB transaction on signup.** User creation writes to Meta DB and Tenant Shard DB separately. If the process crashes between them, the user exists but has no credit balance. This is by design.
 

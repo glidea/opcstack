@@ -35,14 +35,14 @@ describe('beta code api e2e', () => {
 		googleEnabled: boolean
 		githubEnabled: boolean
 		linuxdoEnabled: boolean
-		emailSignupEnabled: boolean
+		registrationEnabled: boolean
 		emailRequireVerification: boolean
 		emailCooldownSeconds: number
 	}
 
 	const publicCases: TestCase<PublicCaseGiven, PublicCaseWhen, PublicCaseThen>[] = [
 		{
-			scenario: 'rejects admin api without admin api token',
+			scenario: 'rejects admin api without administrator authorization',
 			given: 'no admin authorization header',
 			when: 'posting /api/admin/generate_beta_codes',
 			then: 'returns unauthorized',
@@ -57,7 +57,7 @@ describe('beta code api e2e', () => {
 				googleEnabled: false,
 				githubEnabled: false,
 				linuxdoEnabled: false,
-				emailSignupEnabled: false,
+				registrationEnabled: false,
 				emailRequireVerification: false,
 				emailCooldownSeconds: 0
 			}
@@ -74,7 +74,7 @@ describe('beta code api e2e', () => {
 			googleEnabled: false,
 			githubEnabled: false,
 			linuxdoEnabled: false,
-			emailSignupEnabled: false,
+			registrationEnabled: false,
 			emailRequireVerification: false,
 			emailCooldownSeconds: 0
 		}
@@ -93,7 +93,7 @@ describe('beta code api e2e', () => {
 	const flowCases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 		{
 			scenario: 'supports beta code admin flow and protects bind api by bearer auth',
-			given: 'admin api token and unauthenticated request',
+			given: 'an administrator session and unauthenticated request',
 			when: 'generating listing and binding beta codes',
 			then: 'admin apis work and bind api rejects unauthenticated caller',
 			givenDetail: {},

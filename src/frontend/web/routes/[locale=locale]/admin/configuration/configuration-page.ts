@@ -56,7 +56,6 @@ export type AuthenticationFormValidationInput = {
 }
 
 export type EmailFormValidationInput = {
-	enabled: boolean
 	provider: 'cloudflare' | 'resend' | null
 	resendApiKeyConfigured: boolean
 	resendApiKeyAction: SecretAction
@@ -131,10 +130,8 @@ export function validateAuthenticationForm(
 
 export function validateEmailForm(input: EmailFormValidationInput): Record<string, string> {
 	const errors: Record<string, string> = {}
-	const configured: boolean = input.enabled || input.provider !== null || hasSecretValue(input.resendApiKeyConfigured, input.resendApiKeyAction, input.resendApiKeyValue)
-	if (configured && input.provider === null) errors['provider'] = 'Provider is required'
+	if (input.provider === null) return errors
 	if (
-		configured &&
 		input.provider === 'resend' &&
 		!hasSecret(input.resendApiKeyConfigured, input.resendApiKeyAction, input.resendApiKeyValue)
 	) {

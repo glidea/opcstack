@@ -66,14 +66,14 @@ Better Auth handler (/api/auth/*)
 
 ### 邮件密码
 
-由 Meta D1 中的 Authentication 和 Email 配置文档控制。启用邮件发送和注册后，用户通过邮件和密码注册。需要验证时，前端在注册后调用 `sendVerificationOtp` 发送 6 位验证码。
+由 Meta D1 中的 Authentication 和 Email 配置文档控制。`registrationEnabled` 统一控制所有首次建号，包括第三方 OAuth。邮件密码注册本身不依赖 Email Provider；只有要求邮件验证时才必须配置 Provider。需要验证时，前端在注册后调用 `sendVerificationOtp` 发送 6 位验证码。
 
 ```
 用户输入邮件 + 密码
   |
   v
 POST /api/auth/sign-up/email
-  -- Email 和注册都启用时创建用户
+  -- 注册开启时创建用户
   |
   v
 POST /api/auth/email-otp/send-verification-otp  (启用验证时)
@@ -160,7 +160,7 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 4. 让 Cloudflare 创建所需的 SPF、DKIM、DMARC 和 bounce 记录
 5. 等待发送域名激活
 6. 在 Account / Security 将管理员邮箱改为接入域名上的地址
-7. 打开后台 Configuration 的 Email Tab，启用邮件，选择 Cloudflare 并保存
+7. 打开后台 Configuration 的 Email Tab，选择 Cloudflare 并保存
 
 如果需要本地真实发送而不依赖 Cloudflare 远端邮件行为，使用 Resend。
 
@@ -175,9 +175,9 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 3. 创建带发送权限的 API key
 4. 在 Account / Security 将管理员邮箱改为已验证域名上的地址
 5. 打开后台 Configuration 的 Email Tab
-6. 启用邮件，选择 Resend，填写 API key 并保存
+6. 选择 Resend，填写 API key 并保存
 
-`from` 地址始终是当前管理员邮箱。管理员邮箱仍是 `admin@opcstack.local` 时不能启用邮件配置。如果 Resend 拒绝邮件，先修复发件域名。
+`from` 地址始终是当前管理员邮箱。管理员邮箱仍是 `admin@opcstack.local` 时不能配置 Email Provider。如果 Resend 拒绝邮件，先修复发件域名。
 
 文档：[Resend domains](https://resend.com/docs/dashboard/domains/introduction)、[Resend API keys](https://resend.com/docs/create-an-api-key)
 
@@ -312,21 +312,24 @@ LinuxDo 不向本应用提供真实邮件。映射后的用户邮件是合成的
 
 ## 邮件规则
 
-`src/backend/api/middleware/email-auth.ts` 中的 `emailAuthMiddleware` 在所有 `/api/auth/*` 请求上运行，执行四条规则：
+`src/backend/api/middleware/email-auth.ts` 中的 `emailAuthMiddleware` 在所有 `/api/auth/*` 请求上运行，执行五条规则：
 
 1. **OTP 登录拦截。** 路由 `/api/auth/sign-in/email-otp` 始终返回 400 `EMAIL_OTP_SIGN_IN_DISABLED`。
 
-2. **注册门控。** 如果 `scene === 'signup'` 且 Authentication 配置关闭注册，返回 400 `EMAIL_SIGNUP_DISABLED`。
+2. **注册门控。** 关闭注册时，邮件注册返回 `REGISTRATION_DISABLED`。Better Auth 用户创建钩子对首次第三方 OAuth 建号执行同一规则。
 
-3. **域名 allowlist。** Authentication 配置保存允许注册的域名列表。为空表示允许所有域名。域名不在列表中的注册邮件返回 400 `EMAIL_DOMAIN_NOT_ALLOWED`。
+3. **邮件服务可用性。** 未配置 Provider 时，邮件验证、密码重置、邮箱变更和其他发信操作返回 `EMAIL_PROVIDER_UNAVAILABLE`。登录页从同一状态派生并隐藏忘记密码入口。
 
-4. **每邮件冷却时间。** 每个 (scene, email) 对的冷却窗口由 Authentication 配置控制。冷却时间通过本地内存 `Map` 和 KV 双重追踪。KV 键为 `email:cooldown:{scene}:{sha256(email)}`。冷却期内返回 429 `EMAIL_ACTION_RATE_LIMITED`。
+4. **域名 allowlist。** Authentication 配置保存允许注册的域名列表。为空表示允许所有域名。域名不在列表中的注册邮件返回 400 `EMAIL_DOMAIN_NOT_ALLOWED`。
+
+5. **每邮件冷却时间。** 每个 (scene, email) 对的冷却窗口由 Authentication 配置控制。冷却时间通过本地内存 `Map` 和 KV 双重追踪。KV 键为 `email:cooldown:{scene}:{sha256(email)}`。冷却期内返回 429 `EMAIL_ACTION_RATE_LIMITED`。
 
 ## 用户创建副作用
 
 Better Auth 创建新用户时，在 `authCore` 中运行两个钩子：
 
 **`create.before`** 在写入用户行之前运行：
+- 关闭注册时以 `REGISTRATION_DISABLED` 拒绝所有首次建号
 - 调用 `aff.createCode()` 为新用户生成唯一的推广码
 - 从请求头中读取 `registration_utm_source` cookie
 - 将两个字段都添加到用户记录中
@@ -424,7 +427,7 @@ await client.auth.signOut()
 
 Authentication 和 Email 配置只保存在 Meta D1 的 `system_settings` 记录中。打开后台 Configuration，编辑单个 Tab 并显式保存。每次保存都会校验完整业务域，成功后无需重新部署，后续请求立即生效。
 
-Authentication Tab 管理内测门控、邮件注册策略、Turnstile，以及 Google、GitHub 和 LinuxDo 凭据。Email Tab 管理发送开关、provider 和 Resend API key。读取密钥时只返回是否已配置；替换或删除密钥都是显式保存动作。
+Authentication Tab 管理内测门控、注册策略、邮件验证、Turnstile，以及 Google、GitHub 和 LinuxDo 凭据。Email Tab 管理 Provider 和 Resend API key。Provider 是否存在是邮件能力的单一状态源，不再有独立邮件开关。读取密钥时只返回是否已配置；替换或删除密钥都是显式保存动作。
 
 管理员身份、公开支持地址和发件人地址都读取唯一 D1 管理员账号。首次准备会创建 `admin@opcstack.local` 和随机密码，只打印一次凭据。`BETTER_AUTH_SECRET` 和 `CONFIG_ENCRYPTION_KEY` 由 `prepare-cloudflare` 自动生成，用户不配置。
 
@@ -434,7 +437,7 @@ Authentication Tab 管理内测门控、邮件注册策略、Turnstile，以及 
 
 **假设 LinuxDo 用户有真实邮件。** 邮件合成为 `linuxdo-{id}@linuxdo.local`。密码重置等基于邮件的功能对 LinuxDo 用户无效。
 
-**使用初始本地管理员邮箱启用邮件。** 先在 Account / Security 把 `admin@opcstack.local` 改为真实邮箱。准备流程不会覆盖当前管理员邮箱或密码。
+**使用初始本地管理员邮箱配置 Email Provider。** 先在 Account / Security 把 `admin@opcstack.local` 改为真实邮箱。准备流程不会覆盖当前管理员邮箱或密码。
 
 **期望注册时有跨 DB 事务。** 用户创建分别写入 Meta DB 和 Tenant Shard DB。如果进程在两者之间崩溃，用户存在但没有积分余额。这是设计如此。
 

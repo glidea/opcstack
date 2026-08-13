@@ -212,7 +212,7 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Configuration documents use code-side camelCase and are fully validated on every read and write. Admin API contracts remain snake_case.
 - General, Authentication, Email, Storage, Credits, and Affiliate runtime configuration is read from the nearest Meta D1 replica. Admin writes return a D1 bookmark that subsequent browser and API reads use for immediate consistency.
 - Signup rewards, daily check-in, affiliate rewards, and credit transaction retention read one domain snapshot per operation and never use ENV fallbacks.
-- Better Auth, beta gate, Turnstile, social OAuth, and email delivery share one request-scoped Authentication and Email snapshot. Disabled email delivery keeps password login available but disables signup, verification, and password-reset email actions.
+- Better Auth, beta gate, Turnstile, social OAuth, and email delivery share one request-scoped Authentication and Email snapshot. Registration uses `registrationEnabled`; Email availability is derived only from `emailConfig.provider`. Without a Provider, password login and unverified registration remain available, while email verification, password reset, and other email actions are unavailable.
 - Migrate one business domain atomically: after its runtime reads D1, delete the same ENV keys and parsers in that change. Never keep ENV fallback for a migrated setting.
 - Runtime business configuration lives in `META_DB`. Do not add an Env fallback for a D1-owned setting.
 - AI providers, routing weights, and task retention are D1-owned. Provider credentials are encrypted with `CONFIG_ENCRYPTION_KEY`.
@@ -292,7 +292,7 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - Protected JSON API routes accept Better Auth browser sessions or OAuth Bearer tokens. Every route is registered in `src/backend/api/scopes.ts`; OAuth access must pass `requireApiScope(scope)`, while protocol and byte-stream routes reject OAuth tokens.
 - The generic credential client is `opc auth connect` plus `opc api request`; it injects tokens and must not contain business API types or route-specific methods.
 - `administratorMiddleware` verifies the authenticated user's current D1 `admin` role for browser sessions and OAuth access. Admin and configuration scopes never bypass the role check.
-- The unique D1 administrator email is also the public support contact and outbound email sender. Initialization creates `admin@opcstack.local`; change it under Account / Security before enabling email delivery.
+- The unique D1 administrator email is also the public support contact and outbound email sender. Initialization creates `admin@opcstack.local`; change it under Account / Security before configuring an Email Provider.
 - Credits use integer units where `1 credit = 1_000_000 units`; API credit amounts use decimal strings.
 - Payment `price_amount` is provider minor currency units and must not be mixed with credit units.
 - R2 paths are `public/*`, `private/<userId>/*`, `tmp/public/*`, and `tmp/private/<userId>/*`.

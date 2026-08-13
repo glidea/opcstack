@@ -578,92 +578,91 @@ General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
 
 状态：已确认
 
-以下清单以当前 `.env.dev`、`.env.secret.example`、`wrangler.jsonc.tpl`、部署脚本和运行时代码为基准。迁移后 D1 字段使用结构化类型，不继续保存分号字符串或 JSON 字符串；表中同时列出现有 ENV 名称，方便检查是否遗漏。
+以下清单是迁移完成后的 D1 配置契约。业务配置只存在于 D1，不保留同名 ENV。D1 字段使用结构化类型，不保存分号字符串或 JSON 字符串。
 
 #### General
 
-| 目标配置 | 现有 ENV | UI 控件 |
+| 目标配置 | D1 字段 | UI 控件 |
 | --- | --- | --- |
-| Design system | `DESIGN_SYSTEM` | Segmented control：`apple-saas` / `brutalism` |
-| Product docs | `DOCS_ENABLED` | Toggle |
+| Design system | `generalConfig.designSystem` | Segmented control：`apple-saas` / `brutalism` |
+| Product docs | `generalConfig.docsEnabled` | Toggle |
 
 `APP_NAME` 和 `APP_VERSION` 不在此处。前者决定 Cloudflare 资源身份，后者进入发布产物，均不能在运行时完整生效。
 
 #### Authentication
 
-| 目标配置 | 现有 ENV | UI 控件 |
+| 目标配置 | D1 字段 | UI 控件 |
 | --- | --- | --- |
-| Beta code gate | `BETA_CODE_ENABLED` | Toggle |
-| Public email signup | `EMAIL_SIGNUP_ENABLED` | Toggle |
-| Signup domain allowlist | `EMAIL_SIGNUP_DOMAIN_ALLOWLIST` | 可增删的域名列表，不使用分号文本框 |
-| Require email verification | `EMAIL_REQUIRE_VERIFICATION` | Toggle |
-| Email action cooldown seconds | `EMAIL_USER_ACTION_COOLDOWN_SECONDS` | Number input |
-| Turnstile | `TURNSTILE_ENABLED` | Toggle |
-| Turnstile site key | 当前由部署脚本生成 `TURNSTILE_SITE_KEY` | Text input |
-| Turnstile secret key | 当前由部署脚本生成 `TURNSTILE_SECRET_KEY` | 密钥替换控件 |
-| Google login enabled | `GOOGLE_AUTH_ENABLED` | Toggle |
-| Google client ID | `GOOGLE_CLIENT_ID` | Text input |
-| Google client secret | `GOOGLE_CLIENT_SECRET` | 密钥替换控件 |
-| GitHub login enabled | `GITHUB_AUTH_ENABLED` | Toggle |
-| GitHub client ID | `GITHUB_CLIENT_ID` | Text input |
-| GitHub client secret | `GITHUB_CLIENT_SECRET` | 密钥替换控件 |
-| LinuxDO login enabled | `LINUXDO_AUTH_ENABLED` | Toggle |
-| LinuxDO client ID | `LINUXDO_CLIENT_ID` | Text input |
-| LinuxDO client secret | `LINUXDO_CLIENT_SECRET` | 密钥替换控件 |
+| Beta code gate | `authenticationConfig.betaCodeEnabled` | Toggle |
+| Registration | `authenticationConfig.registrationEnabled` | Toggle |
+| Signup domain allowlist | `authenticationConfig.emailSignupDomainAllowlist` | 可增删的域名列表，不使用分号文本框 |
+| Require email verification | `authenticationConfig.emailRequireVerification` | Toggle |
+| Email action cooldown seconds | `authenticationConfig.emailUserActionCooldownSeconds` | Number input |
+| Turnstile | `authenticationConfig.turnstile.enabled` | Toggle |
+| Turnstile site key | `authenticationConfig.turnstile.siteKey` | Text input |
+| Turnstile secret key | `authenticationConfig.turnstile.secretKey` | 密钥替换控件 |
+| Google login enabled | `authenticationConfig.providers.google.enabled` | Toggle |
+| Google client ID | `authenticationConfig.providers.google.clientId` | Text input |
+| Google client secret | `authenticationConfig.providers.google.clientSecret` | 密钥替换控件 |
+| GitHub login enabled | `authenticationConfig.providers.github.enabled` | Toggle |
+| GitHub client ID | `authenticationConfig.providers.github.clientId` | Text input |
+| GitHub client secret | `authenticationConfig.providers.github.clientSecret` | 密钥替换控件 |
+| LinuxDO login enabled | `authenticationConfig.providers.linuxdo.enabled` | Toggle |
+| LinuxDO client ID | `authenticationConfig.providers.linuxdo.clientId` | Text input |
+| LinuxDO client secret | `authenticationConfig.providers.linuxdo.clientSecret` | 密钥替换控件 |
 
-为了让 `TURNSTILE_ENABLED` 真正成为 D1 动态配置，Cloudflare 部署时必须始终准备 Turnstile Widget，并把远程凭据写入 D1；本地初始化写入 Cloudflare 测试凭据。后台仍允许替换自有 Widget 凭据。不能继续由 ENV 开关决定是否创建 Widget，否则同一个功能会重新出现 ENV 与 D1 两个控制点。
+Cloudflare 部署始终准备 Turnstile Widget，并把远程凭据写入默认关闭的 Authentication 配置；本地初始化写入 Cloudflare 测试凭据。后台允许替换自有 Widget 凭据。运行时是否启用只由 D1 开关决定。
 
 #### Email
 
-| 目标配置 | 现有 ENV | UI 控件 |
+| 目标配置 | D1 字段 | UI 控件 |
 | --- | --- | --- |
-| Email delivery enabled | 无，新增显式状态 | Toggle |
-| Delivery provider | `EMAIL_PROVIDER` | Select：`cloudflare` / `resend` |
-| Resend API key | `EMAIL_RESEND_API_KEY` | 密钥替换控件 |
+| Delivery provider | `emailConfig.provider` | Select：未配置 / `cloudflare` / `resend` |
+| Resend API key | `emailConfig.resendApiKey` | 密钥替换控件 |
 
-管理员邮箱在 Account / Security 编辑，不属于 Configuration 业务配置。它同时承担管理员登录、公开支持邮箱和发件人地址；仍为 `admin@opcstack.local` 时禁止启用邮件发送。
+管理员邮箱在 Account / Security 编辑，不属于 Configuration 业务配置。它同时承担管理员登录、公开支持邮箱和发件人地址；仍为 `admin@opcstack.local` 时禁止配置 Email Provider。
 
 #### Storage
 
-| 目标配置 | 现有 ENV | UI 控件 |
+| 目标配置 | D1 字段 | UI 控件 |
 | --- | --- | --- |
-| Allowed user upload MIME types | `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` | 可增删的 MIME type 列表 |
-| Maximum user upload bytes | `R2_USER_UPLOAD_MAX_BYTES` | Number input，UI 同时显示换算后的 MB |
+| Allowed user upload MIME types | `storageConfig.allowedContentTypes` | 可增删的 MIME type 列表 |
+| Maximum user upload bytes | `storageConfig.maxUploadBytes` | Number input，UI 同时显示换算后的 MB |
 
 `R2_ENABLED` 决定是否创建 Bucket 和 Worker Binding，`R2_TMP_LIFECYCLE_RULES` 修改 Cloudflare Bucket 生命周期，两者都属于固定部署拓扑。`R2_ORIGIN_SIGNING_SECRET` 是准备脚本自动生成的 Worker 内部签名根密钥，不是业务配置。Storage Tab 不展示这三个值。
 
 #### Credits
 
-| 目标配置 | 现有 ENV | UI 控件 |
+| 目标配置 | D1 字段 | UI 控件 |
 | --- | --- | --- |
-| Signup grant enabled | `CREDITS_SIGNUP_ENABLED` | Toggle |
-| Signup grant amount | `CREDITS_SIGNUP_AMOUNT` | Decimal input，单位 credits |
-| Daily check-in enabled | `CREDITS_DAILY_CHECKIN_ENABLED` | Toggle |
-| Daily check-in amount | `CREDITS_DAILY_CHECKIN_AMOUNT` | Decimal input，单位 credits |
-| Transaction retention days | `CREDITS_HISTORY_RETENTION_DAYS` | Number input，单位 days |
+| Signup grant enabled | `creditsConfig.signupEnabled` | Toggle |
+| Signup grant amount | `creditsConfig.signupAmount` | Decimal input，单位 credits |
+| Daily check-in enabled | `creditsConfig.dailyCheckinEnabled` | Toggle |
+| Daily check-in amount | `creditsConfig.dailyCheckinAmount` | Decimal input，单位 credits |
+| Transaction retention days | `creditsConfig.historyRetentionDays` | Number input，单位 days |
 
 #### Affiliate
 
-| 目标配置 | 现有 ENV | UI 控件 |
+| 目标配置 | D1 字段 | UI 控件 |
 | --- | --- | --- |
-| Affiliate enabled | `AFF_ENABLED` | Toggle |
-| Inviter reward | `AFF_INVITER_CREDIT_AMOUNT` | Decimal input，单位 credits |
-| Invitee reward | `AFF_INVITEE_CREDIT_AMOUNT` | Decimal input，单位 credits |
+| Affiliate enabled | `affiliateConfig.enabled` | Toggle |
+| Inviter reward | `affiliateConfig.inviterCreditAmount` | Decimal input，单位 credits |
+| Invitee reward | `affiliateConfig.inviteeCreditAmount` | Decimal input，单位 credits |
 
 #### Payment
 
-| 目标配置 | 现有 ENV | UI 控件 |
+| 目标配置 | D1 字段 | UI 控件 |
 | --- | --- | --- |
-| Payment enabled | `PAYMENT_ENABLED` | Toggle |
-| Default provider | `PAYMENT_PROVIDER` | Select：`dodo` / `creem` |
-| Country provider overrides | `PAYMENT_PROVIDER_COUNTRY_OVERRIDES` | Country + provider 可编辑表格，不使用 JSON 文本框 |
-| Dodo test mode | `PAYMENT_DODO_TEST_MODE` | Toggle |
-| Dodo API key | `PAYMENT_DODO_API_KEY` | 密钥替换控件 |
-| Dodo webhook secret | `PAYMENT_DODO_WEBHOOK_SECRET` | 密钥替换控件 |
-| Creem test mode | `PAYMENT_CREEM_TEST_MODE` | Toggle |
-| Creem API key | `PAYMENT_CREEM_API_KEY` | 密钥替换控件 |
-| Creem webhook secret | `PAYMENT_CREEM_WEBHOOK_SECRET` | 密钥替换控件 |
-| Payment products | `PAYMENT_PRODUCTS` | Product 表格 + 右侧编辑抽屉，不使用 JSON 文本框 |
+| Payment enabled | `paymentConfig.enabled` | Toggle |
+| Default provider | `paymentConfig.defaultProvider` | Select：`dodo` / `creem` |
+| Country provider overrides | `paymentConfig.providerCountryOverrides` | Country + provider 可编辑表格，不使用 JSON 文本框 |
+| Dodo test mode | `paymentConfig.providers.dodo.testMode` | Toggle |
+| Dodo API key | `paymentConfig.providers.dodo.apiKey` | 密钥替换控件 |
+| Dodo webhook secret | `paymentConfig.providers.dodo.webhookSecret` | 密钥替换控件 |
+| Creem test mode | `paymentConfig.providers.creem.testMode` | Toggle |
+| Creem API key | `paymentConfig.providers.creem.apiKey` | 密钥替换控件 |
+| Creem webhook secret | `paymentConfig.providers.creem.webhookSecret` | 密钥替换控件 |
+| Payment products | `payment_products` | Product 表格 + 右侧编辑抽屉，不使用 JSON 文本框 |
 
 Payment Product 编辑字段：
 
@@ -681,12 +680,12 @@ AI Provider 统一使用完整 Type：`chat_openai`、`image_gemini`、`image_op
 
 AI 通用设置：
 
-| 目标配置 | 现有 ENV | UI 控件 |
+| 目标配置 | D1 字段 | UI 控件 |
 | --- | --- | --- |
-| Routing error weight | `AI_ROUTING_ERROR_WEIGHT` | Number input |
-| Routing latency weight | `AI_ROUTING_LATENCY_WEIGHT` | Number input |
-| Routing price weight | `AI_ROUTING_PRICE_WEIGHT` | Number input |
-| Terminal task retention days | `AI_TASK_RETENTION_DAYS` | Number input |
+| Routing error weight | `aiConfig.routing.errorWeight` | Number input |
+| Routing latency weight | `aiConfig.routing.latencyWeight` | Number input |
+| Routing price weight | `aiConfig.routing.priceWeight` | Number input |
+| Terminal task retention days | `aiConfig.taskRetentionDays` | Number input |
 
 旧 AI 业务 ENV 和 `<AREA>_<PROVIDER>_<CHANNEL>_*` ENV 组全部删除，不作为初始化默认 Provider 写入 D1。项目初始化只创建空的 Provider 集合；需要哪些 Provider，由用户或 OAuth Client 明确新增。
 
@@ -1565,10 +1564,10 @@ erDiagram
 | Domain | JSON paths | Rules |
 | --- | --- | --- |
 | General | `designSystem`、`docsEnabled` | Design System 为 `apple-saas` / `brutalism` |
-| Authentication | `betaCodeEnabled`、`emailSignupEnabled`、`emailSignupDomainAllowlist`、`emailRequireVerification`、`emailUserActionCooldownSeconds` | allowlist 为小写唯一域名；cooldown `> 0` |
+| Authentication | `betaCodeEnabled`、`registrationEnabled`、`emailSignupDomainAllowlist`、`emailRequireVerification`、`emailUserActionCooldownSeconds` | allowlist 为小写唯一域名；cooldown `> 0` |
 | Authentication | `turnstile.{enabled,siteKey,secretKey}` | 启用时 site key 和加密 secret 完整存在 |
 | Authentication | `providers.{google,github,linuxdo}.{enabled,clientId,clientSecret}` | 启用时 client id 和加密 secret 完整存在 |
-| Email | `enabled`、`provider`、`resendApiKey` | Provider 为 `cloudflare` / `resend`；Resend 启用时密钥完整存在 |
+| Email | `provider`、`resendApiKey` | Provider 为 `null` / `cloudflare` / `resend`；Resend 配置时密钥完整存在 |
 | Storage | `allowedContentTypes`、`maxUploadBytes` | 类型非空唯一；字节数为正整数 |
 | Credits | `signupEnabled`、`signupAmount`、`dailyCheckinEnabled`、`dailyCheckinAmount`、`historyRetentionDays` | 金额为非负整数 units；保留天数 `> 0` |
 | Affiliate | `enabled`、`inviterCreditAmount`、`inviteeCreditAmount` | 金额为非负整数 units |
@@ -1578,7 +1577,7 @@ erDiagram
 
 JSON 文档内部使用代码侧 camelCase，Admin JSON API 继续使用 snake_case。Handler 负责显式映射，不把持久化文档直接作为公共 API Contract。
 
-`emailConfig.enabled` 是新增的显式状态。没有它，初始化时“邮件关闭”只能由 Provider 或密钥缺失推断，重新制造第二套隐式状态。密码登录不依赖邮件发送；邮件关闭时验证邮件、密码重置和其他发信操作明确返回 `EMAIL_DISABLED`。
+Email Provider 是邮件能力的单一状态源。`provider = null` 表示邮件服务未配置，公开配置从它派生 `email_provider_configured`。此时登录页不展示忘记密码入口，直接调用验证、密码重置或其他发信操作返回 `EMAIL_PROVIDER_UNAVAILABLE`。注册开关与邮件 Provider 独立；只有开启邮件验证时才强制要求 Provider。
 
 Payment Provider 不增加第二个 `enabled` 字段。Provider 是否可用由完整凭据、至少一个 Product 映射以及 Payment 路由引用共同校验；`payment_enabled` 是整个支付业务唯一运行时开关。
 
@@ -1752,7 +1751,7 @@ Authentication Read Response：
 ```ts
 type AuthenticationConfigView = {
 	beta_code_enabled: boolean
-	email_signup_enabled: boolean
+	registration_enabled: boolean
 	email_signup_domain_allowlist: string[]
 	email_require_verification: boolean
 	email_user_action_cooldown_seconds: number
@@ -1781,21 +1780,19 @@ Email 契约：
 
 ```ts
 type EmailConfigView = {
-	enabled: boolean
 	provider: 'cloudflare' | 'resend' | null
 	resend_api_key_configured: boolean
 	version: number
 }
 
 type UpdateEmailConfigRequest = {
-	enabled: boolean
 	provider: 'cloudflare' | 'resend' | null
 	resend_api_key: SecretMutation
 	expected_version: number
 }
 ```
 
-`enabled = true` 时 Provider 必填；Provider 为 `resend` 时必须已有或同时提交 API Key。`cloudflare` 依赖固定 `SEND_EMAIL` Binding，不增加另一个 D1 凭据。
+`provider = null` 表示未配置邮件服务。Provider 为 `resend` 时必须已有或同时提交 API Key。`cloudflare` 依赖固定 `SEND_EMAIL` Binding，不增加另一个 D1 凭据。
 
 Payment 契约：
 
@@ -1985,8 +1982,8 @@ opc api request --name <connection> --method <method> --url <path> [--query JSON
 type PublicRuntimeConfig = {
 	design_system: 'apple-saas' | 'brutalism'
 	docs_enabled: boolean
-	email_enabled: boolean
-	email_signup_enabled: boolean
+	email_provider_configured: boolean
+	registration_enabled: boolean
 	email_require_verification: boolean
 	email_user_action_cooldown_seconds: number
 	google_auth_enabled: boolean

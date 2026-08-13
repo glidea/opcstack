@@ -95,8 +95,8 @@ describe('system configuration store', () => {
 				design_system: 'apple-saas',
 				docs_enabled: true,
 				payment_enabled: false,
-				email_enabled: false,
-				email_signup_enabled: false,
+				email_provider_configured: false,
+				registration_enabled: false,
 				email_require_verification: false,
 				email_user_action_cooldown_seconds: 50,
 				google_auth_enabled: false,
@@ -115,6 +115,7 @@ describe('system configuration store', () => {
 			ciphertext: 'ciphertext',
 			iv: 'iv'
 		}
+		row.emailConfig.provider = 'resend'
 		row.emailConfig.resendApiKey = { ciphertext: 'ciphertext', iv: 'iv' }
 		const db: MetaDb = createConfigDb({ row })
 
@@ -145,7 +146,7 @@ describe('system configuration store', () => {
 		await expect(
 			updateAuthenticationConfig(db, TEST_ENCRYPTION_KEY, {
 				betaCodeEnabled: false,
-				emailSignupEnabled: false,
+			registrationEnabled: false,
 				emailSignupDomainAllowlist: [],
 				emailRequireVerification: false,
 				emailUserActionCooldownSeconds: 50,
@@ -172,7 +173,7 @@ describe('system configuration store', () => {
 
 		await expect(updateAuthenticationConfig(db, TEST_ENCRYPTION_KEY, {
 			betaCodeEnabled: false,
-			emailSignupEnabled: false,
+			registrationEnabled: false,
 			emailSignupDomainAllowlist: [],
 			emailRequireVerification: false,
 			emailUserActionCooldownSeconds: 50,
@@ -193,7 +194,6 @@ describe('system configuration store', () => {
 	it('replaces an Email secret and validates the resulting provider atomically', async (): Promise<void> => {
 		const updated: SystemSettings = createSettingsRow(1)
 		updated.emailConfig = {
-			enabled: true,
 			provider: 'resend',
 			resendApiKey: { ciphertext: 'saved', iv: 'saved-iv' }
 		}
@@ -205,7 +205,6 @@ describe('system configuration store', () => {
 		})
 
 		const result = await updateEmailConfig(db, TEST_ENCRYPTION_KEY, {
-			enabled: true,
 			provider: 'resend',
 			resendApiKey: { action: 'replace', value: 'resend-secret' },
 			expectedVersion: 1,
@@ -215,11 +214,10 @@ describe('system configuration store', () => {
 		expect(result).toEqual({ ...updated.emailConfig, version: 2 })
 	})
 
-	it('rejects a partially configured disabled Email provider', async (): Promise<void> => {
+	it('rejects an incomplete Email provider', async (): Promise<void> => {
 		const db: MetaDb = createConfigDb({ row: createSettingsRow(1) })
 
 		await expect(updateEmailConfig(db, TEST_ENCRYPTION_KEY, {
-			enabled: false,
 			provider: 'resend',
 			resendApiKey: { action: 'keep' },
 			expectedVersion: 1,
@@ -230,19 +228,93 @@ describe('system configuration store', () => {
 		))
 	})
 
-	it('rejects enabling Email while the administrator uses the local address', async (): Promise<void> => {
+	it('rejects a Resend key stored for the Cloudflare provider', async (): Promise<void> => {
+		const row: SystemSettings = createSettingsRow(1)
+		row.emailConfig = {
+			provider: 'cloudflare',
+			resendApiKey: { ciphertext: 'saved', iv: 'saved-iv' }
+		}
+		const db: MetaDb = createConfigDb({ row })
+
+		await expect(getEmailConfig(db)).rejects.toEqual(new ConfigStoreError(
+			'INVALID_UPDATE',
+			'resendApiKey is only valid for the Resend provider'
+		))
+	})
+
+	it('removes the Resend key when the Email provider is removed', async (): Promise<void> => {
+		const current: SystemSettings = createSettingsRow(1)
+		current.emailConfig = {
+			provider: 'resend',
+			resendApiKey: { ciphertext: 'saved', iv: 'saved-iv' }
+		}
+		const updated: SystemSettings = createSettingsRow(1)
+		updated.emailConfig = { provider: null, resendApiKey: null }
+		updated.emailVersion = 2
+		let writtenEmailConfig: SystemSettings['emailConfig'] | undefined
+		const db: MetaDb = createConfigDb({
+			row: current,
+			updated,
+			onWrite: (values: Partial<SystemSettings>): void => {
+				writtenEmailConfig = values.emailConfig
+			}
+		})
+
+		const result = await updateEmailConfig(db, TEST_ENCRYPTION_KEY, {
+			provider: null,
+			resendApiKey: { action: 'keep' },
+			expectedVersion: 1,
+			nowMs: 2000
+		})
+
+		expect({ result, writtenEmailConfig }).toEqual({
+			result: { provider: null, resendApiKey: null, version: 2 },
+			writtenEmailConfig: { provider: null, resendApiKey: null }
+		})
+	})
+
+	it('rejects configuring Email while the administrator uses the local address', async (): Promise<void> => {
 		const db: MetaDb = createConfigDb({ row: createSettingsRow(1) })
 
 		await expect(updateEmailConfig(db, TEST_ENCRYPTION_KEY, {
-			enabled: true,
 			provider: 'cloudflare',
 			resendApiKey: { action: 'keep' },
 			expectedVersion: 1,
 			nowMs: 2000
 		})).rejects.toEqual(new ConfigStoreError(
 			'INVALID_UPDATE',
-			'Administrator email must be changed before Email is enabled'
+			'Administrator email must be changed before configuring an Email provider'
 		))
+	})
+
+	it('rejects requiring email verification without an Email provider', async (): Promise<void> => {
+		let writes: number = 0
+		const db: MetaDb = createConfigDb({
+			row: createSettingsRow(1),
+			onWrite: (): void => {
+				writes += 1
+			}
+		})
+
+		await expect(updateAuthenticationConfig(db, TEST_ENCRYPTION_KEY, {
+			betaCodeEnabled: false,
+			registrationEnabled: true,
+			emailSignupDomainAllowlist: [],
+			emailRequireVerification: true,
+			emailUserActionCooldownSeconds: 50,
+			turnstile: { enabled: false, siteKey: null, secretKey: { action: 'keep' } },
+			providers: {
+				google: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
+				github: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
+				linuxdo: { enabled: false, clientId: null, clientSecret: { action: 'keep' } }
+			},
+			expectedVersion: 1,
+			nowMs: 2000
+		})).rejects.toEqual(new ConfigStoreError(
+			'INVALID_UPDATE',
+			'Email provider is required when email verification is enabled'
+		))
+		expect(writes).toBe(0)
 	})
 
 	it('reads Storage as a validated operation snapshot', async (): Promise<void> => {
@@ -364,7 +436,7 @@ type ConfigDbInput = {
 	updated?: SystemSettings | undefined
 	administratorEmail?: string
 	onRead?: () => void
-	onWrite?: () => void
+	onWrite?: (values: Partial<SystemSettings>) => void
 }
 
 function createConfigDb(input: ConfigDbInput): MetaDb {
@@ -386,10 +458,10 @@ function createConfigDb(input: ConfigDbInput): MetaDb {
 			}
 		},
 		update: () => ({
-			set: () => ({
+			set: (values: Partial<SystemSettings>) => ({
 				where: () => ({
 					returning: async (): Promise<SystemSettings[]> => {
-						input.onWrite?.()
+						input.onWrite?.(values)
 						return input.updated ? [input.updated] : []
 					}
 				})
@@ -419,7 +491,7 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 		},
 		authenticationConfig: {
 			betaCodeEnabled: false,
-			emailSignupEnabled: false,
+			registrationEnabled: false,
 			emailSignupDomainAllowlist: [],
 			emailRequireVerification: false,
 			emailUserActionCooldownSeconds: 50,
@@ -431,7 +503,6 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 			}
 		},
 		emailConfig: {
-			enabled: false,
 			provider: null,
 			resendApiKey: null
 		},
@@ -446,20 +517,20 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 			dailyCheckinAmount: 10_000_000,
 			historyRetentionDays: 90
 		},
-			affiliateConfig: {
-				enabled: false,
-				inviterCreditAmount: 50_000_000,
-				inviteeCreditAmount: 20_000_000
-			},
-			paymentConfig: {
-				enabled: false,
-				defaultProvider: null,
-				providerCountryOverrides: [],
-				providers: {
-					dodo: { testMode: false, apiKey: null, webhookSecret: null },
-					creem: { testMode: false, apiKey: null, webhookSecret: null }
-				}
+		affiliateConfig: {
+			enabled: false,
+			inviterCreditAmount: 50_000_000,
+			inviteeCreditAmount: 20_000_000
+		},
+		paymentConfig: {
+			enabled: false,
+			defaultProvider: null,
+			providerCountryOverrides: [],
+			providers: {
+				dodo: { testMode: false, apiKey: null, webhookSecret: null },
+				creem: { testMode: false, apiKey: null, webhookSecret: null }
 			}
+		}
 	} as unknown as SystemSettings
 }
 

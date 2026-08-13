@@ -9,6 +9,9 @@ const appBaseUrl = resolveAppBaseUrl(appDomain, isRemote)
 const r2Enabled = readConfig('R2_ENABLED') ?? 'false'
 const adminEmail = process.env.E2E_ADMIN_EMAIL ?? ''
 const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? ''
+const secondAppBaseUrl = process.env.E2E_SECOND_APP_BASE_URL ?? ''
+const secondAdminEmail = process.env.E2E_SECOND_ADMIN_EMAIL ?? ''
+const secondAdminPassword = process.env.E2E_SECOND_ADMIN_PASSWORD ?? ''
 const d1ShardCount = String(readD1ShardCount(readConfig('D1_SHARDS') ?? 'apac:1'))
 const runAffiliateFlow = process.env.E2E_RUN_AFFILIATE_FLOW ?? 'false'
 const runDailyCheckinFlow = process.env.E2E_RUN_DAILY_CHECKIN_FLOW ?? 'false'
@@ -25,6 +28,9 @@ export default defineConfig({
 			E2E_R2_ENABLED: r2Enabled,
 			E2E_ADMIN_EMAIL: adminEmail,
 			E2E_ADMIN_PASSWORD: adminPassword,
+			E2E_SECOND_APP_BASE_URL: secondAppBaseUrl,
+			E2E_SECOND_ADMIN_EMAIL: secondAdminEmail,
+			E2E_SECOND_ADMIN_PASSWORD: secondAdminPassword,
 			E2E_RUN_AFFILIATE_FLOW: runAffiliateFlow,
 			E2E_D1_SHARD_COUNT: d1ShardCount,
 			E2E_RUN_DAILY_CHECKIN_FLOW: runDailyCheckinFlow

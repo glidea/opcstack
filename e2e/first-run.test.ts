@@ -4,14 +4,14 @@ import { browserHeaders, readJson, signInWithPassword, type CookieJar } from './
 
 type AuthenticationConfig = {
 	beta_code_enabled: boolean
-	email_signup_enabled: boolean
+	registration_enabled: boolean
 	turnstile_enabled: boolean
 	google_auth_enabled: boolean
 	github_auth_enabled: boolean
 	linuxdo_auth_enabled: boolean
 }
 
-type EmailConfig = { enabled: boolean }
+type EmailConfig = { provider: 'cloudflare' | 'resend' | null }
 type AffiliateConfig = { enabled: boolean }
 type PaymentConfig = { enabled: boolean }
 type AiConfig = {
@@ -53,12 +53,12 @@ describe.skipIf(!firstRun)('first-run user journey', (): void => {
 		const ai: AiConfig = await callAdmin<AiConfig>('get_ai_config')
 		expect({
 			beta: authentication.beta_code_enabled,
-			emailSignup: authentication.email_signup_enabled,
+			emailSignup: authentication.registration_enabled,
 			turnstile: authentication.turnstile_enabled,
 			google: authentication.google_auth_enabled,
 			github: authentication.github_auth_enabled,
 			linuxdo: authentication.linuxdo_auth_enabled,
-			email: email.enabled,
+			emailProvider: email.provider,
 			affiliate: affiliate.enabled,
 			payment: payment.enabled,
 			aiProviders: Object.values(ai.providers).some(
@@ -71,7 +71,7 @@ describe.skipIf(!firstRun)('first-run user journey', (): void => {
 			google: false,
 			github: false,
 			linuxdo: false,
-			email: false,
+			emailProvider: null,
 			affiliate: false,
 			payment: false,
 			aiProviders: false

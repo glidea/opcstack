@@ -112,7 +112,7 @@ describe('tenant sharding e2e', () => {
 	const cases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 		{
 			scenario: 'tenant shard APIs keep user data on one shard',
-			given: 'a verified user and admin api token',
+			given: 'a verified user and administrator session',
 			when: 'using credits redemption code and notification read APIs',
 			then: 'responses carry one tenant shard and persisted tenant state',
 			givenDetail: {},

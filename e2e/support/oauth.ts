@@ -42,13 +42,50 @@ export async function authorizeApiAccess(input: {
 	)
 	expectHttpOk(createdResponse, 'create OAuth authorization')
 	const created: CreatedAuthorization = await readJson<CreatedAuthorization>(createdResponse)
+	await approveApiAccess({
+		appBaseUrl: input.appBaseUrl,
+		cookies: input.cookies,
+		userCode: created.user_code
+	})
 
+	const pollResponse: Response = await fetch(`${input.appBaseUrl}/api/oauth/poll_authorization`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ device_code: created.device_code })
+	})
+	expectHttpOk(pollResponse, 'poll OAuth authorization')
+	const poll: AuthorizationPoll = await readJson<AuthorizationPoll>(pollResponse)
+	if (poll.status !== 'authorized') {
+		throw new Error(`OAuth authorization was not completed: ${poll.status}`)
+	}
+
+	const tokenResponse: Response = await fetch(`${input.appBaseUrl}/api/auth/oauth2/token`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/x-www-form-urlencoded' },
+		body: new URLSearchParams({
+			grant_type: 'authorization_code',
+			client_id: 'opc-cli',
+			code: poll.code,
+			redirect_uri: poll.redirect_uri,
+			code_verifier: verifier,
+			resource: input.appBaseUrl
+		}).toString()
+	})
+	expectHttpOk(tokenResponse, 'exchange OAuth authorization code')
+	return readJson<OAuthTokenSet>(tokenResponse)
+}
+
+export async function approveApiAccess(input: {
+	appBaseUrl: string
+	cookies: CookieJar
+	userCode: string
+}): Promise<void> {
 	const resolvedResponse: Response = await fetch(
 		`${input.appBaseUrl}/api/oauth/resolve_authorization`,
 		{
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ user_code: created.user_code })
+			body: JSON.stringify({ user_code: input.userCode })
 		}
 	)
 	expectHttpOk(resolvedResponse, 'resolve OAuth authorization')
@@ -94,32 +131,6 @@ export async function authorizeApiAccess(input: {
 	})
 	input.cookies.addResponse(callbackResponse)
 	expectHttpOk(callbackResponse, 'complete OAuth authorization callback')
-
-	const pollResponse: Response = await fetch(`${input.appBaseUrl}/api/oauth/poll_authorization`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ device_code: created.device_code })
-	})
-	expectHttpOk(pollResponse, 'poll OAuth authorization')
-	const poll: AuthorizationPoll = await readJson<AuthorizationPoll>(pollResponse)
-	if (poll.status !== 'authorized') {
-		throw new Error(`OAuth authorization was not completed: ${poll.status}`)
-	}
-
-	const tokenResponse: Response = await fetch(`${input.appBaseUrl}/api/auth/oauth2/token`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/x-www-form-urlencoded' },
-		body: new URLSearchParams({
-			grant_type: 'authorization_code',
-			client_id: 'opc-cli',
-			code: poll.code,
-			redirect_uri: poll.redirect_uri,
-			code_verifier: verifier,
-			resource: input.appBaseUrl
-		}).toString()
-	})
-	expectHttpOk(tokenResponse, 'exchange OAuth authorization code')
-	return readJson<OAuthTokenSet>(tokenResponse)
 }
 
 async function requireNavigationUrl(response: Response, appBaseUrl: string): Promise<URL> {

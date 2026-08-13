@@ -17,7 +17,7 @@
 		googleAuthEnabled,
 		githubAuthEnabled,
 		linuxdoAuthEnabled,
-		emailSignupEnabled,
+		registrationEnabled,
 		emailRequireVerification,
 		emailUserActionCooldownSeconds,
 		termsHref = '/terms',
@@ -32,7 +32,7 @@
 		googleAuthEnabled: boolean
 		githubAuthEnabled: boolean
 		linuxdoAuthEnabled: boolean
-		emailSignupEnabled: boolean
+		registrationEnabled: boolean
 		emailRequireVerification: boolean
 		emailUserActionCooldownSeconds: number
 		termsHref?: string
@@ -103,8 +103,10 @@
 
 	function resolveEmailError(authError: AuthClientError, fallback: string): string {
 		switch (authError.code) {
-			case 'EMAIL_SIGNUP_DISABLED':
-				return $_('auth.error.emailSignupDisabled')
+			case 'REGISTRATION_DISABLED':
+				return $_('auth.error.registrationDisabled')
+			case 'EMAIL_PROVIDER_UNAVAILABLE':
+				return $_('auth.error.emailProviderUnavailable')
 			case 'EMAIL_DOMAIN_NOT_ALLOWED':
 				return $_('auth.error.emailDomainNotAllowed')
 			case 'EMAIL_ACTION_RATE_LIMITED':
@@ -138,27 +140,27 @@
 		<h1 class="text-[28px] font-semibold tracking-tight">{$_('auth.register.title')}</h1>
 	</div>
 
-	{#if googleAuthEnabled}
+	{#if registrationEnabled && googleAuthEnabled}
 		<Button variant="secondary" class="w-full" onclick={handleGoogleSignup}>
 			<GoogleIcon />
 			{$_('auth.continueWithGoogle')}
 		</Button>
 	{/if}
 
-	{#if githubAuthEnabled}
+	{#if registrationEnabled && githubAuthEnabled}
 		<Button variant="secondary" class="w-full" onclick={handleGithubSignup}>
 			<GitHubIcon />
 			{$_('auth.continueWithGitHub')}
 		</Button>
 	{/if}
 
-	{#if linuxdoAuthEnabled}
+	{#if registrationEnabled && linuxdoAuthEnabled}
 		<Button variant="secondary" class="w-full" onclick={handleLinuxDoSignup}>
 			{$_('auth.continueWithLinuxDO')}
 		</Button>
 	{/if}
 
-	{#if (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled) && emailSignupEnabled}
+	{#if (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled) && registrationEnabled}
 		<div class="flex items-center gap-3">
 			<div class="h-px flex-1 bg-border"></div>
 			<span class="text-sm text-muted-foreground">{$_('auth.or')}</span>
@@ -166,7 +168,7 @@
 		</div>
 	{/if}
 
-	{#if emailSignupEnabled}
+	{#if registrationEnabled}
 		<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); handleRegister() }}>
 			{#if error}
 				<Alert variant="destructive">
@@ -196,7 +198,7 @@
 		</form>
 	{/if}
 
-	{#if showLegal && (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || emailSignupEnabled)}
+	{#if showLegal && (googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || registrationEnabled)}
 		<LegalDisclosure intent="register" {termsHref} {privacyHref} {refundHref} />
 	{/if}
 

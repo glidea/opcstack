@@ -28,8 +28,11 @@ const shardRouterMocks = vi.hoisted(() => {
 	}
 })
 
-vi.mock('better-auth', () => {
+
+vi.mock('better-auth', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('better-auth')>()
 	return {
+		...actual,
 		betterAuth: vi.fn()
 	}
 })
@@ -119,8 +122,8 @@ describe('authCore email config mapping', () => {
 	})
 
 	type GivenDetail = {
-		emailEnabled: boolean
-		emailSignupEnabled: string
+		emailProviderConfigured: boolean
+		registrationEnabled: string
 		emailRequireVerification: string
 		cooldownSeconds: string
 		emailResendApiKey: string
@@ -143,8 +146,8 @@ describe('authCore email config mapping', () => {
 			when: 'building auth core',
 			then: 'email config is mapped to better auth options',
 			givenDetail: {
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
 				emailResendApiKey: 'resend-api-key',
@@ -166,8 +169,8 @@ describe('authCore email config mapping', () => {
 			when: 'building auth core',
 			then: 'email auth config is still built',
 			givenDetail: {
-				emailEnabled: false,
-				emailSignupEnabled: 'false',
+				emailProviderConfigured: false,
+				registrationEnabled: 'false',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
 				emailResendApiKey: '',
@@ -178,19 +181,19 @@ describe('authCore email config mapping', () => {
 				error: '',
 				emailAndPasswordEnabled: true,
 				disableSignUp: true,
-				requireEmailVerification: false,
+				requireEmailVerification: true,
 				hasEmailOtpPlugin: true,
 				hasSendResetPassword: false
 			}
 		},
 		{
-			scenario: 'disable signup when email delivery is disabled',
-			given: 'signup switch enabled without an email provider',
+			scenario: 'keep signup enabled when email provider is missing',
+			given: 'registration switch enabled without an email provider',
 			when: 'building auth core',
-			then: 'email password login remains enabled but signup is disabled',
+			then: 'email password login and signup follow the registration switch',
 			givenDetail: {
-				emailEnabled: false,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: false,
+				registrationEnabled: 'true',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
 				emailResendApiKey: '',
@@ -200,8 +203,8 @@ describe('authCore email config mapping', () => {
 			thenExpected: {
 				error: '',
 				emailAndPasswordEnabled: true,
-				disableSignUp: true,
-				requireEmailVerification: false,
+				disableSignUp: false,
+				requireEmailVerification: true,
 				hasEmailOtpPlugin: true,
 				hasSendResetPassword: false
 			}
@@ -212,8 +215,8 @@ describe('authCore email config mapping', () => {
 			when: 'building auth core',
 			then: 'auth core still builds email auth options',
 			givenDetail: {
-				emailEnabled: true,
-				emailSignupEnabled: 'false',
+				emailProviderConfigured: true,
+				registrationEnabled: 'false',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '0',
 				emailResendApiKey: 'resend-api-key',
@@ -429,8 +432,8 @@ describe('authCore turnstile config mapping', () => {
 
 	runCases(cases, async (given: GivenDetail): Promise<ThenExpected> => {
 		const config = createAuthRuntimeConfig({
-			emailEnabled: true,
-			emailSignupEnabled: 'true',
+			emailProviderConfigured: true,
+			registrationEnabled: 'true',
 			emailRequireVerification: 'true',
 			cooldownSeconds: '50',
 			emailResendApiKey: 'resend-api-key',
@@ -471,8 +474,8 @@ describe('authCore email callbacks', () => {
 	})
 
 	type GivenDetail = {
-		emailEnabled: boolean
-		emailSignupEnabled: string
+		emailProviderConfigured: boolean
+		registrationEnabled: string
 		emailRequireVerification: string
 		cooldownSeconds: string
 		emailResendApiKey: string
@@ -503,8 +506,8 @@ describe('authCore email callbacks', () => {
 			when: 'calling sendVerificationOTP callbacks',
 			then: 'email client send is called with otp email subjects',
 			givenDetail: {
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailRequireVerification: 'true',
 				cooldownSeconds: '50',
 				emailResendApiKey: 'resend-api-key',
@@ -704,8 +707,8 @@ describe('authCore user create hook', () => {
 			createEnv(),
 			{} as never,
 			createAuthRuntimeConfig({
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailRequireVerification: 'false',
 				cooldownSeconds: '50',
 				emailResendApiKey: 'resend-api-key',
@@ -783,8 +786,8 @@ describe('authCore registration attribution', () => {
 				}
 			} as never,
 			createAuthRuntimeConfig({
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailRequireVerification: 'false',
 				cooldownSeconds: '50',
 				emailResendApiKey: 'resend-api-key',
@@ -811,6 +814,45 @@ describe('authCore registration attribution', () => {
 		return {
 			registrationUtmSource: String(result.data['registrationUtmSource'] ?? '')
 		}
+	})
+})
+
+describe('authCore registration gate', () => {
+	it('rejects first-time social registration when registration is disabled', async () => {
+		vi.clearAllMocks()
+		vi.mocked(createEmailClients).mockReturnValue({
+			simple: { send: createSendMock() },
+			resend: {} as Resend
+		})
+		vi.mocked(betterAuth).mockImplementation((options) => options as never)
+
+		const auth = authCore(
+			createEnv(),
+			{ query: { user: { findFirst: async (): Promise<undefined> => undefined } } } as never,
+			createAuthRuntimeConfig({
+				emailProviderConfigured: true,
+				registrationEnabled: 'false',
+				emailRequireVerification: 'false',
+				cooldownSeconds: '50',
+				emailResendApiKey: 'resend-api-key',
+				emailFrom: 'auth@mg.example.com'
+			})
+		) as unknown as {
+			databaseHooks: {
+				user: {
+					create: {
+						before: (userData: Record<string, unknown>, context: { headers?: Headers; request?: Request } | null) => Promise<unknown>
+					}
+				}
+			}
+		}
+
+		const error = await auth.databaseHooks.user.create.before({ id: 'u1' }, null).catch((value: unknown) => value)
+		expect(error).toMatchObject({
+			body: { code: 'REGISTRATION_DISABLED', message: 'Registration is disabled' },
+			statusCode: 403
+		})
+		expect(error).toBeInstanceOf(Error)
 	})
 })
 
@@ -1133,8 +1175,8 @@ function createEnv(): Env {
 }
 
 function createAuthRuntimeConfig(input?: {
-	emailEnabled: boolean
-	emailSignupEnabled: string
+	emailProviderConfigured: boolean
+	registrationEnabled: string
 	emailRequireVerification: string
 	cooldownSeconds: string
 	emailResendApiKey: string
@@ -1144,7 +1186,7 @@ function createAuthRuntimeConfig(input?: {
 		systemEmail: 'admin@opcstack.local',
 		authentication: {
 			betaCodeEnabled: false,
-			emailSignupEnabled: input?.emailSignupEnabled === 'true',
+			registrationEnabled: input?.registrationEnabled === 'true',
 			emailSignupDomainAllowlist: [],
 			emailRequireVerification: input?.emailRequireVerification === 'true',
 			emailUserActionCooldownSeconds: Number(input?.cooldownSeconds ?? '50'),
@@ -1159,9 +1201,8 @@ function createAuthRuntimeConfig(input?: {
 				linuxdo: { enabled: false, clientId: null, clientSecret: null }
 			}
 		},
-		email: {
-			enabled: input?.emailEnabled ?? false,
-			provider: input?.emailResendApiKey ? 'resend' : null,
+			email: {
+				provider: input?.emailResendApiKey ? 'resend' : null,
 			resendApiKey: input?.emailResendApiKey || null
 		}
 	}

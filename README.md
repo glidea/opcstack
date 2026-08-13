@@ -182,7 +182,7 @@ pnpm build:extension
 - [ ] Alipay support
 - [ ] Lower-barrier payment providers such as ZPay and Qirun Pay
 - [ ] Balance-funded subscriptions
-- [ ] Better payment routing and product configuration
+- [ ] Advanced payment routing policies
 
 ### Reliability and Usage Control
 

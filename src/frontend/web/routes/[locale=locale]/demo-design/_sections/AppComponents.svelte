@@ -70,7 +70,7 @@
 				googleAuthEnabled={true}
 				githubAuthEnabled={true}
 				linuxdoAuthEnabled={true}
-				emailSignupEnabled={true}
+				registrationEnabled={true}
 				registerHref="#"
 				forgotPasswordHref="#"
 				turnstileEnabled={false}
@@ -84,7 +84,7 @@
 				googleAuthEnabled={true}
 				githubAuthEnabled={true}
 				linuxdoAuthEnabled={true}
-				emailSignupEnabled={true}
+				registrationEnabled={true}
 				emailRequireVerification={true}
 				emailUserActionCooldownSeconds={60}
 				loginHref="#"

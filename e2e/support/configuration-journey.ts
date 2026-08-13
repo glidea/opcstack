@@ -71,6 +71,17 @@ export async function verifyConfigurationAndOAuthJourney(input: {
 		expect(storageResponse.status, await storageResponse.clone().text()).toBe(200)
 		const originalStorage: StorageConfig = await readJson<StorageConfig>(storageResponse)
 		storageVersion = originalStorage.version
+		const forbiddenResponse: Response = await callOAuthRaw(
+			input.appBaseUrl,
+			token.access_token,
+			'get_ai_config',
+			{}
+		)
+		expect(forbiddenResponse.status).toBe(403)
+		expect(await readJson<{ code: string }>(forbiddenResponse)).toEqual({
+			code: 'FORBIDDEN',
+			message: 'Required API scope is missing'
+		})
 		const updateStorageResponse: Response = await callOAuthRaw(
 			input.appBaseUrl,
 			token.access_token,

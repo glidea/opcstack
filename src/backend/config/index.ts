@@ -8,6 +8,7 @@ import {
 	type AuthenticationSettingsDocument,
 	type CreditsSettingsDocument,
 	type EmailSettingsDocument,
+	type EncryptedConfigValue,
 	type GeneralSettingsDocument,
 	type PaymentSettingsDocument,
 	type StorageSettingsDocument,
@@ -83,7 +84,6 @@ export type AuthenticationRuntimeProviderConfig = {
 }
 
 export type EmailRuntimeConfig = {
-	enabled: boolean
 	provider: EmailSettingsDocument['provider']
 	resendApiKey: string | null
 }
@@ -99,8 +99,8 @@ export type PublicRuntimeConfig = {
 	design_system: GeneralSettingsDocument['designSystem']
 	docs_enabled: boolean
 	payment_enabled: boolean
-	email_enabled: boolean
-	email_signup_enabled: boolean
+	email_provider_configured: boolean
+	registration_enabled: boolean
 	email_require_verification: boolean
 	email_user_action_cooldown_seconds: number
 	google_auth_enabled: boolean
@@ -122,7 +122,7 @@ export type UpdateStorageConfigInput = StorageSettingsDocument & {
 
 export type UpdateAuthenticationConfigInput = {
 	betaCodeEnabled: boolean
-	emailSignupEnabled: boolean
+	registrationEnabled: boolean
 	emailSignupDomainAllowlist: string[]
 	emailRequireVerification: boolean
 	emailUserActionCooldownSeconds: number
@@ -147,7 +147,6 @@ type AuthenticationProviderUpdate = {
 }
 
 export type UpdateEmailConfigInput = {
-	enabled: boolean
 	provider: EmailSettingsDocument['provider']
 	resendApiKey: SecretMutation
 	expectedVersion: number
@@ -207,7 +206,7 @@ const AuthenticationProviderSchema = z.object({
 
 const AuthenticationSettingsSchema = z.object({
 	betaCodeEnabled: z.boolean(),
-	emailSignupEnabled: z.boolean(),
+	registrationEnabled: z.boolean(),
 	emailSignupDomainAllowlist: z
 		.array(z.string().trim().toLowerCase().min(1))
 		.refine((items: string[]): boolean => new Set(items).size === items.length),
@@ -226,7 +225,6 @@ const AuthenticationSettingsSchema = z.object({
 })
 
 const EmailSettingsSchema = z.object({
-	enabled: z.boolean(),
 	provider: z.enum(['cloudflare', 'resend']).nullable(),
 	resendApiKey: EncryptedSecretSchema.nullable()
 })
@@ -326,10 +324,12 @@ export async function updateAuthenticationConfig(
 	encryptionKey: string,
 	input: UpdateAuthenticationConfigInput
 ): Promise<AuthenticationConfig> {
-	const current: AuthenticationConfig = await getAuthenticationConfig(db)
+	const currentSettings: SystemSettings = await readSystemSettingsSnapshot(db)
+	const current: AuthenticationConfig = toAuthenticationConfig(currentSettings)
+	const email: EmailSettingsDocument = parseEmailSettings(currentSettings.emailConfig)
 	const values: AuthenticationSettingsDocument = parseAuthenticationSettings({
 		betaCodeEnabled: input.betaCodeEnabled,
-		emailSignupEnabled: input.emailSignupEnabled,
+		registrationEnabled: input.registrationEnabled,
 		emailSignupDomainAllowlist: input.emailSignupDomainAllowlist,
 		emailRequireVerification: input.emailRequireVerification,
 		emailUserActionCooldownSeconds: input.emailUserActionCooldownSeconds,
@@ -361,6 +361,7 @@ export async function updateAuthenticationConfig(
 		}
 	})
 	validateAuthenticationDependencies(values)
+	validateAuthenticationEmailDependencies(values, email)
 	const settings: SystemSettings = await updateSystemSettingsDomain(db, {
 		domain: 'authentication',
 		expectedVersion: input.expectedVersion,
@@ -375,23 +376,30 @@ export async function updateEmailConfig(
 	encryptionKey: string,
 	input: UpdateEmailConfigInput
 ): Promise<EmailConfig> {
-	const current: EmailConfig = await getEmailConfig(db)
-	const values: EmailSettingsDocument = parseEmailSettings({
-		enabled: input.enabled,
-		provider: input.provider,
-		resendApiKey: await mutateConfigSecret(
+	const currentSettings: SystemSettings = await readSystemSettingsSnapshot(db)
+	const current: EmailConfig = toEmailConfig(currentSettings)
+	const authentication: AuthenticationSettingsDocument = parseAuthenticationSettings(
+		currentSettings.authenticationConfig
+	)
+	const resendApiKey: EncryptedConfigValue | null = input.provider === 'resend'
+		? await mutateConfigSecret(
 			encryptionKey,
 			current.resendApiKey,
 			input.resendApiKey
 		)
+		: null
+	const values: EmailSettingsDocument = parseEmailSettings({
+		provider: input.provider,
+		resendApiKey
 	})
 	validateEmailDependencies(values)
-	if (values.enabled) {
+	validateAuthenticationEmailDependencies(authentication, values)
+	if (values.provider !== null) {
 		const administrator = await getAdministrator(db)
 		if (administrator.email.endsWith('@opcstack.local')) {
 			throw new ConfigStoreError(
 				'INVALID_UPDATE',
-				'Administrator email must be changed before Email is enabled'
+				'Administrator email must be changed before configuring an Email provider'
 			)
 		}
 	}
@@ -446,11 +454,11 @@ export async function getAuthRuntimeConfig(
 	const administrator = await getAdministrator(db)
 	validateAuthenticationDependencies(authentication)
 	validateEmailDependencies(email)
+	validateAuthenticationEmailDependencies(authentication, email)
 	return {
 		systemEmail: administrator.email,
 		authentication: await decryptAuthenticationConfig(encryptionKey, authentication),
 		email: {
-			enabled: email.enabled,
 			provider: email.provider,
 			resendApiKey: email.resendApiKey
 				? await decryptConfigSecret(encryptionKey, email.resendApiKey)
@@ -469,13 +477,14 @@ export async function getPublicRuntimeConfig(db: MetaDb): Promise<PublicRuntimeC
 	const administrator = await getAdministrator(db)
 	validateAuthenticationDependencies(authentication)
 	validateEmailDependencies(email)
+	validateAuthenticationEmailDependencies(authentication, email)
 	return {
 		support_email: administrator.email,
 		design_system: general.designSystem,
 		docs_enabled: general.docsEnabled,
 		payment_enabled: parsePaymentEnabled(settings.paymentConfig),
-		email_enabled: email.enabled,
-		email_signup_enabled: authentication.emailSignupEnabled,
+		email_provider_configured: email.provider !== null,
+		registration_enabled: authentication.registrationEnabled,
 		email_require_verification: authentication.emailRequireVerification,
 		email_user_action_cooldown_seconds: authentication.emailUserActionCooldownSeconds,
 		google_auth_enabled: authentication.providers.google.enabled,
@@ -678,8 +687,10 @@ function toAuthenticationConfig(settings: SystemSettings): AuthenticationConfig 
 }
 
 function toEmailConfig(settings: SystemSettings): EmailConfig {
+	const config: EmailSettingsDocument = parseEmailSettings(settings.emailConfig)
+	validateEmailDependencies(config)
 	return {
-		...parseEmailSettings(settings.emailConfig),
+		...config,
 		version: settings.emailVersion
 	}
 }
@@ -831,14 +842,32 @@ function validateAuthenticationProvider(
 }
 
 function validateEmailDependencies(config: EmailSettingsDocument): void {
-	const configured: boolean = config.enabled || config.provider !== null || config.resendApiKey !== null
+	if (config.provider !== 'resend' && config.resendApiKey !== null) {
+		throw new ConfigStoreError(
+			'INVALID_UPDATE',
+			'resendApiKey is only valid for the Resend provider'
+		)
+	}
+	const configured: boolean = config.provider !== null || config.resendApiKey !== null
 	if (configured && !config.provider) {
-		throw new ConfigStoreError('INVALID_UPDATE', `provider is required when Email is ${config.enabled ? 'enabled' : 'configured'}`)
+		throw new ConfigStoreError('INVALID_UPDATE', 'provider is required when Email is configured')
 	}
 	if (configured && config.provider === 'resend' && !config.resendApiKey) {
 		throw new ConfigStoreError(
 			'INVALID_UPDATE',
-			`resendApiKey is required when the Resend provider is ${config.enabled ? 'enabled' : 'configured'}`
+			'resendApiKey is required when the Resend provider is configured'
+		)
+	}
+}
+
+function validateAuthenticationEmailDependencies(
+	authentication: AuthenticationSettingsDocument,
+	email: EmailSettingsDocument
+): void {
+	if (authentication.emailRequireVerification && email.provider === null) {
+		throw new ConfigStoreError(
+			'INVALID_UPDATE',
+			'Email provider is required when email verification is enabled'
 		)
 	}
 }
@@ -849,7 +878,7 @@ async function decryptAuthenticationConfig(
 ): Promise<AuthenticationRuntimeConfig> {
 	return {
 		betaCodeEnabled: config.betaCodeEnabled,
-		emailSignupEnabled: config.emailSignupEnabled,
+		registrationEnabled: config.registrationEnabled,
 		emailSignupDomainAllowlist: config.emailSignupDomainAllowlist,
 		emailRequireVerification: config.emailRequireVerification,
 		emailUserActionCooldownSeconds: config.emailUserActionCooldownSeconds,

@@ -43,12 +43,14 @@ export const emailAuthMiddleware: MiddlewareHandler<ApiEnv> = async (
 	}
 
 	const config = await getRequestAuthRuntimeConfig(ctx)
-	if (!config.email.enabled) {
-		return ctx.json({ code: 'EMAIL_DISABLED', message: 'Email is disabled' }, 400)
+	if (scene !== 'signup' && config.email.provider === null) {
+		return ctx.json(
+			{ code: 'EMAIL_PROVIDER_UNAVAILABLE', message: 'Email provider is not configured' },
+			400
+		)
 	}
-	const emailSignupEnabled: boolean = config.authentication.emailSignupEnabled
-	if (scene === 'signup' && !emailSignupEnabled) {
-		return ctx.json({ code: 'EMAIL_SIGNUP_DISABLED', message: 'Email signup is disabled' }, 400)
+	if (scene === 'signup' && !config.authentication.registrationEnabled) {
+		return ctx.json({ code: 'REGISTRATION_DISABLED', message: 'Registration is disabled' }, 400)
 	}
 
 	const signupDomainAllowlist: string[] = config.authentication.emailSignupDomainAllowlist

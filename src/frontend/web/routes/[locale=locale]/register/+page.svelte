@@ -45,7 +45,7 @@
 			googleAuthEnabled={data.publicRuntimeConfig.google_auth_enabled}
 			githubAuthEnabled={data.publicRuntimeConfig.github_auth_enabled}
 			linuxdoAuthEnabled={data.publicRuntimeConfig.linuxdo_auth_enabled}
-			emailSignupEnabled={data.publicRuntimeConfig.email_enabled && data.publicRuntimeConfig.email_signup_enabled}
+			registrationEnabled={data.publicRuntimeConfig.registration_enabled}
 			emailRequireVerification={data.publicRuntimeConfig.email_require_verification}
 			emailUserActionCooldownSeconds={data.publicRuntimeConfig.email_user_action_cooldown_seconds}
 			refundHref={data.publicRuntimeConfig.payment_enabled ? '/refund-policy' : undefined}

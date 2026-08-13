@@ -51,7 +51,7 @@ describe('notification api e2e', () => {
 
 	const publicCases: TestCase<PublicGiven, PublicWhen, PublicThen>[] = [
 		{
-			scenario: 'create notification requires admin api token',
+			scenario: 'create notification requires administrator authorization',
 			given: 'no admin authorization header',
 			when: 'creating notification',
 			then: 'returns unauthorized',
@@ -141,7 +141,7 @@ describe('notification api e2e', () => {
 		const flowCases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 			{
 				scenario: 'admin creates global notification and user can read it',
-				given: 'admin api token and a signed in user',
+				given: 'an administrator session and a signed in user',
 				when: 'creating listing and reading a notification',
 				then: 'notification read state changes from false to true',
 				givenDetail: {},

@@ -16,8 +16,8 @@ describe('emailAuthMiddleware', () => {
 			email?: string
 			type?: string
 		}
-		emailEnabled: boolean
-		emailSignupEnabled: string
+		emailProviderConfigured: boolean
+		registrationEnabled: string
 		emailSignupDomainAllowlist: string
 		cooldownSeconds: string
 		kvGetValue: string | null
@@ -40,8 +40,8 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-in/email',
 				body: { email: 'u1@example.com' },
-				emailEnabled: false,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: false,
+				registrationEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
 				kvGetValue: null
@@ -63,8 +63,8 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-in/email-otp',
 				body: { email: 'u-login@example.com', type: 'sign-in' },
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
 				kvGetValue: null
@@ -86,8 +86,8 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/send-verification-otp',
 				body: { email: 'u-login@example.com', type: 'sign-in' },
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
 				kvGetValue: null
@@ -109,8 +109,8 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-up/email',
 				body: { email: 'u-signup-disabled@example.com' },
-				emailEnabled: true,
-				emailSignupEnabled: 'false',
+				emailProviderConfigured: true,
+				registrationEnabled: 'false',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
 				kvGetValue: null
@@ -118,22 +118,22 @@ describe('emailAuthMiddleware', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				code: 'EMAIL_SIGNUP_DISABLED',
+				code: 'REGISTRATION_DISABLED',
 				nextCalled: false,
 				kvGetCalled: false,
 				kvPutCalled: false
 			}
 		},
 		{
-			scenario: 'reject email action when email delivery is disabled',
-			given: 'password reset endpoint and email delivery off',
+			scenario: 'reject email action when no provider is configured',
+			given: 'password reset endpoint without an Email provider',
 			when: 'running middleware',
-			then: 'returns email disabled',
+			then: 'returns provider unavailable',
 			givenDetail: {
 				path: '/api/auth/email-otp/request-password-reset',
 				body: { email: 'u-email-disabled@example.com' },
-				emailEnabled: false,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: false,
+				registrationEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
 				kvGetValue: null
@@ -141,7 +141,7 @@ describe('emailAuthMiddleware', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 400,
-				code: 'EMAIL_DISABLED',
+				code: 'EMAIL_PROVIDER_UNAVAILABLE',
 				nextCalled: false,
 				kvGetCalled: false,
 				kvPutCalled: false
@@ -155,8 +155,8 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/sign-up/email',
 				body: { email: 'u1@gmail.com' },
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailSignupDomainAllowlist: 'example.com;corp.com',
 				cooldownSeconds: '50',
 				kvGetValue: null
@@ -178,8 +178,8 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/request-password-reset',
 				body: { email: 'u-rate@example.com' },
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
 				kvGetValue: '9999999999999'
@@ -201,8 +201,8 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/request-password-reset',
 				body: { email: 'u-allow@example.com' },
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
 				kvGetValue: null
@@ -224,8 +224,8 @@ describe('emailAuthMiddleware', () => {
 			givenDetail: {
 				path: '/api/auth/email-otp/send-verification-otp',
 				body: { email: 'u-otp@example.com' },
-				emailEnabled: true,
-				emailSignupEnabled: 'true',
+				emailProviderConfigured: true,
+				registrationEnabled: 'true',
 				emailSignupDomainAllowlist: '',
 				cooldownSeconds: '50',
 				kvGetValue: null
@@ -287,8 +287,8 @@ function createContextState(given: {
 		email?: string
 		type?: string
 	}
-	emailEnabled: boolean
-	emailSignupEnabled: string
+	emailProviderConfigured: boolean
+	registrationEnabled: string
 	emailSignupDomainAllowlist: string
 	cooldownSeconds: string
 	kvGetValue: string | null
@@ -391,8 +391,8 @@ function createContext(state: ContextState): Context<ApiEnv> {
 }
 
 function createAuthRuntimeConfig(input: {
-	emailEnabled: boolean
-	emailSignupEnabled: string
+	emailProviderConfigured: boolean
+	registrationEnabled: string
 	emailSignupDomainAllowlist: string
 	cooldownSeconds: string
 }): AuthRuntimeConfig {
@@ -400,7 +400,7 @@ function createAuthRuntimeConfig(input: {
 		systemEmail: 'admin@opcstack.local',
 		authentication: {
 			betaCodeEnabled: false,
-			emailSignupEnabled: input.emailSignupEnabled === 'true',
+			registrationEnabled: input.registrationEnabled === 'true',
 			emailSignupDomainAllowlist: input.emailSignupDomainAllowlist
 				.split(';')
 				.filter((domain: string): boolean => domain !== ''),
@@ -413,10 +413,9 @@ function createAuthRuntimeConfig(input: {
 				linuxdo: { enabled: false, clientId: null, clientSecret: null }
 			}
 		},
-		email: {
-			enabled: input.emailEnabled,
-			provider: input.emailEnabled ? 'resend' : null,
-			resendApiKey: input.emailEnabled ? 'resend-api-key' : null
+			email: {
+				provider: input.emailProviderConfigured ? 'resend' : null,
+			resendApiKey: input.emailProviderConfigured ? 'resend-api-key' : null
 		}
 	}
 }

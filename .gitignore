@@ -12,4 +12,3 @@ src/frontend/extension/.wxt/
 .DS_Store
 .env
 .env.secret.dev
-.env.secret.prod

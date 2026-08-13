@@ -54,7 +54,7 @@ describe('feedback api e2e', () => {
 			}
 		},
 		{
-			scenario: 'list feedbacks requires admin api token',
+			scenario: 'list feedbacks requires administrator authorization',
 			given: 'no admin authorization header',
 			when: 'listing feedbacks',
 			then: 'returns unauthorized',
@@ -104,7 +104,7 @@ describe('feedback api e2e', () => {
 		const flowCases: TestCase<FlowGiven, FlowWhen, FlowThen>[] = [
 			{
 				scenario: 'user submits feedback to tenant shard',
-				given: 'a signed in user and admin api token',
+				given: 'a signed in user and administrator session',
 				when: 'submitting feedback and listing globally',
 				then: 'submit succeeds and admin can list the feedback',
 				givenDetail: {},

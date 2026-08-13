@@ -40,7 +40,7 @@ describe('configuration contract', () => {
 	test('accepts explicit secret mutations for Authentication', (): void => {
 		const result = UpdateAuthenticationConfigRequestSchema.safeParse({
 			beta_code_enabled: false,
-			email_signup_enabled: true,
+			registration_enabled: true,
 			email_signup_domain_allowlist: ['example.com'],
 			email_require_verification: false,
 			email_user_action_cooldown_seconds: 50,
@@ -62,10 +62,9 @@ describe('configuration contract', () => {
 		expect(result.success).toBe(true)
 	})
 
-	test('rejects an empty replacement secret', (): void => {
-		const result = UpdateEmailConfigRequestSchema.safeParse({
-			enabled: true,
-			provider: 'resend',
+		test('rejects an empty replacement secret', (): void => {
+			const result = UpdateEmailConfigRequestSchema.safeParse({
+				provider: 'resend',
 			resend_api_key: { action: 'replace', value: '' },
 			expected_version: 1
 		})

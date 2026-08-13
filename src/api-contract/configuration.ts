@@ -57,7 +57,7 @@ export type GetAuthenticationConfigRequest = z.infer<typeof GetAuthenticationCon
 
 export const AuthenticationConfigSchema = z.object({
 	beta_code_enabled: z.boolean(),
-	email_signup_enabled: z.boolean(),
+	registration_enabled: z.boolean(),
 	email_signup_domain_allowlist: z.array(z.string()),
 	email_require_verification: z.boolean(),
 	email_user_action_cooldown_seconds: z.number().int().positive(),
@@ -82,7 +82,7 @@ export type AuthenticationConfig = z.infer<typeof AuthenticationConfigSchema>
 
 export const UpdateAuthenticationConfigRequestSchema = z.object({
 	beta_code_enabled: z.boolean(),
-	email_signup_enabled: z.boolean(),
+	registration_enabled: z.boolean(),
 	email_signup_domain_allowlist: z.array(z.string().trim().min(1)),
 	email_require_verification: z.boolean(),
 	email_user_action_cooldown_seconds: z.number().int().positive(),
@@ -108,7 +108,6 @@ export const GetEmailConfigRequestSchema = z.object({})
 export type GetEmailConfigRequest = z.infer<typeof GetEmailConfigRequestSchema>
 
 export const EmailConfigSchema = z.object({
-	enabled: z.boolean(),
 	provider: z.enum(['cloudflare', 'resend']).nullable(),
 	resend_api_key_configured: z.boolean(),
 	version: z.number().int().min(1)
@@ -116,7 +115,6 @@ export const EmailConfigSchema = z.object({
 export type EmailConfig = z.infer<typeof EmailConfigSchema>
 
 export const UpdateEmailConfigRequestSchema = z.object({
-	enabled: z.boolean(),
 	provider: z.enum(['cloudflare', 'resend']).nullable(),
 	resend_api_key: SecretMutationSchema,
 	expected_version: z.number().int().min(1)

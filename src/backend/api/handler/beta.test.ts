@@ -428,7 +428,7 @@ function createAuthRuntimeConfig(betaCodeEnabled: boolean): AuthRuntimeConfig {
 		systemEmail: 'admin@opcstack.local',
 		authentication: {
 			betaCodeEnabled,
-			emailSignupEnabled: false,
+			registrationEnabled: false,
 			emailSignupDomainAllowlist: [],
 			emailRequireVerification: false,
 			emailUserActionCooldownSeconds: 50,
@@ -439,6 +439,6 @@ function createAuthRuntimeConfig(betaCodeEnabled: boolean): AuthRuntimeConfig {
 				linuxdo: { enabled: false, clientId: null, clientSecret: null }
 			}
 		},
-		email: { enabled: false, provider: null, resendApiKey: null }
+		email: { provider: null, resendApiKey: null }
 	}
 }

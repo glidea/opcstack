@@ -44,7 +44,8 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await leaveDialog.getByRole('button', { name: 'Discard changes', exact: true }).click()
 	await expect(page).toHaveURL(/\/admin\/configuration\/email$/)
 
-	await openConfigurationTab(page, 'general')
+	await goToHydrated(page, '/en/admin/configuration/general')
+	await expect(docsSwitch).toBeVisible()
 	const concurrentPage: Page = await context.newPage()
 	await goToHydrated(concurrentPage, '/en/admin/configuration/general')
 	await docsSwitch.click()
@@ -62,10 +63,25 @@ test('completes the first-run administrator journey in the browser', async ({ br
 
 	await verifyConfigurationTabs(page)
 	await openConfigurationTab(page, 'email')
-	await page.getByRole('button', { name: 'Expand configuration', exact: true }).click()
-	await page.locator('#email-enabled').click()
+	const anonymousContext: BrowserContext = await browser.newContext()
+	const anonymousPage: Page = await anonymousContext.newPage()
+	await goToHydrated(anonymousPage, '/en/login')
+	await expect(anonymousPage.getByRole('link', { name: 'Forgot password?', exact: true })).toHaveCount(0)
+	await anonymousContext.close()
+
+	await page.locator('#email-provider').click()
+	await page.getByRole('option', { name: 'Cloudflare Email', exact: true }).click()
 	await page.getByRole('button', { name: 'Save', exact: true }).click()
-	await expect(page.locator('#email-provider')).toHaveAttribute('aria-invalid', 'true')
+	await expect(page.getByText('Configuration saved')).toBeVisible()
+	await page.locator('#email-provider').click()
+	await page.getByRole('option', { name: 'Not configured', exact: true }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+	await expect(page.getByText('Configuration saved')).toBeVisible()
+
+	await page.locator('#email-provider').click()
+	await page.getByRole('option', { name: 'Resend', exact: true }).click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+	await expect(page.getByText('Resend API key is required')).toBeVisible()
 	await page.getByRole('button', { name: 'Discard', exact: true }).click()
 
 	await verifyPaymentProductJourney(page, concurrentPage)

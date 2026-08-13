@@ -2,15 +2,15 @@
 
 ## 当前执行状态
 
-- Task-001 至 Task-007 和 Task-006A 已实现、验证、提交并推送
-- Task-001 至 Task-009 和 Task-006A 已实现并验证；Task-010 未完成
-- Task-009 已通过空数据首次启动的真实浏览器旅程及 10 个针对性测试文件、65 个测试；Task-010 最后完成文档、旧逻辑搜索、OAuth HTTP 流程和真实 Cloudflare 远程验收
+- Task-001 至 Task-009 和 Task-006A 已实现、验证、提交并推送
+- Task-010 的本地首次启动、浏览器、HTTP、OAuth、扩展构建和完整回归已通过
+- Task-010 的本地与真实 Cloudflare 用户流程均已验收通过
 - 未通过对应任务的行为测试、真实用户流程和完整回归前，不把已有局部代码视为完成
 
 # Task-001: 建立 D1 配置存储与加密内核
 
 ## 描述
-在 Meta D1 建立 `system_settings`、`payment_products`、`ai_channels` 及通用 OAuth API Access 数据表。实现按业务域读取、版本化原子更新和 AES-GCM 密钥加解密，为后续业务迁移提供唯一配置内核。
+在 Meta D1 建立 `system_settings`、`payment_products`、`ai_providers` 及通用 OAuth API Access 数据表。实现按业务域读取、版本化原子更新和 AES-GCM 密钥加解密，为后续业务迁移提供唯一配置内核。
 
 ## 不包含
 - 不迁移任何现有业务模块的 ENV 读取
@@ -64,6 +64,7 @@
 - [x] 3. 将 Better Auth、注册流程、Turnstile 和外部 OAuth 切换到请求内 D1 配置快照
 - [x] 4. 将邮件模块切换到 D1 Provider 配置，保持 `SEND_EMAIL` 为固定 Binding
 - [x] 5. 调整 Cloudflare 初始化并删除对应业务 ENV、Secret 和旧读取逻辑
+- [x] 6. 删除 Email 独立开关，以 Provider 是否存在派生邮件可用性；未配置时隐藏忘记密码入口，注册仍由统一注册开关控制
 
 ## 验收测试步骤
 1. 在禁用状态启动项目并使用固定管理员身份登录，确认未配置的注册和第三方登录入口隐藏
@@ -107,7 +108,7 @@
 ## 验收测试步骤
 1. 从空 Meta D1 运行准备流程，确认终端只在首次显示 `admin@opcstack.local` 和随机密码，并可用它登录后台
 2. 修改管理员邮箱和密码后再次运行准备流程，确认新凭据仍有效、初始凭据失效且没有再次显示密码
-3. 使用普通用户 Session 调用管理员 API 确认返回 `403`，管理员 Session 成功；启用邮件前使用 `@opcstack.local` 发件应明确失败
+3. 使用普通用户 Session 调用管理员 API 确认返回 `403`，管理员 Session 成功；使用 `@opcstack.local` 配置 Email Provider 应明确失败
 
 # Task-004: 迁移 Credits 与 Affiliate 配置
 
@@ -151,12 +152,12 @@
 2. 更新 Webhook Secret 后用旧签名和新签名请求，确认只有新签名通过
 3. 尝试删除被有效订阅引用的商品及使用过期版本更新，确认均返回 `CONFIG_CONFLICT`
 
-# Task-006: 迁移 AI Provider 与 Channel 配置
+# Task-006: 迁移 AI 配置
 
-> 历史状态：该任务已按旧设计实现并提交，但旧设计后来被否定。最终系统不得保留固定 Provider 与 Channel 两套配置；Task-006A 完成前，AI 配置迁移不算最终验收通过。
+> 历史双轨方案已作废。最终系统只保留 `ai_providers`；Task-006A 是该任务的最终模型收口。
 
 ## 描述
-实现 AI 单例配置和 Channel 集合 API，将同步 Provider、异步 Channel Router、Queue Consumer 和清理任务全部切换到 D1。Channel 继续保留现有身份、路由指标和 Video 固定执行渠道语义，但不再从 ENV 发现渠道。
+实现 AI 单例配置和 Provider 集合 API，将同步调用、Provider Router、Queue Consumer 和清理任务全部切换到 D1。Provider 保留独立身份、路由指标和 Video 固定执行实体语义。
 
 ## 不包含
 - 不改变 AI 任务表、队列消息格式和现有 Provider 能力
@@ -165,7 +166,7 @@
 ## TODO 清单
 - [x] 1. 先增加 Provider CRUD、路由权重、密钥替换和 Consumer 快照的失败测试
 - [x] 2. 实现 AI 配置及 Provider CRUD 契约、Handler、校验和加密凭据处理
-- [x] 3. 将同步 AI 与异步 Provider Router 切换到 D1 配置
+- [x] 3. 将同步 AI 与 Provider Router 切换到 D1 配置
 - [x] 4. 迁移 Image、TTS、Video Consumer 与保留任务，保持一次执行只使用一份配置快照
 - [x] 5. 删除所有 AI 业务 ENV、旧端点发现、解析器和兼容逻辑
 
@@ -275,15 +276,15 @@
 - 不让远程 E2E 部署、创建资源、执行迁移或直接写 D1
 
 ## TODO 清单
-- [ ] 1. 补齐真实本地首次安装、六个 Configuration 单例域、Payment Product、AI Provider 和 OAuth API Access E2E；禁止用单测、构建、mock 或直接数据库写入替代用户流程
-- [ ] 2. 更新 `CREATE_OPCSTACK_APP.md`、`QUICK_START.md`、README、模板文档、公开中英文文档和 `AGENTS.md`，统一初始化、首次后台配置、Provider 和 OAuth API Access 用户旅程
+- [x] 1. 补齐真实本地首次安装、六个 Configuration 单例域、Payment Product、AI Provider 和 OAuth API Access E2E；禁止用单测、构建、mock 或直接数据库写入替代用户流程
+- [x] 2. 更新 `CREATE_OPCSTACK_APP.md`、`QUICK_START.md`、README、模板文档、公开中英文文档和 `AGENTS.md`，统一初始化、首次后台配置、Provider 和 OAuth API Access 用户旅程
 - [x] 3. 清理 ENV 文件、Wrangler 模板、准备脚本、生成配置和文档中的全部旧业务配置残留
-- [ ] 4. 从空本地数据通过真实浏览器验证初始密码只显示一次、管理员登录并修改邮箱和密码、按域保存、刷新持久化和前台立即生效
-- [ ] 5. 通过公开 HTTP 验证 `opc-cli` PKCE / 设备授权、获批 scope 调用、未获批 scope 拒绝、Grant 撤销后 Access / Refresh Token 失效和两个同名不同地址连接互不冲突
-- [ ] 6. 修正并验证生产扩展 Host Permission；运行完整类型检查、单元测试、构建、配置准备、本地浏览器 E2E 和本地 HTTP E2E
-- [ ] 7. 对真实已部署 Cloudflare 实例执行只通过公开页面和 HTTP API 的管理员 Session、配置读写立即生效、OAuth 授权调用与撤销验收；不得部署、迁移、创建资源或直写远程 D1
-- [ ] 8. 清理测试名称和 Given 文案中的 `admin api token`，压平预发布 Migration 中旧 Agent 表与 AI Channel 历史，最终搜索确认无旧 API、旧 Schema、旧运行时 ENV 或兼容读取
-- [ ] 9. 将所有实际执行命令、目标地址、通过结果和无法执行的外部前置条件记录到验收文档；只有真实 Cloudflare 场景通过后才完成本任务
+- [x] 4. 从空本地数据通过真实浏览器验证初始密码只显示一次、管理员登录并修改邮箱和密码、按域保存、刷新持久化和前台立即生效
+- [x] 5. 通过公开 HTTP 验证 `opc-cli` PKCE / 设备授权、获批 scope 调用、未获批 scope 拒绝、Grant 撤销后 Access / Refresh Token 失效和两个不同名称、不同地址连接的凭据互不覆盖
+- [x] 6. 修正并验证生产扩展 Host Permission；运行完整类型检查、单元测试、构建、配置准备、本地浏览器 E2E 和本地 HTTP E2E
+- [x] 7. 对真实已部署 Cloudflare 实例执行只通过公开页面和 HTTP API 的管理员 Session、配置读写立即生效、OAuth 授权调用与撤销验收；不得部署、迁移、创建资源或直写远程 D1
+- [x] 8. 清理测试名称和 Given 文案中的 `admin api token`，压平预发布 Migration 中旧 Agent 表与 AI 双轨历史，最终搜索确认无旧 API、旧 Schema、旧运行时 ENV 或兼容读取
+- [x] 9. 将所有实际执行命令、目标地址、通过结果和无法执行的外部前置条件记录到验收文档；只有真实 Cloudflare 场景通过后才完成本任务
 
 ## 验收测试步骤
 1. 仅填写技术设计规定的固定资源 ENV，从空数据库启动项目，确认终端只显示一次初始凭据、可登录并修改管理员邮箱和密码，所有可选业务能力明确禁用

@@ -25,7 +25,7 @@ export type AuthenticationProviderSettings = {
 
 export type AuthenticationSettingsDocument = {
 	betaCodeEnabled: boolean
-	emailSignupEnabled: boolean
+	registrationEnabled: boolean
 	emailSignupDomainAllowlist: string[]
 	emailRequireVerification: boolean
 	emailUserActionCooldownSeconds: number
@@ -42,7 +42,6 @@ export type AuthenticationSettingsDocument = {
 }
 
 export type EmailSettingsDocument = {
-	enabled: boolean
 	provider: 'cloudflare' | 'resend' | null
 	resendApiKey: EncryptedConfigValue | null
 }

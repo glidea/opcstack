@@ -127,7 +127,7 @@ export async function updateAuthenticationConfigHandler(ctx: Context<ApiEnv>): P
 			ctx.env.CONFIG_ENCRYPTION_KEY,
 			{
 				betaCodeEnabled: request.data.beta_code_enabled,
-				emailSignupEnabled: request.data.email_signup_enabled,
+					registrationEnabled: request.data.registration_enabled,
 				emailSignupDomainAllowlist: request.data.email_signup_domain_allowlist,
 				emailRequireVerification: request.data.email_require_verification,
 				emailUserActionCooldownSeconds: request.data.email_user_action_cooldown_seconds,
@@ -192,8 +192,7 @@ export async function updateEmailConfigHandler(ctx: Context<ApiEnv>): Promise<Re
 			ctx.get('metaDb'),
 			ctx.env.CONFIG_ENCRYPTION_KEY,
 			{
-				enabled: request.data.enabled,
-				provider: request.data.provider,
+					provider: request.data.provider,
 				resendApiKey: request.data.resend_api_key,
 				expectedVersion: request.data.expected_version,
 				nowMs: Date.now()
@@ -709,7 +708,7 @@ function toAuthenticationConfigResponse(
 ): AuthenticationConfigResponse {
 	return {
 		beta_code_enabled: config.betaCodeEnabled,
-		email_signup_enabled: config.emailSignupEnabled,
+		registration_enabled: config.registrationEnabled,
 		email_signup_domain_allowlist: config.emailSignupDomainAllowlist,
 		email_require_verification: config.emailRequireVerification,
 		email_user_action_cooldown_seconds: config.emailUserActionCooldownSeconds,
@@ -734,7 +733,6 @@ function toAuthenticationConfigResponse(
 
 function toEmailConfigResponse(config: EmailConfig): EmailConfigResponse {
 	return {
-		enabled: config.enabled,
 		provider: config.provider,
 		resend_api_key_configured: config.resendApiKey !== null,
 		version: config.version

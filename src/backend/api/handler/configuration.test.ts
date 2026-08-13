@@ -152,7 +152,7 @@ describe('configuration handlers', () => {
 			status: 200,
 			body: {
 				beta_code_enabled: false,
-				email_signup_enabled: false,
+				registration_enabled: false,
 				email_signup_domain_allowlist: [],
 				email_require_verification: false,
 				email_user_action_cooldown_seconds: 50,
@@ -181,7 +181,7 @@ describe('configuration handlers', () => {
 			createContext(
 				{
 					beta_code_enabled: false,
-					email_signup_enabled: false,
+					registration_enabled: false,
 					email_signup_domain_allowlist: [],
 					email_require_verification: false,
 					email_user_action_cooldown_seconds: 50,
@@ -215,7 +215,6 @@ describe('configuration handlers', () => {
 		const row: SystemSettings = createSettingsRow()
 		const updated: SystemSettings = createSettingsRow()
 		updated.emailConfig = {
-			enabled: true,
 			provider: 'resend',
 			resendApiKey: { ciphertext: 'saved', iv: 'saved-iv' }
 		}
@@ -223,7 +222,6 @@ describe('configuration handlers', () => {
 		const response: Response = await updateEmailConfigHandler(
 			createContext(
 				{
-					enabled: true,
 					provider: 'resend',
 					resend_api_key: { action: 'replace', value: 'resend-secret' },
 					expected_version: 1
@@ -235,16 +233,14 @@ describe('configuration handlers', () => {
 			createContext({}, createMetaDb({ row: updated }))
 		)
 
-		expect({ update: await response.json(), read: await readResponse.json() }).toEqual({
-			update: {
-				enabled: true,
-				provider: 'resend',
+			expect({ update: await response.json(), read: await readResponse.json() }).toEqual({
+				update: {
+					provider: 'resend',
 				resend_api_key_configured: true,
 				version: 2
 			},
-			read: {
-				enabled: true,
-				provider: 'resend',
+				read: {
+					provider: 'resend',
 				resend_api_key_configured: true,
 				version: 2
 			}
@@ -393,7 +389,7 @@ function createSettingsRow(): SystemSettings {
 		},
 		authenticationConfig: {
 			betaCodeEnabled: false,
-			emailSignupEnabled: false,
+			registrationEnabled: false,
 			emailSignupDomainAllowlist: [],
 			emailRequireVerification: false,
 			emailUserActionCooldownSeconds: 50,
@@ -404,9 +400,8 @@ function createSettingsRow(): SystemSettings {
 				linuxdo: { enabled: false, clientId: null, clientSecret: null }
 			}
 		},
-		emailConfig: {
-			enabled: false,
-			provider: null,
+			emailConfig: {
+				provider: null,
 			resendApiKey: null
 		},
 		storageConfig: {

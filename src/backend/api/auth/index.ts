@@ -1,4 +1,4 @@
-import { betterAuth } from 'better-auth'
+import { APIError, betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { bearer, captcha, emailOTP, genericOAuth, jwt } from 'better-auth/plugins'
 import { oauthProvider } from '@better-auth/oauth-provider'
@@ -75,6 +75,12 @@ export function authCore(env: Env, db: MetaDb, config: AuthRuntimeConfig) {
             userData: Record<string, unknown>,
             context: AuthHookContext | null
           ): Promise<{ data: Record<string, unknown> }> => {
+            if (!config.authentication.registrationEnabled) {
+              throw APIError.from('FORBIDDEN', {
+                code: 'REGISTRATION_DISABLED',
+                message: 'Registration is disabled'
+              })
+            }
             const affCode = await aff.createCode()
             const registrationUtmSource = readRegistrationUtmSource(context)
             return {
@@ -196,11 +202,10 @@ function readRegistrationUtmSource(context: AuthHookContext | null): string | nu
 }
 
 function buildEmailAndPassword(config: AuthRuntimeConfig): AuthEmailAndPasswordConfig {
-  return {
-    enabled: true,
-    disableSignUp: !config.email.enabled || !config.authentication.emailSignupEnabled,
-    requireEmailVerification:
-      config.email.enabled && config.authentication.emailRequireVerification,
+	return {
+		enabled: true,
+		disableSignUp: !config.authentication.registrationEnabled,
+		requireEmailVerification: config.authentication.emailRequireVerification,
     // Use runtime native scrypt in Workers to avoid CPU-heavy pure JS fallback.
     password: buildPasswordHasher()
   }
@@ -339,13 +344,13 @@ function buildEmailClient(
 	config: EmailRuntimeConfig,
 	systemEmail: string
 ): EmailClients['simple'] {
-  if (!config.enabled || !config.provider) {
-    return {
-      send: async (): Promise<void> => {
-        throw new EmailError('EMAIL_DISABLED')
-      }
-    }
-  }
+	if (!config.provider) {
+		return {
+			send: async (): Promise<void> => {
+				throw new EmailError('EMAIL_PROVIDER_UNAVAILABLE')
+			}
+		}
+	}
   return createEmailClients({
     provider: config.provider,
     resendApiKey: config.resendApiKey,

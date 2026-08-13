@@ -2,7 +2,7 @@ type SecretMutation = { action: 'keep' }
 
 type AuthenticationConfig = {
 	beta_code_enabled: boolean
-	email_signup_enabled: boolean
+	registration_enabled: boolean
 	email_signup_domain_allowlist: string[]
 	email_require_verification: boolean
 	email_user_action_cooldown_seconds: number
@@ -18,7 +18,6 @@ type AuthenticationConfig = {
 }
 
 type EmailConfig = {
-	enabled: boolean
 	provider: 'cloudflare' | 'resend' | null
 	version: number
 }
@@ -87,7 +86,6 @@ export async function createLocalTestUser(input: {
 
 	try {
 		const emailResponse: Response = await callAdminConfig(input, 'update_email_config', {
-			enabled: true,
 			provider: 'cloudflare',
 			resend_api_key: { action: 'keep' },
 			expected_version: emailVersion
@@ -102,7 +100,7 @@ export async function createLocalTestUser(input: {
 			'update_authentication_config',
 			buildAuthenticationUpdate(authentication, authenticationVersion, {
 				betaCodeEnabled: false,
-				emailSignupEnabled: true,
+				registrationEnabled: true,
 				emailSignupDomainAllowlist: [],
 				emailRequireVerification: false,
 				turnstileEnabled: false
@@ -150,25 +148,24 @@ export async function createLocalTestUser(input: {
 			userId: payload.user.id
 		}
 	} finally {
-		if (authenticationChanged) {
-			const response: Response = await callAdminConfig(
-				input,
-				'update_authentication_config',
-				buildAuthenticationUpdate(authentication, authenticationVersion, {}),
-				bookmark
-			)
-			bookmark = requireBookmark(response)
-		}
 		if (emailChanged) {
-			await callAdminConfig(
+			const response: Response = await callAdminConfig(
 				input,
 				'update_email_config',
 				{
-					enabled: email.enabled,
 					provider: email.provider,
 					resend_api_key: { action: 'keep' },
 					expected_version: emailVersion
 				},
+				bookmark
+			)
+			bookmark = requireBookmark(response)
+		}
+		if (authenticationChanged) {
+			await callAdminConfig(
+				input,
+				'update_authentication_config',
+				buildAuthenticationUpdate(authentication, authenticationVersion, {}),
 				bookmark
 			)
 		}
@@ -180,7 +177,7 @@ function buildAuthenticationUpdate(
 	expectedVersion: number,
 	overrides: {
 		betaCodeEnabled?: boolean
-		emailSignupEnabled?: boolean
+		registrationEnabled?: boolean
 		emailSignupDomainAllowlist?: string[]
 		emailRequireVerification?: boolean
 		turnstileEnabled?: boolean
@@ -188,7 +185,7 @@ function buildAuthenticationUpdate(
 ): Record<string, boolean | number | string | string[] | null | SecretMutation> {
 	return {
 		beta_code_enabled: overrides.betaCodeEnabled ?? config.beta_code_enabled,
-		email_signup_enabled: overrides.emailSignupEnabled ?? config.email_signup_enabled,
+		registration_enabled: overrides.registrationEnabled ?? config.registration_enabled,
 		email_signup_domain_allowlist:
 			overrides.emailSignupDomainAllowlist ?? config.email_signup_domain_allowlist,
 		email_require_verification:

@@ -125,16 +125,14 @@ describe('configuration validation', () => {
 		})).toEqual({ googleClientSecret: 'Client secret is required' })
 	})
 
-	it('requires the Resend key only while Resend delivery is enabled', () => {
+	it('requires the Resend key when Resend is configured', () => {
 		expect(validateEmailForm({
-			enabled: true,
 			provider: 'resend',
 			resendApiKeyConfigured: false,
 			resendApiKeyAction: 'keep',
 			resendApiKeyValue: ''
 		})).toEqual({ resendApiKey: 'API key is required' })
 		expect(validateEmailForm({
-			enabled: false,
 			provider: null,
 			resendApiKeyConfigured: false,
 			resendApiKeyAction: 'keep',
@@ -142,13 +140,21 @@ describe('configuration validation', () => {
 		})).toEqual({})
 	})
 
-	it('rejects a partially configured disabled Email provider', () => {
+	it('rejects an incomplete Email provider', () => {
 		expect(validateEmailForm({
-			enabled: false,
 			provider: 'resend',
 			resendApiKeyConfigured: false,
 			resendApiKeyAction: 'keep',
 			resendApiKeyValue: ''
 		})).toEqual({ resendApiKey: 'API key is required' })
+	})
+
+	it('allows removing the Email provider when a Resend key is stored', (): void => {
+		expect(validateEmailForm({
+			provider: null,
+			resendApiKeyConfigured: true,
+			resendApiKeyAction: 'keep',
+			resendApiKeyValue: ''
+		})).toEqual({})
 	})
 })

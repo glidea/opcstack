@@ -17,7 +17,7 @@ type SecretMutation = { action: 'keep' } | { action: 'remove' }
 
 type AuthenticationConfig = {
 	beta_code_enabled: boolean
-	email_signup_enabled: boolean
+	registration_enabled: boolean
 	email_signup_domain_allowlist: string[]
 	email_require_verification: boolean
 	email_user_action_cooldown_seconds: number
@@ -40,7 +40,6 @@ type AuthenticationConfig = {
 }
 
 type EmailConfig = {
-	enabled: boolean
 	provider: 'cloudflare' | 'resend' | null
 	resend_api_key_configured: boolean
 	version: number
@@ -146,7 +145,6 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 			const emailResponse: Response = await callAdminConfig(
 				'update_email_config',
 				{
-					enabled: true,
 					provider: 'cloudflare',
 					resend_api_key: { action: 'keep' },
 					expected_version: emailVersion
@@ -160,7 +158,7 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 			const authenticationResponse: Response = await callAdminConfig(
 				'update_authentication_config',
 				buildAuthenticationUpdate(originalAuthentication, authenticationVersion, {
-					emailSignupEnabled: true
+					registrationEnabled: true
 				}),
 				bookmark
 			)
@@ -186,7 +184,8 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 			const disabledAuthenticationResponse: Response = await callAdminConfig(
 				'update_authentication_config',
 				buildAuthenticationUpdate(enabledAuthentication, authenticationVersion, {
-					emailSignupEnabled: false,
+					registrationEnabled: false,
+					emailRequireVerification: false,
 					disableSocialProviders: true
 				}),
 				bookmark
@@ -199,7 +198,6 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 			const disabledEmailResponse: Response = await callAdminConfig(
 				'update_email_config',
 				{
-					enabled: false,
 					provider: null,
 					resend_api_key: { action: 'keep' },
 					expected_version: emailVersion
@@ -227,7 +225,10 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 			)
 			expect({ status: resetResponse.status, body: await resetResponse.json() }).toEqual({
 				status: 400,
-				body: { code: 'EMAIL_DISABLED', message: 'Email is disabled' }
+				body: {
+					code: 'EMAIL_PROVIDER_UNAVAILABLE',
+					message: 'Email provider is not configured'
+				}
 			})
 
 			const invalidResponse: Response = await callAdminConfigRaw(
@@ -254,20 +255,19 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 				googleAuthEnabled: unchangedAuthentication.google_auth_enabled
 			}).toEqual({ version: authenticationVersion, googleAuthEnabled: false })
 		} finally {
-			const authenticationResponse: Response = await callAdminConfig(
-				'update_authentication_config',
-				buildAuthenticationUpdate(originalAuthentication, authenticationVersion, {}),
-				bookmark
-			)
-			bookmark = requireBookmark(authenticationResponse)
-			await callAdminConfig(
+			const emailResponse: Response = await callAdminConfig(
 				'update_email_config',
 				{
-					enabled: originalEmail.enabled,
 					provider: originalEmail.provider,
 					resend_api_key: { action: 'keep' },
 					expected_version: emailVersion
 				},
+				bookmark
+			)
+			bookmark = requireBookmark(emailResponse)
+			await callAdminConfig(
+				'update_authentication_config',
+				buildAuthenticationUpdate(originalAuthentication, authenticationVersion, {}),
 				bookmark
 			)
 		}
@@ -327,7 +327,8 @@ function buildAuthenticationUpdate(
 	config: AuthenticationConfig,
 	expectedVersion: number,
 	overrides: {
-		emailSignupEnabled?: boolean
+		registrationEnabled?: boolean
+		emailRequireVerification?: boolean
 		disableSocialProviders?: boolean
 		enableGoogleWithoutCredentials?: boolean
 	}
@@ -337,9 +338,10 @@ function buildAuthenticationUpdate(
 		overrides.enableGoogleWithoutCredentials ?? false
 	return {
 		beta_code_enabled: config.beta_code_enabled,
-		email_signup_enabled: overrides.emailSignupEnabled ?? config.email_signup_enabled,
+		registration_enabled: overrides.registrationEnabled ?? config.registration_enabled,
 		email_signup_domain_allowlist: config.email_signup_domain_allowlist,
-		email_require_verification: config.email_require_verification,
+		email_require_verification:
+			overrides.emailRequireVerification ?? config.email_require_verification,
 		email_user_action_cooldown_seconds: config.email_user_action_cooldown_seconds,
 		turnstile_enabled: config.turnstile_enabled,
 		turnstile_site_key: config.turnstile_site_key,

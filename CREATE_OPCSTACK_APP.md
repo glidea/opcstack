@@ -36,7 +36,6 @@ Secrets must not enter the conversation context.
 Agents must follow these rules:
 
 - Do not read `.env.secret.dev`
-- Do not read `.env.secret.prod`
 - Do not read `.wrangler/runtime-secrets.env`
 - Do not edit generated secret state
 - Do not ask the user to paste secrets into chat
@@ -132,7 +131,7 @@ Notes:
 
 ## Phase 4: Initialize Local Secrets And Administrator
 
-`prepare-cloudflare` generates `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET` on first initialization. Local development persists them in `.env.secret.dev`; production deploys them as Cloudflare Worker Secrets.
+`prepare-cloudflare` generates `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET` on first initialization. Local development persists them in `.env.secret.dev`; production keeps them only as Cloudflare Worker Secrets. `.env.secret.example` documents this boundary and contains no user-managed values.
 
 The same initialization creates the unique D1 administrator with email `admin@opcstack.local` and a random password. The command prints these credentials only after the first initialization succeeds. Tell the user to sign in and change both values under Account / Security. Do not ask the user to choose or paste either credential before startup.
 
@@ -264,7 +263,7 @@ After the shell is running, ask which business modules they want to configure:
 - Storage rules
 - Credits and affiliate rewards
 - Payment and products
-- AI providers and channels
+- AI Providers
 
 Rules:
 

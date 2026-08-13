@@ -10,7 +10,7 @@ import type { Resend } from 'resend'
 
 export type EmailErrorCode =
 	| 'UNSUPPORTED_EMAIL_PROVIDER'
-	| 'EMAIL_DISABLED'
+	| 'EMAIL_PROVIDER_UNAVAILABLE'
 	| 'EMAIL_SEND_FAILED'
 
 export class EmailError extends Error {
@@ -27,8 +27,8 @@ function emailErrorMessage(code: EmailErrorCode): string {
 	switch (code) {
 		case 'UNSUPPORTED_EMAIL_PROVIDER':
 			return 'Email provider is unsupported'
-		case 'EMAIL_DISABLED':
-			return 'Email is disabled'
+		case 'EMAIL_PROVIDER_UNAVAILABLE':
+			return 'Email provider is not configured'
 		case 'EMAIL_SEND_FAILED':
 			return 'Email send failed'
 	}
@@ -52,7 +52,7 @@ export function createEmailClients(config: EmailClientConfig): EmailClients {
 	const provider: string = config.provider
 	if (provider === 'resend') {
 		if (!config.resendApiKey) {
-			throw new EmailError('EMAIL_DISABLED')
+			throw new EmailError('EMAIL_PROVIDER_UNAVAILABLE')
 		}
 		const resend = createResendNativeEmailClient(config.resendApiKey)
 		return {

@@ -661,7 +661,7 @@ export function buildSystemSettingsInitializationSql(input) {
 	}
 	const authenticationConfig = {
 		betaCodeEnabled: false,
-		emailSignupEnabled: false,
+		registrationEnabled: false,
 		emailSignupDomainAllowlist: [],
 		emailRequireVerification: false,
 		emailUserActionCooldownSeconds: 50,
@@ -680,7 +680,6 @@ export function buildSystemSettingsInitializationSql(input) {
 		}
 	}
 	const emailConfig = {
-		enabled: false,
 		provider: null,
 		resendApiKey: null
 	}

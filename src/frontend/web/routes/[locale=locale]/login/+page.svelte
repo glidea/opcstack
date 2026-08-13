@@ -32,11 +32,11 @@
 	<LoginCard
 		onSuccess={handleSuccess}
 		registerHref={`/${data.locale}/register`}
-		forgotPasswordHref={data.publicRuntimeConfig.email_enabled ? `/${data.locale}/forgot-password` : undefined}
+		forgotPasswordHref={data.publicRuntimeConfig.email_provider_configured ? `/${data.locale}/forgot-password` : undefined}
 		googleAuthEnabled={data.publicRuntimeConfig.google_auth_enabled}
 		githubAuthEnabled={data.publicRuntimeConfig.github_auth_enabled}
 		linuxdoAuthEnabled={data.publicRuntimeConfig.linuxdo_auth_enabled}
-		emailSignupEnabled={data.publicRuntimeConfig.email_enabled && data.publicRuntimeConfig.email_signup_enabled}
+		registrationEnabled={data.publicRuntimeConfig.registration_enabled}
 		refundHref={data.publicRuntimeConfig.payment_enabled ? '/refund-policy' : undefined}
 		turnstileEnabled={data.publicRuntimeConfig.turnstile_enabled}
 		turnstileSiteKey={data.publicRuntimeConfig.turnstile_site_key ?? ''}

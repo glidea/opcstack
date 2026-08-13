@@ -3,6 +3,7 @@ import { defineConfig } from 'wxt'
 import { clientConfig } from '../lib/config/client'
 
 const frontendLibPath: string = fileURLToPath(new URL('../lib', import.meta.url))
+const apiContractPath: string = fileURLToPath(new URL('../../api-contract', import.meta.url))
 
 export default defineConfig({
 	publicDir: 'public',
@@ -24,7 +25,8 @@ export default defineConfig({
 		return {
 			resolve: {
 				alias: {
-					$frontend: frontendLibPath
+					$frontend: frontendLibPath,
+					$apiContract: apiContractPath
 				}
 			}
 		}

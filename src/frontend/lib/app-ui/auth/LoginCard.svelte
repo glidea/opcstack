@@ -18,7 +18,7 @@
 		googleAuthEnabled,
 		githubAuthEnabled,
 		linuxdoAuthEnabled,
-		emailSignupEnabled,
+		registrationEnabled,
 		termsHref = '/terms',
 		privacyHref = '/privacy',
 		refundHref,
@@ -32,7 +32,7 @@
 		googleAuthEnabled: boolean
 		githubAuthEnabled: boolean
 		linuxdoAuthEnabled: boolean
-		emailSignupEnabled: boolean
+		registrationEnabled: boolean
 		termsHref?: string
 		privacyHref?: string
 		refundHref?: string
@@ -174,7 +174,7 @@
 				{$_('auth.login.forgotPassword')}
 			</a>
 		{/if}
-		{#if googleAuthEnabled || githubAuthEnabled || linuxdoAuthEnabled || emailSignupEnabled}
+		{#if registrationEnabled}
 			<a href={registerHref} class="text-primary hover:text-primary/80">
 				{$_('auth.login.createAccount')}
 			</a>
