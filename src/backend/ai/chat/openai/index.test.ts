@@ -161,6 +161,7 @@ describe('createOpenAISimpleChatClient', () => {
 		})
 
 		const client = createOpenAISimpleChatClient({
+			type: 'chat_openai',
 			model: given.optionsModel ?? given.envModel,
 			endpoint: { baseURL: 'https://api.openai.com/v1', apiKey: 'k' },
 			temperature: given.optionsTemperature

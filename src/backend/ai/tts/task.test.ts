@@ -8,7 +8,8 @@ type InsertedRow = {
 	id: string
 	userId: string
 	status: string
-	provider: string
+	providerType: string
+	providerId?: string
 	model?: string
 	sourceJson?: string
 	instruction?: string
@@ -26,12 +27,12 @@ type InsertedRow = {
 describe('createAITTSTask', () => {
 	type GivenDetail = {
 		input: AITTSSpeechInput
-		provider: 'gemini' | 'seed'
+		providerType: 'tts_gemini' | 'tts_seed'
 	}
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: string
-		provider: string
+		providerType: string
 		queueTaskId: string
 		queueUserId: string
 		speakerCount: number
@@ -46,7 +47,7 @@ describe('createAITTSTask', () => {
 			when: 'creating tts task',
 			then: 'stores task fields and enqueues task id',
 			givenDetail: {
-				provider: 'gemini',
+				providerType: 'tts_gemini',
 				input: {
 					instruction: 'podcast style',
 					speakers: [
@@ -63,7 +64,7 @@ describe('createAITTSTask', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 'processing',
-				provider: 'gemini',
+				providerType: 'tts_gemini',
 				queueTaskId: 'created',
 				queueUserId: 'u1',
 				speakerCount: 2,
@@ -77,7 +78,7 @@ describe('createAITTSTask', () => {
 			when: 'creating tts task',
 			then: 'stores seed provider and enqueues task id',
 			givenDetail: {
-				provider: 'seed',
+				providerType: 'tts_seed',
 				input: {
 					speakers: [{ name: 'Host', voiceName: 'zh_female_cancan_mars_bigtts' }],
 					lines: [{ speakerName: 'Host', text: 'Hello' }]
@@ -86,7 +87,7 @@ describe('createAITTSTask', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 'processing',
-				provider: 'seed',
+				providerType: 'tts_seed',
 				queueTaskId: 'created',
 				queueUserId: 'u1',
 				speakerCount: 1,
@@ -106,7 +107,7 @@ describe('createAITTSTask', () => {
 			}
 		} as unknown as Env
 
-		const task = await createAITTSTask(env, db, given.provider, 'm1', 'u1', given.input)
+		const task = await createAITTSTask(env, db, given.providerType, 'm1', 'u1', given.input)
 		const queueBody = sendMock.mock.calls[0]?.[0] as
 			| {
 					taskId?: string
@@ -116,7 +117,7 @@ describe('createAITTSTask', () => {
 
 		return {
 			status: task.status,
-			provider: task.provider,
+			providerType: task.providerType,
 			queueTaskId: queueBody?.taskId === task.id ? 'created' : '',
 			queueUserId: queueBody?.userId ?? '',
 			speakerCount: task.speakers.length,
@@ -133,7 +134,7 @@ describe('createAITTSSourceTask', () => {
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: string
-		provider: string
+		providerType: string
 		queueTaskId: string
 		queueUserId: string
 		inputUrl: string
@@ -157,7 +158,7 @@ describe('createAITTSSourceTask', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 'processing',
-				provider: 'seed',
+				providerType: 'tts_seed',
 				queueTaskId: 'created',
 				queueUserId: 'u1',
 				inputUrl: 'https://example.com/article',
@@ -177,7 +178,7 @@ describe('createAITTSSourceTask', () => {
 			}
 		} as unknown as Env
 
-		const task = await createAITTSSourceTask(env, db, 'seed', 'm1', 'u1', given.input)
+		const task = await createAITTSSourceTask(env, db, 'tts_seed', 'm1', 'u1', given.input)
 		const queueBody = sendMock.mock.calls[0]?.[0] as
 			| {
 					taskId?: string
@@ -187,7 +188,7 @@ describe('createAITTSSourceTask', () => {
 
 		return {
 			status: task.status,
-			provider: task.provider,
+			providerType: task.providerType,
 			queueTaskId: queueBody?.taskId === task.id ? 'created' : '',
 			queueUserId: queueBody?.userId ?? '',
 			inputUrl: task.source?.inputUrl ?? '',
@@ -230,7 +231,7 @@ describe('getAITTSTask', () => {
 				id: 't1',
 				userId: 'u1',
 				status: 'completed',
-				provider: 'gemini',
+				providerType: 'tts_gemini',
 				model: 'm1',
 				sourceJson: JSON.stringify({ inputUrl: 'https://example.com/article' }),
 				instruction: 'podcast style',

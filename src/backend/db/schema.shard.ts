@@ -83,10 +83,10 @@ export const notificationRead = sqliteTable(
 	]
 )
 
-export const aiChannelMetricBucket = sqliteTable(
-	'ai_channel_metric_buckets',
+export const aiProviderMetricBucket = sqliteTable(
+	'ai_provider_metric_buckets',
 	{
-		channel: text('channel').notNull(),
+		providerId: text('provider_id').notNull(),
 		model: text('model').notNull(),
 		bucketStart: integer('bucket_start').notNull(),
 		successCount: integer('success_count').notNull().default(0),
@@ -94,8 +94,8 @@ export const aiChannelMetricBucket = sqliteTable(
 		successLatencyMsTotal: integer('success_latency_ms_total').notNull().default(0)
 	},
 	(table) => [
-		primaryKey({ columns: [table.channel, table.model, table.bucketStart] }),
-		index('ai_channel_metric_buckets_bucket_start_idx').on(table.bucketStart)
+		primaryKey({ columns: [table.providerId, table.model, table.bucketStart] }),
+		index('ai_provider_metric_buckets_bucket_start_idx').on(table.bucketStart)
 	]
 )
 
@@ -105,9 +105,9 @@ export const aiImageTask = sqliteTable(
 		id: text('id').primaryKey(),
 		userId: text('user_id').notNull(),
 		status: text('status').notNull(),
-		provider: text('provider').notNull(),
+		providerType: text('provider_type').notNull(),
 		model: text('model'),
-		channel: text('channel'),
+		providerId: text('provider_id'),
 		prompt: text('prompt').notNull(),
 		numberOfImages: integer('number_of_images'),
 		aspectRatio: text('aspect_ratio'),
@@ -137,9 +137,9 @@ export const aiTtsTask = sqliteTable(
 		id: text('id').primaryKey(),
 		userId: text('user_id').notNull(),
 		status: text('status').notNull(),
-		provider: text('provider').notNull(),
+		providerType: text('provider_type').notNull(),
 		model: text('model'),
-		channel: text('channel'),
+		providerId: text('provider_id'),
 		sourceJson: text('source_json'),
 		instruction: text('instruction'),
 		speakersJson: text('speakers_json').notNull(),
@@ -165,9 +165,9 @@ export const aiVideoTask = sqliteTable(
 		id: text('id').primaryKey(),
 		userId: text('user_id').notNull(),
 		status: text('status').notNull(),
-		provider: text('provider').notNull(),
+		providerType: text('provider_type').notNull(),
 		model: text('model'),
-		channel: text('channel'),
+		providerId: text('provider_id'),
 		prompt: text('prompt').notNull(),
 		ratio: text('ratio'),
 		resolution: text('resolution'),
@@ -176,8 +176,8 @@ export const aiVideoTask = sqliteTable(
 		r2UploadIsPublic: integer('r2_upload_is_public').notNull().default(0),
 		referencesJson: text('references_json').notNull(),
 		providerTaskId: text('provider_task_id'),
-		channelStartedAt: integer('channel_started_at'),
-		failedChannelsJson: text('failed_channels_json').notNull().default('[]'),
+		providerStartedAt: integer('provider_started_at'),
+		failedProviderIdsJson: text('failed_provider_ids_json').notNull().default('[]'),
 		resultJson: text('result_json'),
 		attemptCount: integer('attempt_count').notNull().default(0),
 		lastErrorMessage: text('last_error_message'),
@@ -202,8 +202,8 @@ export type Feedback = typeof feedback.$inferSelect
 export type NewFeedback = typeof feedback.$inferInsert
 export type NotificationRead = typeof notificationRead.$inferSelect
 export type NewNotificationRead = typeof notificationRead.$inferInsert
-export type AIChannelMetricBucketRow = typeof aiChannelMetricBucket.$inferSelect
-export type NewAIChannelMetricBucketRow = typeof aiChannelMetricBucket.$inferInsert
+export type AIProviderMetricBucketRow = typeof aiProviderMetricBucket.$inferSelect
+export type NewAIProviderMetricBucketRow = typeof aiProviderMetricBucket.$inferInsert
 export type AIImageTaskRow = typeof aiImageTask.$inferSelect
 export type NewAIImageTaskRow = typeof aiImageTask.$inferInsert
 export type AITTSTaskRow = typeof aiTtsTask.$inferSelect

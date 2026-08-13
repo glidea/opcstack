@@ -400,7 +400,7 @@ describe('createOpenAISimpleImageClient.generate', () => {
 		}
 	})
 
-	it('uses the explicit channel endpoint', async () => {
+	it('uses the explicit Provider endpoint', async () => {
 		vi.clearAllMocks()
 		generateMock.mockResolvedValue(
 			createEventStream([{ type: 'image_generation.completed', b64_json: 'a', output_format: 'png' }])
@@ -412,14 +412,14 @@ describe('createOpenAISimpleImageClient.generate', () => {
 			{} as TenantShardDb,
 			{
 				model: 'env-model',
-				endpoint: { baseURL: 'https://channel.example/v1', apiKey: 'channel-key' }
+				endpoint: { baseURL: 'https://provider.example/v1', apiKey: 'provider-key' }
 			}
 		)
 		await client.generate({ prompt: 'draw' })
 
 		expect(openAIConstructorMock).toHaveBeenCalledWith({
-			baseURL: 'https://channel.example/v1',
-			apiKey: 'channel-key'
+			baseURL: 'https://provider.example/v1',
+			apiKey: 'provider-key'
 		})
 	})
 })

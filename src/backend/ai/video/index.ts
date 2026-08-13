@@ -1,6 +1,7 @@
 import type { TenantShardDb } from '../../db'
 import { AIError } from '../error'
 import { createSeedDanceSimpleVideoClient } from './seedance'
+import type { AIVideoProviderType } from '../config'
 
 export * from './seedance/constants'
 
@@ -102,7 +103,8 @@ export interface AIVideoTask {
 	id: string
 	userId: string
 	status: AIVideoTaskStatus
-	provider: AIVideoProvider
+	providerType: AIVideoProviderType
+	providerId?: string
 	model?: string
 	prompt: string
 	ratio?: AIVideoRatio

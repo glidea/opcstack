@@ -120,7 +120,7 @@ Protected JSON routes declare one scope in the central scope registry. Browser s
 
 Two database tiers with different ownership:
 
-**Meta DB** (`META_DB`): global control state. One database for the whole product. Holds shard registry, user-to-shard mapping, dynamic system configuration, OAuth API access, auth, payments, AI channels, subscriptions, webhooks, and notifications. Accessed via `ctx.get('metaDb')`.
+**Meta DB** (`META_DB`): global control state. One database for the whole product. Holds shard registry, user-to-shard mapping, dynamic system configuration, OAuth API access, auth, payments, AI Providers, subscriptions, webhooks, and notifications. Accessed via `ctx.get('metaDb')`.
 
 **Tenant Shard DB**: user-scoped runtime data. Sharded across multiple D1 databases by region. Holds credit balances, credit transactions, feedbacks, notification reads, AI async task tables. Accessed via `ctx.get('tenantDb')`.
 
@@ -148,7 +148,7 @@ Meta DB and Tenant Shard DB each maintain independent bookmark flows, because th
 
 ## Dynamic Configuration Foundation
 
-`system_settings` is the singleton source for dynamic product configuration. Its business domains have independent versions so the admin API can reject stale writes without coupling unrelated settings. `payment_products` and `ai_channels` are separate versioned collections.
+`system_settings` is the singleton source for dynamic product configuration. Its business domains have independent versions so the admin API can reject stale writes without coupling unrelated settings. `payment_products` and `ai_providers` are separate versioned collections.
 
 Sensitive values are stored as AES-GCM ciphertext and IV pairs. `prepare-cloudflare` generates `CONFIG_ENCRYPTION_KEY` once and stores it in local generated secret state or Cloudflare Worker Secrets; it is never stored in D1 or replaced after D1 initialization. Every runtime business domain reads D1 as its only configuration source. There are no business ENV fallbacks.
 

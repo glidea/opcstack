@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8efcf8f8-e4f1-4947-b573-138969ef4874",
+  "id": "a1703a44-3c89-441d-9e61-d0f5ae090931",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "ai_image_tasks": {
@@ -28,8 +28,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "provider": {
-          "name": "provider",
+        "provider_type": {
+          "name": "provider_type",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -37,6 +37,13 @@
         },
         "model": {
           "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provider_id": {
+          "name": "provider_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -166,10 +173,90 @@
             "status"
           ],
           "isUnique": false
+        },
+        "ai_image_tasks_status_updated_at_idx": {
+          "name": "ai_image_tasks_status_updated_at_idx",
+          "columns": [
+            "status",
+            "updated_at"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "ai_provider_metric_buckets": {
+      "name": "ai_provider_metric_buckets",
+      "columns": {
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bucket_start": {
+          "name": "bucket_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "success_count": {
+          "name": "success_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "error_count": {
+          "name": "error_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "success_latency_ms_total": {
+          "name": "success_latency_ms_total",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "ai_provider_metric_buckets_bucket_start_idx": {
+          "name": "ai_provider_metric_buckets_bucket_start_idx",
+          "columns": [
+            "bucket_start"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "ai_provider_metric_buckets_provider_id_model_bucket_start_pk": {
+          "columns": [
+            "provider_id",
+            "model",
+            "bucket_start"
+          ],
+          "name": "ai_provider_metric_buckets_provider_id_model_bucket_start_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
@@ -197,8 +284,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "provider": {
-          "name": "provider",
+        "provider_type": {
+          "name": "provider_type",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -206,6 +293,20 @@
         },
         "model": {
           "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_json": {
+          "name": "source_json",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -299,6 +400,14 @@
             "status"
           ],
           "isUnique": false
+        },
+        "ai_tts_tasks_status_updated_at_idx": {
+          "name": "ai_tts_tasks_status_updated_at_idx",
+          "columns": [
+            "status",
+            "updated_at"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -330,8 +439,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "provider": {
-          "name": "provider",
+        "provider_type": {
+          "name": "provider_type",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -339,6 +448,13 @@
         },
         "model": {
           "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provider_id": {
+          "name": "provider_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -401,6 +517,21 @@
           "notNull": false,
           "autoincrement": false
         },
+        "provider_started_at": {
+          "name": "provider_started_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "failed_provider_ids_json": {
+          "name": "failed_provider_ids_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
         "result_json": {
           "name": "result_json",
           "type": "text",
@@ -459,6 +590,14 @@
           "columns": [
             "user_id",
             "status"
+          ],
+          "isUnique": false
+        },
+        "ai_video_tasks_status_updated_at_idx": {
+          "name": "ai_video_tasks_status_updated_at_idx",
+          "columns": [
+            "status",
+            "updated_at"
           ],
           "isUnique": false
         }

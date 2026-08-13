@@ -46,7 +46,7 @@ Changing a field marks only the current tab as unsaved. Switching tabs or leavin
 
 Authentication and Email reveal dependent settings only after the feature is enabled. Missing required fields are shown beside the affected control and the old configuration remains active. Secret fields never display plaintext. Choose **Keep current value**, **Replace value**, or **Remove value** before saving. Provider callback URLs are derived from the application URL and are read-only.
 
-Payment keeps provider settings and products independent. AI keeps routing and fixed Provider settings independent from async Channels. Products and Channels use separate create, edit, and delete dialogs. A successful save replaces only the target row. Deletion requires confirmation. A stale version returns `CONFIG_CONFLICT` and requires an explicit refresh before editing again. Secret values are never shown.
+Payment keeps provider settings and products independent. AI routing settings and Providers have separate save boundaries. Products and Providers use separate create, edit, and delete sheets. A successful save replaces only the target row. Deletion requires confirmation. A stale version returns `CONFIG_CONFLICT` and requires an explicit refresh before editing again. Secret values are never shown.
 
 ## Find a user and grant credits
 

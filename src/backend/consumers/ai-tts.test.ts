@@ -13,7 +13,8 @@ type TaskRow = {
 	id: string
 	userId: string
 	status: string
-	provider: string
+	providerType: string
+	providerId: string | null
 	model: string | null
 	sourceJson: string | null
 	instruction: string | null
@@ -32,7 +33,7 @@ const mocks = vi.hoisted(() => {
 	return {
 		generateSpeech: vi.fn(),
 		generateSpeechFromSource: vi.fn(),
-		rankChannels: vi.fn(),
+		rankProviders: vi.fn(),
 		metricQuery: vi.fn(),
 		runRawD1Batch: vi.fn(),
 		ack: vi.fn(),
@@ -63,15 +64,17 @@ vi.mock('../ai/tts', () => {
 	}
 })
 
-vi.mock('../ai/channel-routing', () => {
+vi.mock('../ai/provider-routing', () => {
 	return {
-		rankAIChannels: mocks.rankChannels,
-		createAIChannelMetricQuery: mocks.metricQuery
+		rankAIProviders: mocks.rankProviders,
+		createAIProviderMetricQuery: mocks.metricQuery
 	}
 })
 
-vi.mock('../ai/config', () => {
+vi.mock('../ai/config', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../ai/config')>()
 	return {
+		...actual,
 		getAIRuntimeConfig: mocks.getAIRuntimeConfig
 	}
 })
@@ -99,7 +102,7 @@ describe('handleAITTSQueue', () => {
 						const params = built.params as unknown[]
 						mocks.updateSet({
 							status: params[0],
-							channel: built.sql.includes('result_json') ? params[1] : null,
+							providerId: built.sql.includes('result_json') ? params[1] : null,
 							resultJson: built.sql.includes('result_json') ? params[2] : undefined,
 							lastErrorMessage: built.sql.includes('last_error_message') ? params[2] : undefined
 						})
@@ -114,7 +117,7 @@ describe('handleAITTSQueue', () => {
 				generateSpeechFromSource: mocks.generateSpeechFromSource
 			}
 		} as unknown as ReturnType<typeof createAITTSClients>)
-		mocks.rankChannels.mockResolvedValue([createRankedChannel('TTS_GEMINI_OFFICIAL', 'gemini')])
+		mocks.rankProviders.mockResolvedValue([createRankedProvider('gemini-primary', 'tts_gemini')])
 		mocks.metricQuery.mockImplementation((_, input: unknown) => ({ input }))
 		mocks.runRawD1Batch.mockResolvedValue([])
 		mocks.getAIRuntimeConfig.mockResolvedValue(createAIConfig())
@@ -235,7 +238,7 @@ describe('handleAITTSQueue', () => {
 			givenDetail: {
 				task: {
 					...createTask(0),
-					provider: 'seed',
+					providerType: 'tts_seed',
 					speakersJson: JSON.stringify([
 						{ name: 'Host', voiceName: 'zh_female_cancan_mars_bigtts' }
 					])
@@ -268,7 +271,7 @@ describe('handleAITTSQueue', () => {
 			givenDetail: {
 				task: {
 					...createTask(0),
-					provider: 'seed',
+					providerType: 'tts_seed',
 					sourceJson: JSON.stringify({
 						inputUrl: 'https://example.com/article',
 						durationHintSeconds: 300
@@ -370,12 +373,12 @@ describe('handleAITTSQueue', () => {
 		}
 	})
 
-	it('tries ranked TTS channels in order and records the selected channel', async () => {
+	it('tries ranked TTS providers in order and records the selected provider', async () => {
 		const task: TaskRow = createTask(0)
 		mocks.findFirst.mockResolvedValue(task)
-		mocks.rankChannels.mockResolvedValue([
-			createRankedChannel('TTS_GEMINI_OFFICIAL', 'gemini'),
-			createRankedChannel('TTS_GEMINI_RESELLER_A', 'gemini')
+		mocks.rankProviders.mockResolvedValue([
+			createRankedProvider('gemini-primary', 'tts_gemini'),
+			createRankedProvider('gemini-backup', 'tts_gemini')
 		])
 		mocks.generateSpeech
 			.mockRejectedValueOnce(new Error('official unavailable'))
@@ -390,49 +393,50 @@ describe('handleAITTSQueue', () => {
 				provider: 'gemini',
 				model: 'gemini-model',
 				endpoint: {
-					baseURL: 'https://TTS_GEMINI_OFFICIAL.example/v1',
-					apiKey: 'TTS_GEMINI_OFFICIAL-key'
+					baseURL: 'https://gemini-primary.example/v1',
+					apiKey: 'gemini-primary-key'
 				}
 			},
 			{
 				provider: 'gemini',
 				model: 'gemini-model',
 				endpoint: {
-					baseURL: 'https://TTS_GEMINI_RESELLER_A.example/v1',
-					apiKey: 'TTS_GEMINI_RESELLER_A-key'
+					baseURL: 'https://gemini-backup.example/v1',
+					apiKey: 'gemini-backup-key'
 				}
 			}
 		])
 		expect(mocks.updateSet).toHaveBeenLastCalledWith(
-			expect.objectContaining({ channel: 'TTS_GEMINI_RESELLER_A', status: 'completed' })
+			expect.objectContaining({ providerId: 'gemini-backup', status: 'completed' })
 		)
 		expect(mocks.metricQuery.mock.calls.map((call) => call[1])).toEqual([
-			expect.objectContaining({ channel: 'TTS_GEMINI_OFFICIAL', result: 'error' }),
-			expect.objectContaining({ channel: 'TTS_GEMINI_RESELLER_A', result: 'success' })
+			expect.objectContaining({ providerId: 'gemini-primary', result: 'error' }),
+			expect.objectContaining({ providerId: 'gemini-backup', result: 'success' })
 		])
 		expect(mocks.runRawD1Batch.mock.calls[0]?.[1]).toHaveLength(3)
 		expect(mocks.ack).toHaveBeenCalledTimes(1)
 	})
 
-	it('routes a source task through the same channel pool', async () => {
+	it('routes a source task through the same provider pool', async () => {
 		const task: TaskRow = {
 			...createTask(0),
-			provider: 'seed',
+			providerType: 'tts_seed',
 			model: 'seed-podcast-model',
 			sourceJson: JSON.stringify({ inputUrl: 'https://example.com/article' }),
 			speakersJson: JSON.stringify([]),
 			linesJson: JSON.stringify([])
 		}
 		mocks.findFirst.mockResolvedValue(task)
-		mocks.rankChannels.mockResolvedValue([createRankedChannel('TTS_SEED_OFFICIAL', 'seed')])
+		mocks.rankProviders.mockResolvedValue([createRankedProvider('seed-primary', 'tts_seed')])
 		mocks.generateSpeechFromSource.mockResolvedValue({ audioBase64: 'a', mimeType: 'audio/mpeg' })
 
 		await handleAITTSQueue(createBatch(task), createEnv())
 
-		expect(mocks.rankChannels).toHaveBeenCalledWith(
+		expect(mocks.rankProviders).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
-			expect.objectContaining({ target: { taskType: 'tts', provider: 'seed' }, model: 'seed-podcast-model' })
+			expect.anything(),
+			expect.objectContaining({ model: 'seed-podcast-model' })
 		)
 		expect(mocks.generateSpeechFromSource).toHaveBeenCalledWith(
 			expect.objectContaining({ inputUrl: 'https://example.com/article', uploadToR2: true })
@@ -440,12 +444,12 @@ describe('handleAITTSQueue', () => {
 		expect(mocks.ack).toHaveBeenCalledTimes(1)
 	})
 
-	it('retries after every TTS channel fails', async () => {
+	it('retries after every TTS provider fails', async () => {
 		const task: TaskRow = createTask(0)
 		mocks.findFirst.mockResolvedValue(task)
-		mocks.rankChannels.mockResolvedValue([
-			createRankedChannel('TTS_GEMINI_OFFICIAL', 'gemini'),
-			createRankedChannel('TTS_GEMINI_RESELLER_A', 'gemini')
+		mocks.rankProviders.mockResolvedValue([
+			createRankedProvider('gemini-primary', 'tts_gemini'),
+			createRankedProvider('gemini-backup', 'tts_gemini')
 		])
 		mocks.generateSpeech.mockRejectedValue(new Error('provider unavailable'))
 
@@ -477,26 +481,30 @@ describe('handleAITTSQueue', () => {
 	})
 })
 
-function createRankedChannel(channel: string, provider: 'gemini' | 'seed'): {
-	channel: {
-		channel: string
-		target: { taskType: 'tts'; provider: 'gemini' | 'seed' }
-		models: readonly string[]
+function createRankedProvider(id: string, type: 'tts_gemini' | 'tts_seed'): {
+	provider: {
+		id: string
+		name: string
+		type: 'tts_gemini' | 'tts_seed'
+		models: string[]
 		priceMultiplier: number
 		endpoint: { baseURL: string; apiKey: string }
+		enabled: boolean
 	}
 	score: number
 } {
 	return {
-		channel: {
-			channel,
-			target: { taskType: 'tts', provider },
+		provider: {
+			id,
+			name: id,
+			type,
 			models: ['gemini-model', 'seed-podcast-model'],
 			priceMultiplier: 1,
 			endpoint: {
-				baseURL: `https://${channel}.example/v1`,
-				apiKey: `${channel}-key`
-			}
+				baseURL: `https://${id}.example/v1`,
+				apiKey: `${id}-key`
+			},
+			enabled: true
 		},
 		score: 100
 	}
@@ -525,15 +533,16 @@ function createEnv(): Env {
 function createAIConfig(): {
 	routing: { errorWeight: number; latencyWeight: number; priceWeight: number }
 	taskRetentionDays: number
-	providers: Record<string, never>
-	channels: never[]
+	providers: Array<ReturnType<typeof createRankedProvider>['provider']>
 	version: number
 } {
 	return {
 		routing: { errorWeight: 1, latencyWeight: 0.8, priceWeight: 0.2 },
 		taskRetentionDays: 30,
-		providers: {},
-		channels: [],
+		providers: [
+			createRankedProvider('gemini-primary', 'tts_gemini').provider,
+			createRankedProvider('seed-primary', 'tts_seed').provider
+		],
 		version: 1
 	}
 }
@@ -543,7 +552,8 @@ function createTask(attemptCount: number): TaskRow {
 		id: 't1',
 		userId: 'u1',
 		status: 'processing',
-		provider: 'gemini',
+		providerType: 'tts_gemini',
+		providerId: null,
 		model: 'gemini-model',
 		sourceJson: null,
 		instruction: 'podcast style',

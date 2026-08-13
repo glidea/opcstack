@@ -8,6 +8,7 @@ import {
 	type AIRealtimeStartSessionInput
 } from '../../ai/realtime'
 import type { AIRuntimeConfig } from '../../ai/config'
+import type { TenantShardDb } from '../../db'
 import { bindAIRealtimeWebSocket } from './ai-realtime'
 
 type ClientCall = {
@@ -202,21 +203,22 @@ describe('bindAIRealtimeWebSocket', () => {
 		const config: AIRuntimeConfig = {
 			routing: { errorWeight: 1, latencyWeight: 0.8, priceWeight: 0.2 },
 			taskRetentionDays: 30,
-			providers: {
-				realtimeDoubao: {
-					identity: { id: 'realtimeDoubao', area: 'realtime', provider: 'doubao' },
-					endpoint: { baseURL: 'wss://example.com', apiKey: 'k' },
-					defaultModel: 'doubao-realtime-o2'
-				}
-			},
-			channels: [],
+			providers: [{
+				id: 'doubao-primary',
+				name: 'Doubao primary',
+				type: 'realtime_doubao',
+				models: ['doubao-realtime-o2'],
+				priceMultiplier: 1,
+				endpoint: { baseURL: 'wss://example.com', apiKey: 'k' },
+				enabled: true
+			}],
 			version: 1
 		}
-		bindAIRealtimeWebSocket(socket, 'u1', config)
+		bindAIRealtimeWebSocket(socket, 'u1', config, createMetricDb())
 
 		socket.dispatchMessage(JSON.stringify({
 			type: 'start_session',
-			provider: 'doubao',
+			model: 'doubao-realtime-o2',
 			speaker: 'zh_female_vv_jupiter_bigtts',
 			prompt: 'article'
 		}))
@@ -235,6 +237,16 @@ describe('bindAIRealtimeWebSocket', () => {
 		}
 	})
 })
+
+function createMetricDb(): TenantShardDb {
+	return {
+		select: (): object => ({
+			from: (): object => ({
+				where: async (): Promise<unknown[]> => []
+			})
+		})
+	} as unknown as TenantShardDb
+}
 
 class FakeWebSocket {
 	accepted: boolean = false

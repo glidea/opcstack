@@ -37,7 +37,8 @@ export function parseAiTaskListQuery(url: URL): ListAdminAiTasksRequest {
 	const id: string = url.searchParams.get('id')?.trim() ?? ''
 	const userId: string = url.searchParams.get('user_id')?.trim() ?? ''
 	const status: string = url.searchParams.get('status')?.trim() ?? ''
-	const provider: string = url.searchParams.get('provider')?.trim() ?? ''
+	const providerType: string = url.searchParams.get('provider_type')?.trim() ?? ''
+	const providerId: string = url.searchParams.get('provider_id')?.trim() ?? ''
 	const model: string = url.searchParams.get('model')?.trim() ?? ''
 	const rawPage: number = Number(url.searchParams.get('page') ?? '1')
 	return {
@@ -45,7 +46,8 @@ export function parseAiTaskListQuery(url: URL): ListAdminAiTasksRequest {
 		...(id === '' ? {} : { id }),
 		...(userId === '' ? {} : { user_id: userId }),
 		...(status === '' ? {} : { status }),
-		...(provider === '' ? {} : { provider }),
+		...(providerType === '' ? {} : { provider_type: providerType }),
+		...(providerId === '' ? {} : { provider_id: providerId }),
 		...(model === '' ? {} : { model }),
 		...readTimestamp(url.searchParams, 'created_at_start'),
 		...readTimestamp(url.searchParams, 'created_at_end'),
@@ -61,7 +63,8 @@ export function createAiTaskSearchParams(input: ListAdminAiTasksRequest): URLSea
 		['id', input.id],
 		['user_id', input.user_id],
 		['status', input.status],
-		['provider', input.provider],
+		['provider_type', input.provider_type],
+		['provider_id', input.provider_id],
 		['model', input.model],
 		['created_at_start', input.created_at_start],
 		['created_at_end', input.created_at_end]

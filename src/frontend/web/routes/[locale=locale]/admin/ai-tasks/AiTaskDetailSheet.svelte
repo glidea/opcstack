@@ -177,7 +177,7 @@
 								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.aiTasks.status')}</dt><dd><Badge variant={getAiTaskStatusVariant(detailState.task.status)}>{detailState.task.status}</Badge></dd></div>
 							</div>
 							<div class="grid grid-cols-2 gap-3">
-								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.aiTasks.provider')}</dt><dd>{detailState.task.provider}</dd></div>
+								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.aiTasks.provider')}</dt><dd>{detailState.task.provider_type}<br><span class="font-mono text-xs text-muted-foreground">{detailState.task.provider_id ?? $_('admin.common.none')}</span></dd></div>
 								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.aiTasks.model')}</dt><dd>{detailState.task.model ?? $_('admin.common.none')}</dd></div>
 							</div>
 							<div class="grid grid-cols-2 gap-3">

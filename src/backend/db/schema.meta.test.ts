@@ -5,7 +5,7 @@ import {
 	checkoutOrder,
 	creditRedemptionCode,
 	d1Shard,
-	aiChannel,
+		aiProvider,
 	oauthAuthorizationRequest,
 	oauthGrant,
 	paymentProduct,
@@ -32,7 +32,7 @@ describe('schema.meta', () => {
 			scenario: 'dynamic configuration ownership',
 			given: 'meta schema',
 			when: 'checking configuration tables',
-			then: 'singleton domain documents payment products and ai channels stay in meta',
+				then: 'singleton domain documents payment products and ai providers stay in meta',
 			givenDetail: { schema: 'meta' },
 			whenDetail: { check: 'configuration-tables' },
 			thenExpected: { result: true }
@@ -110,7 +110,9 @@ describe('schema.meta', () => {
 						!settingsColumns.includes('designSystem') &&
 						!settingsColumns.includes('chatOpenaiEnabled') &&
 						paymentProduct.version !== undefined &&
-						aiChannel.apiKeyCiphertext !== undefined
+							aiProvider.type !== undefined &&
+							aiProvider.models !== undefined &&
+							aiProvider.apiKeyCiphertext !== undefined
 				}
 			}
 			case 'oauth-api-access-tables':

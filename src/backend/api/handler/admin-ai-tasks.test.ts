@@ -14,7 +14,8 @@ type MockTaskRow = {
 	id: string
 	userId: string
 	status: string
-	provider: string
+	providerType: string
+	providerId: string | null
 	model: string | null
 	attemptCount: number
 	lastErrorMessage: string | null
@@ -82,6 +83,7 @@ describe('listAdminAiTasksHandler', () => {
 		})
 		const video: MockTaskRow = createTask({
 			id: 'video-1',
+			providerType: 'video_seedance',
 			createdAt: 200,
 			updatedAt: 210
 		})
@@ -109,7 +111,8 @@ describe('listAdminAiTasksHandler', () => {
 						shard_id: 'weur-0000',
 						user_id: 'user-1',
 						status: 'completed',
-						provider: 'openai',
+						provider_type: 'tts_seed',
+						provider_id: null,
 						model: 'model-1',
 						attempt_count: 1,
 						last_error_message: null,
@@ -123,7 +126,8 @@ describe('listAdminAiTasksHandler', () => {
 						shard_id: 'weur-0000',
 						user_id: 'user-1',
 						status: 'completed',
-						provider: 'openai',
+						provider_type: 'video_seedance',
+						provider_id: null,
 						model: 'model-1',
 						attempt_count: 1,
 						last_error_message: null,
@@ -165,7 +169,8 @@ describe('getAdminAiTaskHandler', () => {
 				id: 'image-1',
 				user_id: 'user-1',
 				status: 'completed',
-				provider: 'openai',
+				provider_type: 'image_openai',
+				provider_id: null,
 				model: 'gpt-image-1',
 				attempt_count: 1,
 				last_error_message: null,
@@ -211,7 +216,8 @@ function createTask(overrides: Partial<MockTaskRow> = {}): MockTaskRow {
 		id: 'task-1',
 		userId: 'user-1',
 		status: 'completed',
-		provider: 'openai',
+		providerType: 'tts_seed',
+		providerId: null,
 		model: 'model-1',
 		attemptCount: 1,
 		lastErrorMessage: null,
@@ -225,6 +231,7 @@ function createTask(overrides: Partial<MockTaskRow> = {}): MockTaskRow {
 function createImageTask(overrides: Partial<MockImageTaskRow> = {}): MockImageTaskRow {
 	return {
 		...createTask(),
+		providerType: 'image_openai',
 		model: 'gpt-image-1',
 		prompt: 'A launch poster',
 		numberOfImages: 2,

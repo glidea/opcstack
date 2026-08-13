@@ -171,7 +171,7 @@ describe('handleScheduled', () => {
 		}
 	})
 
-	it('cleans channel metrics and terminal AI tasks on every shard', async () => {
+	it('cleans provider metrics and terminal AI tasks on every shard', async () => {
 		vi.mocked(createTenantShardAccess).mockReturnValue({
 			listShardDbs: vi.fn().mockResolvedValue([
 				{
@@ -213,7 +213,7 @@ describe('handleScheduled', () => {
 		for (const shardId of ['shard_0000', 'shard_0001']) {
 			const shardQueries = queries.filter((query): boolean => query.shardId === shardId)
 			const metricQuery = shardQueries.find((query): boolean => {
-				return query.sql.includes('DELETE FROM ai_channel_metric_buckets')
+				return query.sql.includes('DELETE FROM ai_provider_metric_buckets')
 			})
 			expect(metricQuery?.params).toEqual([metricCutoff])
 

@@ -58,9 +58,9 @@ import {
 import { getAdminOverviewHandler } from './handler/admin-overview'
 import { listAdminUsersHandler, updateAdministratorEmailHandler } from './handler/admin-users'
 import {
-	createAIChannelHandler,
+	createAIProviderHandler,
 	createPaymentProductHandler,
-	deleteAIChannelHandler,
+	deleteAIProviderHandler,
 	deletePaymentProductHandler,
 	getAIConfigHandler,
 	getAuthenticationConfigHandler,
@@ -70,7 +70,7 @@ import {
 	getGeneralConfigHandler,
 	getPaymentConfigHandler,
 	getStorageConfigHandler,
-	updateAIChannelHandler,
+	updateAIProviderHandler,
 	updateAIConfigHandler,
 	updateAuthenticationConfigHandler,
 	updateAffiliateConfigHandler,
@@ -193,9 +193,9 @@ adminApi.post('/admin/update_payment_product', requireApiScope(getProtectedJsonR
 adminApi.post('/admin/delete_payment_product', requireApiScope(getProtectedJsonRouteScope('/api/admin/delete_payment_product')), deletePaymentProductHandler)
 adminApi.post('/admin/get_ai_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_ai_config')), getAIConfigHandler)
 adminApi.post('/admin/update_ai_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_ai_config')), updateAIConfigHandler)
-adminApi.post('/admin/create_ai_channel', requireApiScope(getProtectedJsonRouteScope('/api/admin/create_ai_channel')), createAIChannelHandler)
-adminApi.post('/admin/update_ai_channel', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_ai_channel')), updateAIChannelHandler)
-adminApi.post('/admin/delete_ai_channel', requireApiScope(getProtectedJsonRouteScope('/api/admin/delete_ai_channel')), deleteAIChannelHandler)
+adminApi.post('/admin/create_ai_provider', requireApiScope(getProtectedJsonRouteScope('/api/admin/create_ai_provider')), createAIProviderHandler)
+adminApi.post('/admin/update_ai_provider', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_ai_provider')), updateAIProviderHandler)
+adminApi.post('/admin/delete_ai_provider', requireApiScope(getProtectedJsonRouteScope('/api/admin/delete_ai_provider')), deleteAIProviderHandler)
 adminApi.put('/admin/r2/public/*', browserSessionOnlyMiddleware, uploadR2PublicObjectHandler)
 adminApi.get('/admin/ai_realtime_connect', browserSessionOnlyMiddleware, aiRealtimeConnectHandler)
 

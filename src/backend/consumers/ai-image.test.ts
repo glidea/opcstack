@@ -13,7 +13,8 @@ type TaskRow = {
 	id: string
 	userId: string
 	status: string
-	provider: string
+	providerType: string
+	providerId: string | null
 	model: string | null
 	prompt: string
 	numberOfImages: number | null
@@ -35,7 +36,7 @@ type TaskRow = {
 const mocks = vi.hoisted(() => {
 	return {
 		generate: vi.fn(),
-		rankChannels: vi.fn(),
+		rankProviders: vi.fn(),
 		metricQuery: vi.fn(),
 		runRawD1Batch: vi.fn(),
 		ack: vi.fn(),
@@ -66,15 +67,17 @@ vi.mock('../ai/image', () => {
 	}
 })
 
-vi.mock('../ai/channel-routing', () => {
+vi.mock('../ai/provider-routing', () => {
 	return {
-		rankAIChannels: mocks.rankChannels,
-		createAIChannelMetricQuery: mocks.metricQuery
+		rankAIProviders: mocks.rankProviders,
+		createAIProviderMetricQuery: mocks.metricQuery
 	}
 })
 
-vi.mock('../ai/config', () => {
+vi.mock('../ai/config', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../ai/config')>()
 	return {
+		...actual,
 		getAIRuntimeConfig: mocks.getAIRuntimeConfig
 	}
 })
@@ -102,7 +105,7 @@ describe('handleAIImageQueue', () => {
 						const params = built.params as unknown[]
 						mocks.updateSet({
 							status: params[0],
-							channel: built.sql.includes('result_json') ? params[1] : null,
+							providerId: built.sql.includes('result_json') ? params[1] : null,
 							resultJson: built.sql.includes('result_json') ? params[2] : undefined,
 							lastErrorMessage: built.sql.includes('last_error_message') ? params[2] : undefined
 						})
@@ -116,7 +119,7 @@ describe('handleAIImageQueue', () => {
 				generate: mocks.generate
 			}
 		} as unknown as ReturnType<typeof createAIImageClients>)
-		mocks.rankChannels.mockResolvedValue([createRankedChannel('IMAGE_GEMINI_OFFICIAL')])
+		mocks.rankProviders.mockResolvedValue([createRankedProvider('gemini-primary')])
 		mocks.metricQuery.mockImplementation((_, input: unknown) => ({ input }))
 		mocks.runRawD1Batch.mockResolvedValue([])
 		mocks.getAIRuntimeConfig.mockResolvedValue(createAIConfig())
@@ -288,12 +291,12 @@ describe('handleAIImageQueue', () => {
 		}
 	})
 
-	it('tries ranked channels in order and records one batch for failover', async () => {
+	it('tries ranked providers in order and records one batch for failover', async () => {
 		const task: TaskRow = createTask(0)
 		mocks.findFirst.mockResolvedValue(task)
-		mocks.rankChannels.mockResolvedValue([
-			createRankedChannel('IMAGE_GEMINI_OFFICIAL'),
-			createRankedChannel('IMAGE_GEMINI_RESELLER_A')
+		mocks.rankProviders.mockResolvedValue([
+			createRankedProvider('gemini-primary'),
+			createRankedProvider('gemini-backup')
 		])
 		mocks.generate
 			.mockRejectedValueOnce(new Error('official unavailable'))
@@ -308,41 +311,41 @@ describe('handleAIImageQueue', () => {
 				provider: 'gemini',
 				model: 'gemini-model',
 				endpoint: {
-					baseURL: 'https://IMAGE_GEMINI_OFFICIAL.example/v1',
-					apiKey: 'IMAGE_GEMINI_OFFICIAL-key'
+					baseURL: 'https://gemini-primary.example/v1',
+					apiKey: 'gemini-primary-key'
 				}
 			},
 			{
 				provider: 'gemini',
 				model: 'gemini-model',
 				endpoint: {
-					baseURL: 'https://IMAGE_GEMINI_RESELLER_A.example/v1',
-					apiKey: 'IMAGE_GEMINI_RESELLER_A-key'
+					baseURL: 'https://gemini-backup.example/v1',
+					apiKey: 'gemini-backup-key'
 				}
 			}
 		])
 		expect(mocks.runRawD1Batch).toHaveBeenCalledTimes(1)
 		expect(mocks.runRawD1Batch.mock.calls[0]?.[1]).toHaveLength(3)
 		expect(mocks.updateSet).toHaveBeenLastCalledWith(
-			expect.objectContaining({ channel: 'IMAGE_GEMINI_RESELLER_A', status: 'completed' })
+			expect.objectContaining({ providerId: 'gemini-backup', status: 'completed' })
 		)
 		expect(mocks.metricQuery.mock.calls.map((call) => call[1])).toEqual([
-			expect.objectContaining({ channel: 'IMAGE_GEMINI_OFFICIAL', result: 'error' }),
-			expect.objectContaining({ channel: 'IMAGE_GEMINI_RESELLER_A', result: 'success' })
+			expect.objectContaining({ providerId: 'gemini-primary', result: 'error' }),
+			expect.objectContaining({ providerId: 'gemini-backup', result: 'success' })
 		])
 		expect(mocks.logError).toHaveBeenCalledWith(
 			expect.any(Error),
-			expect.objectContaining({ channel: 'IMAGE_GEMINI_OFFICIAL' })
+			expect.objectContaining({ providerId: 'gemini-primary' })
 		)
 		expect(mocks.ack).toHaveBeenCalledTimes(1)
 	})
 
-	it('retries the queue message after every channel fails', async () => {
+	it('retries the queue message after every provider fails', async () => {
 		const task: TaskRow = createTask(0)
 		mocks.findFirst.mockResolvedValue(task)
-		mocks.rankChannels.mockResolvedValue([
-			createRankedChannel('IMAGE_GEMINI_OFFICIAL'),
-			createRankedChannel('IMAGE_GEMINI_RESELLER_A')
+		mocks.rankProviders.mockResolvedValue([
+			createRankedProvider('gemini-primary'),
+			createRankedProvider('gemini-backup')
 		])
 		mocks.generate.mockRejectedValue(new Error('provider unavailable'))
 
@@ -352,8 +355,8 @@ describe('handleAIImageQueue', () => {
 		expect(mocks.runRawD1Batch).toHaveBeenCalledTimes(1)
 		expect(mocks.runRawD1Batch.mock.calls[0]?.[1]).toHaveLength(3)
 		expect(mocks.metricQuery.mock.calls.map((call) => call[1])).toEqual([
-			expect.objectContaining({ channel: 'IMAGE_GEMINI_OFFICIAL', result: 'error' }),
-			expect.objectContaining({ channel: 'IMAGE_GEMINI_RESELLER_A', result: 'error' })
+			expect.objectContaining({ providerId: 'gemini-primary', result: 'error' }),
+			expect.objectContaining({ providerId: 'gemini-backup', result: 'error' })
 		])
 		expect(mocks.retry).toHaveBeenCalledWith({ delaySeconds: 10 })
 	})
@@ -382,26 +385,30 @@ describe('handleAIImageQueue', () => {
 	})
 })
 
-function createRankedChannel(channel: string): {
-	channel: {
-		channel: string
-		target: { taskType: 'image'; provider: 'gemini' }
-		models: readonly string[]
+function createRankedProvider(id: string): {
+	provider: {
+		id: string
+		name: string
+		type: 'image_gemini'
+		models: string[]
 		priceMultiplier: number
 		endpoint: { baseURL: string; apiKey: string }
+		enabled: boolean
 	}
 	score: number
 } {
 	return {
-		channel: {
-			channel,
-			target: { taskType: 'image', provider: 'gemini' },
+		provider: {
+			id,
+			name: id,
+			type: 'image_gemini',
 			models: ['gemini-model'],
 			priceMultiplier: 1,
 			endpoint: {
-				baseURL: `https://${channel}.example/v1`,
-				apiKey: `${channel}-key`
-			}
+				baseURL: `https://${id}.example/v1`,
+				apiKey: `${id}-key`
+			},
+			enabled: true
 		},
 		score: 100
 	}
@@ -430,15 +437,13 @@ function createEnv(): Env {
 function createAIConfig(): {
 	routing: { errorWeight: number; latencyWeight: number; priceWeight: number }
 	taskRetentionDays: number
-	providers: Record<string, never>
-	channels: never[]
+	providers: Array<ReturnType<typeof createRankedProvider>['provider']>
 	version: number
 } {
 	return {
 		routing: { errorWeight: 1, latencyWeight: 0.8, priceWeight: 0.2 },
 		taskRetentionDays: 30,
-		providers: {},
-		channels: [],
+		providers: [createRankedProvider('gemini-primary').provider],
 		version: 1
 	}
 }
@@ -448,7 +453,8 @@ function createTask(attemptCount: number): TaskRow {
 		id: 't1',
 		userId: 'u1',
 		status: 'processing',
-		provider: 'gemini',
+		providerType: 'image_gemini',
+		providerId: null,
 		model: 'gemini-model',
 		prompt: 'draw',
 		numberOfImages: 1,

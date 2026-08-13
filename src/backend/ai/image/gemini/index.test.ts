@@ -437,7 +437,7 @@ describe('createGeminiSimpleImageClient.generate', () => {
 		}
 	})
 
-	it('uses the explicit channel endpoint', async () => {
+	it('uses the explicit Provider endpoint', async () => {
 		vi.clearAllMocks()
 		generateContentMock.mockResolvedValue({
 			candidates: [{ content: { parts: [{ inlineData: { data: 'a', mimeType: 'image/png' } }] } }]
@@ -449,14 +449,14 @@ describe('createGeminiSimpleImageClient.generate', () => {
 			{} as TenantShardDb,
 			{
 				model: 'env-model',
-				endpoint: { baseURL: 'https://channel.example', apiKey: 'channel-key' }
+				endpoint: { baseURL: 'https://provider.example', apiKey: 'provider-key' }
 			}
 		)
 		await client.generate({ prompt: 'draw' })
 
 		expect(googleConstructorMock).toHaveBeenCalledWith({
-			apiKey: 'channel-key',
-			httpOptions: { baseUrl: 'https://channel.example' }
+			apiKey: 'provider-key',
+			httpOptions: { baseUrl: 'https://provider.example' }
 		})
 	})
 })

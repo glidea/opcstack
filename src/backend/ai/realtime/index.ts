@@ -3,10 +3,7 @@ import type { AIEndpoint } from '../endpoint'
 
 export * from './doubao/constants'
 
-export type AIRealtimeProvider = 'doubao'
-
 export interface AIRealtimeClientOptions {
-	provider?: AIRealtimeProvider
 	model: string
 	endpoint: AIEndpoint
 }
@@ -94,9 +91,5 @@ export function createAIRealtimeClient(
 	userId: string,
 	options: AIRealtimeClientOptions
 ): AIRealtimeClient {
-	const provider: AIRealtimeProvider = options.provider ?? 'doubao'
-	switch (provider) {
-		case 'doubao':
-			return createDoubaoRealtimeClient(options.endpoint, userId, options.model)
-	}
+	return createDoubaoRealtimeClient(options.endpoint, userId, options.model)
 }

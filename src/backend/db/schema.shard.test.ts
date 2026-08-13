@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getTableConfig } from 'drizzle-orm/sqlite-core'
 import { runCases, type TestCase } from '../testing/bdd'
 import {
-	aiChannelMetricBucket,
+	aiProviderMetricBucket,
 	aiImageTask,
 	aiTtsTask,
 	aiVideoTask,
@@ -55,8 +55,8 @@ describe('schema.shard', () => {
 		}
 	})
 
-	it('defines channel routing metrics and task execution fields', () => {
-		const metricConfig = getTableConfig(aiChannelMetricBucket)
+	it('defines provider routing metrics and task execution fields', () => {
+		const metricConfig = getTableConfig(aiProviderMetricBucket)
 		const imageConfig = getTableConfig(aiImageTask)
 		const ttsConfig = getTableConfig(aiTtsTask)
 		const videoConfig = getTableConfig(aiVideoTask)
@@ -77,37 +77,38 @@ describe('schema.shard', () => {
 			videoIndexes: videoConfig.indexes.map((index) => index.config.name)
 		}).toEqual({
 			metricColumns: [
-				'channel',
+					'provider_id',
 				'model',
 				'bucket_start',
 				'success_count',
 				'error_count',
 				'success_latency_ms_total'
 			],
-			metricPrimaryKey: ['channel', 'model', 'bucket_start'],
-			metricIndexes: ['ai_channel_metric_buckets_bucket_start_idx'],
-			imageColumns: expect.arrayContaining(['channel']),
-			ttsColumns: expect.arrayContaining(['channel']),
+			metricPrimaryKey: ['provider_id', 'model', 'bucket_start'],
+			metricIndexes: ['ai_provider_metric_buckets_bucket_start_idx'],
+			imageColumns: expect.arrayContaining(['provider_type', 'provider_id']),
+			ttsColumns: expect.arrayContaining(['provider_type', 'provider_id']),
 			videoColumns: expect.arrayContaining([
-				'channel',
-				'channel_started_at',
-				'failed_channels_json'
+				'provider_type',
+				'provider_id',
+				'provider_started_at',
+				'failed_provider_ids_json'
 			]),
 			imageIndexes: expect.arrayContaining(['ai_image_tasks_status_updated_at_idx']),
 			ttsIndexes: expect.arrayContaining(['ai_tts_tasks_status_updated_at_idx']),
 			videoIndexes: expect.arrayContaining(['ai_video_tasks_status_updated_at_idx'])
 		})
 
-		const videoFailedChannels = videoConfig.columns.find((column) => {
-			return column.name === 'failed_channels_json'
+		const videoFailedProviders = videoConfig.columns.find((column) => {
+			return column.name === 'failed_provider_ids_json'
 		})
-		const imageChannel = imageConfig.columns.find((column) => column.name === 'channel')
-		const ttsChannel = ttsConfig.columns.find((column) => column.name === 'channel')
-		const videoChannel = videoConfig.columns.find((column) => column.name === 'channel')
-		expect(videoFailedChannels?.notNull).toBe(true)
-		expect(videoFailedChannels?.hasDefault).toBe(true)
-		expect(imageChannel?.notNull).toBe(false)
-		expect(ttsChannel?.notNull).toBe(false)
-		expect(videoChannel?.notNull).toBe(false)
+		const imageProvider = imageConfig.columns.find((column) => column.name === 'provider_id')
+		const ttsProvider = ttsConfig.columns.find((column) => column.name === 'provider_id')
+		const videoProvider = videoConfig.columns.find((column) => column.name === 'provider_id')
+		expect(videoFailedProviders?.notNull).toBe(true)
+		expect(videoFailedProviders?.hasDefault).toBe(true)
+		expect(imageProvider?.notNull).toBe(false)
+		expect(ttsProvider?.notNull).toBe(false)
+		expect(videoProvider?.notNull).toBe(false)
 	})
 })

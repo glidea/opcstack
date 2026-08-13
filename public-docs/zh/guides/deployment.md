@@ -412,7 +412,7 @@ Binding 和类命名：
 | Cloudflare Email | 付费 Worker 方案和 `SEND_EMAIL` binding |
 | Dodo | Configuration > Payment 中的凭据、产品 id、指向 Worker 的 webhook |
 | Creem | Configuration > Payment 中的凭据、产品 id、指向 Worker 的 webhook |
-| AI providers | AI Tab 中的 API keys、base URLs、模型、路由和 Channels |
+| AI providers | AI Tab 中的 API keys、base URLs、模型和路由权重 |
 
 如果某功能被禁用，不要配置假的生产凭据。保持功能开关为 false。
 

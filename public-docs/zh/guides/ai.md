@@ -8,7 +8,7 @@ order: 5
 
 # AI 集成
 
-OPCStack 将 AI provider 代码放在 `src/backend/ai/` 下。处理器和业务模块应调用该目录下的简单客户端接口，而不是直接调用 provider SDK。这样可以将 provider 特定的请求结构、渠道端点规则、任务持久化、队列重试行为和 R2 输出处理集中在一处。
+OPCStack 将 AI provider 代码放在 `src/backend/ai/` 下。处理器和业务模块应调用该目录下的简单客户端接口，而不是直接调用 provider SDK。这样可以将 provider 特定的请求结构、Provider endpoint、任务持久化、队列重试行为和 R2 输出处理集中在一处。
 
 当前 AI 功能仅限后端：
 
@@ -467,11 +467,11 @@ Meta DB
 
 ## Endpoint 规则
 
-同步 Chat 和 Realtime 调用使用其 provider 唯一配置的 endpoint。同步 Image 和 TTS 调用也使用该 provider endpoint，除非调用方显式传入 endpoint。异步 consumer 始终传入 Channel Router 选中的 endpoint。Provider 自身不会选择第二个 endpoint，也不会通过其他 endpoint 重试。
+每个 AI 操作在路由前都已经确定 Provider Type 和模型。配置模块按精确的 `type + model` 从 `ai_providers` 筛选启用的 Provider。Provider 实现只接收一个显式 endpoint，不负责选择或重试其他 Provider。
 
-## Channel Router
+## Provider Router
 
-Channel Router 仅用于 Image、TTS 和 Video 异步 consumer。任务创建仍只接受 provider 和 model。每个 Consumer 从 D1 读取一份 AI 配置快照，筛选声明支持该任务模型的已启用渠道，并在调用 Provider 前选择分数最高的渠道。
+Provider Router 只对已经筛选好的候选列表排序。它不知道 Image、OpenAI 或任何 Provider Type。同步调用使用排名第一的 Provider。Image 和 TTS 异步 consumer 可以在一次 Queue 尝试中依次尝试排名靠前的 Provider。
 
 评分使用当前 Tenant Shard 最近 5 分钟和 1 小时的 1 分钟桶：
 
@@ -481,19 +481,19 @@ penalty = (error * error_weight + latency * latency_weight + price * price_weigh
 score = (1 - penalty) * 100
 ```
 
-同时存在 5 分钟和 1 小时数据时按 `70% + 30%` 合并。缺少错误率或延迟时使用候选池中位数。整个候选池都没有某项指标时，其归一化惩罚为 `0.5`。分数相同时按完整渠道前缀升序排列。
+同时存在 5 分钟和 1 小时数据时按 `70% + 30%` 合并。缺少错误率或延迟时使用候选池中位数。整个候选池都没有某项指标时，其归一化惩罚为 `0.5`。分数相同时按 Provider ID 升序排列。
 
-每次上游尝试增加一条 `(channel, model, bucket_start)` 分钟桶。成功调用累计延迟，失败的上游调用只累计错误次数。Router 不写每次调用明细，不依赖进程内存，也不增加全局指标服务。现有 10 分钟 scheduled job 会清理每个 active 或 draining Tenant Shard 中超过 24 小时的指标桶。
+每次上游尝试增加一条 `(provider_id, model, bucket_start)` 分钟桶。成功调用累计延迟，失败的上游调用只累计错误次数。Router 不写每次调用明细，不依赖进程内存，也不增加全局指标服务。现有 10 分钟 scheduled job 会清理每个 active 或 draining Tenant Shard 中超过 24 小时的指标桶。
 
-Video 仅在创建新的远程 provider 任务时选择渠道。Provider 返回 task id 后，consumer 同时持久化 `channel`、`channel_started_at` 和 `provider_task_id`。后续轮询从已存 channel 解析 endpoint，不再调用 Channel Router。远程任务明确返回 `failed` 时，consumer 记录渠道错误、把渠道追加到 `failed_channels_json`，并在下一次队列尝试选择其他渠道前清空三个执行字段。轮询网络错误保留已有绑定。
+Video 仅在创建新的远程任务时选择 Provider。Provider 返回任务 ID 后，consumer 同时持久化 `provider_id`、`provider_started_at` 和 `provider_task_id`。后续轮询从已存 Provider ID 解析 endpoint，不再路由，即使该 Provider 已停用也不受影响。远程任务明确失败时，consumer 记录 Provider 错误、把 ID 追加到 `failed_provider_ids_json`，并在下一次 Queue 尝试选择其他 Provider 前清空执行字段。轮询网络错误保留已有绑定。
 
 ## 配置
 
-`META_DB` 是 AI 业务配置的唯一来源。`system_settings.ai_config` 保存路由权重、任务保留期和九个固定 Provider 配置。`ai_channels` 保存独立版本控制的异步执行端点。Provider 和 Channel 凭据使用 `CONFIG_ENCRYPTION_KEY` 做 AES-GCM 加密；读取 API 只返回 `api_key_configured`。
+`META_DB` 是 AI 业务配置的唯一来源。`system_settings.ai_config` 保存路由权重和任务保留期。每条 `ai_providers` 记录独立保存一个 Provider，包括组合后的 Provider Type、支持模型、endpoint、价格系数、启用状态和使用 AES-GCM 加密的 API Key。读取 API 只返回 `api_key_configured`。
 
-配置保存后对下一个请求、Queue 消息、WebSocket 连接或 Cron 触发生效。已经开始的操作继续使用启动时的快照。已经取得远程任务 ID 的 Video 任务即使对应 Channel 后来被停用，也继续使用持久化的 Channel。
+配置保存后对下一个请求、Queue 消息、WebSocket 连接或 Cron 触发生效。已经开始的操作继续使用启动时的快照。已经取得远程任务 ID 的 Video 任务继续使用持久化的 Provider。
 
-在**后台 > Configuration > AI** 保存路由权重、任务保留期和九个固定 Provider。启用的 Provider 必须填写 Base URL、默认模型和 API Key。异步 Channel 在下方独立管理，新建、编辑、删除成功后只更新目标行。版本过期时需要显式刷新。页面只显示 API Key 是否已配置。
+在**后台 > Configuration > AI** 保存路由权重和任务保留期，并在下方管理 Provider。Provider 必须填写名称、Provider Type、至少一个模型、Base URL、价格系数、启用状态，并在首次启用时填写 API Key。新建、编辑、删除成功后只更新目标行。版本过期时需要显式刷新。页面只显示 API Key 是否已配置。
 
 任何 AI 业务设置或凭据都不应写入 `.env.dev`、`.env.prod`、`.env.secret.*` 或 `wrangler.jsonc`。
 
@@ -504,10 +504,9 @@ Video 仅在创建新的远程 provider 任务时选择渠道。Provider 返回 
 1. 在对应领域下添加 provider 模块，例如 `src/backend/ai/image/acme`
 2. 从 `constants.ts` 导出常量
 3. 实现现有的 simple 客户端接口
-4. 将 provider id 添加到该领域的 provider 联合类型中
+4. 将组合后的 Provider Type 加入配置联合类型、API schema 和后台下拉选项
 5. 在该领域的 `createAI...Clients` 工厂中添加一个分支
-6. 增加固定 Provider 身份和初始化时默认禁用的 D1 结构
-7. 针对请求映射、任务创建和 provider 错误映射添加专项单元测试
+6. 针对请求映射、任务创建和 provider 错误映射添加专项单元测试
 
 除非至少有两个领域需要完全相同的动态注册行为，否则不要创建通用 provider 注册表。当前显式的 `switch`/分支写法更简单易读。
 
@@ -515,7 +514,7 @@ Video 仅在创建新的远程 provider 任务时选择渠道。Provider 返回 
 
 **在处理器中直接调用 provider SDK**
 
-不要这样做。使用 `src/backend/ai/*` 的 simple 客户端，以便配置、渠道 endpoint、任务行和 R2 规则保持集中管理。
+不要这样做。使用 `src/backend/ai/*` 的 simple 客户端，以便 Provider endpoint、任务行和 R2 规则保持集中管理。
 
 **将任务负载放入队列消息**
 

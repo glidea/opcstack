@@ -239,7 +239,7 @@ The job:
 2. Lists active and draining tenant shard DBs
 3. Runs `CreditsService.expire({ limit: 20 })` on each shard
 4. Runs `CreditsService.cleanupTransactions({ limit: 100 })` on each shard
-5. Deletes AI channel metric buckets older than 24 hours
+5. Deletes AI Provider metric buckets older than 24 hours
 6. Loads AI task retention from D1 and deletes older `completed` and `failed` Image, TTS, and Video task rows
 7. Logs structured job results
 

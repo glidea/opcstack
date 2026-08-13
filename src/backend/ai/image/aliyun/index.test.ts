@@ -465,7 +465,7 @@ describe('createAliyunSimpleImageClient.generate', () => {
 		}
 	}
 
-	it('uses the explicit channel endpoint', async () => {
+	it('uses the explicit Provider endpoint', async () => {
 		vi.clearAllMocks()
 		fetchCalls.length = 0
 		vi.stubGlobal('fetch', async (input: RequestInfo | URL): Promise<Response> => {
@@ -479,13 +479,13 @@ describe('createAliyunSimpleImageClient.generate', () => {
 			{} as TenantShardDb,
 			{
 				model: 'qwen-image-2.0-pro',
-				endpoint: { baseURL: 'https://channel.example/api/v1', apiKey: 'channel-key' }
+				endpoint: { baseURL: 'https://provider.example/api/v1', apiKey: 'provider-key' }
 			}
 		)
 		await client.generate({ prompt: 'draw' })
 
 		expect(fetchCalls[0]?.url).toBe(
-			'https://channel.example/api/v1/services/aigc/multimodal-generation/generation'
+			'https://provider.example/api/v1/services/aigc/multimodal-generation/generation'
 		)
 	})
 })

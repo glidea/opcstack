@@ -4,10 +4,10 @@ import { aiImageTask } from '../db/schema.shard'
 import { createTenantShardAccess } from '../db/shard-router'
 import { createAIImageClients } from '../ai/image'
 import {
-	createAIChannelMetricQuery,
-	rankAIChannels,
-	type AIRankedChannel
-} from '../ai/channel-routing'
+	createAIProviderMetricQuery,
+	rankAIProviders,
+	type AIRankedProvider
+} from '../ai/provider-routing'
 import { AIError } from '../ai/error'
 import { R2Error } from '../r2'
 import { logError } from '../lib/log'
@@ -16,10 +16,15 @@ import type {
 	AIImageReference,
 	AIImageResult,
 	AIImageSize,
-	AIImageTask
+	AIImageProvider
 } from '../ai/image'
 import type { AIImageGenerateQueueMessage } from '../ai/image/task'
-import { getAIRuntimeConfig, type AIRuntimeConfig } from '../ai/config'
+import {
+	getAIProviderCandidates,
+	getAIRuntimeConfig,
+	type AIImageProviderType,
+	type AIRuntimeConfig
+} from '../ai/config'
 
 const AI_IMAGE_MAX_ATTEMPTS = 3
 
@@ -55,34 +60,36 @@ async function handleAIImageMessage(
 	const attemptCount: number = task.attemptCount + 1
 	try {
 		if (!task.model) {
-			throw new AIError('AI_CHANNEL_CONFIG_INVALID')
+			throw new AIError('AI_PROVIDER_CONFIG_INVALID')
 		}
 
-		const rankedChannels: AIRankedChannel[] = await rankAIChannels(tenant.db, aiConfig, {
-			target: {
-				taskType: 'image',
-				provider: task.provider as AIImageTask['provider']
-			},
+		const providerType: AIImageProviderType = task.providerType as AIImageProviderType
+		const rankedProviders: AIRankedProvider[] = await rankAIProviders(
+			tenant.db,
+			getAIProviderCandidates(aiConfig, providerType, task.model),
+			aiConfig.routing,
+			{
 			model: task.model,
-			excludedChannels: [],
+			excludedProviderIds: [],
 			nowMs: Date.now()
-		})
+			}
+		)
 		const references = JSON.parse(task.referencesJson) as AIImageReference[]
-		let lastError: unknown = new AIError('AI_CHANNEL_NOT_FOUND')
+		let lastError: unknown = new AIError('AI_PROVIDER_NOT_FOUND')
 		let completed: {
-			channel: AIRankedChannel
+			provider: AIRankedProvider
 			images: AIImageResult[]
 			startedAt: number
 			finishedAt: number
 		} | undefined
 
-		for (const rankedChannel of rankedChannels) {
+		for (const rankedProvider of rankedProviders) {
 			const startedAt: number = Date.now()
 			try {
 				const client = createAIImageClients(env, task.userId, tenant.db, {
-					provider: task.provider as AIImageTask['provider'],
+					provider: toAIImageProvider(providerType),
 					model: task.model,
-					endpoint: rankedChannel.channel.endpoint
+					endpoint: rankedProvider.provider.endpoint
 				}).simple
 				const images = await client.generate({
 					prompt: task.prompt,
@@ -96,7 +103,7 @@ async function handleAIImageMessage(
 					r2UploadIsPublic: task.r2UploadIsPublic === 1
 				})
 				completed = {
-					channel: rankedChannel,
+					provider: rankedProvider,
 					images,
 					startedAt,
 					finishedAt: Date.now()
@@ -104,21 +111,21 @@ async function handleAIImageMessage(
 				break
 			} catch (error) {
 				lastError = error
-				if (!isAIChannelFailure(error)) {
+				if (!isAIProviderFailure(error)) {
 					throw error
 				}
 				logError(error, {
 					taskId: task.id,
 					userId: task.userId,
-					provider: task.provider,
+					providerType: task.providerType,
 					model: task.model,
-					channel: rankedChannel.channel.channel,
+					providerId: rankedProvider.provider.id,
 					attemptCount,
 					maxAttempts: AI_IMAGE_MAX_ATTEMPTS
 				})
 				metricQueries.push(
-					createAIChannelMetricQuery(tenant.db, {
-						channel: rankedChannel.channel.channel,
+					createAIProviderMetricQuery(tenant.db, {
+						providerId: rankedProvider.provider.id,
 						model: task.model,
 						startedAtMs: startedAt,
 						finishedAtMs: Date.now(),
@@ -136,14 +143,14 @@ async function handleAIImageMessage(
 		const taskUpdate = tenant.db.run(sql`
 			UPDATE ai_image_tasks
 			SET status = ${'completed'},
-				channel = ${completed.channel.channel.channel},
+				provider_id = ${completed.provider.provider.id},
 				result_json = ${JSON.stringify({ images: completed.images })},
 				updated_at = ${now},
 				completed_at = ${now}
 			WHERE id = ${task.id}
 		`)
-		const successMetric = createAIChannelMetricQuery(tenant.db, {
-			channel: completed.channel.channel.channel,
+		const successMetric = createAIProviderMetricQuery(tenant.db, {
+			providerId: completed.provider.provider.id,
 			model: task.model,
 			startedAtMs: completed.startedAt,
 			finishedAtMs: completed.finishedAt,
@@ -166,7 +173,7 @@ async function handleAIImageMessage(
 			logError(error, {
 				taskId: task.id,
 				userId: task.userId,
-				provider: task.provider,
+				providerType: task.providerType,
 				model: task.model,
 				attemptCount,
 				maxAttempts: AI_IMAGE_MAX_ATTEMPTS,
@@ -176,7 +183,7 @@ async function handleAIImageMessage(
 		const taskUpdate = tenant.db.run(sql`
 			UPDATE ai_image_tasks
 			SET status = ${nextStatus},
-				channel = NULL,
+				provider_id = NULL,
 				attempt_count = ${attemptCount},
 				last_error_message = ${messageText},
 				updated_at = ${now}
@@ -194,7 +201,7 @@ async function handleAIImageMessage(
 	}
 }
 
-function isAIChannelFailure(error: unknown): boolean {
+function isAIProviderFailure(error: unknown): boolean {
 	if (error instanceof R2Error) {
 		return false
 	}
@@ -217,6 +224,19 @@ function isAIChannelFailure(error: unknown): boolean {
 			return false
 		default:
 			return true
+	}
+}
+
+function toAIImageProvider(type: AIImageProviderType): AIImageProvider {
+	switch (type) {
+		case 'image_gemini':
+			return 'gemini'
+		case 'image_openai':
+			return 'openai'
+		case 'image_seedream':
+			return 'seedream'
+		case 'image_aliyun':
+			return 'aliyun'
 	}
 }
 

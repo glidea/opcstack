@@ -1,7 +1,7 @@
-export type AIErrorCode =
+	export type AIErrorCode =
 	| 'UNSUPPORTED_AI_PROVIDER'
-	| 'AI_CHANNEL_NOT_FOUND'
-	| 'AI_CHANNEL_CONFIG_INVALID'
+	| 'AI_PROVIDER_NOT_FOUND'
+	| 'AI_PROVIDER_CONFIG_INVALID'
 	| 'AI_IMAGE_REFERENCE_R2_READ_FAILED'
 	| 'AI_IMAGE_R2_UPLOAD_DIR_REQUIRED'
 	| 'AI_IMAGE_R2_UPLOAD_IS_PUBLIC_REQUIRED'
@@ -44,10 +44,10 @@ function aiErrorMessage(code: AIErrorCode): string {
 	 switch (code) {
 		case 'UNSUPPORTED_AI_PROVIDER':
 			return 'AI provider is unsupported'
-		case 'AI_CHANNEL_NOT_FOUND':
-			return 'AI channel is not found'
-		case 'AI_CHANNEL_CONFIG_INVALID':
-			return 'AI channel configuration is invalid'
+		case 'AI_PROVIDER_NOT_FOUND':
+			return 'AI provider is not found'
+		case 'AI_PROVIDER_CONFIG_INVALID':
+			return 'AI provider configuration is invalid'
 		case 'AI_IMAGE_REFERENCE_R2_READ_FAILED':
 			return 'Failed to read image reference from R2'
 		case 'AI_IMAGE_R2_UPLOAD_DIR_REQUIRED':

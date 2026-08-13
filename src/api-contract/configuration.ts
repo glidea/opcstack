@@ -376,11 +376,7 @@ export const DeletePaymentProductApi = {
 	errors: ConfigurationErrors
 }
 
-export const AIAreaSchema = z.enum(['chat', 'image', 'tts', 'realtime', 'video'])
-export type AIArea = z.infer<typeof AIAreaSchema>
-export const AIChannelAreaSchema = z.enum(['image', 'tts', 'video'])
-export type AIChannelArea = z.infer<typeof AIChannelAreaSchema>
-export const AIProviderIdSchema = z.enum([
+export const AIProviderTypeSchema = z.enum([
 	'chat_openai',
 	'image_gemini',
 	'image_openai',
@@ -391,24 +387,12 @@ export const AIProviderIdSchema = z.enum([
 	'realtime_doubao',
 	'video_seedance'
 ])
-export type AIProviderId = z.infer<typeof AIProviderIdSchema>
+export type AIProviderType = z.infer<typeof AIProviderTypeSchema>
 
-export const AIProviderConfigSchema = z.object({
-	id: AIProviderIdSchema,
-	area: AIAreaSchema,
-	provider: z.string().min(1),
-	enabled: z.boolean(),
-	base_url: z.string().url().nullable(),
-	default_model: z.string().min(1).nullable(),
-	api_key_configured: z.boolean()
-})
-export type AIProviderConfig = z.infer<typeof AIProviderConfigSchema>
-
-export const AIChannelSchema = z.object({
+export const AIProviderSchema = z.object({
 	id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-	area: AIChannelAreaSchema,
-	provider: z.string().min(1),
 	name: z.string().min(1),
+	type: AIProviderTypeSchema,
 	base_url: z.string().url(),
 	models: z.array(z.string().min(1)).min(1),
 	price_multiplier: z.number().positive(),
@@ -416,25 +400,17 @@ export const AIChannelSchema = z.object({
 	enabled: z.boolean(),
 	version: z.number().int().min(1)
 })
-export type AIChannel = z.infer<typeof AIChannelSchema>
+export type AIProvider = z.infer<typeof AIProviderSchema>
 
 export const AIConfigSchema = z.object({
 	routing_error_weight: z.number().nonnegative(),
 	routing_latency_weight: z.number().nonnegative(),
 	routing_price_weight: z.number().nonnegative(),
 	task_retention_days: z.number().int().positive(),
-	providers: z.array(AIProviderConfigSchema).length(9),
-	channels: z.array(AIChannelSchema),
+	providers: z.array(AIProviderSchema),
 	version: z.number().int().min(1)
 })
 export type AIConfig = z.infer<typeof AIConfigSchema>
-
-export const UpdateAIProviderConfigSchema = AIProviderConfigSchema.omit({
-	area: true,
-	provider: true,
-	api_key_configured: true
-}).extend({ api_key: SecretMutationSchema })
-export type UpdateAIProviderConfig = z.infer<typeof UpdateAIProviderConfigSchema>
 
 export const GetAIConfigRequestSchema = z.object({})
 export const UpdateAIConfigRequestSchema = z.object({
@@ -442,34 +418,33 @@ export const UpdateAIConfigRequestSchema = z.object({
 	routing_latency_weight: z.number().nonnegative(),
 	routing_price_weight: z.number().nonnegative(),
 	task_retention_days: z.number().int().positive(),
-	providers: z.array(UpdateAIProviderConfigSchema).length(9),
 	expected_version: z.number().int().min(1)
 })
 export type UpdateAIConfigRequest = z.infer<typeof UpdateAIConfigRequestSchema>
 
-const AIChannelWriteFieldsSchema = AIChannelSchema.omit({
+const AIProviderWriteFieldsSchema = AIProviderSchema.omit({
 	api_key_configured: true,
 	version: true
 })
-export const CreateAIChannelRequestSchema = AIChannelWriteFieldsSchema.extend({
+export const CreateAIProviderRequestSchema = AIProviderWriteFieldsSchema.extend({
 	api_key: z.string().min(1)
 })
-export type CreateAIChannelRequest = z.infer<typeof CreateAIChannelRequestSchema>
-export const UpdateAIChannelRequestSchema = AIChannelWriteFieldsSchema.extend({
+export type CreateAIProviderRequest = z.infer<typeof CreateAIProviderRequestSchema>
+export const UpdateAIProviderRequestSchema = AIProviderWriteFieldsSchema.extend({
 	api_key: z.discriminatedUnion('action', [
 		z.object({ action: z.literal('keep') }),
 		z.object({ action: z.literal('replace'), value: z.string().min(1) })
 	]),
 	expected_version: z.number().int().min(1)
 })
-export type UpdateAIChannelRequest = z.infer<typeof UpdateAIChannelRequestSchema>
-export const DeleteAIChannelRequestSchema = z.object({
+export type UpdateAIProviderRequest = z.infer<typeof UpdateAIProviderRequestSchema>
+export const DeleteAIProviderRequestSchema = z.object({
 	id: z.string().min(1),
 	expected_version: z.number().int().min(1)
 })
-export type DeleteAIChannelRequest = z.infer<typeof DeleteAIChannelRequestSchema>
-export const DeleteAIChannelResponseSchema = z.object({ id: z.string() })
-export type DeleteAIChannelResponse = z.infer<typeof DeleteAIChannelResponseSchema>
+export type DeleteAIProviderRequest = z.infer<typeof DeleteAIProviderRequestSchema>
+export const DeleteAIProviderResponseSchema = z.object({ id: z.string() })
+export type DeleteAIProviderResponse = z.infer<typeof DeleteAIProviderResponseSchema>
 
 export const GetAIConfigApi = {
 	request: GetAIConfigRequestSchema,
@@ -483,20 +458,20 @@ export const UpdateAIConfigApi = {
 	errors: ConfigurationErrors
 }
 
-export const CreateAIChannelApi = {
-	request: CreateAIChannelRequestSchema,
-	response: AIChannelSchema,
+export const CreateAIProviderApi = {
+	request: CreateAIProviderRequestSchema,
+	response: AIProviderSchema,
 	errors: ConfigurationErrors
 }
 
-export const UpdateAIChannelApi = {
-	request: UpdateAIChannelRequestSchema,
-	response: AIChannelSchema,
+export const UpdateAIProviderApi = {
+	request: UpdateAIProviderRequestSchema,
+	response: AIProviderSchema,
 	errors: ConfigurationErrors
 }
 
-export const DeleteAIChannelApi = {
-	request: DeleteAIChannelRequestSchema,
-	response: DeleteAIChannelResponseSchema,
+export const DeleteAIProviderApi = {
+	request: DeleteAIProviderRequestSchema,
+	response: DeleteAIProviderResponseSchema,
 	errors: ConfigurationErrors
 }

@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import type { AIChannel, PaymentProduct } from '$apiContract/configuration'
+import type { AIProvider, PaymentProduct } from '$apiContract/configuration'
 import {
 	removeConfigurationEntity,
 	replaceConfigurationEntity,
-	validateAIChannelForm,
+	validateAIProviderForm,
 	validatePaymentProductForm
 } from './configuration-collections'
 
@@ -23,10 +23,9 @@ const oneTimeProduct: PaymentProduct = {
 	version: 1
 }
 
-const imageChannel: AIChannel = {
+const imageProvider: AIProvider = {
 	id: 'gemini-primary',
-	area: 'image',
-	provider: 'gemini',
+	type: 'image_gemini',
 	name: 'Gemini primary',
 	base_url: 'https://generativelanguage.googleapis.com',
 	models: ['gemini-2.5-flash-image'],
@@ -46,11 +45,11 @@ describe('configuration entity updates', () => {
 		).toEqual([updated, sibling])
 	})
 
-	it('removes only the deleted AI channel', () => {
-		const sibling: AIChannel = { ...imageChannel, id: 'gemini-backup' }
+	it('removes only the deleted AI provider', () => {
+		const sibling: AIProvider = { ...imageProvider, id: 'gemini-backup' }
 
 		expect(
-			removeConfigurationEntity([imageChannel, sibling], imageChannel.id, (item: AIChannel): string => item.id)
+			removeConfigurationEntity([imageProvider, sibling], imageProvider.id, (item: AIProvider): string => item.id)
 		).toEqual([sibling])
 	})
 })
@@ -74,10 +73,10 @@ describe('configuration entity validation', () => {
 		})
 	})
 
-	it('requires a new channel secret but lets edits keep the configured secret', () => {
+	it('requires a new provider secret but lets edits keep the configured secret', () => {
 		const baseInput = {
 			id: 'gemini-primary',
-			provider: 'gemini',
+			type: 'image_gemini',
 			name: 'Gemini primary',
 			baseUrl: 'https://generativelanguage.googleapis.com',
 			models: 'gemini-2.5-flash-image',
@@ -85,23 +84,36 @@ describe('configuration entity validation', () => {
 			apiKeyValue: ''
 		}
 
-		expect(validateAIChannelForm({ ...baseInput, editing: false, apiKeyAction: 'replace' })).toEqual({ apiKey: 'API key is required' })
-		expect(validateAIChannelForm({ ...baseInput, editing: true, apiKeyAction: 'keep' })).toEqual({})
+		expect(validateAIProviderForm({ ...baseInput, editing: false, apiKeyAction: 'replace' })).toEqual({ apiKey: 'API key is required' })
+		expect(validateAIProviderForm({ ...baseInput, editing: true, apiKeyAction: 'keep' })).toEqual({})
 	})
 })
 
 describe('configuration collection interface', () => {
-	it('implements independent dialogs, conflict refresh, secret state, and delete confirmation', () => {
+		it('implements independent sheets, conflict refresh, secret state, and delete confirmation', () => {
 		const paymentSource: string = readFileSync(`${routeDirectory}PaymentConfigurationForm.svelte`, 'utf8')
 		const aiSource: string = readFileSync(`${routeDirectory}AIConfigurationForm.svelte`, 'utf8')
 		const productSource: string = readFileSync(`${routeDirectory}PaymentProductDialog.svelte`, 'utf8')
-		const channelSource: string = readFileSync(`${routeDirectory}AIChannelDialog.svelte`, 'utf8')
-		const combined: string = `${paymentSource}\n${aiSource}\n${productSource}\n${channelSource}`
+		const providerSource: string = readFileSync(`${routeDirectory}AIProviderDialog.svelte`, 'utf8')
+		const combined: string = `${paymentSource}\n${aiSource}\n${productSource}\n${providerSource}`
 
 		expect(combined).toContain('CONFIG_CONFLICT')
 		expect(combined).toContain('AlertDialog')
-		expect(combined).toContain('Dialog')
+			expect(productSource).toContain("$frontend/ui/sheet")
+			expect(providerSource).toContain("$frontend/ui/sheet")
+			expect(productSource).not.toContain("$frontend/ui/dialog")
+			expect(providerSource).not.toContain("$frontend/ui/dialog")
 		expect(combined).toContain('api_key_configured')
 		expect(combined).toContain('Empty')
+		})
+
+		it('renders country provider overrides as rows and copies payment webhook URLs', () => {
+			const paymentSource: string = readFileSync(`${routeDirectory}PaymentConfigurationForm.svelte`, 'utf8')
+
+			expect(paymentSource).toContain('{#each countryOverrides as override, index}')
+			expect(paymentSource).toContain('addCountryOverride')
+			expect(paymentSource).toContain('removeCountryOverride')
+			expect(paymentSource).toContain('copyWebhookUrl')
+			expect(paymentSource).not.toContain('<Textarea id="payment-country-overrides"')
+		})
 	})
-})

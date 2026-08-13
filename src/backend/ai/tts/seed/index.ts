@@ -139,7 +139,7 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 	}
 
 	async generateSpeechAsync(input: AITTSSpeechInput): Promise<AITTSTask> {
-		return createAITTSTask(this.env, this.tenantDb, 'seed', this.model, this.userId, input)
+		return createAITTSTask(this.env, this.tenantDb, 'tts_seed', this.model, this.userId, input)
 	}
 
 	async generateSpeechFromSourceAsync(input: AITTSSourceInput): Promise<AITTSTask> {
@@ -147,7 +147,7 @@ class seedSimpleTTSClient implements AISimpleTTSClient {
 			throw new AIError('TTS_SOURCE_NOT_SUPPORTED')
 		}
 
-		return createAITTSSourceTask(this.env, this.tenantDb, 'seed', this.model, this.userId, input)
+		return createAITTSSourceTask(this.env, this.tenantDb, 'tts_seed', this.model, this.userId, input)
 	}
 
 	async getTask(id: string): Promise<AITTSTask | undefined> {

@@ -120,7 +120,7 @@ API 在 `src/backend/api/index.ts` 中被拆分为四个路由组：
 
 两层数据库，各自负责不同的所有权：
 
-**Meta DB**（`META_DB`）：全局控制状态。整个产品共用一个数据库。存储分片注册表、用户到分片的映射、动态系统配置、OAuth API Access、认证、支付、AI Channel、订阅、Webhook 和通知。通过 `ctx.get('metaDb')` 访问。
+**Meta DB**（`META_DB`）：全局控制状态。整个产品共用一个数据库。存储分片注册表、用户到分片的映射、动态系统配置、OAuth API Access、认证、支付、AI Provider、订阅、Webhook 和通知。通过 `ctx.get('metaDb')` 访问。
 
 **租户分片 DB**：用户级别的运行时数据。按地区分片到多个 D1 数据库中。存储积分余额、积分交易、反馈、通知已读状态、AI 异步任务表等。通过 `ctx.get('tenantDb')` 访问。
 
@@ -148,7 +148,7 @@ Meta DB 和租户分片 DB 各自维护独立的 bookmark 流，因为它们是�
 
 ## 动态配置基础
 
-`system_settings` 是动态产品配置的单例权威来源。每个业务域有独立版本，管理员 API 可以拒绝过期写入而不耦合其他配置域。`payment_products` 和 `ai_channels` 是独立的版本化集合。
+`system_settings` 是动态产品配置的单例权威来源。每个业务域有独立版本，管理员 API 可以拒绝过期写入而不耦合其他配置域。`payment_products` 和 `ai_providers` 是独立的版本化集合。
 
 敏感值以 AES-GCM 密文和 IV 保存。`prepare-cloudflare` 首次生成 `CONFIG_ENCRYPTION_KEY`，并保存在本地生成的 secret 状态或 Cloudflare Worker Secrets 中；它不会写入 D1，也不会在 D1 初始化后被替换。所有运行时业务域都只从 D1 读取配置，不存在业务 ENV 回退。
 

@@ -82,13 +82,6 @@ export type PaymentSettingsDocument = {
 	}
 }
 
-export type AIProviderSettings = {
-	enabled: boolean
-	baseUrl: string | null
-	defaultModel: string | null
-	apiKey: EncryptedConfigValue | null
-}
-
 export type AISettingsDocument = {
 	routing: {
 		errorWeight: number
@@ -96,17 +89,6 @@ export type AISettingsDocument = {
 		priceWeight: number
 	}
 	taskRetentionDays: number
-	providers: {
-		chatOpenai: AIProviderSettings
-		imageGemini: AIProviderSettings
-		imageOpenai: AIProviderSettings
-		imageSeedream: AIProviderSettings
-		imageAliyun: AIProviderSettings
-		ttsGemini: AIProviderSettings
-		ttsSeed: AIProviderSettings
-		realtimeDoubao: AIProviderSettings
-		videoSeedance: AIProviderSettings
-	}
 }
 
 export const systemSettings = sqliteTable(
@@ -193,13 +175,12 @@ export const paymentProduct = sqliteTable(
 	]
 )
 
-export const aiChannel = sqliteTable(
-	'ai_channels',
+export const aiProvider = sqliteTable(
+	'ai_providers',
 	{
 		id: text('id').primaryKey(),
-		area: text('area').notNull(),
-		provider: text('provider').notNull(),
 		name: text('name').notNull(),
+		type: text('type').notNull(),
 		baseUrl: text('base_url').notNull(),
 		models: text('models', { mode: 'json' }).$type<string[]>().notNull(),
 		priceMultiplier: real('price_multiplier').notNull(),
@@ -211,11 +192,14 @@ export const aiChannel = sqliteTable(
 		updatedAt: integer('updated_at').notNull()
 	},
 	(table) => [
-		index('ai_channels_enabled_area_provider_idx').on(table.enabled, table.area, table.provider),
-		check('ai_channels_area_check', sql`${table.area} in ('image', 'tts', 'video')`),
-		check('ai_channels_name_check', sql`length(${table.name}) > 0`),
-		check('ai_channels_price_multiplier_check', sql`${table.priceMultiplier} > 0`),
-		check('ai_channels_version_check', sql`${table.version} >= 1`)
+		index('ai_providers_enabled_type_idx').on(table.enabled, table.type),
+		check(
+			'ai_providers_type_check',
+			sql`${table.type} in ('chat_openai', 'image_gemini', 'image_openai', 'image_seedream', 'image_aliyun', 'tts_gemini', 'tts_seed', 'realtime_doubao', 'video_seedance')`
+		),
+		check('ai_providers_name_check', sql`length(${table.name}) > 0`),
+		check('ai_providers_price_multiplier_check', sql`${table.priceMultiplier} > 0`),
+		check('ai_providers_version_check', sql`${table.version} >= 1`)
 	]
 )
 
@@ -518,8 +502,8 @@ export type SystemSettings = typeof systemSettings.$inferSelect
 export type NewSystemSettings = typeof systemSettings.$inferInsert
 export type PaymentProduct = typeof paymentProduct.$inferSelect
 export type NewPaymentProduct = typeof paymentProduct.$inferInsert
-export type AIChannel = typeof aiChannel.$inferSelect
-export type NewAIChannel = typeof aiChannel.$inferInsert
+export type AIProvider = typeof aiProvider.$inferSelect
+export type NewAIProvider = typeof aiProvider.$inferInsert
 export type OAuthAuthorizationRequest = typeof oauthAuthorizationRequest.$inferSelect
 export type NewOAuthAuthorizationRequest = typeof oauthAuthorizationRequest.$inferInsert
 export type OAuthGrant = typeof oauthGrant.$inferSelect

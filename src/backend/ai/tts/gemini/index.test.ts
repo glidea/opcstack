@@ -301,7 +301,7 @@ describe('createGeminiSimpleTTSClient.generateSpeech', () => {
 		}
 	})
 
-	it('uses the explicit channel endpoint', async () => {
+	it('uses the explicit Provider endpoint', async () => {
 		vi.clearAllMocks()
 		generateContentMock.mockResolvedValue({
 			candidates: [{ content: { parts: [{ inlineData: { data: 'a', mimeType: 'audio/wav' } }] } }]
@@ -313,7 +313,7 @@ describe('createGeminiSimpleTTSClient.generateSpeech', () => {
 			{} as TenantShardDb,
 			{
 				model: 'env-model',
-				endpoint: { baseURL: 'https://channel.example', apiKey: 'channel-key' }
+				endpoint: { baseURL: 'https://provider.example', apiKey: 'provider-key' }
 			}
 		)
 		await client.generateSpeech({
@@ -322,8 +322,8 @@ describe('createGeminiSimpleTTSClient.generateSpeech', () => {
 		})
 
 		expect(googleConstructorMock).toHaveBeenCalledWith({
-			apiKey: 'channel-key',
-			httpOptions: { baseUrl: 'https://channel.example' }
+			apiKey: 'provider-key',
+			httpOptions: { baseUrl: 'https://provider.example' }
 		})
 	})
 })

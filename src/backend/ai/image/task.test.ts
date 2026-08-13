@@ -8,7 +8,8 @@ type InsertedRow = {
 	id: string
 	userId: string
 	status: string
-	provider: string
+	providerType: string
+	providerId?: string
 	model?: string
 	prompt: string
 	numberOfImages?: number
@@ -34,7 +35,7 @@ describe('createAIImageTask', () => {
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: string
-		provider: string
+		providerType: string
 		queueTaskId: string
 		queueUserId: string
 		findFirstCalls: number
@@ -65,7 +66,7 @@ describe('createAIImageTask', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 'processing',
-				provider: 'openai',
+				providerType: 'image_openai',
 				queueTaskId: 'created',
 				queueUserId: 'u1',
 				findFirstCalls: 0,
@@ -90,7 +91,7 @@ describe('createAIImageTask', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 'processing',
-				provider: 'openai',
+				providerType: 'image_openai',
 				queueTaskId: 'created',
 				queueUserId: 'u1',
 				findFirstCalls: 0,
@@ -114,7 +115,7 @@ describe('createAIImageTask', () => {
 			}
 		} as unknown as Env
 
-		const task = await createAIImageTask(env, db, 'openai', 'm1', 'u1', given.input)
+		const task = await createAIImageTask(env, db, 'image_openai', 'm1', 'u1', given.input)
 		const queueBody = sendMock.mock.calls[0]?.[0] as
 			| {
 					taskId?: string
@@ -124,7 +125,7 @@ describe('createAIImageTask', () => {
 
 		return {
 			status: task.status,
-			provider: task.provider,
+			providerType: task.providerType,
 			queueTaskId: queueBody?.taskId === task.id ? 'created' : '',
 			queueUserId: queueBody?.userId ?? '',
 			findFirstCalls,
@@ -195,7 +196,7 @@ describe('createAIImageTask validation', () => {
 		} as unknown as Env
 
 		try {
-			await createAIImageTask(env, db, 'openai', 'm1', 'u1', given.input)
+			await createAIImageTask(env, db, 'image_openai', 'm1', 'u1', given.input)
 			return {
 				error: '',
 				queueCalls: sendMock.mock.calls.length
@@ -242,7 +243,7 @@ describe('getAIImageTask', () => {
 				id: 't1',
 				userId: 'u1',
 				status: 'completed',
-				provider: 'gemini',
+				providerType: 'image_gemini',
 				model: 'm1',
 				prompt: 'draw',
 				lowCensorship: 0,

@@ -78,7 +78,7 @@ class geminiSimpleTTSClient implements AISimpleTTSClient {
 	}
 
 	async generateSpeechAsync(input: AITTSSpeechInput): Promise<AITTSTask> {
-		return createAITTSTask(this.env, this.tenantDb, 'gemini', this.model, this.userId, input)
+		return createAITTSTask(this.env, this.tenantDb, 'tts_gemini', this.model, this.userId, input)
 	}
 
 	async generateSpeechFromSourceAsync(_input: AITTSSourceInput): Promise<AITTSTask> {

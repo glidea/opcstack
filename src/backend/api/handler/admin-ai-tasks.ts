@@ -28,7 +28,8 @@ type CommonTaskRow = {
 	id: string
 	userId: string
 	status: string
-	provider: string
+	providerType: string
+	providerId: string | null
 	model: string | null
 	attemptCount: number
 	lastErrorMessage: string | null
@@ -154,8 +155,11 @@ function buildImageConditions(req: ListAdminAiTasksRequest): SQL | undefined {
 	if (req.status !== undefined) {
 		conditions.push(eq(aiImageTask.status, req.status))
 	}
-	if (req.provider !== undefined) {
-		conditions.push(eq(aiImageTask.provider, req.provider))
+	if (req.provider_type !== undefined) {
+		conditions.push(eq(aiImageTask.providerType, req.provider_type))
+	}
+	if (req.provider_id !== undefined) {
+		conditions.push(eq(aiImageTask.providerId, req.provider_id))
 	}
 	if (req.model !== undefined) {
 		conditions.push(eq(aiImageTask.model, req.model))
@@ -180,8 +184,11 @@ function buildTtsConditions(req: ListAdminAiTasksRequest): SQL | undefined {
 	if (req.status !== undefined) {
 		conditions.push(eq(aiTtsTask.status, req.status))
 	}
-	if (req.provider !== undefined) {
-		conditions.push(eq(aiTtsTask.provider, req.provider))
+	if (req.provider_type !== undefined) {
+		conditions.push(eq(aiTtsTask.providerType, req.provider_type))
+	}
+	if (req.provider_id !== undefined) {
+		conditions.push(eq(aiTtsTask.providerId, req.provider_id))
 	}
 	if (req.model !== undefined) {
 		conditions.push(eq(aiTtsTask.model, req.model))
@@ -206,8 +213,11 @@ function buildVideoConditions(req: ListAdminAiTasksRequest): SQL | undefined {
 	if (req.status !== undefined) {
 		conditions.push(eq(aiVideoTask.status, req.status))
 	}
-	if (req.provider !== undefined) {
-		conditions.push(eq(aiVideoTask.provider, req.provider))
+	if (req.provider_type !== undefined) {
+		conditions.push(eq(aiVideoTask.providerType, req.provider_type))
+	}
+	if (req.provider_id !== undefined) {
+		conditions.push(eq(aiVideoTask.providerId, req.provider_id))
 	}
 	if (req.model !== undefined) {
 		conditions.push(eq(aiVideoTask.model, req.model))
@@ -232,7 +242,8 @@ function toTaskSummary(
 		id: row.id,
 		user_id: row.userId,
 		status: row.status,
-		provider: row.provider,
+		provider_type: row.providerType,
+		provider_id: row.providerId,
 		model: row.model,
 		attempt_count: row.attemptCount,
 		last_error_message: row.lastErrorMessage,

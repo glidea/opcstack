@@ -251,6 +251,8 @@ describe('prepare cloudflare configuration initialization', () => {
 		expect(sql).toContain('authentication_config')
 		expect(sql).toContain('storage_config')
 		expect(sql).toContain('ON CONFLICT(id) DO NOTHING')
+		expect(sql).not.toContain('chatOpenai')
+		expect(sql).not.toContain('defaultModel')
 		expect(sql).not.toContain('turnstile_secret_key_ciphertext')
 		expect(sql).not.toContain('turnstile-secret')
 	})

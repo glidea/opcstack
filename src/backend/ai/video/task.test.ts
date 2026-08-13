@@ -8,7 +8,8 @@ type InsertedRow = {
 	id: string
 	userId: string
 	status: string
-	provider: string
+	providerType: string
+	providerId?: string
 	model?: string
 	prompt: string
 	ratio?: string
@@ -33,7 +34,7 @@ describe('createAIVideoTask', () => {
 	type WhenDetail = Record<string, never>
 	type ThenExpected = {
 		status: string
-		provider: string
+		providerType: string
 		queueTaskId: string
 		queueUserId: string
 		ratio: string
@@ -64,7 +65,7 @@ describe('createAIVideoTask', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 'processing',
-				provider: 'seedance',
+				providerType: 'video_seedance',
 				queueTaskId: 'created',
 				queueUserId: 'u1',
 				ratio: '16:9',
@@ -86,7 +87,7 @@ describe('createAIVideoTask', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 'processing',
-				provider: 'seedance',
+				providerType: 'video_seedance',
 				queueTaskId: 'created',
 				queueUserId: 'u1',
 				ratio: '',
@@ -106,7 +107,7 @@ describe('createAIVideoTask', () => {
 			}
 		} as unknown as Env
 
-		const task = await createAIVideoTask(env, db, 'seedance', 'm1', 'u1', given.input)
+		const task = await createAIVideoTask(env, db, 'video_seedance', 'm1', 'u1', given.input)
 		const queueBody = sendMock.mock.calls[0]?.[0] as
 			| {
 					taskId?: string
@@ -116,7 +117,7 @@ describe('createAIVideoTask', () => {
 
 		return {
 			status: task.status,
-			provider: task.provider,
+			providerType: task.providerType,
 			queueTaskId: queueBody?.taskId === task.id ? 'created' : '',
 			queueUserId: queueBody?.userId ?? '',
 			ratio: task.ratio ?? '',
@@ -159,7 +160,7 @@ describe('getAIVideoTask', () => {
 				id: 't1',
 				userId: 'u1',
 				status: 'completed',
-				provider: 'seedance',
+				providerType: 'video_seedance',
 				model: 'm1',
 				prompt: 'make a video',
 				duration: 5,

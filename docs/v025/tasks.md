@@ -163,15 +163,15 @@
 - 不实现 AI 后台页面
 
 ## TODO 清单
-- [x] 1. 先增加固定 Provider、Channel CRUD、路由权重、密钥替换和 Consumer 快照的失败测试
-- [x] 2. 实现 AI 配置及 Channel CRUD 契约、Handler、校验和加密凭据处理
-- [x] 3. 将同步 AI Provider 和异步 Channel Router 切换到 D1 配置
+- [x] 1. 先增加 Provider CRUD、路由权重、密钥替换和 Consumer 快照的失败测试
+- [x] 2. 实现 AI 配置及 Provider CRUD 契约、Handler、校验和加密凭据处理
+- [x] 3. 将同步 AI 与异步 Provider Router 切换到 D1 配置
 - [x] 4. 迁移 Image、TTS、Video Consumer 与保留任务，保持一次执行只使用一份配置快照
-- [x] 5. 删除所有 AI 业务 ENV、Channel ENV 发现、解析器和兼容逻辑
+- [x] 5. 删除所有 AI 业务 ENV、旧端点发现、解析器和兼容逻辑
 
 ## 验收测试步骤
-1. 新建并启用 Channel 后提交对应 AI 任务，确认 Consumer 使用该 Channel 且指标仍按 Channel ID 记录
-2. 更新路由权重或停用 Channel 后提交新任务，确认新执行读取新配置，已开始的 Video 任务仍使用持久化渠道
+1. 新建并启用 Provider 后提交对应 AI 任务，确认 Consumer 使用该 Provider 且指标按 Provider ID 记录
+2. 更新路由权重或停用 Provider 后提交新任务，确认新执行读取新配置，已开始的 Video 任务仍使用持久化 Provider
 3. 运行 AI、Consumer 和 Cron 测试并搜索旧 AI ENV，确认运行时只从 D1 读取配置
 
 # Task-006A: 将 AI 配置统一为 Provider
@@ -184,12 +184,12 @@
 - 不保留 `ai_channels`、固定 Provider 配置、旧 API、旧字段或兼容读取
 
 ## TODO 清单
-- [ ] 1. 先修订 `docs/v025/tech-design.md` 并增加失败测试，明确 Provider 数据模型、同步调用选择、异步失败切换、Video 固定 Provider 和权重立即生效语义
-- [ ] 2. 将 `system_settings.ai_config` 收口为路由权重与任务保留期，将 `ai_channels` 重建为 `ai_providers`；Provider 包含 `id`、`name`、`type`、`models`、`base_url`、`api_key`、`price_multiplier`、`enabled` 和独立版本
-- [ ] 3. 将 AI Contract、配置组件和 Admin API 统一为 Provider CRUD，删除九个固定 Provider、Channel CRUD、`area + provider` 非法组合及对应错误码
-- [ ] 4. 配置组件按 `type + model + enabled` 解析候选；Router 只接收候选、指标和系统权重进行排序，不识别 Image、OpenAI 或具体 Provider Type
-- [ ] 5. 将 Chat、Image、TTS、Realtime、Video、Queue Consumer、任务字段和指标字段切换到 Provider Type 与 Provider ID；Video 创建远程任务后固定 Provider ID
-- [ ] 6. 删除源码、测试、Migration、文档和 `AGENTS.md` 中的 AI Channel、固定 Provider、`capability`、`adapter` 及旧命名残留
+- [x] 1. 先修订 `docs/v025/tech-design.md` 并增加失败测试，明确 Provider 数据模型、同步调用选择、异步失败切换、Video 固定 Provider 和权重立即生效语义
+- [x] 2. 将 `system_settings.ai_config` 收口为路由权重与任务保留期，将旧集合重建为 `ai_providers`；Provider 包含 `id`、`name`、`type`、`models`、`base_url`、`api_key`、`price_multiplier`、`enabled` 和独立版本
+- [x] 3. 将 AI Contract、配置组件和 Admin API 统一为 Provider CRUD，删除旧双轨 CRUD、非法组合及对应错误码
+- [x] 4. 配置组件按 `type + model + enabled` 解析候选；Router 只接收候选、指标和系统权重进行排序，不识别 Image、OpenAI 或具体 Provider Type
+- [x] 5. 将 Chat、Image、TTS、Realtime、Video、Queue Consumer、任务字段和指标字段切换到 Provider Type 与 Provider ID；Video 创建远程任务后固定 Provider ID
+- [x] 6. 删除源码、测试、Migration、文档和 `AGENTS.md` 中的旧双轨模型、`capability`、`adapter` 及旧命名残留
 
 ## 验收测试步骤
 1. 创建两个 `image_openai` Provider，并让它们同时声明 `gpt-image-1`，确认任务只在这两个候选之间按权重排序

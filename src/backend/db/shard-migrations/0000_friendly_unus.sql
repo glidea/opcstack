@@ -2,8 +2,9 @@ CREATE TABLE `ai_image_tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`status` text NOT NULL,
-	`provider` text NOT NULL,
+	`provider_type` text NOT NULL,
 	`model` text,
+	`provider_id` text,
 	`prompt` text NOT NULL,
 	`number_of_images` integer,
 	`aspect_ratio` text,
@@ -23,12 +24,26 @@ CREATE TABLE `ai_image_tasks` (
 --> statement-breakpoint
 CREATE INDEX `ai_image_tasks_user_id_created_at_idx` ON `ai_image_tasks` (`user_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `ai_image_tasks_user_id_status_idx` ON `ai_image_tasks` (`user_id`,`status`);--> statement-breakpoint
+CREATE INDEX `ai_image_tasks_status_updated_at_idx` ON `ai_image_tasks` (`status`,`updated_at`);--> statement-breakpoint
+CREATE TABLE `ai_provider_metric_buckets` (
+	`provider_id` text NOT NULL,
+	`model` text NOT NULL,
+	`bucket_start` integer NOT NULL,
+	`success_count` integer DEFAULT 0 NOT NULL,
+	`error_count` integer DEFAULT 0 NOT NULL,
+	`success_latency_ms_total` integer DEFAULT 0 NOT NULL,
+	PRIMARY KEY(`provider_id`, `model`, `bucket_start`)
+);
+--> statement-breakpoint
+CREATE INDEX `ai_provider_metric_buckets_bucket_start_idx` ON `ai_provider_metric_buckets` (`bucket_start`);--> statement-breakpoint
 CREATE TABLE `ai_tts_tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`status` text NOT NULL,
-	`provider` text NOT NULL,
+	`provider_type` text NOT NULL,
 	`model` text,
+	`provider_id` text,
+	`source_json` text,
 	`instruction` text,
 	`speakers_json` text NOT NULL,
 	`lines_json` text NOT NULL,
@@ -43,12 +58,14 @@ CREATE TABLE `ai_tts_tasks` (
 --> statement-breakpoint
 CREATE INDEX `ai_tts_tasks_user_id_created_at_idx` ON `ai_tts_tasks` (`user_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `ai_tts_tasks_user_id_status_idx` ON `ai_tts_tasks` (`user_id`,`status`);--> statement-breakpoint
+CREATE INDEX `ai_tts_tasks_status_updated_at_idx` ON `ai_tts_tasks` (`status`,`updated_at`);--> statement-breakpoint
 CREATE TABLE `ai_video_tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`status` text NOT NULL,
-	`provider` text NOT NULL,
+	`provider_type` text NOT NULL,
 	`model` text,
+	`provider_id` text,
 	`prompt` text NOT NULL,
 	`ratio` text,
 	`resolution` text,
@@ -57,6 +74,8 @@ CREATE TABLE `ai_video_tasks` (
 	`r2_upload_is_public` integer DEFAULT 0 NOT NULL,
 	`references_json` text NOT NULL,
 	`provider_task_id` text,
+	`provider_started_at` integer,
+	`failed_provider_ids_json` text DEFAULT '[]' NOT NULL,
 	`result_json` text,
 	`attempt_count` integer DEFAULT 0 NOT NULL,
 	`last_error_message` text,
@@ -67,6 +86,7 @@ CREATE TABLE `ai_video_tasks` (
 --> statement-breakpoint
 CREATE INDEX `ai_video_tasks_user_id_created_at_idx` ON `ai_video_tasks` (`user_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `ai_video_tasks_user_id_status_idx` ON `ai_video_tasks` (`user_id`,`status`);--> statement-breakpoint
+CREATE INDEX `ai_video_tasks_status_updated_at_idx` ON `ai_video_tasks` (`status`,`updated_at`);--> statement-breakpoint
 CREATE TABLE `credit_balances` (
 	`user_id` text PRIMARY KEY NOT NULL,
 	`balance` integer DEFAULT 0 NOT NULL,

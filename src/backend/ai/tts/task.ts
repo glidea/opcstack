@@ -3,7 +3,6 @@ import { aiTtsTask, type AITTSTaskRow } from '../../db/schema.shard'
 import type { TenantShardDb } from '../../db'
 import type {
 	AITTSLine,
-	AITTSProvider,
 	AITTSResult,
 	AITTSSpeaker,
 	AITTSSourceInput,
@@ -11,6 +10,7 @@ import type {
 	AITTSTask,
 	AITTSTaskStatus
 } from '.'
+import type { AITTSProviderType } from '../config'
 
 export const AI_TTS_QUEUE_NAME = 'tts-generate'
 
@@ -22,7 +22,7 @@ export interface AITTSGenerateQueueMessage {
 export async function createAITTSTask(
 	env: Env,
 	db: TenantShardDb,
-	provider: AITTSProvider,
+	providerType: AITTSProviderType,
 	model: string,
 	userId: string,
 	input: AITTSSpeechInput
@@ -33,7 +33,7 @@ export async function createAITTSTask(
 		id,
 		userId,
 		status: 'processing',
-		provider,
+		providerType,
 		model,
 		instruction: input.instruction,
 		speakersJson: JSON.stringify(input.speakers),
@@ -52,7 +52,7 @@ export async function createAITTSTask(
 		id,
 		userId,
 		status: 'processing',
-		provider,
+		providerType,
 		model,
 		instruction: input.instruction,
 		speakers: input.speakers,
@@ -67,7 +67,7 @@ export async function createAITTSTask(
 export async function createAITTSSourceTask(
 	env: Env,
 	db: TenantShardDb,
-	provider: AITTSProvider,
+	providerType: AITTSProviderType,
 	model: string,
 	userId: string,
 	input: AITTSSourceInput
@@ -78,7 +78,7 @@ export async function createAITTSSourceTask(
 		id,
 		userId,
 		status: 'processing',
-		provider,
+		providerType,
 		model,
 		sourceJson: JSON.stringify(input),
 		speakersJson: JSON.stringify(input.speakers ?? []),
@@ -97,7 +97,7 @@ export async function createAITTSSourceTask(
 		id,
 		userId,
 		status: 'processing',
-		provider,
+		providerType,
 		model,
 		source: input,
 		speakers: input.speakers ?? [],
@@ -128,7 +128,8 @@ export function toAITTSTask(row: AITTSTaskRow): AITTSTask {
 		id: row.id,
 		userId: row.userId,
 		status: row.status as AITTSTaskStatus,
-		provider: row.provider as AITTSProvider,
+		providerType: row.providerType as AITTSProviderType,
+		providerId: row.providerId ?? undefined,
 		model: row.model ?? undefined,
 		source: row.sourceJson ? (JSON.parse(row.sourceJson) as AITTSSourceInput) : undefined,
 		instruction: row.instruction ?? undefined,

@@ -4,6 +4,7 @@ import { AIError } from '../error'
 import type { AIEndpoint } from '../endpoint'
 import { createGeminiNativeTTSClient, createGeminiSimpleTTSClient } from './gemini'
 import { createSeedSimpleTTSClient } from './seed'
+import type { AITTSProviderType } from '../config'
 
 export * from './gemini/constants'
 export * from './seed/constants'
@@ -95,7 +96,8 @@ export interface AITTSTask {
 	id: string
 	userId: string
 	status: AITTSTaskStatus
-	provider: AITTSProvider
+	providerType: AITTSProviderType
+	providerId?: string
 	model?: string
 	source?: AITTSSourceInput
 	instruction?: string

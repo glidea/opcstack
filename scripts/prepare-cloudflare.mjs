@@ -655,12 +655,6 @@ export function encryptInitializationSecret(encryptionKey, value) {
 }
 
 export function buildSystemSettingsInitializationSql(input) {
-	const emptyAIProvider = {
-		enabled: false,
-		baseUrl: null,
-		defaultModel: null,
-		apiKey: null
-	}
 	const generalConfig = {
 		designSystem: 'apple-saas',
 		docsEnabled: true
@@ -721,18 +715,7 @@ export function buildSystemSettingsInitializationSql(input) {
 			latencyWeight: 0.8,
 			priceWeight: 0.2
 		},
-		taskRetentionDays: 30,
-		providers: {
-			chatOpenai: emptyAIProvider,
-			imageGemini: emptyAIProvider,
-			imageOpenai: emptyAIProvider,
-			imageSeedream: emptyAIProvider,
-			imageAliyun: emptyAIProvider,
-			ttsGemini: emptyAIProvider,
-			ttsSeed: emptyAIProvider,
-			realtimeDoubao: emptyAIProvider,
-			videoSeedance: emptyAIProvider
-		}
+		taskRetentionDays: 30
 	}
 
 	return [

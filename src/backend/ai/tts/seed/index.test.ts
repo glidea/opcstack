@@ -250,7 +250,7 @@ describe('createSeedSimpleTTSClient.generateSpeech', () => {
 		}
 	})
 
-	it('uses the explicit channel endpoint', async () => {
+	it('uses the explicit Provider endpoint', async () => {
 		vi.clearAllMocks()
 		mocks.fetch.mockResolvedValue(
 			new Response(toStream('{"code":0,"message":"","data":"YQ=="}\n{"code":20000000,"message":"ok","data":null}\n'), {
@@ -264,7 +264,7 @@ describe('createSeedSimpleTTSClient.generateSpeech', () => {
 			{} as TenantShardDb,
 			{
 				model: 'seed-tts-2.0-standard',
-				endpoint: { baseURL: 'https://channel.example/api/v3', apiKey: 'channel-key' }
+				endpoint: { baseURL: 'https://provider.example/api/v3', apiKey: 'provider-key' }
 			}
 		)
 		await client.generateSpeech({
@@ -272,8 +272,8 @@ describe('createSeedSimpleTTSClient.generateSpeech', () => {
 			lines: [{ speakerName: 'Host', text: 'Hello' }]
 		})
 
-		expect(mocks.fetch.mock.calls[0]?.[0]).toBe('https://channel.example/api/v3/tts/unidirectional')
-		expect((mocks.fetch.mock.calls[0]?.[1]?.headers as Record<string, string>)['X-Api-Key']).toBe('channel-key')
+		expect(mocks.fetch.mock.calls[0]?.[0]).toBe('https://provider.example/api/v3/tts/unidirectional')
+		expect((mocks.fetch.mock.calls[0]?.[1]?.headers as Record<string, string>)['X-Api-Key']).toBe('provider-key')
 	})
 })
 

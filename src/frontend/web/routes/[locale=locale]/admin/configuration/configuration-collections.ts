@@ -9,10 +9,10 @@ export type PaymentProductFormValidationInput = {
 	creemProductId: string
 }
 
-export type AIChannelFormValidationInput = {
+export type AIProviderFormValidationInput = {
 	editing: boolean
 	id: string
-	provider: string
+	type: string
 	name: string
 	baseUrl: string
 	models: string
@@ -61,10 +61,10 @@ export function validatePaymentProductForm(
 	return errors
 }
 
-export function validateAIChannelForm(input: AIChannelFormValidationInput): Record<string, string> {
+export function validateAIProviderForm(input: AIProviderFormValidationInput): Record<string, string> {
 	const errors: Record<string, string> = {}
 	if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.id)) errors['id'] = 'Use lowercase letters, numbers, and hyphens'
-	if (input.provider.trim() === '') errors['provider'] = 'Provider is required'
+	if (input.type.trim() === '') errors['type'] = 'Provider type is required'
 	if (input.name.trim() === '') errors['name'] = 'Name is required'
 	try {
 		new URL(input.baseUrl)

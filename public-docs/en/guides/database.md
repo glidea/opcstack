@@ -86,7 +86,7 @@ Concrete table ownership:
 | beta_code, credit_redemption_codes | ai_image_tasks, ai_tts_tasks, ai_video_tasks |
 | aff_referrals | |
 | system_settings, payment_products | |
-| ai_channels, oauth_grants, oauth_authorization_requests | |
+| ai_providers, oauth_grants, oauth_authorization_requests | ai_provider_metric_buckets |
 
 `system_settings` has exactly one row. Each configuration domain owns one JSON document, version, and update timestamp. Domain documents are fully validated on every read and write; invalid data fails instead of receiving runtime defaults. Sensitive fields store only AES-GCM ciphertext and IV pairs; `prepare-cloudflare` generates the root `CONFIG_ENCRYPTION_KEY` once and persists it outside D1.
 

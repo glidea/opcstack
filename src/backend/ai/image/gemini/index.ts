@@ -84,7 +84,7 @@ class geminiSimpleImageClient implements AISimpleImageClient {
 	}
 
 	async generateAsync(input: AISimpleImageClientGenerateInput): Promise<AIImageTask> {
-		return createAIImageTask(this.env, this.tenantDb, 'gemini', this.model, this.userId, input)
+		return createAIImageTask(this.env, this.tenantDb, 'image_gemini', this.model, this.userId, input)
 	}
 
 	async getTask(id: string): Promise<AIImageTask | undefined> {

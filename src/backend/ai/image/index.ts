@@ -12,6 +12,7 @@ import { createOpenAINativeImageClient, createOpenAISimpleImageClient } from './
 import { createSeedDreamNativeImageClient, createSeedDreamSimpleImageClient } from './seedream'
 import { AIError } from '../error'
 import type { AIEndpoint } from '../endpoint'
+import type { AIImageProviderType } from '../config'
 
 export * from './aliyun/constants'
 export * from './gemini/constants'
@@ -129,7 +130,8 @@ export interface AIImageTask {
 	id: string
 	userId: string
 	status: AIImageTaskStatus
-	provider: AIImageProvider
+	providerType: AIImageProviderType
+	providerId?: string
 	model?: string
 	prompt: string
 	numberOfImages?: number

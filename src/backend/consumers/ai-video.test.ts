@@ -10,9 +10,9 @@ type TaskRow = {
 	id: string
 	userId: string
 	status: string
-	provider: string
+	providerType: string
+	providerId: string | null
 	model: string | null
-	channel: string | null
 	prompt: string
 	ratio: string | null
 	resolution: string | null
@@ -21,8 +21,8 @@ type TaskRow = {
 	r2UploadIsPublic: number
 	referencesJson: string
 	providerTaskId: string | null
-	channelStartedAt: number | null
-	failedChannelsJson: string
+	providerStartedAt: number | null
+	failedProviderIdsJson: string
 	resultJson: string | null
 	attemptCount: number
 	lastErrorMessage: string | null
@@ -35,8 +35,7 @@ const mocks = vi.hoisted(() => {
 	return {
 		createSeedDanceProviderTask: vi.fn(),
 		getSeedDanceProviderTask: vi.fn(),
-		rankChannels: vi.fn(),
-		resolveChannel: vi.fn(),
+		rankProviders: vi.fn(),
 		metricQuery: vi.fn(),
 		runRawD1Batch: vi.fn(),
 		ack: vi.fn(),
@@ -69,16 +68,17 @@ vi.mock('../ai/video/seedance', () => {
 	}
 })
 
-vi.mock('../ai/channel-routing', () => {
+vi.mock('../ai/provider-routing', () => {
 	return {
-		rankAIChannels: mocks.rankChannels,
-		resolveAIChannel: mocks.resolveChannel,
-		createAIChannelMetricQuery: mocks.metricQuery
+		rankAIProviders: mocks.rankProviders,
+		createAIProviderMetricQuery: mocks.metricQuery
 	}
 })
 
-vi.mock('../ai/config', () => {
+vi.mock('../ai/config', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../ai/config')>()
 	return {
+		...actual,
 		getAIRuntimeConfig: mocks.getAIRuntimeConfig
 	}
 })
@@ -116,16 +116,16 @@ describe('handleAIVideoQueue', () => {
 							if (built.sql.includes('SET provider_task_id')) {
 								mocks.updateSet({
 									providerTaskId: params[0],
-									channel: params[1],
-									channelStartedAt: params[2]
+									providerId: params[1],
+									providerStartedAt: params[2]
 								})
 							} else {
 								mocks.updateSet({
 									status: params[0],
-									channel: built.sql.includes('result_json') ? params[1] : undefined,
+									providerId: built.sql.includes('result_json') ? params[1] : undefined,
 									resultJson: built.sql.includes('result_json') ? params[2] : undefined,
 									lastErrorMessage: built.sql.includes('last_error_message')
-										? params[built.sql.includes('failed_channels_json') ? 3 : 2]
+										? params[built.sql.includes('failed_provider_ids_json') ? 3 : 2]
 										: undefined
 								})
 							}
@@ -143,8 +143,7 @@ describe('handleAIVideoQueue', () => {
 				}
 			})
 		} as unknown as ReturnType<typeof createTenantShardAccess>)
-		mocks.rankChannels.mockResolvedValue([createRankedChannel('VIDEO_SEEDDANCE_OFFICIAL')])
-		mocks.resolveChannel.mockReturnValue(createRankedChannel('VIDEO_SEEDDANCE_OFFICIAL').channel)
+		mocks.rankProviders.mockResolvedValue([createRankedProvider('seedance-primary')])
 		mocks.metricQuery.mockImplementation((_, input: unknown) => ({ input }))
 		mocks.runRawD1Batch.mockResolvedValue([])
 		mocks.createSeedDanceProviderTask.mockResolvedValue('remote-1')
@@ -284,19 +283,20 @@ describe('handleAIVideoQueue', () => {
 		}
 	})
 
-	it('routes a new video task and persists its execution channel', async () => {
+	it('routes a new video task and persists its execution provider', async () => {
 		const task: TaskRow = createTask(null)
 		mocks.findFirst.mockResolvedValue(task)
-		mocks.rankChannels.mockResolvedValue([createRankedChannel('VIDEO_SEEDDANCE_OFFICIAL')])
+		mocks.rankProviders.mockResolvedValue([createRankedProvider('seedance-primary')])
 		mocks.createSeedDanceProviderTask.mockResolvedValue('remote-1')
 		mocks.getSeedDanceProviderTask.mockResolvedValue({ status: 'running' })
 
 		await handleAIVideoQueue(createBatch(task), createEnv())
 
-		expect(mocks.rankChannels).toHaveBeenCalledWith(
+		expect(mocks.rankProviders).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
-			expect.objectContaining({ target: { taskType: 'video', provider: 'seedance' } })
+			expect.anything(),
+			expect.objectContaining({ model: 'video-model' })
 		)
 		expect(mocks.getAIRuntimeConfig).toHaveBeenCalledTimes(1)
 		expect(mocks.createSeedDanceProviderTask).toHaveBeenCalledWith(
@@ -305,26 +305,26 @@ describe('handleAIVideoQueue', () => {
 			'video-model',
 			expect.anything(),
 			{
-				baseURL: 'https://VIDEO_SEEDDANCE_OFFICIAL.example/v1',
-				apiKey: 'VIDEO_SEEDDANCE_OFFICIAL-key'
+				baseURL: 'https://seedance-primary.example/v1',
+				apiKey: 'seedance-primary-key'
 			}
 		)
 		expect(mocks.updateSet).toHaveBeenCalledWith(
 			expect.objectContaining({
-				channel: 'VIDEO_SEEDDANCE_OFFICIAL',
-				channelStartedAt: expect.any(Number),
+				providerId: 'seedance-primary',
+				providerStartedAt: expect.any(Number),
 				providerTaskId: 'remote-1'
 			})
 		)
 		expect(mocks.retry).toHaveBeenCalledWith({ delaySeconds: 30 })
 	})
 
-	it('persists pre-acceptance channel errors with the accepted remote binding', async () => {
+	it('persists pre-acceptance provider errors with the accepted remote binding', async () => {
 		const task: TaskRow = createTask(null)
 		mocks.findFirst.mockResolvedValue(task)
-		mocks.rankChannels.mockResolvedValue([
-			createRankedChannel('VIDEO_SEEDDANCE_OFFICIAL'),
-			createRankedChannel('VIDEO_SEEDDANCE_RESELLER_A')
+		mocks.rankProviders.mockResolvedValue([
+			createRankedProvider('seedance-primary'),
+			createRankedProvider('seedance-backup')
 		])
 		mocks.createSeedDanceProviderTask
 			.mockRejectedValueOnce(new Error('official unavailable'))
@@ -336,45 +336,50 @@ describe('handleAIVideoQueue', () => {
 		expect(mocks.metricQuery).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.objectContaining({
-				channel: 'VIDEO_SEEDDANCE_OFFICIAL',
+				providerId: 'seedance-primary',
 				result: 'error'
 			})
 		)
 		expect(mocks.runRawD1Batch.mock.calls[0]?.[1]).toHaveLength(2)
 		expect(mocks.updateSet).toHaveBeenCalledWith(
 			expect.objectContaining({
-				channel: 'VIDEO_SEEDDANCE_RESELLER_A',
+				providerId: 'seedance-backup',
 				providerTaskId: 'remote-2'
 			})
 		)
 		expect(mocks.retry).toHaveBeenCalledWith({ delaySeconds: 30 })
 	})
 
-	it('polls an existing remote task through its original channel', async () => {
+	it('polls an existing remote task through its original disabled provider', async () => {
 		const task: TaskRow = {
 			...createTask('remote-1'),
-			channel: 'VIDEO_SEEDDANCE_RESELLER_A',
-			channelStartedAt: 1000
+			providerId: 'seedance-backup',
+			providerStartedAt: 1000
 		}
 		mocks.findFirst.mockResolvedValue(task)
-		mocks.resolveChannel.mockReturnValue(createRankedChannel('VIDEO_SEEDDANCE_RESELLER_A').channel)
+		mocks.getAIRuntimeConfig.mockResolvedValue({
+			...createAIConfig(),
+			providers: createAIConfig().providers.map((provider) => {
+				return provider.id === 'seedance-backup' ? { ...provider, enabled: false } : provider
+			})
+		})
 		mocks.getSeedDanceProviderTask.mockResolvedValue({ status: 'running' })
 
 		await handleAIVideoQueue(createBatch(task), createEnv())
 
-		expect(mocks.rankChannels).not.toHaveBeenCalled()
+		expect(mocks.rankProviders).not.toHaveBeenCalled()
 		expect(mocks.getSeedDanceProviderTask).toHaveBeenCalledWith('remote-1', {
-			baseURL: 'https://VIDEO_SEEDDANCE_RESELLER_A.example/v1',
-			apiKey: 'VIDEO_SEEDDANCE_RESELLER_A-key'
+			baseURL: 'https://seedance-backup.example/v1',
+			apiKey: 'seedance-backup-key'
 		})
 		expect(mocks.retry).toHaveBeenCalledWith({ delaySeconds: 30 })
 	})
 
-	it('records a completion metric for the original video channel', async () => {
+	it('records a completion metric for the original video provider', async () => {
 		const task: TaskRow = {
 			...createTask('remote-1'),
-			channel: 'VIDEO_SEEDDANCE_OFFICIAL',
-			channelStartedAt: 1000
+			providerId: 'seedance-primary',
+			providerStartedAt: 1000
 		}
 		mocks.findFirst.mockResolvedValue(task)
 		mocks.getSeedDanceProviderTask.mockResolvedValue({
@@ -391,7 +396,7 @@ describe('handleAIVideoQueue', () => {
 		expect(mocks.metricQuery).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.objectContaining({
-				channel: 'VIDEO_SEEDDANCE_OFFICIAL',
+				providerId: 'seedance-primary',
 				model: 'video-model',
 				result: 'success',
 				startedAtMs: 1000
@@ -399,27 +404,27 @@ describe('handleAIVideoQueue', () => {
 		)
 		expect(mocks.runRawD1Batch.mock.calls[0]?.[1]).toHaveLength(2)
 		expect(mocks.updateSet).toHaveBeenLastCalledWith(
-			expect.objectContaining({ channel: 'VIDEO_SEEDDANCE_OFFICIAL', status: 'completed' })
+			expect.objectContaining({ providerId: 'seedance-primary', status: 'completed' })
 		)
 		expect(mocks.ack).toHaveBeenCalledTimes(1)
 	})
 
-	it('clears a failed remote channel and retries with another channel', async () => {
+	it('clears a failed remote provider and retries with another provider', async () => {
 		const firstTask: TaskRow = {
 			...createTask('remote-1'),
-			channel: 'VIDEO_SEEDDANCE_OFFICIAL',
-			channelStartedAt: 1000
+			providerId: 'seedance-primary',
+			providerStartedAt: 1000
 		}
 		const nextTask: TaskRow = {
 			...createTask(null),
-			failedChannelsJson: JSON.stringify(['VIDEO_SEEDDANCE_OFFICIAL'])
+			failedProviderIdsJson: JSON.stringify(['seedance-primary'])
 		}
 		mocks.findFirst.mockResolvedValueOnce(firstTask).mockResolvedValueOnce(nextTask)
 		mocks.getSeedDanceProviderTask.mockResolvedValueOnce({
 			status: 'failed',
 			errorMessage: 'provider rejected task'
 		})
-		mocks.rankChannels.mockResolvedValue([createRankedChannel('VIDEO_SEEDDANCE_RESELLER_A')])
+		mocks.rankProviders.mockResolvedValue([createRankedProvider('seedance-backup')])
 		mocks.createSeedDanceProviderTask.mockResolvedValue('remote-2')
 		mocks.getSeedDanceProviderTask.mockResolvedValueOnce({ status: 'running' })
 
@@ -428,7 +433,7 @@ describe('handleAIVideoQueue', () => {
 		expect(mocks.metricQuery).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.objectContaining({
-				channel: 'VIDEO_SEEDDANCE_OFFICIAL',
+				providerId: 'seedance-primary',
 				result: 'error',
 				startedAtMs: 1000
 			})
@@ -437,33 +442,34 @@ describe('handleAIVideoQueue', () => {
 		const failedUpdate = mocks.rawQueries.mock.calls
 			.map((call): { sql: string; params: unknown[] } => call[0])
 			.find((query): boolean => query.sql.includes('UPDATE ai_video_tasks'))
-		expect(failedUpdate?.sql).toContain('channel = NULL')
+		expect(failedUpdate?.sql).toContain('provider_id = NULL')
 		expect(failedUpdate?.sql).toContain('provider_task_id = NULL')
-		expect(failedUpdate?.sql).toContain('channel_started_at = NULL')
-		expect(failedUpdate?.params).toContain(JSON.stringify(['VIDEO_SEEDDANCE_OFFICIAL']))
+		expect(failedUpdate?.sql).toContain('provider_started_at = NULL')
+		expect(failedUpdate?.params).toContain(JSON.stringify(['seedance-primary']))
 		expect(mocks.retry).toHaveBeenCalledWith({ delaySeconds: 10 })
 
 		await handleAIVideoQueue(createBatch(nextTask), createEnv())
 
-		expect(mocks.rankChannels).toHaveBeenCalledWith(
+		expect(mocks.rankProviders).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
-			expect.objectContaining({ excludedChannels: ['VIDEO_SEEDDANCE_OFFICIAL'] })
+			expect.anything(),
+			expect.objectContaining({ excludedProviderIds: ['seedance-primary'] })
 		)
 		expect(mocks.createSeedDanceProviderTask).toHaveBeenCalledWith(
 			expect.anything(),
 			'u1',
 			'video-model',
 			expect.anything(),
-			expect.objectContaining({ baseURL: 'https://VIDEO_SEEDDANCE_RESELLER_A.example/v1' })
+			expect.objectContaining({ baseURL: 'https://seedance-backup.example/v1' })
 		)
 	})
 
 	it('keeps the remote binding when polling fails', async () => {
 		const task: TaskRow = {
 			...createTask('remote-1'),
-			channel: 'VIDEO_SEEDDANCE_OFFICIAL',
-			channelStartedAt: 1000
+			providerId: 'seedance-primary',
+			providerStartedAt: 1000
 		}
 		mocks.findFirst.mockResolvedValue(task)
 		mocks.getSeedDanceProviderTask.mockRejectedValue(new Error('poll unavailable'))
@@ -476,16 +482,16 @@ describe('handleAIVideoQueue', () => {
 		expect(mocks.retry).toHaveBeenCalledWith({ delaySeconds: 10 })
 	})
 
-	it('fails the local task when every channel has a terminal failure', async () => {
+	it('fails the local task when every provider has a terminal failure', async () => {
 		const task: TaskRow = {
 			...createTask(null),
-			failedChannelsJson: JSON.stringify([
-				'VIDEO_SEEDDANCE_OFFICIAL',
-				'VIDEO_SEEDDANCE_RESELLER_A'
+			failedProviderIdsJson: JSON.stringify([
+				'seedance-primary',
+				'seedance-backup'
 			])
 		}
 		mocks.findFirst.mockResolvedValue(task)
-		mocks.rankChannels.mockResolvedValue([])
+		mocks.rankProviders.mockResolvedValue([])
 
 		await handleAIVideoQueue(createBatch(task), createEnv())
 
@@ -496,26 +502,30 @@ describe('handleAIVideoQueue', () => {
 	})
 })
 
-function createRankedChannel(channel: string): {
-	channel: {
-		channel: string
-		target: { taskType: 'video'; provider: 'seedance' }
-		models: readonly string[]
+function createRankedProvider(id: string): {
+	provider: {
+		id: string
+		name: string
+		type: 'video_seedance'
+		models: string[]
 		priceMultiplier: number
 		endpoint: { baseURL: string; apiKey: string }
+		enabled: boolean
 	}
 	score: number
 } {
 	return {
-		channel: {
-			channel,
-			target: { taskType: 'video', provider: 'seedance' },
+		provider: {
+			id,
+			name: id,
+			type: 'video_seedance',
 			models: ['video-model'],
 			priceMultiplier: 1,
 			endpoint: {
-				baseURL: `https://${channel}.example/v1`,
-				apiKey: `${channel}-key`
-			}
+				baseURL: `https://${id}.example/v1`,
+				apiKey: `${id}-key`
+			},
+			enabled: true
 		},
 		score: 100
 	}
@@ -546,15 +556,16 @@ function createEnv(putMock: ReturnType<typeof vi.fn> = vi.fn()): Env {
 function createAIConfig(): {
 	routing: { errorWeight: number; latencyWeight: number; priceWeight: number }
 	taskRetentionDays: number
-	providers: Record<string, never>
-	channels: never[]
+	providers: Array<ReturnType<typeof createRankedProvider>['provider']>
 	version: number
 } {
 	return {
 		routing: { errorWeight: 1, latencyWeight: 0.8, priceWeight: 0.2 },
 		taskRetentionDays: 30,
-		providers: {},
-		channels: [],
+		providers: [
+			createRankedProvider('seedance-primary').provider,
+			createRankedProvider('seedance-backup').provider
+		],
 		version: 1
 	}
 }
@@ -564,9 +575,9 @@ function createTask(providerTaskId: string | null): TaskRow {
 		id: 't1',
 		userId: 'u1',
 		status: 'processing',
-		provider: 'seedance',
+		providerType: 'video_seedance',
 		model: 'video-model',
-		channel: providerTaskId ? 'VIDEO_SEEDDANCE_OFFICIAL' : null,
+		providerId: providerTaskId ? 'seedance-primary' : null,
 		prompt: 'make a video',
 		ratio: null,
 		resolution: '720p',
@@ -575,8 +586,8 @@ function createTask(providerTaskId: string | null): TaskRow {
 		r2UploadIsPublic: 0,
 		referencesJson: '[]',
 		providerTaskId,
-		channelStartedAt: providerTaskId ? 1 : null,
-		failedChannelsJson: '[]',
+		providerStartedAt: providerTaskId ? 1 : null,
+		failedProviderIdsJson: '[]',
 		resultJson: null,
 		attemptCount: 0,
 		lastErrorMessage: null,

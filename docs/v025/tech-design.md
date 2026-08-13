@@ -1,6 +1,6 @@
 # D1 动态配置系统技术设计
 
-> 状态：数据模型与接口待确认
+> 状态：已确认，执行中
 
 ## 1. 技术决策
 
@@ -26,7 +26,7 @@ ENV 只保留在连接 `META_DB` 前必须确定的输入：
 
 - 功能开关、业务规则、奖励额度和保留期
 - 邮件提供商、外部 OAuth、Turnstile、支付和 AI 的运行时配置与凭据
-- AI 渠道、模型、路由权重和价格系数
+- AI Provider、模型、路由权重和价格系数
 - Web 端需要的动态公开配置
 
 理由：
@@ -50,7 +50,7 @@ ENV 只保留在连接 `META_DB` 前必须确定的输入：
 
 - `system_settings` 只保留一行，每个单例业务域使用一个完整 JSON 文档列
 - 每个业务域的 `version` 和 `updated_at` 使用独立标量列
-- AI 渠道、支付商品等可重复实体使用独立类型表
+- AI Provider、支付商品等可重复实体使用独立类型表
 - JSON 文档由 TypeScript 类型和 Zod Schema 定义，D1 负责保证其为有效 JSON Object
 - 写入按业务域提供明确的 Admin API，不提供 `set_config(key, value)` 这类无类型接口
 
@@ -80,7 +80,7 @@ ENV 只保留在连接 `META_DB` 前必须确定的输入：
 
 #### AES-GCM 方案示例
 
-以 AI 渠道 `openai-official` 的 API Key 为例。
+以 AI Provider `openai-official` 的 API Key 为例。
 
 Worker 运行时只接收一个根密钥：
 
@@ -88,10 +88,10 @@ Worker 运行时只接收一个根密钥：
 CONFIG_ENCRYPTION_KEY=<32-byte-base64-key>
 ```
 
-D1 只保存该渠道凭据的密文：
+D1 只保存该 Provider 凭据的密文：
 
 ```text
-ai_channels
+ai_providers
   id                  = "openai-official"
   api_key_ciphertext  = <AES-GCM ciphertext and authentication tag>
   api_key_iv          = <random 12-byte IV>
@@ -101,14 +101,14 @@ ai_channels
 
 ```text
 Browser
-  -> POST /api/admin/update_ai_channel
+  -> POST /api/admin/update_ai_provider
   -> Admin API 校验请求
   -> 使用 CONFIG_ENCRYPTION_KEY 和新生成的 IV 执行 AES-GCM 加密
   -> D1 仅写入 api_key_ciphertext 和 api_key_iv
   -> 返回 { api_key_configured: true }
 ```
 
-Consumer 调用该渠道时：
+Consumer 调用该 Provider 时：
 
 ```text
 Consumer
@@ -125,7 +125,26 @@ Source of Truth 边界：
 - 根密钥不能与密文一起存入 D1，否则数据库读取权限可同时获得密文和解密能力
 - 根密钥不提供日常替换入口；灾备替换前必须重新加密所有敏感值，不允许用旧 ENV 凭据作回退
 
-### 1.4 OAuth API Access
+### 1.4 AI Provider 单一模型
+
+状态：已确认
+
+决策：AI 只保留一个 `ai_providers` 集合。每一行都是可直接调用的具体执行端点，同时拥有实现类型、模型、地址、密钥、价格系数和启用状态。系统不再区分固定 Provider 与 Channel，也不再单独保存 `area`、`provider`、`capability` 或 `adapter`。
+
+`type` 使用完整实现类型：`chat_openai`、`image_gemini`、`image_openai`、`image_seedream`、`image_aliyun`、`tts_gemini`、`tts_seed`、`realtime_doubao`、`video_seedance`。类型决定创建哪个客户端；`id` 只标识一套具体配置。同一类型可创建多行，例如两个 `image_openai` Provider 都可声明 `gpt-image-1`。
+
+调用边界：
+
+- 配置组件先按调用所需的 `type + model + enabled` 筛选候选
+- Router 只接收候选 Provider、Tenant 指标和系统权重并排序，不识别 Image、OpenAI 或 Provider Type
+- Factory 在候选确定后根据 `type` 创建具体客户端，不参与选择和失败切换
+- 同步调用选择排序第一的 Provider；异步 Image、TTS 可在同一次 Queue 执行内依次尝试同一快照中的候选
+- Video 只在创建远程任务前选择 Provider；拿到远程任务 ID 后持久化 `provider_id`，后续轮询继续使用该 Provider，即使它随后被停用
+- 权重保存成功后，下一次调用读取新权重；已经开始的请求、Queue 消息或 WebSocket 会话继续使用自己的配置快照
+
+不实现跨 Type 模型映射。调用 `image_openai + gpt-image-1` 时不会自动改成 Gemini 模型。没有候选时直接返回配置错误。
+
+### 1.5 OAuth API Access
 
 状态：已确认
 
@@ -173,7 +192,7 @@ Source of Truth 边界：
 - 不声称全球强一致或所有边缘节点同时生效
 - 已开始的业务操作继续使用其操作内快照，不在中途二次读取配置
 
-代价：停用注册、支付或 AI 渠道后，其他边缘节点可能在副本传播期内继续接受少量新操作。这是选择就近副本读取时明确接受的一致性代价。
+代价：停用注册、支付或 AI Provider 后，其他边缘节点可能在副本传播期内继续接受少量新操作。这是选择就近副本读取时明确接受的一致性代价。
 
 ### 1.7 首次初始化与 Agent 授权用户旅程
 
@@ -191,7 +210,7 @@ Source of Truth 边界：
 
 #### 阶段二：继续开发或配置业务
 
-1. 用户继续要求 Agent 开发功能，或者修改 AI 渠道、支付、邮件等运行时业务配置
+1. 用户继续要求 Agent 开发功能，或者修改 AI Provider、支付、邮件等运行时业务配置
 2. Agent 先区分本次操作是代码修改还是受保护的运行时配置写入
 3. 代码修改继续走开发和部署流程，不需要应用内 OAuth 授权
 4. 当 Agent 首次需要调用配置 Admin API 时，Agent 发起设备授权并向用户展示一次性授权 URL
@@ -432,7 +451,7 @@ Configuration
 │                                                       │
 │ Routing settings                                      │
 │ ───────────────────────────────────────────────────── │
-│ Channels                                              │
+│ Providers                                             │
 │ provider             models                   actions │
 │                                                       │
 │                                      Save changes     │
@@ -505,7 +524,7 @@ API Key    Configured    [Replace] [Remove]
 
 状态：已确认
 
-AI Channels、Payment Products 等重复实体不能按普通单例字段平铺。业务域页面使用表格展示实体；`Add` 或行编辑操作打开右侧编辑抽屉，抽屉中的 `Save` 只保存当前完整实体。删除使用该行自己的明确操作。
+AI Providers、Payment Products 等重复实体不能按普通单例字段平铺。业务域页面使用表格展示实体；`Add` 或行编辑操作打开右侧编辑抽屉，抽屉中的 `Save` 只保存当前完整实体。删除使用该行自己的明确操作。
 
 例如 AI 配置页包含两个独立保存边界：
 
@@ -516,13 +535,13 @@ Routing
   Error weight   [1.0]
   Latency weight [0.8]                 [Save changes]
 
-Channels                                      [Add channel]
-  openai-official   Image   2 models          [Edit]
-  gemini-official   Image   1 model           [Edit]
+Providers                                    [Add provider]
+  openai-official   image_openai   2 models  [Edit]
+  openai-backup     image_openai   1 model   [Edit]
 
-                                             Edit channel ->
+                                             Edit provider ->
                                              Name
-                                             Provider
+                                             Provider type
                                              Base URL
                                              Models
                                              API Key
@@ -530,7 +549,7 @@ Channels                                      [Add channel]
                                              [Cancel] [Save]
 ```
 
-路由设置仍按 AI 业务域显式保存；每个 Channel 是独立的结构化配置实体，单独完整校验并保存。页面不维护多行未提交草稿，也不使用 JSON 编辑器。
+路由设置仍按 AI 业务域显式保存；每个 Provider 是独立的结构化配置实体，单独完整校验并保存。页面不维护多行未提交草稿，也不使用 JSON 编辑器。
 
 ### 1.17 配置 Tab 的业务边界
 
@@ -551,7 +570,7 @@ General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
 | `Credits` | 注册奖励、每日签到和流水保留规则 |
 | `Affiliate` | 邀请奖励规则 |
 | `Payment` | 支付开关、提供商路由、测试模式、凭据和商品 |
-| `AI` | 默认模型、同步调用端点、路由权重、任务保留期和 Channels |
+| `AI` | Provider 执行端点、模型列表、路由权重和任务保留期 |
 
 这些 Tab 只呈现 D1 权威的运行时业务配置。应用域名、D1 Shards、Queue、Cron、R2 Bucket 与生命周期规则等部署拓扑继续只属于 ENV 和部署流程，不在后台以只读或可编辑字段重复展示。
 
@@ -658,21 +677,7 @@ Payment Product 编辑字段：
 
 #### AI
 
-同步调用配置按能力和提供商分组：
-
-| 能力 | 提供商 | 现有 ENV |
-| --- | --- | --- |
-| Chat | OpenAI compatible | `CHAT_OPENAI_BASE_URL`, `CHAT_OPENAI_MODEL`, `CHAT_OPENAI_API_KEY` |
-| Image | Gemini | `IMAGE_GEMINI_BASE_URL`, `IMAGE_GEMINI_MODEL`, `IMAGE_GEMINI_API_KEY` |
-| Image | OpenAI | `IMAGE_OPENAI_BASE_URL`, `IMAGE_OPENAI_MODEL`, `IMAGE_OPENAI_API_KEY` |
-| Image | SeedDream | `IMAGE_SEEDDREAM_BASE_URL`, `IMAGE_SEEDDREAM_MODEL`, `IMAGE_SEEDDREAM_API_KEY` |
-| Image | Aliyun | `IMAGE_ALIYUN_BASE_URL`, `IMAGE_ALIYUN_MODEL`, `IMAGE_ALIYUN_API_KEY` |
-| TTS | Gemini | `TTS_GEMINI_BASE_URL`, `TTS_GEMINI_MODEL`, `TTS_GEMINI_API_KEY` |
-| TTS | Seed | `TTS_SEED_BASE_URL`, `TTS_SEED_MODEL`, `TTS_SEED_API_KEY` |
-| Realtime | Doubao | `REALTIME_DOUBAO_BASE_URL`, `REALTIME_DOUBAO_MODEL`, `REALTIME_DOUBAO_API_KEY` |
-| Video | SeedDance | `VIDEO_SEEDDANCE_BASE_URL`, `VIDEO_SEEDDANCE_MODEL`, `VIDEO_SEEDDANCE_API_KEY` |
-
-每个同步提供商编辑区包含 `Enabled`、Base URL、Default model 和 API key。`Enabled` 是新结构字段，用于实现已经确认的“初始化默认关闭”，不再以密钥是否缺失推断启用状态。
+AI Provider 统一使用完整 Type：`chat_openai`、`image_gemini`、`image_openai`、`image_seedream`、`image_aliyun`、`tts_gemini`、`tts_seed`、`realtime_doubao`、`video_seedance`。每个 Provider 行包含稳定 ID、名称、Type、模型列表、Base URL、API Key、价格系数和启用状态。同步与异步调用都从该集合选择执行端点。
 
 AI 通用设置：
 
@@ -683,19 +688,7 @@ AI 通用设置：
 | Routing price weight | `AI_ROUTING_PRICE_WEIGHT` | Number input |
 | Terminal task retention days | `AI_TASK_RETENTION_DAYS` | Number input |
 
-异步 AI Channels 不再从 `<AREA>_<PROVIDER>_<CHANNEL>_*` ENV 组发现，统一存入 `ai_channels`。表格和编辑抽屉包含：
-
-- Stable channel ID
-- Area：`image` / `tts` / `video`
-- Provider
-- Channel name
-- Base URL
-- Model allowlist
-- Price multiplier
-- API key
-- Enabled
-
-当前 7 组 `*_OFFICIAL_{BASE_URL,MODELS,PRICE_MULTIPLIER,API_KEY}` 全部删除，不作为初始化默认 Channel 偷偷写入 D1。项目初始化只创建空的 Channel 集合；需要哪些 Channel，由用户或 OAuth Client 明确新增。
+旧 AI 业务 ENV 和 `<AREA>_<PROVIDER>_<CHANNEL>_*` ENV 组全部删除，不作为初始化默认 Provider 写入 D1。项目初始化只创建空的 Provider 集合；需要哪些 Provider，由用户或 OAuth Client 明确新增。
 
 #### 长期固定 ENV
 
@@ -756,7 +749,7 @@ Web 端的 D1 公开配置由服务端 Layout 读取并随页面数据下发；�
 #### 删除项
 
 - 删除所有已迁入 D1 的业务 ENV 与 Worker vars/secrets
-- 删除异步 AI Channel ENV 自动发现和默认 Channel 注入逻辑
+- 删除异步 AI ENV 自动发现和默认 Provider 注入逻辑
 - 删除 `PAYMENT_PRODUCTS`、`PAYMENT_PROVIDER_COUNTRY_OVERRIDES` 等 JSON 字符串解析路径，改为结构化 D1 数据
 
 ### 1.19 外部集成的回调信息
@@ -879,7 +872,7 @@ WHERE id = 1
   AND payment_version = ?;
 ```
 
-受影响行数为 0 时返回 `409 CONFIG_CONFLICT`，不写入任何配置。不同业务域使用各自版本，修改 Email 不会阻止正在保存 Authentication。AI Channel 和 Payment Product 等集合实体各自维护版本。
+受影响行数为 0 时返回 `409 CONFIG_CONFLICT`，不写入任何配置。不同业务域使用各自版本，修改 Email 不会阻止正在保存 Authentication。AI Provider 和 Payment Product 等集合实体各自维护版本。
 
 后台收到冲突后保留当前页面输入，显示 `Configuration changed elsewhere` 和 `Reload latest`。不自动合并，不自动覆盖最新值，也不把 `updated_at` 当成可靠的并发令牌。用户重新加载最新配置后再决定是否重新应用本地修改。
 
@@ -973,7 +966,7 @@ flowchart TB
 | Web 页面 | `hooks.server.ts` 创建 Meta D1 Session，读取公开配置并写入 `event.locals` | 一次页面请求 |
 | JSON API | `metaDbSessionMiddleware` 创建 Session，Handler 按需读取相关业务域 | 一次 API 请求 |
 | Better Auth | 每次认证请求先读取 Authentication、Email 配置，再创建本次请求使用的 Auth 实例 | 一次认证请求 |
-| Queue Consumer | 每条消息执行时创建 Session，只读取该任务需要的 AI 配置和 Channel | 一条 Queue 消息 |
+| Queue Consumer | 每条消息执行时创建 Session，只读取该任务需要的 AI 配置和 Provider | 一条 Queue 消息 |
 | Cron | 每次触发创建 Session，只读取 Credits 和 AI 保留期 | 一次 Cron 执行 |
 
 没有 bookmark 的读取使用 `META_DB.withSession('first-unconstrained')`，允许命中就近副本。浏览器和 CLI 将配置写入响应中的 `x-d1-meta-bookmark` 延续到下一次请求；Web SSR 同样从 Cookie 读取该 bookmark，因此保存后刷新或导航能读到自己的写入。
@@ -1011,14 +1004,14 @@ Browser Session or OAuth Bearer Token
 | Payment | `POST /api/admin/get_payment_config` | `POST /api/admin/update_payment_config` | `config:payment:read` / `config:payment:write` |
 | AI | `POST /api/admin/get_ai_config` | `POST /api/admin/update_ai_config` | `config:ai:read` / `config:ai:write` |
 
-`get_payment_config` 在同一响应中返回 Payment 单例配置和 Product 列表；`get_ai_config` 同样返回 AI 单例配置和 Channel 列表。读取页面不拆成额外 List API。集合实体保持独立写入边界：
+`get_payment_config` 在同一响应中返回 Payment 单例配置和 Product 列表；`get_ai_config` 同样返回 AI 单例配置和 Provider 列表。读取页面不拆成额外 List API。集合实体保持独立写入边界：
 
 | Entity | Create | Update | Delete | OAuth scopes |
 | --- | --- | --- | --- | --- |
 | Payment Product | `POST /api/admin/create_payment_product` | `POST /api/admin/update_payment_product` | `POST /api/admin/delete_payment_product` | `config:payment:write` |
-| AI Channel | `POST /api/admin/create_ai_channel` | `POST /api/admin/update_ai_channel` | `POST /api/admin/delete_ai_channel` | `config:ai:write` |
+| AI Provider | `POST /api/admin/create_ai_provider` | `POST /api/admin/update_ai_provider` | `POST /api/admin/delete_ai_provider` | `config:ai:write` |
 
-所有更新和删除请求携带 `expected_version`。`system_settings` 的每个业务域有独立版本；Payment Product 和 AI Channel 每行有独立版本。版本不匹配统一返回 `409 CONFIG_CONFLICT`。
+所有更新和删除请求携带 `expected_version`。`system_settings` 的每个业务域有独立版本；Payment Product 和 AI Provider 每行有独立版本。版本不匹配统一返回 `409 CONFIG_CONFLICT`。
 
 ### 2.4 OAuth API Access 边界
 
@@ -1080,7 +1073,7 @@ Better Auth OAuth Provider 继续签发 Access Token 和 Refresh Token。目标�
 /{locale}/admin/configuration/ai
 ```
 
-`/{locale}/admin/configuration` 只重定向到 `general`。Configuration Layout 只负责顶部 Tab、未保存离开拦截和共享页面布局，不持有跨 Tab 草稿。每个页面只管理自己的业务域草稿；Payment Product 和 AI Channel 抽屉各自管理一个实体草稿。
+`/{locale}/admin/configuration` 只重定向到 `general`。Configuration Layout 只负责顶部 Tab、未保存离开拦截和共享页面布局，不持有跨 Tab 草稿。每个页面只管理自己的业务域草稿；Payment Product 和 AI Provider 抽屉各自管理一个实体草稿。
 
 保存响应直接替换页面基线和动态公开配置状态。用户看到成功提示时，当前页面已经反映服务端实际写入值。其他前台页面在下一次导航或刷新时读取新配置。
 
@@ -1093,7 +1086,7 @@ Better Auth OAuth Provider 继续签发 Access Token 和 Refresh Token。目标�
 
 Turnstile 是唯一需要部署工具与动态配置衔接的外部资源。部署工具始终准备 Widget，然后将 site key 和加密后的 secret key 写入 Authentication 配置；运行时是否启用只由 D1 中的 `turnstile_enabled` 决定。
 
-初始化不创建 AI Channel、Payment Product 或第三方 OAuth Provider 配置。空集合和关闭开关是合法初始状态。缺失 `system_settings` 记录不是关闭状态，而是初始化失败。
+初始化不创建 AI Provider、Payment Product 或第三方 OAuth Provider 配置。空集合和关闭开关是合法初始状态。缺失 `system_settings` 记录不是关闭状态，而是初始化失败。
 
 本地和 Cloudflare 使用相同 D1 Schema、同一配置 API 和同一 OAuth 设备授权路径。本地只在 Cloudflare 资源准备方式上不同，不增加本地 Token 或 ENV 业务配置旁路。
 
@@ -1109,10 +1102,10 @@ Turnstile 是唯一需要部署工具与动态配置衔接的外部资源。部�
 | Credits and Affiliate | 当前业务域规则和整数 credit units |
 | Payment service | Payment routing、Provider credential、Products；`APP_DOMAIN` 仍作为固定回跳根地址 |
 | Sync AI providers | Enabled、base URL、model、decrypted API key |
-| AI Channel Router | Enabled Channels、routing weights；指标仍从当前 Tenant Shard 读取 |
+| AI Provider Router | 已按 Type、model、enabled 筛选的 Providers、routing weights；指标仍从当前 Tenant Shard 读取 |
 | Cron | Credits retention days、AI task retention days |
 
-这次迁移直接删除 `parsePaymentConfig(env)`、AI Channel ENV 扫描、Provider 内部 ENV 读取和各种 `env.FLAG || default`。配置缺失或非法由配置组件在业务调用前抛错，业务组件不提供 ENV 或代码默认值兜底。
+这次迁移直接删除 `parsePaymentConfig(env)`、AI ENV 扫描、Provider 内部 ENV 读取和各种 `env.FLAG || default`。配置缺失或非法由配置组件在业务调用前抛错，业务组件不提供 ENV 或代码默认值兜底。
 
 ### 2.8 文件改动视图
 
@@ -1374,39 +1367,39 @@ sequenceDiagram
 
 ### 3.4 OAuth Client 修改集合实体
 
-Agent 取得 Token 后直接调用普通配置 API。以下用新增 AI Channel 为例，展示 scope、管理员身份和 D1 密钥加密如何串联。
+OAuth Client 取得 Token 后直接调用普通配置 API。以下用新增 AI Provider 为例，展示 scope、管理员身份和 D1 密钥加密如何串联。
 
 ```mermaid
 sequenceDiagram
   actor Agent as Agent
   participant CLI as opc api request
-  participant API as POST /api/admin/create_ai_channel
+  participant API as POST /api/admin/create_ai_provider
   participant Auth as Auth and scope middleware
   participant Meta as META_DB
   participant Config as Runtime configuration component
   participant Crypto as AES-GCM
 
-  Agent->>CLI: Create image channel for shop-local
-  CLI->>API: Bearer access_token<br/>{id:"openai-official", area:"image", provider:"openai", name:"Official", base_url:"https://api.openai.com/v1", models:["gpt-image-1"], price_multiplier:1, api_key:"sk-...", enabled:true}
+  Agent->>CLI: Create image provider for shop-local
+  CLI->>API: Bearer access_token<br/>{id:"openai-official", type:"image_openai", name:"Official", base_url:"https://api.openai.com/v1", models:["gpt-image-1"], price_multiplier:1, api_key:"sk-...", enabled:true}
   API->>Auth: Verify token audience, api_access, active Grant and user identity
   Auth->>Meta: Read Grant and user role
   Meta-->>Auth: active Grant, D1 administrator
   Auth->>Auth: Require scope config:ai:write
   Auth-->>API: Authorized
-  API->>Config: createAIChannel(input)
-  Config->>Config: Validate provider, models, URL, multiplier and enabled requirements
+  API->>Config: createAIProvider(input)
+  Config->>Config: Validate type, models, URL, multiplier and enabled requirements
   Config->>Crypto: Encrypt api_key with CONFIG_ENCRYPTION_KEY and random IV
   Crypto-->>Config: ciphertext and IV
-  Config->>Meta: INSERT ai_channels(..., api_key_ciphertext, api_key_iv, version=1)
+  Config->>Meta: INSERT ai_providers(..., api_key_ciphertext, api_key_iv, version=1)
   Meta-->>Config: Created row and bookmark
   Config-->>API: {id:"openai-official", ..., api_key_configured:true, version:1}
-  API-->>CLI: 200 redacted channel + x-d1-meta-bookmark
+  API-->>CLI: 200 redacted provider + x-d1-meta-bookmark
   CLI->>API: Bearer access_token<br/>POST /api/admin/get_ai_config {}
-  API-->>CLI: 200 AI config containing redacted channel version 1
+  API-->>CLI: 200 AI config containing redacted provider version 1
   CLI-->>Agent: Configuration verified
 ```
 
-CLI 只能把 Token 发送到 `shop-local` 记录的同一 Origin。更新和删除 Channel 时必须提交该行的 `expected_version`；创建时由稳定 `id` 唯一约束阻止重复实体。
+CLI 只能把 Token 发送到 `shop-local` 记录的同一 Origin。更新和删除 Provider 时必须提交该行的 `expected_version`；创建时由稳定 `id` 唯一约束阻止重复实体。
 
 ### 3.5 Web 首屏读取公开配置
 
@@ -1476,7 +1469,7 @@ sequenceDiagram
 
 ### 3.7 Queue Consumer 使用就近配置
 
-异步 AI Channel 在任务执行时选择，而不是创建任务时固化。每条 Queue 消息读取一次最新可见的 AI 配置快照。
+异步 AI Provider 在任务执行时选择，而不是创建任务时固化。每条 Queue 消息读取一次最新可见的 AI 配置快照。
 
 ```mermaid
 sequenceDiagram
@@ -1485,7 +1478,7 @@ sequenceDiagram
   participant Meta as META_DB nearest replica
   participant Config as Runtime configuration component
   participant Shard as User Tenant D1
-  participant Router as AI Channel Router
+  participant Router as AI Provider Router
   participant Provider as AI Provider
   participant R2 as R2
 
@@ -1493,23 +1486,23 @@ sequenceDiagram
   Consumer->>Meta: Resolve user shard and open first-unconstrained Meta session
   Consumer->>Shard: SELECT ai_image_task WHERE id=taskId
   Shard-->>Consumer: processing task with provider and model
-  Consumer->>Config: getAIExecutionConfig(area="image", provider, model)
-  Config->>Meta: SELECT AI routing settings and enabled matching ai_channels
-  Meta-->>Config: Channel rows and encrypted API keys
+  Consumer->>Config: getAIExecutionConfig(type="image_openai", model)
+  Config->>Meta: SELECT AI routing settings and matching enabled ai_providers
+  Meta-->>Config: Provider rows and encrypted API keys
   Config->>Config: Decrypt keys in memory and validate snapshot
-  Config-->>Consumer: Routing weights and candidate Channels
-  Consumer->>Router: rank(candidates, model, Tenant metric buckets)
-  Router->>Shard: Read recent channel metric buckets
+  Config-->>Consumer: Routing weights and candidate Providers
+  Consumer->>Router: rank(candidates, Tenant metric buckets)
+  Router->>Shard: Read recent provider metric buckets
   Shard-->>Router: Error, latency and price inputs
-  Router-->>Consumer: Ranked Channels
-  Consumer->>Provider: Generate using highest-ranked Channel endpoint and key
+  Router-->>Consumer: Ranked Providers
+  Consumer->>Provider: Generate using highest-ranked Provider endpoint and key
   Provider-->>Consumer: Generated image
   Consumer->>R2: Store generated output when requested
   Consumer->>Shard: Atomically update task result and metric bucket
   Consumer->>Queue: ack
 ```
 
-同一条消息内失败切换 Channel 时继续使用同一候选快照，不在每次重试 Provider 前重新读 D1。Queue 平台重新投递该消息时属于新的执行操作，会重新读取配置，因此管理员停用故障 Channel 后可以影响下一次消息尝试。
+同一条消息内失败切换 Provider 时继续使用同一候选快照，不在每次尝试前重新读 D1。Queue 平台重新投递该消息时属于新的执行操作，会重新读取配置，因此管理员停用故障 Provider 后可以影响下一次消息尝试。
 
 ### 3.8 跨流程一致性规则
 
@@ -1525,21 +1518,21 @@ sequenceDiagram
 ### 4.1 数据建模原则
 
 - 新增配置与 OAuth API Access 状态全部属于 `META_DB`
-- `system_settings` 每个单例业务域使用独立 JSON 文档、版本和更新时间；Payment Product 和 AI Channel 使用独立表
+- `system_settings` 每个单例业务域使用独立 JSON 文档、版本和更新时间；Payment Product 和 AI Provider 使用独立表
 - 业务域文档使用 Drizzle JSON 类型，不保存分号字符串，也不提供 JSON 文本编辑接口
 - 业务域文档使用 JSON Boolean；类型表使用 SQLite Integer Boolean；时间统一为 Unix epoch milliseconds
 - Credits 在 D1 中继续使用整数 units，API 继续使用最多 6 位小数的 decimal string
 - AES-GCM 密文在文档内保存为 `{ciphertext, iv}`；二者均为 Base64 文本，Authentication Tag 包含在密文中
 - 每个单例业务域和集合实体使用独立整数 `version`；每个领域的 `updated_at` 只用于展示，不承担并发控制
 - 每次读写完整执行对应 Zod Schema；非法文档直接返回配置错误，不补默认值
-- 不建立 Meta D1 到 Tenant D1 的外键。Tenant 中保存的 Channel ID 和 Meta 中的 Product ID 都按现有跨库快照语义处理
+- 不建立 Meta D1 到 Tenant D1 的外键。Tenant 中保存的 AI Provider ID 和 Meta 中的 Product ID 都按现有跨库快照语义处理
 
 ### 4.2 实体关系
 
 ```mermaid
 erDiagram
   SYSTEM_SETTINGS ||--o{ PAYMENT_PRODUCTS : "owns payment domain"
-  SYSTEM_SETTINGS ||--o{ AI_CHANNELS : "owns AI domain"
+  SYSTEM_SETTINGS ||--o{ AI_PROVIDERS : "owns AI domain"
   USER ||--o{ OAUTH_GRANTS : approves
   OAUTH_CLIENT ||--o{ OAUTH_GRANTS : receives
   OAUTH_AUTHORIZATION_REQUESTS o|--o| OAUTH_GRANTS : activates
@@ -1582,7 +1575,6 @@ erDiagram
 | Payment | `enabled`、`defaultProvider`、`providerCountryOverrides` | Provider 为 `dodo` / `creem`；country 唯一 ISO alpha-2 |
 | Payment | `providers.{dodo,creem}.{testMode,apiKey,webhookSecret}` | 被路由引用的 Provider 必须具有完整凭据和 Product 映射 |
 | AI | `routing.{errorWeight,latencyWeight,priceWeight}`、`taskRetentionDays` | 权重非负且总和 `> 0`；保留天数 `> 0` |
-| AI | `providers.<provider>.{enabled,baseUrl,defaultModel,apiKey}` | 启用时 URL、Model 和加密密钥完整存在 |
 
 JSON 文档内部使用代码侧 camelCase，Admin JSON API 继续使用 snake_case。Handler 负责显式映射，不把持久化文档直接作为公共 API Contract。
 
@@ -1590,23 +1582,7 @@ JSON 文档内部使用代码侧 camelCase，Admin JSON API 继续使用 snake_c
 
 Payment Provider 不增加第二个 `enabled` 字段。Provider 是否可用由完整凭据、至少一个 Product 映射以及 Payment 路由引用共同校验；`payment_enabled` 是整个支付业务唯一运行时开关。
 
-九个固定同步 Provider 使用完全相同的五字段结构：
-
-| Prefix | Area / Provider |
-| --- | --- |
-| `chat_openai` | Chat / OpenAI compatible |
-| `image_gemini` | Image / Gemini |
-| `image_openai` | Image / OpenAI |
-| `image_seedream` | Image / SeedDream |
-| `image_aliyun` | Image / Aliyun |
-| `tts_gemini` | TTS / Gemini |
-| `tts_seed` | TTS / Seed |
-| `realtime_doubao` | Realtime / Doubao |
-| `video_seedance` | Video / SeedDance |
-
-每个 Provider 保存在 `ai_config.providers.<provider>`，统一包含 `enabled`、`baseUrl`、`defaultModel` 和 `apiKey`。`apiKey` 为空或为完整 `{ciphertext, iv}`。
-
-Provider 关闭时允许整组配置为空，也允许保留一组完整配置；不允许只保存 Base URL、Model 或 API Key 中的一部分。Provider 启用时三项必须全部存在。
+AI Provider 不保存在单例文档内。`ai_config` 只拥有路由权重和任务保留期，具体 Provider 全部保存在 `ai_providers`。
 
 #### 初始化值
 
@@ -1617,7 +1593,7 @@ Migration 写入可见、可编辑的明确值，而不是运行时代码默认�
 - 上传类型为当前三种图片 MIME，最大 5 MiB
 - Credits 和 Affiliate 金额保留当前模板值，但对应开关关闭
 - Payment Provider 为空，Country overrides 为空，测试模式为 `true`
-- AI 路由权重为 `1 / 0.8 / 0.2`，任务保留 30 天，Provider 配置为空
+- AI 路由权重为 `1 / 0.8 / 0.2`，任务保留 30 天，Provider 集合为空
 - 本地写入 Cloudflare Turnstile 测试凭据；生产写入准备流程创建的 Widget 凭据；`turnstile_enabled = false`
 - 八个业务域版本均为 `1`
 
@@ -1645,14 +1621,13 @@ Migration 写入可见、可编辑的明确值，而不是运行时代码默认�
 - 不保存远程商品名称、描述、价格和币种；Checkout 创建时继续从 Provider 读取并写入 Order 快照
 - 删除 Product 不删除历史订单。若仍存在 active subscription 引用该 Product，删除返回 `409 CONFIG_CONFLICT`
 
-### 4.5 `ai_channels`
+### 4.5 `ai_providers`
 
 | Field | D1 type | Constraints |
 | --- | --- | --- |
 | `id` | TEXT | PK，lowercase slug，创建后不可修改 |
-| `area` | TEXT | `image` / `tts` / `video` |
-| `provider` | TEXT | 必须属于该 area 支持的 Provider |
 | `name` | TEXT | NOT NULL，非空 |
+| `type` | TEXT | 代码声明的完整 Provider Type |
 | `base_url` | TEXT | NOT NULL，合法 URL |
 | `models` | TEXT JSON | 非空唯一 `string[]` |
 | `price_multiplier` | REAL | `> 0` |
@@ -1663,9 +1638,9 @@ Migration 写入可见、可编辑的明确值，而不是运行时代码默认�
 | `created_at` | INTEGER | NOT NULL |
 | `updated_at` | INTEGER | NOT NULL |
 
-索引为 `(enabled, area, provider)`。Channel 是一个完整执行端点，不能保存无密钥的半条记录；替换密钥使用 `keep` 或 `replace`，删除密钥等价于删除 Channel，不提供 `remove` 动作。
+索引为 `(enabled, type)`。Provider 是一个完整执行端点，不能保存无密钥的半条记录；替换密钥使用 `keep` 或 `replace`，删除密钥等价于删除 Provider，不提供 `remove` 动作。
 
-Tenant Shard 的 `ai_channel_metric_buckets.channel` 继续保存 Channel ID，不建立跨 D1 外键。删除 Channel 后旧指标自然停止参与候选查询，并由现有保留任务清理。
+Tenant Shard 的 `ai_provider_metric_buckets.provider_id` 保存 Provider ID，不建立跨 D1 外键。Image、TTS 和 Video 任务使用 `provider_type` 表示调用要求，使用 `provider_id` 表示本次执行选中的具体 Provider。Video 额外保存 `provider_started_at` 和 `failed_provider_ids_json`。删除 Provider 后旧指标自然停止参与候选查询，并由现有保留任务清理。
 
 ### 4.6 OAuth API Access 数据
 
@@ -1733,7 +1708,7 @@ type SecretMutation =
 	| { action: 'remove' }
 ```
 
-`keep` 不重新加密、不修改密文；`replace` 使用新 IV；`remove` 同时清空密文和 IV。具体业务域仍要校验删除后的完整性。AI Channel 不接受 `remove`。
+`keep` 不重新加密、不修改密文；`replace` 使用新 IV；`remove` 同时清空密文和 IV。具体业务域仍要校验删除后的完整性。AI Provider 不接受 `remove`。
 
 通用错误：
 
@@ -1742,7 +1717,7 @@ type SecretMutation =
 | 400 | `INVALID_REQUEST` | Zod 或跨字段校验失败，message 包含具体字段路径 |
 | 401 | `UNAUTHORIZED` | 没有有效 Session 或 Bearer Token |
 | 403 | `FORBIDDEN` | 非管理员、缺少 scope 或无资源权限 |
-| 404 | `CONFIG_NOT_FOUND` | Product 或 Channel 不存在 |
+| 404 | `CONFIG_NOT_FOUND` | Product 或 Provider 不存在 |
 | 409 | `CONFIG_CONFLICT` | `expected_version` 过期、ID 重复或被业务引用 |
 | 500 | `CONFIG_UNAVAILABLE` | 初始化记录缺失、根密钥错误或密文完整性校验失败 |
 
@@ -1853,29 +1828,17 @@ type PaymentConfigView = {
 AI 契约：
 
 ```ts
-type AIArea = 'chat' | 'image' | 'tts' | 'realtime' | 'video'
-
-type AIProviderConfigView = {
-	area: AIArea
-	provider: string
-	enabled: boolean
-	base_url: string | null
-	default_model: string | null
-	api_key_configured: boolean
-}
-
 type AIConfigView = {
 	routing_error_weight: number
 	routing_latency_weight: number
 	routing_price_weight: number
 	task_retention_days: number
-	providers: AIProviderConfigView[]
-	channels: AIChannelView[]
+	providers: AIProviderView[]
 	version: number
 }
 ```
 
-`UpdateAIConfigRequest` 提交四个通用字段、九个固定且唯一的 Provider 项、每项的 `api_key: SecretMutation` 和 `expected_version`，不提交 `channels`。Provider 身份必须来自固定组合，不能用该接口创建新 Provider。Response 返回新的 `AIConfigView`。
+`UpdateAIConfigRequest` 只提交四个通用字段和 `expected_version`。Provider 通过独立 CRUD 更新。Response 返回新的 `AIConfigView`。
 
 ### 4.9 集合配置接口
 
@@ -1892,11 +1855,10 @@ type PaymentProductView = {
 	version: number
 }
 
-type AIChannelView = {
+type AIProviderView = {
 	id: string
-	area: 'image' | 'tts' | 'video'
-	provider: string
 	name: string
+	type: 'chat_openai' | 'image_gemini' | 'image_openai' | 'image_seedream' | 'image_aliyun' | 'tts_gemini' | 'tts_seed' | 'realtime_doubao' | 'video_seedance'
 	base_url: string
 	models: string[]
 	price_multiplier: number
@@ -1911,11 +1873,11 @@ type AIChannelView = {
 | `POST /api/admin/create_payment_product` | `PaymentProductView` 去掉 `version` | `PaymentProductView` | `config:payment:write` |
 | `POST /api/admin/update_payment_product` | 全部可编辑字段 + `product_id` + `expected_version` | `PaymentProductView` | `config:payment:write` |
 | `POST /api/admin/delete_payment_product` | `{product_id, expected_version}` | `{product_id}` | `config:payment:write` |
-| `POST /api/admin/create_ai_channel` | `AIChannelView` 去掉 `api_key_configured/version`，增加明文 `api_key` | `AIChannelView` | `config:ai:write` |
-| `POST /api/admin/update_ai_channel` | 全部可编辑字段 + `id` + `expected_version` + `api_key: keep | replace` | `AIChannelView` | `config:ai:write` |
-| `POST /api/admin/delete_ai_channel` | `{id, expected_version}` | `{id}` | `config:ai:write` |
+| `POST /api/admin/create_ai_provider` | `AIProviderView` 去掉 `api_key_configured/version`，增加明文 `api_key` | `AIProviderView` | `config:ai:write` |
+| `POST /api/admin/update_ai_provider` | 全部可编辑字段 + `id` + `expected_version` + `api_key: keep | replace` | `AIProviderView` | `config:ai:write` |
+| `POST /api/admin/delete_ai_provider` | `{id, expected_version}` | `{id}` | `config:ai:write` |
 
-Product ID 和 Channel ID 只在 Create 接口提交一次，Update 不允许改名。所有成功写入返回 bookmark；前端用返回实体替换对应行，不重新读取整个业务域。
+Product ID 和 Provider ID 只在 Create 接口提交一次，Update 不允许改名。所有成功写入返回 bookmark；前端用返回实体替换对应行，不重新读取整个业务域。
 
 ### 4.10 OAuth 协议接口
 

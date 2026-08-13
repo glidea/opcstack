@@ -70,15 +70,15 @@ import type {
 	UploadR2PublicObjectResponse
 } from '../r2'
 import type {
-	AIChannel,
+	AIProvider,
 	AIConfig,
 	AffiliateConfig,
 	AuthenticationConfig,
-	CreateAIChannelRequest,
+	CreateAIProviderRequest,
 	CreatePaymentProductRequest,
 	CreditsConfig,
-	DeleteAIChannelRequest,
-	DeleteAIChannelResponse,
+	DeleteAIProviderRequest,
+	DeleteAIProviderResponse,
 	DeletePaymentProductRequest,
 	DeletePaymentProductResponse,
 	EmailConfig,
@@ -86,7 +86,7 @@ import type {
 	PaymentConfig,
 	PaymentProduct,
 	StorageConfig,
-	UpdateAIChannelRequest,
+	UpdateAIProviderRequest,
 	UpdateAIConfigRequest,
 	UpdateAffiliateConfigRequest,
 	UpdateAuthenticationConfigRequest,
@@ -159,7 +159,7 @@ type ApiMethods = {
 	bindBetaCode(input: BindBetaCodeRequest): Promise<Record<string, never>>
 	cancelSubscription(): Promise<CancelSubscriptionResponse>
 	createNotification(input: CreateNotificationRequest): Promise<CreateNotificationResponse>
-	createAIChannel(input: CreateAIChannelRequest): Promise<AIChannel>
+	createAIProvider(input: CreateAIProviderRequest): Promise<AIProvider>
 	createPaymentProduct(input: CreatePaymentProductRequest): Promise<PaymentProduct>
 	createPaymentCheckout(input: CreatePaymentCheckoutRequest): Promise<CreatePaymentCheckoutResponse>
 	dailyCheckin(): Promise<DailyCheckinResponse>
@@ -199,14 +199,14 @@ type ApiMethods = {
 		input: ListPaymentTransactionsRequest
 	): Promise<ListPaymentTransactionsResponse>
 	readNotification(input: ReadNotificationRequest): Promise<Record<string, never>>
-	deleteAIChannel(input: DeleteAIChannelRequest): Promise<DeleteAIChannelResponse>
+	deleteAIProvider(input: DeleteAIProviderRequest): Promise<DeleteAIProviderResponse>
 	deletePaymentProduct(input: DeletePaymentProductRequest): Promise<DeletePaymentProductResponse>
 	redeemCreditCode(input: RedeemCreditCodeRequest): Promise<RedeemCreditCodeResponse>
 	submitFeedback(input: SubmitFeedbackRequest): Promise<SubmitFeedbackResponse>
 	uploadR2Object(input: UploadR2ObjectRequest): Promise<UploadR2ObjectResponse>
 	uploadR2PublicObject(input: UploadR2PublicObjectRequest): Promise<UploadR2PublicObjectResponse>
 	updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig>
-	updateAIChannel(input: UpdateAIChannelRequest): Promise<AIChannel>
+	updateAIProvider(input: UpdateAIProviderRequest): Promise<AIProvider>
 	updateAIConfig(input: UpdateAIConfigRequest): Promise<AIConfig>
 	updateAffiliateConfig(input: UpdateAffiliateConfigRequest): Promise<AffiliateConfig>
 	updateAuthenticationConfig(input: UpdateAuthenticationConfigRequest): Promise<AuthenticationConfig>
@@ -399,8 +399,8 @@ function createApiMethods(
 		createNotification(input: CreateNotificationRequest): Promise<CreateNotificationResponse> {
 			return call({ path: '/api/admin/create_notification', body: input })
 		},
-		createAIChannel(input: CreateAIChannelRequest): Promise<AIChannel> {
-			return call({ path: '/api/admin/create_ai_channel', body: input })
+		createAIProvider(input: CreateAIProviderRequest): Promise<AIProvider> {
+			return call({ path: '/api/admin/create_ai_provider', body: input })
 		},
 		createPaymentProduct(input: CreatePaymentProductRequest): Promise<PaymentProduct> {
 			return call({ path: '/api/admin/create_payment_product', body: input })
@@ -503,8 +503,8 @@ function createApiMethods(
 		readNotification(input: ReadNotificationRequest): Promise<Record<string, never>> {
 			return call({ path: '/api/read_notification', body: input })
 		},
-		deleteAIChannel(input: DeleteAIChannelRequest): Promise<DeleteAIChannelResponse> {
-			return call({ path: '/api/admin/delete_ai_channel', body: input })
+		deleteAIProvider(input: DeleteAIProviderRequest): Promise<DeleteAIProviderResponse> {
+			return call({ path: '/api/admin/delete_ai_provider', body: input })
 		},
 		deletePaymentProduct(input: DeletePaymentProductRequest): Promise<DeletePaymentProductResponse> {
 			return call({ path: '/api/admin/delete_payment_product', body: input })
@@ -524,8 +524,8 @@ function createApiMethods(
 		updateGeneralConfig(input: UpdateGeneralConfigRequest): Promise<GeneralConfig> {
 			return call({ path: '/api/admin/update_general_config', body: input })
 		},
-		updateAIChannel(input: UpdateAIChannelRequest): Promise<AIChannel> {
-			return call({ path: '/api/admin/update_ai_channel', body: input })
+		updateAIProvider(input: UpdateAIProviderRequest): Promise<AIProvider> {
+			return call({ path: '/api/admin/update_ai_provider', body: input })
 		},
 		updateAIConfig(input: UpdateAIConfigRequest): Promise<AIConfig> {
 			return call({ path: '/api/admin/update_ai_config', body: input })

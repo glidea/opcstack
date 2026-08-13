@@ -86,7 +86,7 @@ read replicas（全球）"]
 | beta_code、credit_redemption_codes | ai_image_tasks、ai_tts_tasks、ai_video_tasks |
 | aff_referrals | |
 | system_settings、payment_products | |
-| ai_channels、oauth_grants、oauth_authorization_requests | |
+| ai_providers、oauth_grants、oauth_authorization_requests | ai_provider_metric_buckets |
 
 `system_settings` 只有一行。每个配置域拥有一份 JSON 文档、独立版本和更新时间。读写时都会完整校验文档，非法数据直接失败。敏感字段只保存 AES-GCM 密文和 IV；根密钥 `CONFIG_ENCRYPTION_KEY` 由 `prepare-cloudflare` 首次生成并保存在 D1 之外。
 

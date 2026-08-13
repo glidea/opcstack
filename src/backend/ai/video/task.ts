@@ -3,12 +3,12 @@ import { aiVideoTask, type AIVideoTaskRow } from '../../db/schema.shard'
 import type { TenantShardDb } from '../../db'
 import type {
 	AIVideoGenerateInput,
-	AIVideoProvider,
 	AIVideoReference,
 	AIVideoResult,
 	AIVideoTask,
 	AIVideoTaskStatus
 } from '.'
+import type { AIVideoProviderType } from '../config'
 
 export const AI_VIDEO_QUEUE_NAME = 'video-generate'
 
@@ -20,7 +20,7 @@ export interface AIVideoGenerateQueueMessage {
 export async function createAIVideoTask(
 	env: Env,
 	db: TenantShardDb,
-	provider: AIVideoProvider,
+	providerType: AIVideoProviderType,
 	model: string,
 	userId: string,
 	input: AIVideoGenerateInput
@@ -32,7 +32,7 @@ export async function createAIVideoTask(
 		id,
 		userId,
 		status: 'processing',
-		provider,
+		providerType,
 		model,
 		prompt: input.prompt,
 		ratio: input.ratio,
@@ -54,7 +54,7 @@ export async function createAIVideoTask(
 		id,
 		userId,
 		status: 'processing',
-		provider,
+		providerType,
 		model,
 		prompt: input.prompt,
 		ratio: input.ratio,
@@ -88,7 +88,8 @@ export function toAIVideoTask(row: AIVideoTaskRow): AIVideoTask {
 		id: row.id,
 		userId: row.userId,
 		status: row.status as AIVideoTaskStatus,
-		provider: row.provider as AIVideoProvider,
+		providerType: row.providerType as AIVideoProviderType,
+		providerId: row.providerId ?? undefined,
 		model: row.model ?? undefined,
 		prompt: row.prompt,
 		ratio: row.ratio as AIVideoTask['ratio'],

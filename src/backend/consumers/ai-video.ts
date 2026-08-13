@@ -3,13 +3,10 @@ import { getMetaDb, runRawD1Batch, type D1RawRunQuery, type TenantShardDb } from
 import { aiVideoTask } from '../db/schema.shard'
 import { createTenantShardAccess } from '../db/shard-router'
 import {
-	createAIChannelMetricQuery,
-	rankAIChannels,
-	resolveAIChannel,
-	type AIChannel,
-	type AIChannelTarget,
-	type AIRankedChannel
-} from '../ai/channel-routing'
+	createAIProviderMetricQuery,
+	rankAIProviders,
+	type AIRankedProvider
+} from '../ai/provider-routing'
 import { AIError } from '../ai/error'
 import type { AIEndpoint } from '../ai/endpoint'
 import {
@@ -26,15 +23,22 @@ import type {
 } from '../ai/video'
 import type { AIVideoGenerateQueueMessage } from '../ai/video/task'
 import type { AIVideoTaskRow } from '../db/schema.shard'
-import { getAIRuntimeConfig, type AIRuntimeConfig } from '../ai/config'
+import {
+	getAIProviderCandidates,
+	getAIProviderRuntimeConfig,
+	getAIRuntimeConfig,
+	type AIProviderRuntimeConfig,
+	type AIRuntimeConfig,
+	type AIVideoProviderType
+} from '../ai/config'
 
 const AI_VIDEO_MAX_ATTEMPTS = 3
 const AI_VIDEO_POLL_DELAY_SECONDS = 30
 
 interface AIVideoExecution {
 	providerTaskId: string
-	channel: AIChannel
-	channelStartedAt: number
+	provider: AIProviderRuntimeConfig
+	providerStartedAt: number
 }
 
 export async function handleAIVideoQueue(
@@ -83,7 +87,7 @@ async function handleAIVideoMessage(
 		const result: AIVideoProviderTaskResult = await getProviderTask(
 			task,
 			execution.providerTaskId,
-			execution.channel.endpoint
+			execution.provider.endpoint
 		)
 		switch (result.status) {
 			case 'running':
@@ -112,9 +116,9 @@ async function handleAIVideoMessage(
 			logError(error, {
 				taskId: task.id,
 				userId: task.userId,
-				provider: task.provider,
+				providerType: task.providerType,
 				model: task.model,
-				channel: task.channel ?? undefined,
+				providerId: task.providerId ?? undefined,
 				attemptCount,
 				maxAttempts: AI_VIDEO_MAX_ATTEMPTS,
 				status: nextStatus
@@ -158,37 +162,43 @@ async function ensureProviderTask(
 	metricQueries: D1RawRunQuery[]
 ): Promise<AIVideoExecution | undefined> {
 	if (!task.model) {
-		throw new AIError('AI_CHANNEL_CONFIG_INVALID')
+		throw new AIError('AI_PROVIDER_CONFIG_INVALID')
 	}
-	const target: AIChannelTarget = {
-		taskType: 'video',
-		provider: task.provider as 'seedance'
-	}
+	const providerType: AIVideoProviderType = task.providerType as AIVideoProviderType
 	if (task.providerTaskId) {
-		if (!task.channel || task.channelStartedAt === null) {
-			throw new AIError('AI_CHANNEL_CONFIG_INVALID')
+		if (!task.providerId || task.providerStartedAt === null) {
+			throw new AIError('AI_PROVIDER_CONFIG_INVALID')
 		}
 		return {
 			providerTaskId: task.providerTaskId,
-			channel: resolveAIChannel(aiConfig, task.channel, target, task.model),
-			channelStartedAt: task.channelStartedAt
+			provider: getAIProviderRuntimeConfig(
+				aiConfig,
+				task.providerId,
+				providerType,
+				task.model
+			),
+			providerStartedAt: task.providerStartedAt
 		}
 	}
 
-	const failedChannels: string[] = JSON.parse(task.failedChannelsJson) as string[]
-	const rankedChannels: AIRankedChannel[] = await rankAIChannels(db, aiConfig, {
-		target,
-		model: task.model,
-		excludedChannels: failedChannels,
-		nowMs: Date.now()
-	})
-	if (rankedChannels.length === 0) {
+	const failedProviderIds: string[] = JSON.parse(task.failedProviderIdsJson) as string[]
+	const rankedProviders: AIRankedProvider[] = await rankAIProviders(
+		db,
+		getAIProviderCandidates(aiConfig, providerType, task.model),
+		aiConfig.routing,
+		{
+			model: task.model,
+			excludedProviderIds: failedProviderIds,
+			nowMs: Date.now()
+		}
+	)
+	if (rankedProviders.length === 0) {
 		return undefined
 	}
 
 	const input: AIVideoGenerateInput = toGenerateInput(task)
-	let lastError: unknown = new AIError('AI_CHANNEL_NOT_FOUND')
-	for (const rankedChannel of rankedChannels) {
+	let lastError: unknown = new AIError('AI_PROVIDER_NOT_FOUND')
+	for (const rankedProvider of rankedProviders) {
 		const startedAt: number = Date.now()
 		let providerTaskId: string
 		try {
@@ -197,25 +207,25 @@ async function ensureProviderTask(
 				task,
 				task.model,
 				input,
-				rankedChannel.channel.endpoint
+				rankedProvider.provider.endpoint
 			)
 		} catch (error) {
 			lastError = error
-			if (!isAIVideoChannelFailure(error)) {
+			if (!isAIVideoProviderFailure(error)) {
 				throw error
 			}
 			logError(error, {
 				taskId: task.id,
 				userId: task.userId,
-				provider: task.provider,
+				providerType: task.providerType,
 				model: task.model,
-				channel: rankedChannel.channel.channel,
+				providerId: rankedProvider.provider.id,
 				attemptCount: task.attemptCount + 1,
 				maxAttempts: AI_VIDEO_MAX_ATTEMPTS
 			})
 			metricQueries.push(
-				createAIChannelMetricQuery(db, {
-					channel: rankedChannel.channel.channel,
+				createAIProviderMetricQuery(db, {
+					providerId: rankedProvider.provider.id,
 					model: task.model,
 					startedAtMs: startedAt,
 					finishedAtMs: Date.now(),
@@ -228,8 +238,8 @@ async function ensureProviderTask(
 		const taskUpdate = db.run(sql`
 			UPDATE ai_video_tasks
 			SET provider_task_id = ${providerTaskId},
-				channel = ${rankedChannel.channel.channel},
-				channel_started_at = ${startedAt},
+				provider_id = ${rankedProvider.provider.id},
+				provider_started_at = ${startedAt},
 				updated_at = ${Date.now()}
 			WHERE id = ${task.id}
 		`)
@@ -238,8 +248,8 @@ async function ensureProviderTask(
 		metricQueries.splice(0, metricQueries.length)
 		return {
 			providerTaskId,
-			channel: rankedChannel.channel,
-			channelStartedAt: startedAt
+			provider: rankedProvider.provider,
+			providerStartedAt: startedAt
 		}
 	}
 
@@ -253,11 +263,11 @@ async function createProviderTask(
 	input: AIVideoGenerateInput,
 	endpoint: AIEndpoint
 ): Promise<string> {
-	switch (task.provider) {
-		case 'seedance':
+	switch (task.providerType) {
+		case 'video_seedance':
 			return createSeedDanceProviderTask(env, task.userId, model, input, endpoint)
 		default:
-			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${task.provider}`)
+			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider type: ${task.providerType}`)
 	}
 }
 
@@ -266,11 +276,11 @@ async function getProviderTask(
 	providerTaskId: string,
 	endpoint: AIEndpoint
 ): Promise<AIVideoProviderTaskResult> {
-	switch (task.provider) {
-		case 'seedance':
+	switch (task.providerType) {
+		case 'video_seedance':
 			return getSeedDanceProviderTask(providerTaskId, endpoint)
 		default:
-			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider: ${task.provider}`)
+			throw new AIError('UNSUPPORTED_AI_PROVIDER', `Unsupported AI provider type: ${task.providerType}`)
 	}
 }
 
@@ -281,30 +291,32 @@ async function failProviderTask(
 	errorMessage: string
 ): Promise<void> {
 	if (!task.model) {
-		throw new AIError('AI_CHANNEL_CONFIG_INVALID')
+		throw new AIError('AI_PROVIDER_CONFIG_INVALID')
 	}
 	const attemptCount: number = task.attemptCount + 1
 	const now: number = Date.now()
 	const nextStatus: AIVideoTaskStatus =
 		attemptCount >= AI_VIDEO_MAX_ATTEMPTS ? 'failed' : 'processing'
-	const failedChannels: Set<string> = new Set(JSON.parse(task.failedChannelsJson) as string[])
-	failedChannels.add(execution.channel.channel)
+	const failedProviderIds: Set<string> = new Set(
+		JSON.parse(task.failedProviderIdsJson) as string[]
+	)
+	failedProviderIds.add(execution.provider.id)
 	const taskUpdate = db.run(sql`
 		UPDATE ai_video_tasks
 		SET status = ${nextStatus},
-			channel = NULL,
+			provider_id = NULL,
 			provider_task_id = NULL,
-			channel_started_at = NULL,
-			failed_channels_json = ${JSON.stringify([...failedChannels])},
+			provider_started_at = NULL,
+			failed_provider_ids_json = ${JSON.stringify([...failedProviderIds])},
 			attempt_count = ${attemptCount},
 			last_error_message = ${errorMessage},
 			updated_at = ${now}
 		WHERE id = ${task.id}
 	`)
-	const metricQuery: D1RawRunQuery = createAIChannelMetricQuery(db, {
-		channel: execution.channel.channel,
+	const metricQuery: D1RawRunQuery = createAIProviderMetricQuery(db, {
+		providerId: execution.provider.id,
 		model: task.model,
-		startedAtMs: execution.channelStartedAt,
+		startedAtMs: execution.providerStartedAt,
 		finishedAtMs: now,
 		result: 'error'
 	})
@@ -312,9 +324,9 @@ async function failProviderTask(
 	logError(new AIError('AI_VIDEO_PROVIDER_TASK_FAILED', errorMessage), {
 		taskId: task.id,
 		userId: task.userId,
-		provider: task.provider,
+		providerType: task.providerType,
 		model: task.model,
-		channel: execution.channel.channel,
+		providerId: execution.provider.id,
 		attemptCount,
 		maxAttempts: AI_VIDEO_MAX_ATTEMPTS,
 		status: nextStatus
@@ -327,7 +339,7 @@ async function failExhaustedTask(db: TenantShardDb, task: AIVideoTaskRow): Promi
 		.update(aiVideoTask)
 		.set({
 			status: 'failed',
-			lastErrorMessage: new AIError('AI_CHANNEL_NOT_FOUND').message,
+			lastErrorMessage: new AIError('AI_PROVIDER_NOT_FOUND').message,
 			updatedAt: now
 		})
 		.where(eq(aiVideoTask.id, task.id))
@@ -341,7 +353,7 @@ async function completeVideoTask(
 	videoUrl: string
 ): Promise<void> {
 	if (!task.model) {
-		throw new AIError('AI_CHANNEL_CONFIG_INVALID')
+		throw new AIError('AI_PROVIDER_CONFIG_INVALID')
 	}
 	const input: AIVideoGenerateInput = toGenerateInput(task)
 	const response: Response = await fetch(videoUrl)
@@ -365,23 +377,23 @@ async function completeVideoTask(
 	const taskUpdate = db.run(sql`
 		UPDATE ai_video_tasks
 		SET status = ${'completed'},
-			channel = ${execution.channel.channel},
+			provider_id = ${execution.provider.id},
 			result_json = ${JSON.stringify({ video })},
 			updated_at = ${now},
 			completed_at = ${now}
 		WHERE id = ${task.id}
 	`)
-	const metricQuery: D1RawRunQuery = createAIChannelMetricQuery(db, {
-		channel: execution.channel.channel,
+	const metricQuery: D1RawRunQuery = createAIProviderMetricQuery(db, {
+		providerId: execution.provider.id,
 		model: task.model,
-		startedAtMs: execution.channelStartedAt,
+		startedAtMs: execution.providerStartedAt,
 		finishedAtMs: now,
 		result: 'success'
 	})
 	await runRawD1Batch(db, [taskUpdate, metricQuery])
 }
 
-function isAIVideoChannelFailure(error: unknown): boolean {
+function isAIVideoProviderFailure(error: unknown): boolean {
 	if (error instanceof R2Error) {
 		return false
 	}
@@ -391,8 +403,8 @@ function isAIVideoChannelFailure(error: unknown): boolean {
 
 	switch (error.code) {
 		case 'UNSUPPORTED_AI_PROVIDER':
-		case 'AI_CHANNEL_NOT_FOUND':
-		case 'AI_CHANNEL_CONFIG_INVALID':
+		case 'AI_PROVIDER_NOT_FOUND':
+		case 'AI_PROVIDER_CONFIG_INVALID':
 		case 'AI_VIDEO_DOWNLOAD_FAILED':
 			return false
 		default:

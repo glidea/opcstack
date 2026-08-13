@@ -99,7 +99,7 @@ class openAISimpleImageClient implements AISimpleImageClient {
 	}
 
 	async generateAsync(input: AISimpleImageClientGenerateInput): Promise<AIImageTask> {
-		return createAIImageTask(this.env, this.tenantDb, 'openai', this.model, this.userId, input)
+		return createAIImageTask(this.env, this.tenantDb, 'image_openai', this.model, this.userId, input)
 	}
 
 	async getTask(id: string): Promise<AIImageTask | undefined> {

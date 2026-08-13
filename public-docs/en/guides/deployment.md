@@ -412,7 +412,7 @@ External services must point back to the deployed Worker origin.
 | Cloudflare Email | Paid Worker plan and `SEND_EMAIL` binding |
 | Dodo | Configuration > Payment credentials, product ids, webhook to Worker |
 | Creem | Configuration > Payment credentials, product ids, webhook to Worker |
-| AI providers | API keys, base URLs, models, routing, and channels in the AI tab |
+| AI providers | API keys, base URLs, models, and routing weights in the AI tab |
 
 If a feature is disabled, do not configure fake production credentials. Keep the feature switch false.
 

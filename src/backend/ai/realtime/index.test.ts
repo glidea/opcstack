@@ -82,8 +82,8 @@ describe('createAIRealtimeClient', () => {
 
 	const cases: TestCase<GivenDetail, WhenDetail, ThenExpected>[] = [
 		{
-			scenario: 'uses default doubao model from env',
-			given: 'no model option',
+			scenario: 'creates doubao realtime client',
+			given: 'doubao realtime model',
 			when: 'starting realtime session',
 			then: 'passes user model speaker and prompt to provider client',
 			givenDetail: {},
@@ -97,7 +97,7 @@ describe('createAIRealtimeClient', () => {
 			}
 		},
 		{
-			scenario: 'model option overrides env model',
+			scenario: 'passes selected model to doubao client',
 			given: 'explicit model option',
 			when: 'starting realtime session',
 			then: 'passes option model to provider client',

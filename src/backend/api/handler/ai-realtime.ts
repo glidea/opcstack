@@ -3,17 +3,18 @@ import {
 	createAIRealtimeClient,
 	type AIRealtimeClient,
 	type AIRealtimeEvent,
-	type AIRealtimeProvider,
 	type AIRealtimeSession,
 	type AIRealtimeStartSessionInput
 } from '../../ai/realtime'
 import type { ApiEnv } from '..'
 import {
-	getAIProviderRuntimeConfig,
+	getAIProviderCandidates,
 	getAIRuntimeConfig,
-	type AIProviderRuntimeConfig,
 	type AIRuntimeConfig
 } from '../../ai/config'
+import { rankAIProviders, type AIRankedProvider } from '../../ai/provider-routing'
+import { createTenantShardAccess } from '../../db/shard-router'
+import type { TenantShardDb } from '../../db'
 
 export interface AIRealtimeWebSocket {
 	accept(): void
@@ -29,8 +30,7 @@ export type AIRealtimeWebSocketClientJsonMessage =
 
 export interface AIRealtimeWebSocketStartSessionMessage {
 	type: 'start_session'
-	provider?: AIRealtimeProvider
-	model?: string
+	model: string
 	speaker: string
 	prompt?: string
 }
@@ -56,7 +56,10 @@ export async function aiRealtimeConnectHandler(ctx: Context<ApiEnv>): Promise<Re
 	const pair = new WebSocketPair()
 	const clientSocket: WebSocket = pair[0]
 	const serverSocket: WebSocket = pair[1]
-	bindAIRealtimeWebSocket(serverSocket, ctx.get('userId'), config)
+	const tenant = await createTenantShardAccess(ctx.get('metaDb'), ctx.env).openUserDb(
+		ctx.get('userId')
+	)
+	bindAIRealtimeWebSocket(serverSocket, ctx.get('userId'), config, tenant.db)
 
 	return new Response(null, {
 		status: 101,
@@ -67,7 +70,8 @@ export async function aiRealtimeConnectHandler(ctx: Context<ApiEnv>): Promise<Re
 export function bindAIRealtimeWebSocket(
 	socket: AIRealtimeWebSocket,
 	userId: string,
-	config: AIRuntimeConfig
+	config: AIRuntimeConfig,
+	tenantDb: TenantShardDb
 ): void {
 	let session: AIRealtimeSession | undefined = undefined
 	let pendingMessage: Promise<void> = Promise.resolve()
@@ -77,6 +81,7 @@ export function bindAIRealtimeWebSocket(
 			await handleAIRealtimeWebSocketMessage(
 				socket,
 				config,
+				tenantDb,
 				userId,
 				event.data,
 				(value: AIRealtimeSession): void => {
@@ -93,6 +98,7 @@ export function bindAIRealtimeWebSocket(
 async function handleAIRealtimeWebSocketMessage(
 	socket: AIRealtimeWebSocket,
 	config: AIRuntimeConfig,
+	tenantDb: TenantShardDb,
 	userId: string,
 	data: string | ArrayBuffer | ArrayBufferView,
 	setSession: (session: AIRealtimeSession) => void,
@@ -106,16 +112,17 @@ async function handleAIRealtimeWebSocketMessage(
 	const message: AIRealtimeWebSocketClientJsonMessage = JSON.parse(data) as AIRealtimeWebSocketClientJsonMessage
 	switch (message.type) {
 		case 'start_session': {
-			const provider: AIRealtimeProvider = message.provider ?? 'doubao'
-			const providerConfig: AIProviderRuntimeConfig = getAIProviderRuntimeConfig(
-				config,
-				'realtime',
-				provider
+			const candidates = getAIProviderCandidates(config, 'realtime_doubao', message.model)
+			const ranked: AIRankedProvider[] = await rankAIProviders(
+				tenantDb,
+				candidates,
+				config.routing,
+				{ model: message.model, excludedProviderIds: [], nowMs: Date.now() }
 			)
+			const provider = ranked[0]!.provider
 			const client: AIRealtimeClient = createAIRealtimeClient(userId, {
-				provider: message.provider,
-				model: message.model ?? providerConfig.defaultModel,
-				endpoint: providerConfig.endpoint
+				model: message.model,
+				endpoint: provider.endpoint
 			})
 			const session: AIRealtimeSession = await client.startSession({
 				speaker: message.speaker,

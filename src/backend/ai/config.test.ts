@@ -1,80 +1,53 @@
 import { describe, expect, test } from 'vitest'
 import type { MetaDb } from '../db'
-import type { AIChannel, AISettingsDocument, SystemSettings } from '../db/schema.meta'
+import type { AIProvider, AISettingsDocument, SystemSettings } from '../db/schema.meta'
 import { decryptConfigSecret, encryptConfigSecret } from '../config/crypto'
 import {
 	AIConfigError,
-	createAIChannel,
+	createAIProvider,
+	getAIProviderCandidates,
 	getAIRuntimeConfig,
-	updateAIChannel,
+	updateAIProvider,
 	validateAISettings
 } from './config'
 
 describe('AI D1 configuration', (): void => {
-	test('rejects an enabled provider without a complete endpoint', (): void => {
-		const settings: AISettingsDocument = createAISettings()
-		settings.providers.chatOpenai = {
-			enabled: true,
-			baseUrl: 'https://api.example.com/v1',
-			defaultModel: null,
-			apiKey: null
+	test('rejects routing weights whose sum is zero', (): void => {
+		const settings: AISettingsDocument = {
+			routing: { errorWeight: 0, latencyWeight: 0, priceWeight: 0 },
+			taskRetentionDays: 30
 		}
 
 		expect((): void => validateAISettings(settings)).toThrowError(
-			new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
+			new AIConfigError('AI_CONFIG_INVALID')
 		)
 	})
 
-	test('rejects a channel provider outside its area', async (): Promise<void> => {
+	test('rejects duplicate provider models', async (): Promise<void> => {
 		await expect(
-			createAIChannel({} as MetaDb, createEncryptionKey(), {
-				id: 'invalid-channel',
-				area: 'video',
-				provider: 'openai',
-				name: 'Invalid channel',
-				baseUrl: 'https://api.example.com/v1',
-				models: ['model-1'],
-				priceMultiplier: 1,
-				apiKey: 'secret',
-				enabled: true,
-				nowMs: 1000
+			createAIProvider({} as MetaDb, createEncryptionKey(), {
+				...createProviderInput('provider-secret'),
+				models: ['gpt-image-2', 'gpt-image-2']
 			})
-		).rejects.toEqual(new AIConfigError('AI_CHANNEL_CONFIG_INVALID'))
+		).rejects.toEqual(new AIConfigError('AI_PROVIDER_CONFIG_INVALID'))
 	})
 
-	test('rejects duplicate channel models', async (): Promise<void> => {
-		await expect(
-			createAIChannel({} as MetaDb, createEncryptionKey(), {
-				id: 'openai-official',
-				area: 'image',
-				provider: 'openai',
-				name: 'OpenAI official',
-				baseUrl: 'https://api.openai.com/v1',
-				models: ['gpt-image-2', 'gpt-image-2'],
-				priceMultiplier: 1,
-				apiKey: 'secret',
-				enabled: true,
-				nowMs: 1000
-			})
-		).rejects.toEqual(new AIConfigError('AI_CHANNEL_CONFIG_INVALID'))
-	})
-
-	test('encrypts a channel credential before inserting it', async (): Promise<void> => {
-		let inserted: Partial<AIChannel> | undefined
+	test('encrypts a provider credential before inserting it', async (): Promise<void> => {
+		let inserted: Partial<AIProvider> | undefined
 		const db: MetaDb = {
 			insert: (): Record<string, unknown> => ({
-				values: (values: Partial<AIChannel>): Record<string, unknown> => {
+				values: (values: Partial<AIProvider>): Record<string, unknown> => {
 					inserted = values
 					return {
 						onConflictDoNothing: (): Record<string, unknown> => ({
-							returning: async (): Promise<AIChannel[]> => [values as AIChannel]
+							returning: async (): Promise<AIProvider[]> => [values as AIProvider]
 						})
 					}
 				}
 			})
 		} as unknown as MetaDb
 
-		await createAIChannel(db, createEncryptionKey(), createChannelInput('provider-secret'))
+		await createAIProvider(db, createEncryptionKey(), createProviderInput('provider-secret'))
 
 		expect({
 			storedPlaintext: inserted?.apiKeyCiphertext === 'provider-secret',
@@ -85,21 +58,21 @@ describe('AI D1 configuration', (): void => {
 		}).toEqual({ storedPlaintext: false, decrypted: 'provider-secret' })
 	})
 
-	test('replaces a channel credential with new encrypted material', async (): Promise<void> => {
+	test('replaces a provider credential with new encrypted material', async (): Promise<void> => {
 		const oldSecret = await encryptConfigSecret(createEncryptionKey(), 'old-secret')
-		const current: AIChannel = createChannelRow(oldSecret.ciphertext, oldSecret.iv)
-		let updated: Partial<AIChannel> | undefined
+		const current: AIProvider = createProviderRow(oldSecret.ciphertext, oldSecret.iv)
+		let updated: Partial<AIProvider> | undefined
 		const db: MetaDb = {
 			query: {
-				aiChannel: { findFirst: async (): Promise<AIChannel> => current }
+				aiProvider: { findFirst: async (): Promise<AIProvider> => current }
 			},
 			update: (): Record<string, unknown> => ({
-				set: (values: Partial<AIChannel>): Record<string, unknown> => {
+				set: (values: Partial<AIProvider>): Record<string, unknown> => {
 					updated = values
 					return {
 						where: (): Record<string, unknown> => ({
-							returning: async (): Promise<AIChannel[]> => [
-								{ ...current, ...values, version: 2 } as AIChannel
+							returning: async (): Promise<AIProvider[]> => [
+								{ ...current, ...values, version: 2 } as AIProvider
 							]
 						})
 					}
@@ -107,8 +80,8 @@ describe('AI D1 configuration', (): void => {
 			})
 		} as unknown as MetaDb
 
-		await updateAIChannel(db, createEncryptionKey(), {
-			...createChannelInput('unused'),
+		await updateAIProvider(db, createEncryptionKey(), {
+			...createProviderInput('unused'),
 			apiKey: { action: 'replace', value: 'new-secret' },
 			expectedVersion: 1
 		})
@@ -122,27 +95,19 @@ describe('AI D1 configuration', (): void => {
 		}).toEqual({ reusedCiphertext: false, decrypted: 'new-secret' })
 	})
 
-	test('decrypts one D1 snapshot for provider and channel execution', async (): Promise<void> => {
+	test('decrypts one D1 snapshot into provider runtime configuration', async (): Promise<void> => {
 		const providerSecret = await encryptConfigSecret(createEncryptionKey(), 'provider-secret')
-		const channelSecret = await encryptConfigSecret(createEncryptionKey(), 'channel-secret')
-		const settings: AISettingsDocument = createAISettings()
-		settings.providers.chatOpenai = {
-			enabled: true,
-			baseUrl: 'https://chat.example.com/v1',
-			defaultModel: 'chat-model',
-			apiKey: providerSecret
-		}
 		const db: MetaDb = {
 			query: {
 				systemSettings: {
 					findFirst: async (): Promise<SystemSettings> => ({
-						aiConfig: settings,
+						aiConfig: createAISettings(),
 						aiVersion: 4
 					}) as SystemSettings
 				},
-				aiChannel: {
-					findMany: async (): Promise<AIChannel[]> => [
-						createChannelRow(channelSecret.ciphertext, channelSecret.iv)
+				aiProvider: {
+					findMany: async (): Promise<AIProvider[]> => [
+						createProviderRow(providerSecret.ciphertext, providerSecret.iv)
 					]
 				}
 			}
@@ -151,18 +116,36 @@ describe('AI D1 configuration', (): void => {
 		const result = await getAIRuntimeConfig(db, createEncryptionKey())
 
 		expect({
-			providerKey: result.providers.chatOpenai?.endpoint.apiKey,
-			channelKey: result.channels[0]?.endpoint.apiKey,
+			providerKey: result.providers[0]?.endpoint.apiKey,
+			providerType: result.providers[0]?.type,
 			version: result.version
-		}).toEqual({ providerKey: 'provider-secret', channelKey: 'channel-secret', version: 4 })
+		}).toEqual({ providerKey: 'provider-secret', providerType: 'image_openai', version: 4 })
+	})
+
+	test('filters enabled providers by type and model before routing', (): void => {
+		const provider: ReturnType<typeof createRuntimeProvider> = createRuntimeProvider()
+		const candidates = getAIProviderCandidates(
+			{
+				...createAISettings(),
+				providers: [
+					provider,
+					{ ...provider, id: 'disabled', enabled: false },
+					{ ...provider, id: 'wrong-type', type: 'image_gemini' }
+				],
+				version: 1
+			},
+			'image_openai',
+			'gpt-image-2'
+		)
+
+		expect(candidates.map((item): string => item.id)).toEqual(['openai-official'])
 	})
 })
 
-function createChannelInput(apiKey: string): {
+function createProviderInput(apiKey: string): {
 	id: string
-	area: 'image'
-	provider: string
 	name: string
+	type: 'image_openai'
 	baseUrl: string
 	models: string[]
 	priceMultiplier: number
@@ -172,9 +155,8 @@ function createChannelInput(apiKey: string): {
 } {
 	return {
 		id: 'openai-official',
-		area: 'image',
-		provider: 'openai',
 		name: 'OpenAI official',
+		type: 'image_openai',
 		baseUrl: 'https://api.openai.com/v1',
 		models: ['gpt-image-2'],
 		priceMultiplier: 1,
@@ -184,9 +166,9 @@ function createChannelInput(apiKey: string): {
 	}
 }
 
-function createChannelRow(apiKeyCiphertext: string, apiKeyIv: string): AIChannel {
+function createProviderRow(apiKeyCiphertext: string, apiKeyIv: string): AIProvider {
 	return {
-		...createChannelInput('unused'),
+		...createProviderInput('unused'),
 		apiKeyCiphertext,
 		apiKeyIv,
 		version: 1,
@@ -195,27 +177,30 @@ function createChannelRow(apiKeyCiphertext: string, apiKeyIv: string): AIChannel
 	}
 }
 
-function createAISettings(): AISettingsDocument {
-	const emptyProvider = {
-		enabled: false,
-		baseUrl: null,
-		defaultModel: null,
-		apiKey: null
+function createRuntimeProvider(): {
+	id: string
+	name: string
+	type: 'image_openai'
+	models: string[]
+	priceMultiplier: number
+	endpoint: { baseURL: string; apiKey: string }
+	enabled: boolean
+} {
+	return {
+		id: 'openai-official',
+		name: 'OpenAI official',
+		type: 'image_openai',
+		models: ['gpt-image-2'],
+		priceMultiplier: 1,
+		endpoint: { baseURL: 'https://api.openai.com/v1', apiKey: 'provider-secret' },
+		enabled: true
 	}
+}
+
+function createAISettings(): AISettingsDocument {
 	return {
 		routing: { errorWeight: 1, latencyWeight: 0.8, priceWeight: 0.2 },
-		taskRetentionDays: 30,
-		providers: {
-			chatOpenai: { ...emptyProvider },
-			imageGemini: { ...emptyProvider },
-			imageOpenai: { ...emptyProvider },
-			imageSeedream: { ...emptyProvider },
-			imageAliyun: { ...emptyProvider },
-			ttsGemini: { ...emptyProvider },
-			ttsSeed: { ...emptyProvider },
-			realtimeDoubao: { ...emptyProvider },
-			videoSeedance: { ...emptyProvider }
-		}
+		taskRetentionDays: 30
 	}
 }
 

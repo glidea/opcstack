@@ -97,9 +97,9 @@ export const PROTECTED_JSON_ROUTES: ProtectedJsonRoute[] = [
 	{ method: 'POST', path: '/api/admin/delete_payment_product', scope: 'config:payment:write', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/get_ai_config', scope: 'config:ai:read', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/update_ai_config', scope: 'config:ai:write', access: 'admin' },
-	{ method: 'POST', path: '/api/admin/create_ai_channel', scope: 'config:ai:write', access: 'admin' },
-	{ method: 'POST', path: '/api/admin/update_ai_channel', scope: 'config:ai:write', access: 'admin' },
-	{ method: 'POST', path: '/api/admin/delete_ai_channel', scope: 'config:ai:write', access: 'admin' }
+	{ method: 'POST', path: '/api/admin/create_ai_provider', scope: 'config:ai:write', access: 'admin' },
+	{ method: 'POST', path: '/api/admin/update_ai_provider', scope: 'config:ai:write', access: 'admin' },
+	{ method: 'POST', path: '/api/admin/delete_ai_provider', scope: 'config:ai:write', access: 'admin' }
 ]
 
 const API_SCOPE_SET: ReadonlySet<string> = new Set<string>(API_SCOPES)

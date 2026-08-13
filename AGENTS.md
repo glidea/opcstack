@@ -215,7 +215,7 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Better Auth, beta gate, Turnstile, social OAuth, and email delivery share one request-scoped Authentication and Email snapshot. Disabled email delivery keeps password login available but disables signup, verification, and password-reset email actions.
 - Migrate one business domain atomically: after its runtime reads D1, delete the same ENV keys and parsers in that change. Never keep ENV fallback for a migrated setting.
 - Runtime business configuration lives in `META_DB`. Do not add an Env fallback for a D1-owned setting.
-- AI providers, routing weights, task retention, and async channels are D1-owned. Provider and channel credentials are encrypted with `CONFIG_ENCRYPTION_KEY`.
+- AI providers, routing weights, and task retention are D1-owned. Provider credentials are encrypted with `CONFIG_ENCRYPTION_KEY`.
 - `APP_CN_DOMAIN` is optional. When set without `APP_CN_CNAME_TARGET`, `prepare-cloudflare.mjs` adds it as a second Worker custom domain. It always adds it as an R2 CORS origin and Turnstile domain.
 - `APP_CN_CNAME_TARGET` is optional. When set with `APP_CN_DOMAIN` in prod mode, `prepare-cloudflare.mjs` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`, skips the Worker custom domain for that hostname, and adds a normal Worker zone route. It does not choose acceleration targets.
 - Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.
@@ -233,9 +233,9 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Meta DB uses `META_DB`. In requests, get it with `ctx.get('metaDb')`.
 - Tenant Shard DB uses generated bindings such as `TENANT_DB_WNAM_0000`. In requests, get the current user's DB with `ctx.get('tenantDb')`.
 - Tenant shard registry lives in Meta DB tables `d1_shards` and `user_shards`.
-- Meta-owned runtime data includes shard registry, system configuration, OAuth API access, auth-adjacent global state, redemption codes, affiliate referrals, payment rows and products, AI channels, subscriptions, webhook events, and notifications.
-- Tenant-owned runtime data includes credit balances, credit entries, credit transactions, feedbacks, notification reads, AI async task tables, and 1-minute AI channel metric buckets.
-- AI channel metrics are local to each Tenant Shard. Do not aggregate them in Meta DB or store per-call metric rows.
+- Meta-owned runtime data includes shard registry, system configuration, OAuth API access, auth-adjacent global state, redemption codes, affiliate referrals, payment rows and products, AI Providers, subscriptions, webhook events, and notifications.
+- Tenant-owned runtime data includes credit balances, credit entries, credit transactions, feedbacks, notification reads, AI async task tables, and 1-minute AI Provider metric buckets.
+- AI Provider metrics are local to each Tenant Shard. Do not aggregate them in Meta DB or store per-call metric rows.
 - Modify Meta schema in `src/backend/db/schema.meta.ts`.
 - Modify Tenant Shard schema in `src/backend/db/schema.shard.ts`.
 - Restart `pnpm dev` to generate and apply Meta and Shard migrations.
@@ -303,9 +303,9 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - Use a single R2 bucket by default.
 - Payment settings, provider credentials, country routing, and products are read from Meta D1. Enabled providers are Dodo and Creem via `src/backend/payment/`.
 - AI providers live under `src/backend/ai/`; async AI queue payloads carry only task id and user id.
-- Only Image, TTS, and Video async consumers use Channel Router. Task creation stores provider and model only; each consumer reads one D1 AI configuration snapshot and selects a matching enabled channel at execution time.
-- Image and TTS may try ranked channels within one queue attempt. Video selects a channel only when creating a remote task and polls that task through the persisted channel until the provider reports a terminal failure.
-- Synchronous AI calls use their provider's configured endpoint. Providers accept an explicit endpoint from async consumers but never select or retry channels themselves.
+- Every AI execution targets one Provider Type and model. The configuration module filters enabled `ai_providers` by `type + model`; Provider Router only ranks that candidate list using Tenant Shard metrics and D1 routing weights.
+- Image and TTS may try ranked Providers within one queue attempt. Video selects a Provider only when creating a remote task and polls that task through the persisted Provider ID until the provider reports a terminal failure.
+- Provider implementations receive an explicit endpoint and never perform routing or retry another Provider themselves.
 - Generated video output must be downloaded from provider and streamed into R2. Do not use `arrayBuffer` or base64 for video output upload.
 
 Before changing these areas, inspect the source directory and related tests.
@@ -321,7 +321,7 @@ Before changing these areas, inspect the source directory and related tests.
 - Queue handlers live in `src/backend/consumers/index.ts`.
 - Configure cron triggers with `CRONS`, separated by semicolon.
 - Cron handlers live in `src/backend/jobs/index.ts`.
-- The existing `*/10 * * * *` job deletes AI channel metric buckets older than 24 hours and terminal AI tasks older than the D1-configured retention period from every active or draining Tenant Shard. It reads one AI configuration snapshot per trigger and must not delete processing tasks or access R2.
+- The existing `*/10 * * * *` job deletes AI provider metric buckets older than 24 hours and terminal AI tasks older than the D1-configured retention period from every active or draining Tenant Shard. It reads one AI configuration snapshot per trigger and must not delete processing tasks or access R2.
 - Configure Durable Object names with `DO_NAMES`, separated by semicolon.
 - Durable Object binding convention: `DO_<NAME_UPPER>`, for example `rate-limiter` -> `DO_RATE_LIMITER`.
 - Durable Object class convention: PascalCase name plus `DO` suffix, for example `RateLimiterDO`.

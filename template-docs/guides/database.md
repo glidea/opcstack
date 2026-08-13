@@ -11,7 +11,7 @@ order: 3
 
 OPCStack splits data into two tiers. This is the most important thing to understand before you write any feature.
 
-**Meta DB** is one global database for the whole product. It holds everything cross-user: shard registry, user-to-shard mapping, dynamic system configuration, OAuth API access, auth accounts, payments, AI channels, subscriptions, webhooks, notifications, beta codes, redemption codes, affiliate referrals.
+**Meta DB** is one global database for the whole product. It holds everything cross-user: shard registry, user-to-shard mapping, dynamic system configuration, OAuth API access, auth accounts, payments, AI Providers, subscriptions, webhooks, notifications, beta codes, redemption codes, affiliate referrals.
 
 **Tenant Shard DB** is many databases sharded by region. Each holds data scoped to one user: credit balance, credit entries, credit transactions, feedbacks, notification reads, AI async task tables.
 
@@ -85,7 +85,7 @@ Concrete table ownership:
 | beta_code, credit_redemption_codes | ai_image_tasks, ai_tts_tasks, ai_video_tasks |
 | aff_referrals | |
 | system_settings, payment_products | |
-| ai_channels, oauth_grants, oauth_authorization_requests | |
+| ai_providers, oauth_grants, oauth_authorization_requests | ai_provider_metric_buckets |
 
 `system_settings` has exactly one row. Each configuration domain owns one JSON document, version, and update timestamp. Domain documents are fully validated on every read and write; invalid data fails instead of receiving runtime defaults. Sensitive fields store only AES-GCM ciphertext and IV pairs; `prepare-cloudflare` generates the root `CONFIG_ENCRYPTION_KEY` once and persists it outside D1.
 

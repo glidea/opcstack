@@ -47,7 +47,8 @@
 	let idInput: string = $state(initialQuery.id ?? '')
 	let userInput: string = $state(initialQuery.user_id ?? '')
 	let statusInput: string = $state(initialQuery.status ?? 'all')
-	let providerInput: string = $state(initialQuery.provider ?? '')
+	let providerTypeInput: string = $state(initialQuery.provider_type ?? '')
+	let providerIdInput: string = $state(initialQuery.provider_id ?? '')
 	let modelInput: string = $state(initialQuery.model ?? '')
 	let createdStartInput: string = $state(formatDateTimeInput(initialQuery.created_at_start))
 	let createdEndInput: string = $state(formatDateTimeInput(initialQuery.created_at_end))
@@ -58,8 +59,8 @@
 	let initialized: boolean = $state(false)
 	let detailStateReady: boolean = $state(false)
 	const queuesUrl: string | null = $derived(createCloudflareQueuesUrl(data.cloudflare.accountId))
-	let advancedOpen: boolean = $state(initialQuery.id !== undefined || initialQuery.provider !== undefined || initialQuery.model !== undefined || initialQuery.created_at_start !== undefined || initialQuery.created_at_end !== undefined)
-	const advancedFilterCount: number = $derived(Number(idInput.trim() !== '') + Number(providerInput.trim() !== '') + Number(modelInput.trim() !== '') + Number(createdStartInput !== '') + Number(createdEndInput !== ''))
+	let advancedOpen: boolean = $state(initialQuery.id !== undefined || initialQuery.provider_type !== undefined || initialQuery.provider_id !== undefined || initialQuery.model !== undefined || initialQuery.created_at_start !== undefined || initialQuery.created_at_end !== undefined)
+	const advancedFilterCount: number = $derived(Number(idInput.trim() !== '') + Number(providerTypeInput.trim() !== '') + Number(providerIdInput.trim() !== '') + Number(modelInput.trim() !== '') + Number(createdStartInput !== '') + Number(createdEndInput !== ''))
 
 	$effect((): void => {
 		const nextPage: number = currentPage
@@ -114,14 +115,16 @@
 		const id: string = idInput.trim()
 		const userId: string = userInput.trim()
 		const status: string = statusInput === 'all' ? '' : statusInput
-		const provider: string = providerInput.trim()
+		const providerType: string = providerTypeInput.trim()
+		const providerId: string = providerIdInput.trim()
 		const model: string = modelInput.trim()
 		query = {
 			...(taskType === undefined ? {} : { task_type: taskType }),
 			...(id === '' ? {} : { id }),
 			...(userId === '' ? {} : { user_id: userId }),
 			...(status === '' ? {} : { status }),
-			...(provider === '' ? {} : { provider }),
+			...(providerType === '' ? {} : { provider_type: providerType }),
+			...(providerId === '' ? {} : { provider_id: providerId }),
 			...(model === '' ? {} : { model }),
 			...(createdStartInput === '' ? {} : { created_at_start: new Date(createdStartInput).getTime() }),
 			...(createdEndInput === '' ? {} : { created_at_end: new Date(createdEndInput).getTime() }),
@@ -138,7 +141,8 @@
 		idInput = ''
 		userInput = ''
 		statusInput = 'all'
-		providerInput = ''
+		providerTypeInput = ''
+		providerIdInput = ''
 		modelInput = ''
 		createdStartInput = ''
 		createdEndInput = ''
@@ -271,14 +275,18 @@
 				{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.aiTasks.reset')}</Button>{/if}
 			</div>
 		</div>
-		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-5">
+		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-6">
 			<Field.Field>
 				<Field.Label for="ai-task-id-filter">{$_('admin.aiTasks.id')}</Field.Label>
 				<Input id="ai-task-id-filter" bind:value={idInput} autocomplete="off" placeholder={$_('admin.aiTasks.idPlaceholder')} />
 			</Field.Field>
 			<Field.Field>
-				<Field.Label for="ai-task-provider-filter">{$_('admin.aiTasks.provider')}</Field.Label>
-				<Input id="ai-task-provider-filter" bind:value={providerInput} autocomplete="off" placeholder={$_('admin.aiTasks.providerPlaceholder')} />
+				<Field.Label for="ai-task-provider-type-filter">{$_('admin.aiTasks.providerType')}</Field.Label>
+				<Input id="ai-task-provider-type-filter" bind:value={providerTypeInput} autocomplete="off" placeholder={$_('admin.aiTasks.providerTypePlaceholder')} />
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="ai-task-provider-id-filter">{$_('admin.aiTasks.providerId')}</Field.Label>
+				<Input id="ai-task-provider-id-filter" bind:value={providerIdInput} autocomplete="off" placeholder={$_('admin.aiTasks.providerIdPlaceholder')} />
 			</Field.Field>
 			<Field.Field>
 				<Field.Label for="ai-task-model-filter">{$_('admin.aiTasks.model')}</Field.Label>
@@ -344,7 +352,7 @@
 								<Table.Cell><Badge variant="outline">{taskTypeLabel(item.task_type)}</Badge></Table.Cell>
 								<Table.Cell class="max-w-44 truncate font-mono text-xs" title={item.id}>{item.id}</Table.Cell>
 								<Table.Cell><AdminUserReference userId={item.user_id} href={createAiTaskUserHref(data.locale, item.user_id)} /></Table.Cell>
-								<Table.Cell>{item.provider}</Table.Cell>
+								<Table.Cell><div>{item.provider_type}</div><div class="font-mono text-xs text-muted-foreground">{item.provider_id ?? $_('admin.common.none')}</div></Table.Cell>
 								<Table.Cell>{item.model ?? $_('admin.common.none')}</Table.Cell>
 								<Table.Cell><Badge variant={getAiTaskStatusVariant(item.status)}>{taskStatusLabel(item.status)}</Badge></Table.Cell>
 								<Table.Cell>{item.attempt_count}</Table.Cell>

@@ -24,7 +24,7 @@ const cloudflare: CloudflareResourceContext = {
 describe('admin AI tasks page', (): void => {
 	test('parses all filters and pagination from the URL', (): void => {
 		const url = new URL(
-			'https://example.com/en/admin/ai-tasks?task_type=video&id=task-1&user_id=user-1&status=failed&provider=seedance&model=v1&created_at_start=100&created_at_end=200&page=2'
+			'https://example.com/en/admin/ai-tasks?task_type=video&id=task-1&user_id=user-1&status=failed&provider_type=video_seedance&provider_id=primary-video&model=v1&created_at_start=100&created_at_end=200&page=2'
 		)
 
 		expect({ query: parseAiTaskListQuery(url) }).toEqual({
@@ -33,7 +33,8 @@ describe('admin AI tasks page', (): void => {
 				id: 'task-1',
 				user_id: 'user-1',
 				status: 'failed',
-				provider: 'seedance',
+				provider_type: 'video_seedance',
+				provider_id: 'primary-video',
 				model: 'v1',
 				created_at_start: 100,
 				created_at_end: 200,

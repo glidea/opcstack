@@ -93,7 +93,7 @@ class seedDanceSimpleVideoClient implements AISimpleVideoClient {
 	}
 
 	async generate(input: AIVideoGenerateInput): Promise<AIVideoTask> {
-		return createAIVideoTask(this.env, this.tenantDb, 'seedance', this.model, this.userId, input)
+		return createAIVideoTask(this.env, this.tenantDb, 'video_seedance', this.model, this.userId, input)
 	}
 
 	async getTask(id: string): Promise<AIVideoTask | undefined> {

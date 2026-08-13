@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1781091660269,
-      "tag": "0000_complex_forge",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1785964031506,
-      "tag": "0001_remarkable_tomas",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1785964219126,
-      "tag": "0002_stormy_fenris",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1786271543916,
-      "tag": "0003_red_may_parker",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1786506888183,
-      "tag": "0004_rainy_cerebro",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1786522040369,
-      "tag": "0005_noisy_caretaker",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1786530369246,
-      "tag": "0006_dizzy_gertrude_yorkes",
+      "when": 1786592460254,
+      "tag": "0000_broad_inertia",
       "breakpoints": true
     }
   ]

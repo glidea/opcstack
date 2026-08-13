@@ -6,10 +6,10 @@ import type {
 	AIImageReference,
 	AIImageResult,
 	AIImageTask,
-	AIImageProvider,
 	AIImageTaskStatus,
 	AISimpleImageClientGenerateInput
 } from '.'
+import type { AIImageProviderType } from '../config'
 
 export const AI_IMAGE_QUEUE_NAME = 'image-generate'
 
@@ -21,7 +21,7 @@ export interface AIImageGenerateQueueMessage {
 export async function createAIImageTask(
 	env: Env,
 	db: TenantShardDb,
-	provider: AIImageProvider,
+	providerType: AIImageProviderType,
 	model: string,
 	userId: string,
 	input: AISimpleImageClientGenerateInput
@@ -33,7 +33,7 @@ export async function createAIImageTask(
 		id,
 		userId,
 		status: 'processing',
-		provider,
+		providerType,
 		model,
 		prompt: input.prompt,
 		numberOfImages: input.numberOfImages,
@@ -57,7 +57,7 @@ export async function createAIImageTask(
 		id,
 		userId,
 		status: 'processing',
-		provider,
+		providerType,
 		model,
 		prompt: input.prompt,
 		numberOfImages: input.numberOfImages,
@@ -111,7 +111,8 @@ export function toAIImageTask(row: AIImageTaskRow): AIImageTask {
 		id: row.id,
 		userId: row.userId,
 		status: row.status as AIImageTaskStatus,
-		provider: row.provider as AIImageProvider,
+		providerType: row.providerType as AIImageProviderType,
+		providerId: row.providerId ?? undefined,
 		model: row.model ?? undefined,
 		prompt: row.prompt,
 		numberOfImages: row.numberOfImages ?? undefined,

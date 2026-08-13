@@ -45,9 +45,9 @@ Changing a field marks only the current tab as unsaved. Switching tabs or leavin
 
 Authentication and Email reveal dependent settings only after the feature is enabled. Missing required fields are shown beside the affected control and the old configuration remains active. Secret fields never display plaintext. Choose **Keep current value**, **Replace value**, or **Remove value** before saving. Provider callback URLs are derived from the application URL and are read-only.
 
-Payment keeps provider settings and products independent. Save provider routing, credentials, test mode, and the read-only webhook URLs in the upper form. AI follows the same split: routing weights and the nine fixed providers share the upper form, while async channels have independent create, edit, and delete dialogs.
+Payment keeps provider settings and products independent. Save provider routing, credentials, test mode, and the read-only webhook URLs in the upper form. AI routing weights are saved in the upper form, while Providers have independent create, edit, and delete sheets.
 
-Product and Channel saves replace only the changed row in the current page. They do not reload or overwrite sibling rows. Deletion always asks for confirmation. If another browser has already changed the same entity, the operation returns `CONFIG_CONFLICT`; refresh the current data and review it before editing again. Secret values are never shown. Channel rows expose only whether an API key is configured.
+Product and Provider saves replace only the changed row in the current page. They do not reload or overwrite sibling rows. Deletion always asks for confirmation. If another browser has already changed the same entity, the operation returns `CONFIG_CONFLICT`; refresh the current data and review it before editing again. Secret values are never shown. Provider rows expose only whether an API key is configured.
 
 ## Find a user and grant credits
 

@@ -60,7 +60,7 @@ export const scheduledHandlers: Record<string, ScheduledJobHandler> = {
 
 			const aiCleanupResults: D1Result[] = await runRawD1Batch(shard.db, [
 				shard.db.run(sql`
-					DELETE FROM ai_channel_metric_buckets
+					DELETE FROM ai_provider_metric_buckets
 					WHERE bucket_start < ${metricCutoff}
 				`),
 				shard.db.run(sql`

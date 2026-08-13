@@ -68,8 +68,8 @@ describe('seedance video client', () => {
 			whenDetail: {},
 			thenExpected: {
 				providerTaskId: 'remote-1',
-				requestUrl: 'https://channel.example/api/v3/contents/generations/tasks',
-				authorization: 'Bearer channel-key',
+				requestUrl: 'https://provider.example/api/v3/contents/generations/tasks',
+				authorization: 'Bearer provider-key',
 				model: 'doubao-seedance-2-0-fast-260128',
 				ratio: 'adaptive',
 				generateAudio: true,
@@ -87,7 +87,7 @@ describe('seedance video client', () => {
 				prompt: 'make a video',
 				duration: 5
 			},
-			{ baseURL: 'https://channel.example/api/v3', apiKey: 'channel-key' }
+			{ baseURL: 'https://provider.example/api/v3', apiKey: 'provider-key' }
 		)
 		const requestHeaders = new Headers(fetchCalls[0]?.init?.headers)
 		const requestBody: {
@@ -128,15 +128,15 @@ describe('seedance video client', () => {
 			thenExpected: {
 				status: 'completed',
 				videoUrl: 'https://provider/video.mp4',
-				requestUrl: 'https://channel.example/api/v3/contents/generations/tasks/remote-1',
-				authorization: 'Bearer channel-key'
+				requestUrl: 'https://provider.example/api/v3/contents/generations/tasks/remote-1',
+				authorization: 'Bearer provider-key'
 			}
 		}
 	]
 	runCases(getCases, async (): Promise<GetThen> => {
 		const result = await getSeedDanceProviderTask('remote-1', {
-			baseURL: 'https://channel.example/api/v3',
-			apiKey: 'channel-key'
+			baseURL: 'https://provider.example/api/v3',
+			apiKey: 'provider-key'
 		})
 		const requestHeaders = new Headers(fetchCalls[0]?.init?.headers)
 		return {
@@ -151,7 +151,7 @@ describe('seedance video client', () => {
 	type GenerateWhen = Record<string, never>
 	type GenerateThen = {
 		status: string
-		provider: string
+		providerType: string
 		sendCalls: number
 	}
 	const generateCases: TestCase<GenerateGiven, GenerateWhen, GenerateThen>[] = [
@@ -164,7 +164,7 @@ describe('seedance video client', () => {
 			whenDetail: {},
 			thenExpected: {
 				status: 'processing',
-				provider: 'seedance',
+				providerType: 'video_seedance',
 				sendCalls: 1
 			}
 		}
@@ -187,7 +187,7 @@ describe('seedance video client', () => {
 		})
 		return {
 			status: task.status,
-			provider: task.provider,
+			providerType: task.providerType,
 			sendCalls: sendMock.mock.calls.length
 		}
 	})

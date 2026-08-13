@@ -8,7 +8,7 @@ order: 5
 
 # AI Integration
 
-OPCStack keeps AI provider code under `src/backend/ai/`. Handlers and business modules should call the simple client interfaces from that directory, not provider SDKs directly. This keeps provider-specific request shapes, channel endpoint rules, task persistence, queue retry behavior, and R2 output handling in one place.
+OPCStack keeps AI provider code under `src/backend/ai/`. Handlers and business modules should call the simple client interfaces from that directory, not provider SDKs directly. This keeps provider-specific request shapes, Provider endpoints, task persistence, queue retry behavior, and R2 output handling in one place.
 
 The current AI surface is backend-only:
 
@@ -467,11 +467,11 @@ Do not store AI task rows in Meta DB. Meta DB only owns the shard registry neede
 
 ## Endpoint Rules
 
-Synchronous Chat and Realtime calls use their provider's single configured endpoint. Image and TTS synchronous calls use the same provider endpoint unless the caller passes an explicit endpoint. Async consumers always pass the endpoint selected by Channel Router. Providers never choose a second endpoint or retry through another endpoint.
+Every AI operation identifies a Provider Type and model before routing. The configuration module filters enabled `ai_providers` by exact `type + model`. Provider implementations receive one explicit endpoint and never select or retry another Provider.
 
-## Channel Router
+## Provider Router
 
-Channel Router is used only by Image, TTS, and Video async consumers. Task creation still accepts only a provider and model. Each consumer reads one AI configuration snapshot from D1, filters enabled channels that declare the task model, and selects the highest score before calling the provider.
+Provider Router ranks a prefiltered candidate list. It does not know Image, OpenAI, or any Provider Type. Synchronous calls use the top-ranked Provider. Image and TTS asynchronous consumers may try ranked Providers in one queue attempt.
 
 The score is calculated inside the current Tenant Shard from 1-minute buckets over the last 5 minutes and 1 hour:
 
@@ -481,19 +481,19 @@ penalty = (error * error_weight + latency * latency_weight + price * price_weigh
 score = (1 - penalty) * 100
 ```
 
-The 5-minute and 1-hour values are combined as `70% + 30%` when both exist. Missing error or latency values use the candidate-pool median. When the entire pool has no value for one metric, its normalized penalty is `0.5`. Equal scores use the complete channel prefix in ascending order.
+The 5-minute and 1-hour values are combined as `70% + 30%` when both exist. Missing error or latency values use the candidate-pool median. When the entire pool has no value for one metric, its normalized penalty is `0.5`. Equal scores use Provider ID in ascending order.
 
-Each upstream attempt increments one `(channel, model, bucket_start)` row. Successful attempts add latency; failed upstream attempts only add the error count. The router does not write per-call detail rows, use process memory, or add a global metrics service. The existing 10-minute scheduled job deletes metric buckets older than 24 hours from every active or draining Tenant Shard.
+Each upstream attempt increments one `(provider_id, model, bucket_start)` row. Successful attempts add latency; failed upstream attempts only add the error count. The router does not write per-call detail rows, use process memory, or add a global metrics service. The existing 10-minute scheduled job deletes metric buckets older than 24 hours from every active or draining Tenant Shard.
 
-Video selects a channel only when creating a new remote provider task. After the provider returns a task id, the consumer persists `channel`, `channel_started_at`, and `provider_task_id` together. Later polling resolves the endpoint from that stored channel and never calls Channel Router again. A confirmed remote `failed` result records the channel error, appends the channel to `failed_channels_json`, and clears all three execution fields before the next queue attempt selects another channel. Polling network errors keep the existing binding.
+Video selects a Provider only when creating a new remote task. After the Provider returns a task ID, the consumer persists `provider_id`, `provider_started_at`, and `provider_task_id` together. Later polling resolves the endpoint from the persisted Provider ID and does not route again, even if that Provider is disabled. A confirmed remote failure records the Provider error, appends its ID to `failed_provider_ids_json`, and clears the execution fields before the next queue attempt selects another Provider. Polling network errors keep the existing binding.
 
 ## Config
 
-`META_DB` is the only source of AI business configuration. `system_settings.ai_config` stores routing weights, task retention, and the nine fixed provider configurations. `ai_channels` stores independently versioned async endpoints. Provider and channel credentials are AES-GCM encrypted with `CONFIG_ENCRYPTION_KEY`; read APIs expose only `api_key_configured`.
+`META_DB` is the only source of AI business configuration. `system_settings.ai_config` stores routing weights and task retention. Each `ai_providers` row stores one independently versioned Provider with its combined Provider Type, supported models, endpoint, price multiplier, enabled state, and AES-GCM encrypted API key. Read APIs expose only `api_key_configured`.
 
-Configuration saves take effect for the next request, queue message, WebSocket connection, or cron trigger. One operation keeps the snapshot it started with. A Video task that already has a remote task id keeps its persisted channel even if that channel is later disabled.
+Configuration saves take effect for the next request, queue message, WebSocket connection, or cron trigger. One operation keeps the snapshot it started with. A Video task that already has a remote task ID keeps its persisted Provider.
 
-Open **Admin > Configuration > AI** to save routing weights, task retention, and the nine fixed Providers. Enabled Providers require a base URL, default model, and API key. Manage async Channels independently below that form. Channel create, edit, and delete operations update only the target row. Stale versions require an explicit refresh. The page shows only whether an API key is configured.
+Open **Admin > Configuration > AI** to save routing weights and task retention. Manage Providers below that form. A Provider requires a name, Provider Type, at least one model, base URL, price multiplier, enabled state, and an API key when first enabled. Provider create, edit, and delete operations update only the target row. Stale versions require an explicit refresh. The page shows only whether an API key is configured.
 
 No AI business setting or credential belongs in `.env.dev`, `.env.prod`, `.env.secret.*`, or `wrangler.jsonc`.
 
@@ -504,10 +504,9 @@ Keep provider additions boring.
 1. Add the provider module under the right area, for example `src/backend/ai/image/acme`
 2. Export constants from `constants.ts`
 3. Implement the existing simple client interface
-4. Add the provider id to the area's provider union
+4. Add the combined Provider Type to the configuration union, API schema, and Admin select
 5. Add one branch in the area's `createAI...Clients` factory
-6. Add the fixed provider identity and initialized disabled D1 shape
-7. Add focused unit tests for request mapping, task creation, and provider error mapping
+6. Add focused unit tests for request mapping, task creation, and provider error mapping
 
 Do not create a generic provider registry unless at least two areas need the exact same dynamic registration behavior. The current explicit `switch`/branch style is simpler and easier to read.
 
@@ -515,7 +514,7 @@ Do not create a generic provider registry unless at least two areas need the exa
 
 **Calling provider SDKs from handlers**
 
-Do not do this. Use `src/backend/ai/*` simple clients so config, channel endpoints, task rows, and R2 rules stay centralized.
+Do not do this. Use `src/backend/ai/*` simple clients so Provider endpoints, task rows, and R2 rules stay centralized.
 
 **Putting task payload in the queue message**
 
