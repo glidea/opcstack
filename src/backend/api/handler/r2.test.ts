@@ -744,8 +744,10 @@ function createEnvWithR2(r2: R2Bucket): Env & { R2: R2Bucket } {
 			APP_NAME: 'opcstack',
 			APP_BASE_URL: 'http://localhost:5173',
 			R2_ACCOUNT_ID: 'abc',
-		R2_ORIGIN_SIGNING_SECRET: 'test-secret',
-		R2: r2
+			R2_ORIGIN_SIGNING_SECRET: 'test-secret',
+			R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
+			R2_USER_UPLOAD_MAX_BYTES: '5242880',
+			R2: r2
 	} as unknown as Env & { R2: R2Bucket }
 }
 
@@ -804,6 +806,12 @@ function createUploadContext(
 	env: Env & { R2: R2Bucket },
 	options: CreateUploadContextOptions
 ): Context<ApiEnv> {
+	env.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES = (options.allowedContentTypes ?? [
+		'image/png',
+		'image/jpeg',
+		'image/webp'
+	]).join(';')
+	env.R2_USER_UPLOAD_MAX_BYTES = String(options.maxBytes ?? 5_242_880)
 	const headers = new Headers()
 	if (options.contentLength !== undefined) {
 		headers.set('content-length', options.contentLength)
@@ -828,25 +836,6 @@ function createUploadContext(
 		get: (key: string): unknown => {
 			if (key === 'userId') {
 				return userId
-			}
-			if (key === 'metaDb') {
-				return {
-					query: {
-						systemSettings: {
-							findFirst: async (): Promise<Record<string, unknown>> => ({
-								storageConfig: {
-									allowedContentTypes: options.allowedContentTypes ?? [
-										'image/png',
-										'image/jpeg',
-										'image/webp'
-									],
-									maxUploadBytes: options.maxBytes ?? 5_242_880
-								},
-								storageVersion: 1
-							})
-						}
-					}
-				}
 			}
 			return undefined
 		},

@@ -61,7 +61,7 @@ describe.skipIf(!enabled)('opc CLI OAuth journey', (): void => {
 			XDG_CONFIG_HOME: configRoot,
 			PATH: `${binRoot}${delimiter}${process.env['PATH'] ?? ''}`
 		}
-		const scopes: string[] = ['config:storage:read', 'config:storage:write']
+		const scopes: string[] = ['config:credits:read']
 
 		try {
 			await connectCli(
@@ -105,7 +105,7 @@ describe.skipIf(!enabled)('opc CLI OAuth journey', (): void => {
 					'--method',
 					'POST',
 					'--url',
-					'/api/admin/get_storage_config',
+					'/api/admin/get_credits_config',
 					'--body',
 					'{}'
 				],
@@ -113,7 +113,7 @@ describe.skipIf(!enabled)('opc CLI OAuth journey', (): void => {
 			)
 			expect(allowed.exitCode).toBe(0)
 			expect(JSON.parse(allowed.stdout)).toEqual(
-				expect.objectContaining({ max_upload_bytes: expect.any(Number) })
+				expect.objectContaining({ history_retention_days: expect.any(Number) })
 			)
 
 			const forbidden: CliResult = await runCli(
@@ -144,7 +144,7 @@ describe.skipIf(!enabled)('opc CLI OAuth journey', (): void => {
 					'--method',
 					'POST',
 					'--url',
-					'/api/admin/get_storage_config',
+					'/api/admin/get_credits_config',
 					'--body',
 					'{}'
 				],
@@ -173,7 +173,7 @@ describe.skipIf(!enabled)('opc CLI OAuth journey', (): void => {
 					'--method',
 					'POST',
 					'--url',
-					'/api/admin/get_storage_config',
+					'/api/admin/get_credits_config',
 					'--body',
 					'{}'
 				],
@@ -181,7 +181,7 @@ describe.skipIf(!enabled)('opc CLI OAuth journey', (): void => {
 			)
 			expect(retainedRequest.exitCode).toBe(0)
 			expect(JSON.parse(retainedRequest.stdout)).toEqual(
-				expect.objectContaining({ max_upload_bytes: expect.any(Number) })
+				expect.objectContaining({ history_retention_days: expect.any(Number) })
 			)
 		} finally {
 			await rm(temporaryRoot, { recursive: true, force: true })

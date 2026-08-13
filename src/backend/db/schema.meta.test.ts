@@ -103,7 +103,7 @@ describe('schema.meta', () => {
 						settingsColumns.includes('generalConfig') &&
 						settingsColumns.includes('authenticationConfig') &&
 						settingsColumns.includes('emailConfig') &&
-						settingsColumns.includes('storageConfig') &&
+						!settingsColumns.includes('storageConfig') &&
 						settingsColumns.includes('creditsConfig') &&
 						settingsColumns.includes('affiliateConfig') &&
 						settingsColumns.includes('paymentConfig') &&

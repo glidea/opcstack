@@ -130,8 +130,8 @@ const upload = await apiClient.uploadR2PublicObject({
 上传 API 强制执行以下规则：
 
 - 上传路径不能包含 `..`
-- `Content-Length` 必须存在且不能超过 Storage 域的 `max_upload_bytes`
-- `Content-Type` 必须在 Storage 域的 `allowed_content_types` 中列出
+- `Content-Length` 必须存在且不能超过 `R2_USER_UPLOAD_MAX_BYTES`
+- `Content-Type` 必须在 `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` 中列出
 - 用户上传只能写入 `private/<userId>/*` 或 `tmp/private/<userId>/*`
 - 管理员公共上传写入 `public/*`
 
@@ -251,12 +251,12 @@ AI 生成的文件应存入 R2，而不是 D1。
 | 配置项 | 用途 |
 | --- | --- |
 | `R2_ENABLED` | 启用 R2 资源供给和 binding |
-| Storage `allowed_content_types` | 保存在 Meta D1 中的上传 MIME 允许列表 |
-| Storage `max_upload_bytes` | 保存在 Meta D1 中的用户最大上传大小 |
+| `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` | 使用分号分隔的上传 MIME 允许列表 |
+| `R2_USER_UPLOAD_MAX_BYTES` | 以字节为单位的最大上传大小 |
 | `R2_TMP_LIFECYCLE_RULES` | 临时对象删除规则 |
 | `R2_ORIGIN_SIGNING_SECRET` | 对内部图片 origin 读取进行签名 |
 
-`prepare-cloudflare` 会创建存储桶、配置 Worker binding、同步临时生命周期规则并写入生成的运行时配置。
+存储策略属于固定部署配置。修改 `.env.dev` 或 `.env.prod` 后需要重新启动或部署。Meta D1 和后台都不存在 Storage 配置副本。`prepare-cloudflare` 会校验策略、创建存储桶、配置 Worker binding、同步临时生命周期规则并写入生成的运行时配置。
 
 ## 常见错误
 

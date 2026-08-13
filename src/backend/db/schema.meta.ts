@@ -45,11 +45,6 @@ export type EmailSettingsDocument = {
 	resendApiKey: EncryptedConfigValue | null
 }
 
-export type StorageSettingsDocument = {
-	allowedContentTypes: string[]
-	maxUploadBytes: number
-}
-
 export type CreditsSettingsDocument = {
 	signupEnabled: boolean
 	signupAmount: number
@@ -106,11 +101,6 @@ export const systemSettings = sqliteTable(
 		emailConfig: text('email_config', { mode: 'json' }).$type<EmailSettingsDocument>().notNull(),
 		emailVersion: integer('email_version').notNull(),
 		emailUpdatedAt: integer('email_updated_at').notNull(),
-		storageConfig: text('storage_config', { mode: 'json' })
-			.$type<StorageSettingsDocument>()
-			.notNull(),
-		storageVersion: integer('storage_version').notNull(),
-		storageUpdatedAt: integer('storage_updated_at').notNull(),
 		creditsConfig: text('credits_config', { mode: 'json' })
 			.$type<CreditsSettingsDocument>()
 			.notNull(),
@@ -135,11 +125,11 @@ export const systemSettings = sqliteTable(
 		check('system_settings_singleton_check', sql`${table.id} = 1`),
 		check(
 			'system_settings_versions_check',
-			sql`${table.generalVersion} >= 1 and ${table.authenticationVersion} >= 1 and ${table.emailVersion} >= 1 and ${table.storageVersion} >= 1 and ${table.creditsVersion} >= 1 and ${table.affiliateVersion} >= 1 and ${table.paymentVersion} >= 1 and ${table.aiVersion} >= 1`
+			sql`${table.generalVersion} >= 1 and ${table.authenticationVersion} >= 1 and ${table.emailVersion} >= 1 and ${table.creditsVersion} >= 1 and ${table.affiliateVersion} >= 1 and ${table.paymentVersion} >= 1 and ${table.aiVersion} >= 1`
 		),
 		check(
 			'system_settings_json_check',
-			sql`json_valid(${table.generalConfig}) and json_type(${table.generalConfig}) = 'object' and json_valid(${table.authenticationConfig}) and json_type(${table.authenticationConfig}) = 'object' and json_valid(${table.emailConfig}) and json_type(${table.emailConfig}) = 'object' and json_valid(${table.storageConfig}) and json_type(${table.storageConfig}) = 'object' and json_valid(${table.creditsConfig}) and json_type(${table.creditsConfig}) = 'object' and json_valid(${table.affiliateConfig}) and json_type(${table.affiliateConfig}) = 'object' and json_valid(${table.paymentConfig}) and json_type(${table.paymentConfig}) = 'object' and json_valid(${table.aiConfig}) and json_type(${table.aiConfig}) = 'object'`
+			sql`json_valid(${table.generalConfig}) and json_type(${table.generalConfig}) = 'object' and json_valid(${table.authenticationConfig}) and json_type(${table.authenticationConfig}) = 'object' and json_valid(${table.emailConfig}) and json_type(${table.emailConfig}) = 'object' and json_valid(${table.creditsConfig}) and json_type(${table.creditsConfig}) = 'object' and json_valid(${table.affiliateConfig}) and json_type(${table.affiliateConfig}) = 'object' and json_valid(${table.paymentConfig}) and json_type(${table.paymentConfig}) = 'object' and json_valid(${table.aiConfig}) and json_type(${table.aiConfig}) = 'object'`
 		)
 	]
 )

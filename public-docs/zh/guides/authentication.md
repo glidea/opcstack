@@ -103,7 +103,7 @@ opc auth disconnect --name shop-prod
 
 `/oauth/authorize` 和 `/oauth/consent` 是浏览器授权页面。确认页展示 Client 名称、目标项目地址和申请的业务 scope。固定传输 scope `api_access offline_access` 只是协议细节。
 
-`/{locale}/settings/api-access` 展示 Grant 列表。撤销一个 Grant 不会退出浏览器登录，但会通过 D1 Grant 检查立即阻止已有 Access Token，并撤销该 Grant 关联的全部 Refresh Token。
+设置页统一展示 API Grant 和账号安全控制。撤销一个 Grant 不会退出浏览器登录，但会通过 D1 Grant 检查立即阻止已有 Access Token，并撤销该 Grant 关联的全部 Refresh Token。
 
 ### 邮件 OTP
 
@@ -115,7 +115,7 @@ if (ctx.req.path === '/api/auth/sign-in/email-otp') {
 }
 ```
 
-OTP 用于三个流程：注册后邮件验证、密码重置和邮件变更。OTP 为 6 位数字，300 秒后过期，允许 3 次尝试。OTP 以哈希形式存储。
+OTP 用于注册后邮件验证和密码重置。OTP 为 6 位数字，300 秒后过期，允许 3 次尝试。OTP 以哈希形式存储。
 
 ### Google OAuth
 
@@ -159,7 +159,7 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 3. 选择 **Onboard Domain**，选择管理员邮箱使用的域名
 4. 让 Cloudflare 创建所需的 SPF、DKIM、DMARC 和 bounce 记录
 5. 等待发送域名激活
-6. 在 Account / Security 将管理员邮箱改为接入域名上的地址
+6. 首次准备前将 `SYSTEM_EMAIL` 设为接入域名上的地址
 7. 打开后台 Configuration 的 Email Tab，选择 Cloudflare 并保存
 
 如果需要本地真实发送而不依赖 Cloudflare 远端邮件行为，使用 Resend。
@@ -173,11 +173,11 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 1. 打开 Resend 控制台
 2. 添加并验证发送域名
 3. 创建带发送权限的 API key
-4. 在 Account / Security 将管理员邮箱改为已验证域名上的地址
+4. 首次准备前将 `SYSTEM_EMAIL` 设为已验证域名上的地址
 5. 打开后台 Configuration 的 Email Tab
 6. 选择 Resend，填写 API key 并保存
 
-`from` 地址始终是当前管理员邮箱。管理员邮箱仍是 `admin@opcstack.local` 时不能配置 Email Provider。如果 Resend 拒绝邮件，先修复发件域名。
+`from` 地址始终是首次准备时创建的 D1 管理员邮箱。如果 Resend 拒绝邮件，先修复发件域名，并用正确的 `SYSTEM_EMAIL` 初始化新部署。
 
 文档：[Resend domains](https://resend.com/docs/dashboard/domains/introduction)、[Resend API keys](https://resend.com/docs/create-an-api-key)
 
@@ -318,7 +318,7 @@ LinuxDo 不向本应用提供真实邮件。映射后的用户邮件是合成的
 
 2. **注册门控。** 关闭注册时，邮件注册返回 `REGISTRATION_DISABLED`。Better Auth 用户创建钩子对首次第三方 OAuth 建号执行同一规则。
 
-3. **邮件服务可用性。** 未配置 Provider 时，邮件验证、密码重置、邮箱变更和其他发信操作返回 `EMAIL_PROVIDER_UNAVAILABLE`。登录页从同一状态派生并隐藏忘记密码入口。
+3. **邮件服务可用性。** 未配置 Provider 时，邮件验证、密码重置和其他发信操作返回 `EMAIL_PROVIDER_UNAVAILABLE`。登录页从同一状态派生并隐藏忘记密码入口。账号邮箱不可修改。
 
 4. **域名 allowlist。** Authentication 配置保存允许注册的域名列表。为空表示允许所有域名。域名不在列表中的注册邮件返回 400 `EMAIL_DOMAIN_NOT_ALLOWED`。
 
@@ -429,7 +429,7 @@ Authentication 和 Email 配置只保存在 Meta D1 的 `system_settings` 记录
 
 Authentication Tab 管理注册策略、内测门控、邮件验证、Turnstile 开关，以及 Google、GitHub 和 LinuxDo 凭据。Turnstile 凭据由初始化流程写入，不能在此页面修改。Email Tab 管理 Provider 和 Resend API key。Provider 是否存在是邮件能力的单一状态源，不再有独立邮件开关。读取密钥时只返回是否已配置；替换或删除 OAuth 或邮件密钥都是显式保存动作。
 
-管理员身份、公开支持地址和发件人地址都读取唯一 D1 管理员账号。首次准备会创建 `admin@opcstack.local` 和随机密码，只打印一次凭据。`BETTER_AUTH_SECRET` 和 `CONFIG_ENCRYPTION_KEY` 由 `prepare-cloudflare` 自动生成，用户不配置。
+管理员身份、公开支持地址和发件人地址都读取唯一 D1 管理员账号。首次准备使用 `SYSTEM_EMAIL` 创建账号，生成随机密码并只打印一次凭据。后续准备不会覆盖邮箱或密码。`BETTER_AUTH_SECRET` 和 `CONFIG_ENCRYPTION_KEY` 由 `prepare-cloudflare` 自动生成，用户不配置。
 
 ## 常见错误
 
@@ -437,7 +437,7 @@ Authentication Tab 管理注册策略、内测门控、邮件验证、Turnstile 
 
 **假设 LinuxDo 用户有真实邮件。** 邮件合成为 `linuxdo-{id}@linuxdo.local`。密码重置等基于邮件的功能对 LinuxDo 用户无效。
 
-**使用初始本地管理员邮箱配置 Email Provider。** 先在 Account / Security 把 `admin@opcstack.local` 改为真实邮箱。准备流程不会覆盖当前管理员邮箱或密码。
+**首次管理员使用未验证的发件地址。** 首次准备前将 `SYSTEM_EMAIL` 设为已验证发送域名上的地址。后续准备不会覆盖 D1 管理员邮箱或密码。
 
 **期望注册时有跨 DB 事务。** 用户创建分别写入 Meta DB 和 Tenant Shard DB。如果进程在两者之间崩溃，用户存在但没有积分余额。这是设计如此。
 

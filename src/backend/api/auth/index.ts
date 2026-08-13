@@ -54,6 +54,9 @@ export function authCore(env: Env, db: MetaDb, config: AuthRuntimeConfig) {
     database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
     plugins,
     user: {
+      changeEmail: {
+        enabled: false
+      },
       additionalFields: {
 		role: {
 			type: 'string',
@@ -265,6 +268,9 @@ function buildEmailOtp(
     allowedAttempts: 3,
     storeOTP: 'hashed',
     disableSignUp: true,
+    changeEmail: {
+      enabled: false
+    },
     sendVerificationOnSignUp: false,
     overrideDefaultEmailVerification: true,
     sendVerificationOTP: async (data: EmailOtpInput): Promise<void> => {

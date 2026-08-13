@@ -231,9 +231,6 @@ CREATE TABLE `system_settings` (
 	`email_config` text NOT NULL,
 	`email_version` integer NOT NULL,
 	`email_updated_at` integer NOT NULL,
-	`storage_config` text NOT NULL,
-	`storage_version` integer NOT NULL,
-	`storage_updated_at` integer NOT NULL,
 	`credits_config` text NOT NULL,
 	`credits_version` integer NOT NULL,
 	`credits_updated_at` integer NOT NULL,
@@ -248,8 +245,8 @@ CREATE TABLE `system_settings` (
 	`ai_updated_at` integer NOT NULL,
 	`created_at` integer NOT NULL,
 	CONSTRAINT "system_settings_singleton_check" CHECK("system_settings"."id" = 1),
-	CONSTRAINT "system_settings_versions_check" CHECK("system_settings"."general_version" >= 1 and "system_settings"."authentication_version" >= 1 and "system_settings"."email_version" >= 1 and "system_settings"."storage_version" >= 1 and "system_settings"."credits_version" >= 1 and "system_settings"."affiliate_version" >= 1 and "system_settings"."payment_version" >= 1 and "system_settings"."ai_version" >= 1),
-	CONSTRAINT "system_settings_json_check" CHECK(json_valid("system_settings"."general_config") and json_type("system_settings"."general_config") = 'object' and json_valid("system_settings"."authentication_config") and json_type("system_settings"."authentication_config") = 'object' and json_valid("system_settings"."email_config") and json_type("system_settings"."email_config") = 'object' and json_valid("system_settings"."storage_config") and json_type("system_settings"."storage_config") = 'object' and json_valid("system_settings"."credits_config") and json_type("system_settings"."credits_config") = 'object' and json_valid("system_settings"."affiliate_config") and json_type("system_settings"."affiliate_config") = 'object' and json_valid("system_settings"."payment_config") and json_type("system_settings"."payment_config") = 'object' and json_valid("system_settings"."ai_config") and json_type("system_settings"."ai_config") = 'object')
+	CONSTRAINT "system_settings_versions_check" CHECK("system_settings"."general_version" >= 1 and "system_settings"."authentication_version" >= 1 and "system_settings"."email_version" >= 1 and "system_settings"."credits_version" >= 1 and "system_settings"."affiliate_version" >= 1 and "system_settings"."payment_version" >= 1 and "system_settings"."ai_version" >= 1),
+	CONSTRAINT "system_settings_json_check" CHECK(json_valid("system_settings"."general_config") and json_type("system_settings"."general_config") = 'object' and json_valid("system_settings"."authentication_config") and json_type("system_settings"."authentication_config") = 'object' and json_valid("system_settings"."email_config") and json_type("system_settings"."email_config") = 'object' and json_valid("system_settings"."credits_config") and json_type("system_settings"."credits_config") = 'object' and json_valid("system_settings"."affiliate_config") and json_type("system_settings"."affiliate_config") = 'object' and json_valid("system_settings"."payment_config") and json_type("system_settings"."payment_config") = 'object' and json_valid("system_settings"."ai_config") and json_type("system_settings"."ai_config") = 'object')
 );
 --> statement-breakpoint
 CREATE TABLE `user_shards` (

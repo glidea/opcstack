@@ -39,7 +39,7 @@ pnpm dev
 
 After startup open http://localhost:5173
 
-The first preparation prints one-time administrator credentials. Sign in, change the email and password under Account / Security, then configure business features under Admin / Configuration. `.env.dev` and `.env.prod` contain only fixed deployment identity and Cloudflare resource topology. Internal root secrets are generated automatically; business credentials are encrypted in D1.
+Set `SYSTEM_EMAIL` before the first preparation. The command creates that D1 administrator and prints a random one-time password. Sign in, replace the password under Settings, then configure business features under Admin / System Settings. `.env.dev` and `.env.prod` also own build-time theme and R2 upload policy. Internal root secrets are generated automatically; business credentials are encrypted in D1.
 
 ## 3. Deploy to Cloudflare
 
@@ -53,7 +53,7 @@ See [Deployment](guides/deployment.md) for the full provisioning and deploy flow
 
 ## 4. Access the admin console
 
-Sign in with the one-time administrator credentials printed by the first preparation, change them under Account / Security, then open `/{locale}/admin`. See [Admin Console](guides/admin-console.md) for every page and operator workflow.
+Sign in with the administrator email and one-time password printed by the first preparation, replace the password under Settings, then open `/{locale}/admin`. See [Admin Console](guides/admin-console.md) for every page and operator workflow.
 
 ## 5. Develop the browser extension
 

@@ -104,7 +104,7 @@ Do not require Cloudflare login for local setup. `pnpm dev` runs `scripts/prepar
 
 ## Phase 2: Collect Minimal Public Config
 
-Use the project name already provided to the Skill as `APP_NAME`. Do not ask for an administrator email, administrator password, production domain, provider credential, or business configuration before local startup.
+Use the project name already provided to the Skill as `APP_NAME`. Ask for the administrator email that will own the first local D1 account. Do not ask for an administrator password, production domain, provider credential, or business configuration before local startup.
 
 ---
 
@@ -116,6 +116,7 @@ Minimal recommended local values:
 
 ```text
 APP_NAME=<project-name>
+SYSTEM_EMAIL=<administrator-email>
 APP_DOMAIN=localhost
 ```
 
@@ -124,7 +125,7 @@ Keep unrelated settings unchanged unless the user explicitly asks.
 Notes:
 
 - Authentication, Email, Turnstile, social login, and beta gate are configured after startup in the admin Configuration workspace
-- R2, Queues, Cron, and AI queue names may already be enabled in `.env.dev`; do not force users to configure them during local setup
+- R2 upload policy, Queues, Cron, and AI queue names may already have template values in `.env.dev`; do not ask about them during local setup unless the user wants to change the defaults
 - Production deployment topology belongs in `.env.prod`, not in local setup
 
 ---
@@ -133,7 +134,7 @@ Notes:
 
 `prepare-cloudflare` generates `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET` on first initialization. Local development persists them in `.env.secret.dev`; production keeps them only as Cloudflare Worker Secrets. `.env.secret.example` documents this boundary and contains no user-managed values.
 
-The same initialization creates the unique D1 administrator with email `admin@opcstack.local` and a random password. The command prints these credentials only after the first initialization succeeds. Tell the user to sign in and change both values under Account / Security. Do not ask the user to choose or paste either credential before startup.
+The same initialization creates the unique D1 administrator using `SYSTEM_EMAIL` and a random password. The command prints the credentials only after the first initialization succeeds. Later preparation never changes the D1 email or password. Tell the user to sign in and replace the generated password under Settings. The settings page intentionally does not allow changing the administrator email.
 
 ---
 
@@ -240,27 +241,30 @@ First collect only fixed deployment topology in `.env.prod`:
 | --- | --- |
 | `APP_NAME` | Stable Worker and resource prefix |
 | `APP_VERSION` | Public release version |
+| `DESIGN_SYSTEM` | Build-time UI design system |
+| `SYSTEM_EMAIL` | Administrator email used only when Meta D1 is empty |
 | `APP_DOMAIN` | Primary production hostname |
 | `APP_CN_DOMAIN` | Optional China hostname |
 | `APP_CN_CNAME_TARGET` | Optional unproxied CNAME target for the China hostname |
 | `EXTENSION_HOST_PERMISSIONS` | Chrome extension origins |
 | `D1_SHARDS` | Regional tenant D1 layout |
 | `R2_ENABLED` | R2 binding and bucket topology |
+| `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` | Upload MIME allowlist |
+| `R2_USER_UPLOAD_MAX_BYTES` | Maximum upload size in bytes |
 | `R2_TMP_LIFECYCLE_RULES` | Temporary object retention |
 | `QUEUE_NAMES` | Queue bindings and consumers |
 | `QUEUE_MAX_CONCURRENCY` | Optional queue consumer limit |
 | `CRONS` | Worker cron triggers |
 | `DO_NAMES` | Durable Object bindings |
 
-These are the complete long-lived ENV inputs. Do not add Authentication, Email, Storage policy, Credits, Affiliate, Payment, AI, administrator identity, or third-party credentials to ENV.
+These are the complete long-lived ENV inputs. `SYSTEM_EMAIL` is an initialization input, not a runtime override of the D1 administrator. Do not add Authentication, Email Provider, Credits, Affiliate, Payment, AI, or third-party credentials to ENV.
 
-Then run `pnpm deploy:cloudflare`. On the first deployment, retain the one-time administrator credentials, open the deployed application, sign in, and change the administrator email and password under Account / Security.
+Then run `pnpm deploy:cloudflare`. On the first deployment, retain the one-time administrator credentials, open the deployed application, sign in, and change the generated password under Settings.
 
 After the shell is running, ask which business modules they want to configure:
 
 - Authentication and external OAuth
 - Email
-- Storage rules
 - Credits and affiliate rewards
 - Payment and products
 - AI Providers

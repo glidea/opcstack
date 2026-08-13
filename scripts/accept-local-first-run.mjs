@@ -38,6 +38,8 @@ async function main() {
 			filter: (source) => !EXCLUDED_NAMES.has(basename(source))
 		})
 		await symlink(join(SOURCE_ROOT, 'node_modules'), join(secondWorkspace, 'node_modules'), 'dir')
+		await writeProjectAdminEmail(workspace, 'admin-one@example.test')
+		await writeProjectAdminEmail(secondWorkspace, 'admin-two@example.test')
 		await writeSecondProjectPorts(secondWorkspace)
 
 		const firstPrepare = await runCaptured('pnpm', ['prepare:cloudflare:dev'], workspace)
@@ -137,14 +139,12 @@ async function main() {
 		await waitForHealth('http://localhost:5173/api/health')
 		await waitForHealth('http://localhost:5174/api/health')
 
-		const nextEmail = `administrator-${randomBytes(6).toString('hex')}@example.com`
 		const nextPassword = randomBytes(24).toString('base64url')
 		const initialEnvironment = {
 			...process.env,
 			E2E_FIRST_RUN: '1',
 			E2E_ADMIN_EMAIL: credentials.email,
 			E2E_ADMIN_PASSWORD: credentials.password,
-			E2E_NEW_ADMIN_EMAIL: nextEmail,
 			E2E_NEW_ADMIN_PASSWORD: nextPassword
 		}
 		await runVisible(
@@ -159,14 +159,14 @@ async function main() {
 			workspace,
 			{
 				...initialEnvironment,
-				E2E_ADMIN_EMAIL: nextEmail,
+				E2E_ADMIN_EMAIL: credentials.email,
 				E2E_ADMIN_PASSWORD: nextPassword
 			}
 		)
 		await runVisible('pnpm', ['test:e2e'], workspace, {
 			...process.env,
 			E2E_FIRST_RUN: '0',
-			E2E_ADMIN_EMAIL: nextEmail,
+			E2E_ADMIN_EMAIL: credentials.email,
 			E2E_ADMIN_PASSWORD: nextPassword
 		})
 		await runVisible(
@@ -176,7 +176,7 @@ async function main() {
 			{
 				...process.env,
 				E2E_FIRST_RUN: '1',
-				E2E_ADMIN_EMAIL: nextEmail,
+				E2E_ADMIN_EMAIL: credentials.email,
 				E2E_ADMIN_PASSWORD: nextPassword,
 				E2E_SECOND_APP_BASE_URL: 'http://localhost:5174',
 				E2E_SECOND_ADMIN_EMAIL: secondProjectCredentials.email,
@@ -217,6 +217,12 @@ async function main() {
 		stopServer(worker)
 		await rm(temporaryRoot, { recursive: true, force: true })
 	}
+}
+
+async function writeProjectAdminEmail(workspace, email) {
+	const envPath = join(workspace, '.env.dev')
+	const contents = await readFile(envPath, 'utf8')
+	await writeFile(envPath, contents.replace(/^SYSTEM_EMAIL=.*$/m, `SYSTEM_EMAIL=${email}`))
 }
 
 async function writeSecondProjectPorts(workspace) {

@@ -8,12 +8,7 @@ import type {
 	ListAdminAiTasksResponse
 } from '../admin-ai-tasks'
 import type { GetAdminOverviewResponse } from '../admin-overview'
-import type {
-	ListAdminUsersRequest,
-	ListAdminUsersResponse,
-	UpdateAdministratorEmailRequest,
-	UpdateAdministratorEmailResponse
-} from '../admin-users'
+import type { ListAdminUsersRequest, ListAdminUsersResponse } from '../admin-users'
 import type {
 	BindBetaCodeRequest,
 	GenerateBetaCodesRequest,
@@ -89,7 +84,6 @@ import type {
 	GeneralConfig,
 	PaymentConfig,
 	PaymentProduct,
-	StorageConfig,
 	UpdateAIProviderRequest,
 	UpdateAIConfigRequest,
 	UpdateAffiliateConfigRequest,
@@ -98,8 +92,7 @@ import type {
 	UpdateEmailConfigRequest,
 	UpdateGeneralConfigRequest,
 	UpdatePaymentConfigRequest,
-	UpdatePaymentProductRequest,
-	UpdateStorageConfigRequest
+	UpdatePaymentProductRequest
 } from '../configuration'
 import type { ApiErrorResponse } from '../common'
 
@@ -180,7 +173,6 @@ type ApiMethods = {
 	getEmailConfig(): Promise<EmailConfig>
 	getGeneralConfig(): Promise<GeneralConfig>
 	getPaymentConfig(): Promise<PaymentConfig>
-	getStorageConfig(): Promise<StorageConfig>
 	getCreditSummary(): Promise<GetCreditSummaryResponse>
 	getSubscription(): Promise<GetSubscriptionResponse>
 	grantCredits(input: AdminGrantCreditsRequest): Promise<AdminGrantCreditsResponse>
@@ -220,10 +212,6 @@ type ApiMethods = {
 	updateEmailConfig(input: UpdateEmailConfigRequest): Promise<EmailConfig>
 	updatePaymentConfig(input: UpdatePaymentConfigRequest): Promise<PaymentConfig>
 	updatePaymentProduct(input: UpdatePaymentProductRequest): Promise<PaymentProduct>
-	updateAdministratorEmail(
-		input: UpdateAdministratorEmailRequest
-	): Promise<UpdateAdministratorEmailResponse>
-	updateStorageConfig(input: UpdateStorageConfigRequest): Promise<StorageConfig>
 	upgradeSubscription(input: UpgradeSubscriptionRequest): Promise<UpgradeSubscriptionResponse>
 }
 
@@ -456,9 +444,6 @@ function createApiMethods(
 		getPaymentConfig(): Promise<PaymentConfig> {
 			return call({ path: '/api/admin/get_payment_config', body: {} })
 		},
-		getStorageConfig(): Promise<StorageConfig> {
-			return call({ path: '/api/admin/get_storage_config', body: {} })
-		},
 		getCreditSummary(): Promise<GetCreditSummaryResponse> {
 			return call({ path: '/api/get_credit_summary', body: {} })
 		},
@@ -559,14 +544,6 @@ function createApiMethods(
 		},
 		updatePaymentProduct(input: UpdatePaymentProductRequest): Promise<PaymentProduct> {
 			return call({ path: '/api/admin/update_payment_product', body: input })
-		},
-		updateAdministratorEmail(
-			input: UpdateAdministratorEmailRequest
-		): Promise<UpdateAdministratorEmailResponse> {
-			return call({ path: '/api/admin/update_administrator_email', body: input })
-		},
-		updateStorageConfig(input: UpdateStorageConfigRequest): Promise<StorageConfig> {
-			return call({ path: '/api/admin/update_storage_config', body: input })
 		},
 		upgradeSubscription(input: UpgradeSubscriptionRequest): Promise<UpgradeSubscriptionResponse> {
 			return call({ path: '/api/upgrade_subscription', body: input })

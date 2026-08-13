@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
-import { listAdminUsersHandler, updateAdministratorEmailHandler } from './admin-users'
+import { listAdminUsersHandler } from './admin-users'
 
 const shardRouterMocks = vi.hoisted(() => ({
 	openShardSession: vi.fn()
@@ -92,31 +92,6 @@ describe('listAdminUsersHandler', () => {
 		)
 	})
 
-	test('updates the administrator email', async (): Promise<void> => {
-		const response: Response = await updateAdministratorEmailHandler(createContext({
-			body: { email: 'owner@example.com' },
-			db: createUpdateEmailDb(undefined, [{ email: 'owner@example.com' }]),
-			userId: 'admin-1'
-		}))
-
-		expect({ status: response.status, body: await response.json() }).toEqual({
-			status: 200,
-			body: { email: 'owner@example.com' }
-		})
-	})
-
-	test('rejects an administrator email used by another account', async (): Promise<void> => {
-		const response: Response = await updateAdministratorEmailHandler(createContext({
-			body: { email: 'user@example.com' },
-			db: createUpdateEmailDb({ id: 'user-1' }, []),
-			userId: 'admin-1'
-		}))
-
-		expect({ status: response.status, body: await response.json() }).toEqual({
-			status: 409,
-			body: { code: 'EMAIL_ALREADY_EXISTS', message: 'Email is already in use' }
-		})
-	})
 })
 
 type AdminUserRow = {
@@ -182,32 +157,12 @@ function createRowsQuery(rows: AdminUserRow[]): Record<string, unknown> {
 	}
 }
 
-function createUpdateEmailDb(
-	existing: { id: string } | undefined,
-	updated: Array<{ email: string }>
-): Record<string, unknown> {
-	return {
-		query: {
-			user: {
-				findFirst: async (): Promise<{ id: string } | undefined> => existing
-			}
-		},
-		update: (): Record<string, unknown> => ({
-			set: (): Record<string, unknown> => ({
-				where: (): Record<string, unknown> => ({
-					returning: async (): Promise<Array<{ email: string }>> => updated
-				})
-			})
-		})
-	}
-}
-
-function createContext(input: { body: unknown; db: unknown; userId?: string }): Context<ApiEnv> {
+function createContext(input: { body: unknown; db: unknown }): Context<ApiEnv> {
 	return {
 		req: {
 			json: async <T>(): Promise<T> => input.body as T
 		},
-		get: (key: string): unknown => key === 'userId' ? input.userId : input.db,
+		get: (): unknown => input.db,
 		json: (payload: unknown, status?: number): Response => {
 			return new Response(JSON.stringify(payload), {
 				status: status ?? 200,

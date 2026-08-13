@@ -40,7 +40,7 @@ pnpm dev
 
 启动后打开 http://localhost:5173
 
-首次准备会在终端显示一次性管理员凭据。登录后先在 Account / Security 修改邮箱和密码，再到 Admin / Configuration 配置业务能力。`.env.dev` 和 `.env.prod` 只包含固定部署身份与 Cloudflare 资源拓扑。内部根密钥由脚本自动生成，业务凭据加密保存在 D1。
+首次准备前填写 `SYSTEM_EMAIL`。准备脚本用它创建 D1 管理员，并在终端显示随机的一次性密码。登录后在设置页修改密码，再到后台系统设置配置业务能力。`.env.dev` 和 `.env.prod` 还负责构建期主题和 R2 上传策略。内部根密钥由脚本自动生成，业务凭据加密保存在 D1。
 
 ## 3. 部署到 Cloudflare
 
@@ -54,7 +54,7 @@ pnpm deploy:cloudflare
 
 ## 4. 访问管理控制台
 
-使用首次准备流程打印的一次性管理员凭据登录，在 Account / Security 修改邮箱和密码，然后打开 `/{locale}/admin`。全部页面和运营操作参阅[管理控制台](guides/admin-console.md)。
+使用首次准备流程打印的管理员邮箱和一次性密码登录，在设置页修改密码，然后打开 `/{locale}/admin`。全部页面和运营操作参阅[管理控制台](guides/admin-console.md)。
 
 ## 5. 开发浏览器扩展
 

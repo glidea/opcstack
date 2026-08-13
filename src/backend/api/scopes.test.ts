@@ -11,12 +11,9 @@ describe('API scope registry', () => {
 		expect(PROTECTED_JSON_ROUTES.every((route) => registeredScopes.has(route.scope))).toBe(true)
 	})
 
-	it('protects administrator account changes with an administrator-only scope', () => {
-		expect(PROTECTED_JSON_ROUTES).toContainEqual({
-			method: 'POST',
-			path: '/api/admin/update_administrator_email',
-			scope: 'admin:users:write',
-			access: 'admin'
-		})
+	it('does not expose removed account or storage configuration mutations', () => {
+		expect(API_SCOPES).not.toContain('admin:users:write')
+		expect(API_SCOPES).not.toContain('config:storage:read')
+		expect(API_SCOPES).not.toContain('config:storage:write')
 	})
 })

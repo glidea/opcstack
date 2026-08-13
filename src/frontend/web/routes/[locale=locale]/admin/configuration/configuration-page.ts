@@ -5,7 +5,6 @@ export const CONFIGURATION_DOMAINS = [
 	'general',
 	'authentication',
 	'email',
-	'storage',
 	'credits',
 	'affiliate',
 	'payment',

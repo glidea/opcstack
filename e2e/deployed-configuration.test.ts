@@ -41,7 +41,7 @@ describe.skipIf(!remote)('deployed Cloudflare public entrypoints', (): void => {
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({
 				client_id: 'opc-cli',
-				scopes: ['config:storage:read'],
+				scopes: ['config:credits:read'],
 				code_challenge: 'invalid',
 				code_challenge_method: 'S256'
 			})

@@ -204,13 +204,13 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Agents must not read, print, search, edit, create, or copy generated secret state or token caches: `.env.secret.dev`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
 - Third-party credentials are entered through Admin Configuration or an OAuth-authorized API and encrypted in D1. Never add them to env files.
 - Env loading order: `.env.dev` or `.env.prod` -> `.env` -> `process.env`.
-- Env files contain fixed deployment topology only and are ordered by shared product identity, domains, frontend exposure, and infrastructure.
-- The fixed ENV set is `APP_NAME`, `APP_VERSION`, `APP_DOMAIN`, `APP_CN_DOMAIN`, `APP_CN_CNAME_TARGET`, `EXTENSION_HOST_PERMISSIONS`, `D1_SHARDS`, `R2_ENABLED`, `R2_TMP_LIFECYCLE_RULES`, `QUEUE_NAMES`, `QUEUE_MAX_CONCURRENCY`, `CRONS`, and `DO_NAMES`.
+- Env files contain fixed deployment and initialization inputs only and are ordered by shared product identity, domains, frontend exposure, and infrastructure.
+- The fixed ENV set is `APP_NAME`, `APP_VERSION`, `DESIGN_SYSTEM`, `SYSTEM_EMAIL`, `APP_DOMAIN`, `APP_CN_DOMAIN`, `APP_CN_CNAME_TARGET`, `EXTENSION_HOST_PERMISSIONS`, `D1_SHARDS`, `R2_ENABLED`, `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES`, `R2_USER_UPLOAD_MAX_BYTES`, `R2_TMP_LIFECYCLE_RULES`, `QUEUE_NAMES`, `QUEUE_MAX_CONCURRENCY`, `CRONS`, and `DO_NAMES`.
 - `prepare-cloudflare` owns `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET`. It generates them once, persists local values in `.env.secret.dev`, and uploads production values as Cloudflare Worker Secrets without overwriting existing values.
 - Existing D1 configuration without the matching generated system secrets is unrecoverable and must fail preparation. Never silently generate replacement roots for initialized data.
 - Dynamic configuration storage lives in `src/backend/config/` and the Meta DB `system_settings` row. Each business domain owns one JSON document, version, and update timestamp.
 - Configuration documents use code-side camelCase and are fully validated on every read and write. Admin API contracts remain snake_case.
-- General, Authentication, Email, Storage, Credits, and Affiliate runtime configuration is read from the nearest Meta D1 replica. Admin writes return a D1 bookmark that subsequent browser and API reads use for immediate consistency.
+- General, Authentication, Email, Credits, Affiliate, Payment, and AI runtime configuration is read from the nearest Meta D1 replica. Admin writes return a D1 bookmark that subsequent browser and API reads use for immediate consistency.
 - Signup rewards, daily check-in, affiliate rewards, and credit transaction retention read one domain snapshot per operation and never use ENV fallbacks.
 - Better Auth, beta gate, Turnstile, social OAuth, and email delivery share one request-scoped Authentication and Email snapshot. Registration uses `registrationEnabled`; Email availability is derived only from `emailConfig.provider`. Without a Provider, password login and unverified registration remain available, while email verification, password reset, and other email actions are unavailable.
 - Migrate one business domain atomically: after its runtime reads D1, delete the same ENV keys and parsers in that change. Never keep ENV fallback for a migrated setting.
@@ -292,11 +292,11 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - Protected JSON API routes accept Better Auth browser sessions or OAuth Bearer tokens. Every route is registered in `src/backend/api/scopes.ts`; OAuth access must pass `requireApiScope(scope)`, while protocol and byte-stream routes reject OAuth tokens.
 - The generic credential client is `opc auth connect` plus `opc api request`; it injects tokens and must not contain business API types or route-specific methods.
 - `administratorMiddleware` verifies the authenticated user's current D1 `admin` role for browser sessions and OAuth access. Admin and configuration scopes never bypass the role check.
-- The unique D1 administrator email is also the public support contact and outbound email sender. Initialization creates `admin@opcstack.local`; change it under Account / Security before configuring an Email Provider.
+- `SYSTEM_EMAIL` is required only when an empty Meta D1 creates the unique administrator. The created D1 account becomes the runtime identity, public support contact, and outbound sender; later prepares ignore `SYSTEM_EMAIL`, and the settings page does not allow changing the email.
 - Credits use integer units where `1 credit = 1_000_000 units`; API credit amounts use decimal strings.
 - Payment `price_amount` is provider minor currency units and must not be mixed with credit units.
 - R2 paths are `public/*`, `private/<userId>/*`, `tmp/public/*`, and `tmp/private/<userId>/*`.
-- R2 upload MIME types and maximum upload bytes come from the Storage domain in Meta D1.
+- R2 upload MIME types and maximum upload bytes come only from `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` and `R2_USER_UPLOAD_MAX_BYTES`. They require a new deployment and have no D1 or admin UI copy.
 - R2 lifecycle rules may only target `tmp/public/` and `tmp/private/`.
 - User upload URLs may only write `private/<userId>/*` or `tmp/private/<userId>/*`; the request uses `is_tmp` to choose lifecycle.
 - Admin public upload URLs may only write `public/*`; do not use the admin public upload API for user-owned private files.

@@ -19,7 +19,6 @@ describe('configuration navigation', () => {
 			{ id: 'general', href: '/en/admin/configuration/general' },
 			{ id: 'authentication', href: '/en/admin/configuration/authentication' },
 			{ id: 'email', href: '/en/admin/configuration/email' },
-			{ id: 'storage', href: '/en/admin/configuration/storage' },
 			{ id: 'credits', href: '/en/admin/configuration/credits' },
 			{ id: 'affiliate', href: '/en/admin/configuration/affiliate' },
 			{ id: 'payment', href: '/en/admin/configuration/payment' },

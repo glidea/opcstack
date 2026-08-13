@@ -255,7 +255,7 @@ Run the real first-run acceptance from a clean isolated project copy:
 pnpm test:e2e:first-run
 ```
 
-This command prepares an empty local D1 twice, proves the initial administrator password is printed exactly once, starts the real Worker and web servers, changes the administrator credentials through HTTP, saves General through a browser session, saves Storage through OAuth, verifies immediate frontend state, revokes the grant, and then runs the complete local E2E suite. It does not read the current checkout's secret files or local database.
+This command prepares an empty local D1 twice, proves the initial administrator password is printed exactly once, starts the real Worker and web servers, changes the generated password through HTTP, saves General through a browser session, reads Credits through OAuth, verifies immediate frontend state, revokes the grant, and then runs the complete local E2E suite. It does not read the current checkout's secret files or local database.
 
 Remote E2E:
 

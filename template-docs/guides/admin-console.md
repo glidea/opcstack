@@ -12,14 +12,14 @@ The admin console turns the existing Admin APIs into one operator workspace. It 
 ## Access
 
 1. Run `prepare-cloudflare` and retain the one-time administrator credentials printed after the first successful initialization.
-2. Sign in, then change the administrator email and password under Account / Security.
+2. Sign in, then replace the generated password under Settings.
 3. Open `/{locale}/admin`. The route redirects to `/{locale}/admin/overview`.
 
 An unauthenticated visitor is redirected to login. A signed-in account without the D1 `admin` role receives `403 Forbidden`.
 
 Programmatic clients use OAuth grants with explicit scopes. There is no static admin API token.
 
-Run `opc auth connect --name <project> --server <origin> --scopes <scope-list>`. The CLI prints an authorization URL. After the signed-in user reviews and approves the requested scopes in the browser, the CLI receives tokens through PKCE and stores them under that connection name and server origin. `opc api request` uses the selected connection. Revoking the grant in Account / API Access invalidates both access and refresh immediately.
+Run `opc auth connect --name <project> --server <origin> --scopes <scope-list>`. The CLI prints an authorization URL. After the signed-in user reviews and approves the requested scopes in the browser, the CLI receives tokens through PKCE and stores them under that connection name and server origin. `opc api request` uses the selected connection. Settings lists these grants directly; revoking one invalidates both access and refresh immediately.
 
 ## Pages
 
@@ -39,7 +39,7 @@ The locale can be `en` or `zh`. Language switching keeps the current admin path 
 
 ## Manage system settings
 
-Open **System settings** and use the horizontal business tabs. General, Authentication, Email, Storage, Credits, and Affiliate each have one explicit form. Saving one tab immediately changes subsequent requests in that domain. An operation already in progress keeps the snapshot it started with.
+Open **System settings** and use the horizontal business tabs. General, Authentication, Email, Credits, Affiliate, Payment, and AI each have one explicit form. Saving one tab immediately changes subsequent requests in that domain. Storage upload policy comes only from ENV and does not appear here. An operation already in progress keeps the snapshot it started with.
 
 Changing a field marks only the current tab as unsaved. Switching tabs or leaving the page requires choosing **Save**, **Discard**, or **Cancel**. Save validates and persists the current domain before navigating. Discard restores the last saved values and navigates. Cancel stays on the current form. There is no draft, publish step, automatic save, or cross-domain Save All.
 

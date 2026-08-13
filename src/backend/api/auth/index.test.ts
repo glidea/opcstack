@@ -135,6 +135,8 @@ describe('authCore email config mapping', () => {
 		emailAndPasswordEnabled: boolean
 		disableSignUp: boolean
 		requireEmailVerification: boolean
+		changeEmailDisabled: boolean
+		emailOtpChangeEmailDisabled: boolean
 		hasEmailOtpPlugin: boolean
 		hasSendResetPassword: boolean
 	}
@@ -159,6 +161,8 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: true,
 				disableSignUp: false,
 				requireEmailVerification: true,
+				changeEmailDisabled: true,
+				emailOtpChangeEmailDisabled: true,
 				hasEmailOtpPlugin: true,
 				hasSendResetPassword: false
 			}
@@ -182,6 +186,8 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: true,
 				disableSignUp: true,
 				requireEmailVerification: true,
+				changeEmailDisabled: true,
+				emailOtpChangeEmailDisabled: true,
 				hasEmailOtpPlugin: true,
 				hasSendResetPassword: false
 			}
@@ -205,6 +211,8 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: true,
 				disableSignUp: false,
 				requireEmailVerification: true,
+				changeEmailDisabled: true,
+				emailOtpChangeEmailDisabled: true,
 				hasEmailOtpPlugin: true,
 				hasSendResetPassword: false
 			}
@@ -228,6 +236,8 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: true,
 				disableSignUp: true,
 				requireEmailVerification: true,
+				changeEmailDisabled: true,
+				emailOtpChangeEmailDisabled: true,
 				hasEmailOtpPlugin: true,
 				hasSendResetPassword: false
 			}
@@ -245,6 +255,8 @@ describe('authCore email config mapping', () => {
 				emailAndPasswordEnabled: false,
 				disableSignUp: true,
 				requireEmailVerification: true,
+				changeEmailDisabled: false,
+				emailOtpChangeEmailDisabled: false,
 				hasEmailOtpPlugin: false,
 				hasSendResetPassword: false
 			}
@@ -257,7 +269,19 @@ describe('authCore email config mapping', () => {
 				requireEmailVerification?: boolean
 				sendResetPassword?: unknown
 			}
-			plugins?: Array<{ id?: string }>
+			user?: {
+				changeEmail?: {
+					enabled?: boolean
+				}
+			}
+			plugins?: Array<{
+				id?: string
+				options?: {
+					changeEmail?: {
+						enabled?: boolean
+					}
+				}
+			}>
 		}
 
 		return {
@@ -265,6 +289,10 @@ describe('authCore email config mapping', () => {
 			emailAndPasswordEnabled: Boolean(options?.emailAndPassword?.enabled),
 			disableSignUp: Boolean(options?.emailAndPassword?.disableSignUp),
 			requireEmailVerification: Boolean(options?.emailAndPassword?.requireEmailVerification),
+			changeEmailDisabled: options?.user?.changeEmail?.enabled === false,
+			emailOtpChangeEmailDisabled: options?.plugins?.some((plugin): boolean => {
+				return plugin.id === 'email-otp' && plugin.options?.changeEmail?.enabled === false
+			}) ?? false,
 			hasEmailOtpPlugin:
 				options?.plugins?.some((plugin: { id?: string }) => plugin.id === 'email-otp') ?? false,
 			hasSendResetPassword: typeof options?.emailAndPassword?.sendResetPassword === 'function'

@@ -13,14 +13,14 @@ order: 10
 ## 访问控制台
 
 1. 运行 `prepare-cloudflare`，保存首次成功初始化后打印的一次性管理员凭据。
-2. 登录后在 Account / Security 修改管理员邮箱和密码。
+2. 登录后在设置页修改自动生成的密码。
 3. 打开 `/{locale}/admin`，系统会跳转到 `/{locale}/admin/overview`。
 
 未登录用户会跳转到登录页。已登录账号没有 D1 `admin` 角色时返回 `403 Forbidden`。
 
 程序化客户端通过明确 scope 的 OAuth Grant 调用 API，不存在静态管理员 API Token。
 
-运行 `opc auth connect --name <project> --server <origin> --scopes <scope-list>`。CLI 显示授权 URL，已登录用户在浏览器审核并批准 Scope 后，CLI 通过 PKCE 自动取得 Token，并按连接名和服务地址隔离保存。`opc api request` 使用指定连接。用户在 Account / API Access 撤销 Grant 后，Access Token 和 Refresh Token 都立即失效。
+运行 `opc auth connect --name <project> --server <origin> --scopes <scope-list>`。CLI 显示授权 URL，已登录用户在浏览器审核并批准 Scope 后，CLI 通过 PKCE 自动取得 Token，并按连接名和服务地址隔离保存。`opc api request` 使用指定连接。设置页直接展示 Grant；撤销后 Access Token 和 Refresh Token 都立即失效。
 
 ## 页面
 
@@ -40,7 +40,7 @@ order: 10
 
 ## 管理系统设置
 
-打开“系统设置”，通过顶部水平 Tab 切换业务域。常规、认证、邮件、存储、积分和邀请各自只有一个显式保存表单。保存一个业务域后，后续新请求立即使用新配置；已经开始的操作继续使用启动时取得的快照。
+打开“系统设置”，通过顶部水平 Tab 切换业务域。常规、认证、邮件、积分、邀请、支付和 AI 各自只有一个显式保存表单。保存一个业务域后，后续新请求立即使用新配置；Storage 上传策略只由 ENV 提供，不在后台出现。已经开始的操作继续使用启动时取得的快照。
 
 修改字段只会把当前 Tab 标记为未保存。切换 Tab 或离开页面时必须选择“保存”“放弃”或“取消”。“保存”会先校验并持久化当前业务域再离开；“放弃”会恢复最近一次保存的值并离开；“取消”会停留在当前表单。系统没有草稿、发布、自动保存或跨域 Save All。
 

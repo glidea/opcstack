@@ -256,7 +256,7 @@ pnpm test:e2e
 pnpm test:e2e:first-run
 ```
 
-这个命令会对空本地 D1 执行两次准备，证明初始管理员密码只显示一次，然后启动真实 Worker 和 Web Server，通过 HTTP 修改管理员凭据，通过浏览器 Session 保存 General，通过 OAuth 保存 Storage，验证前台立即生效，撤销 Grant，最后运行完整本地 E2E。它不会读取当前项目的 secret 文件或本地数据库。
+这个命令会对空本地 D1 执行两次准备，证明初始管理员密码只显示一次，然后启动真实 Worker 和 Web Server，通过 HTTP 修改自动生成的密码，通过浏览器 Session 保存 General，通过 OAuth 读取 Credits，验证前台立即生效，撤销 Grant，最后运行完整本地 E2E。它不会读取当前项目的 secret 文件或本地数据库。
 
 远端 E2E：
 

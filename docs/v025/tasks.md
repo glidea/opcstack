@@ -28,25 +28,25 @@
 2. 运行配置内核测试，确认同一业务域读写、版本递增和过期版本冲突均符合设计
 3. 替换一个敏感值后检查 D1 只保存不同 IV 的密文，错误根密钥读取时明确失败且不泄露敏感内容
 
-# Task-002: 迁移 General 与 Storage 配置
+# Task-002: 迁移 General 配置并固定 Storage 策略
 
 ## 描述
-实现 General、Storage 配置契约和 Admin API，并将 Web 首屏、文档入口和 R2 上传限制切换到 D1。Design System 保留为构建与部署级 ENV，确保静态页面与 SSR 使用同一主题。
+实现 General 配置契约和 Admin API，将 Web 首屏与文档入口切换到 D1。Design System 与 R2 上传策略保留为构建与部署级 ENV，确保静态页面、SSR 和上传边界各自只有一个配置来源。
 
 ## 不包含
 - 不实现后台配置页面
 - 不迁移认证、邮件、支付或 AI 配置
 
 ## TODO 清单
-- [x] 1. 先增加配置 API、公开首屏快照和 R2 限制的失败测试
-- [x] 2. 实现 General、Storage API 契约、Handler、校验和按域版本更新
+- [x] 1. 先增加 General 配置 API、公开首屏快照和 ENV R2 限制的失败测试
+- [x] 2. 实现 General API 契约、Handler、校验和按域版本更新
 - [x] 3. 在 SvelteKit 请求中读取一次 `PublicRuntimeConfig` 并下发 General 字段
-- [x] 4. 将 R2 运行时读取切换到 Storage 快照
-- [x] 5. 删除 `DOCS_ENABLED` 和上传限制的 ENV、模板、生成字段及旧读取；保留 `DESIGN_SYSTEM` 为唯一主题来源
+- [x] 4. 将 R2 上传类型和大小限制收口到固定 ENV，删除 Storage D1 文档、API、Scope 和后台页面
+- [x] 5. 删除 `DOCS_ENABLED` 的 ENV 和旧读取；保留 `DESIGN_SYSTEM` 与 R2 上传策略为各自唯一 ENV 来源
 
 ## 验收测试步骤
-1. 调用 General 和 Storage 更新接口并携带返回 bookmark，确认随后读取立即得到新值
-2. 刷新页面确认文档入口按 D1 配置变化，上传接口按新的类型和大小限制校验
+1. 调用 General 更新接口并携带返回 bookmark，确认随后读取立即得到新值
+2. 刷新页面确认文档入口按 D1 配置变化，上传接口按 ENV 中的类型和大小限制校验
 3. 修改 `DESIGN_SYSTEM` 后重新构建，确认 SSR 与客户端使用同一主题且后台 General 不再提供主题字段
 
 # Task-003: 迁移 Authentication 与 Email 配置
@@ -92,23 +92,23 @@
 # Task-003B: 将管理员身份与首次凭据迁入 D1
 
 ## 描述
-删除长期 `SYSTEM_EMAIL` 和 `SUPER_ADMIN_PASSWORD` ENV。空库初始化时在 Meta D1 创建唯一管理员 `admin@opcstack.local`，随机生成一次性初始密码并只在当前终端显示一次；后续准备和部署不得重置管理员邮箱或密码。管理员身份由 D1 角色判断，后台 Account / Security 允许管理员修改邮箱和密码。
+删除长期 `SUPER_ADMIN_PASSWORD` ENV。`SYSTEM_EMAIL` 只作为空 Meta D1 的初始化输入，准备脚本用它创建唯一管理员并随机生成一次性初始密码；后续准备和部署不得重置管理员邮箱或密码。管理员身份由 D1 角色判断，设置页允许管理员修改密码，但不允许修改邮箱。
 
 ## 不包含
 - 不实现 OAuth API Access；程序化授权仍由 Task-007 负责
-- 不拆分管理员邮箱、支持邮箱和发件地址；当前三者统一读取唯一管理员邮箱
+- 不拆分管理员邮箱、支持邮箱和发件地址；当前三者统一读取初始化后固定的 D1 管理员邮箱
 
 ## TODO 清单
-- [x] 1. 先增加空库初始化、重复准备不重置、D1 管理员角色校验、修改邮箱和密码的失败测试
+- [x] 1. 先增加空库初始化、缺失邮箱、重复准备不重置、D1 管理员角色校验和修改密码的失败测试
 - [x] 2. 在 Better Auth 用户模型中持久化管理员角色，并将管理 API 从邮箱 ENV 比较切换为 D1 角色校验
-- [x] 3. 初始化缺失管理员时生成 `admin@opcstack.local` 和随机一次性密码，只显示一次并保证后续准备不覆盖凭据
-- [x] 4. 实现后台 Account / Security 页面，允许当前管理员修改邮箱和密码；邮件发送和公开支持邮箱读取管理员邮箱
-- [x] 5. 删除 `SYSTEM_EMAIL`、`SUPER_ADMIN_PASSWORD` 的 ENV、Worker var、准备脚本输入、生成配置和现有文档声明
+- [x] 3. 初始化缺失管理员时使用 `SYSTEM_EMAIL` 和随机一次性密码，只显示一次并保证后续准备不覆盖凭据
+- [x] 4. 设置页只允许修改密码，并展示 OAuth 登录账号关联和 API Access Grant 管理；邮件发送和公开支持邮箱读取 D1 管理员邮箱
+- [x] 5. 删除 `SUPER_ADMIN_PASSWORD` 和管理员邮箱修改 API；保留 `SYSTEM_EMAIL` 作为空库初始化的唯一输入
 
 ## 验收测试步骤
-1. 从空 Meta D1 运行准备流程，确认终端只在首次显示 `admin@opcstack.local` 和随机密码，并可用它登录后台
-2. 修改管理员邮箱和密码后再次运行准备流程，确认新凭据仍有效、初始凭据失效且没有再次显示密码
-3. 使用普通用户 Session 调用管理员 API 确认返回 `403`，管理员 Session 成功；使用 `@opcstack.local` 配置 Email Provider 应明确失败
+1. 从空 Meta D1 运行准备流程，确认缺失 `SYSTEM_EMAIL` 会失败，提供有效邮箱后终端只在首次显示该邮箱和随机密码，并可用它登录后台
+2. 修改管理员密码后再次运行准备流程，确认 D1 邮箱和新密码仍有效、初始密码失效且没有再次显示密码
+3. 使用普通用户 Session 调用管理员 API 确认返回 `403`，管理员 Session 成功
 
 # Task-004: 迁移 Credits 与 Affiliate 配置
 
@@ -222,7 +222,7 @@
 # Task-008: 实现基础 Configuration 管理界面
 
 ## 描述
-在后台增加单一 `Configuration` 入口和顶部水平业务 Tab，先实现 General、Authentication、Email、Storage、Credits、Affiliate 六个单例域。表单使用显式保存、脏状态切换拦截、启用后展开配置和字段级错误，不增加草稿或发布概念。
+在后台增加单一 `System Settings` 入口和顶部水平业务 Tab，实现 General、Authentication、Email、Credits、Affiliate、Payment、AI 七个单例域。Storage 策略属于固定 ENV，不在后台出现。表单使用显式保存、脏状态切换拦截、启用后展开配置和字段级错误，不增加草稿或发布概念。
 
 ## 不包含
 - 不实现 Payment Product 和 AI Provider 集合编辑
@@ -230,15 +230,15 @@
 
 ## TODO 清单
 - [x] 1. 用纯状态测试和真实浏览器测试覆盖路由、Tab、显式保存、脏状态、字段错误和冲突保留输入，删除读取 Svelte 源码并搜索字符串的弱测试
-- [x] 2. 实现 Configuration 布局、水平 Tab、默认重定向和 Admin 导航入口，并从管理员账号入口明确链接到 Account / Security
-- [x] 3. 完成 General、Authentication、Email、Storage、Credits、Affiliate 六个单例域表单，所有字段严格对应 API Contract，不保留旧 ENV 或页面私有配置模型
+- [x] 2. 实现 Configuration 布局、水平 Tab、默认重定向和 Admin 导航入口
+- [x] 3. 完成 General、Authentication、Email、Credits、Affiliate、Payment、AI 七个单例域表单；Storage 策略只保留 ENV，不存在第二份 D1 或 UI 配置
 - [x] 4. 完成 Secret 的 keep、replace、remove、待删除和撤销交互；浏览器永远不接收已保存明文、密文、IV 或伪掩码值
 - [x] 5. 完成脏状态固定操作栏和跨 Tab 离开确认；用户可选择保存后离开、放弃后离开或取消导航，保存失败时停留并保留输入
 - [x] 6. 完成保存成功 Toast、首个字段错误聚焦、`CONFIG_CONFLICT` 保留输入与刷新入口，并通过双页面并发更新验证冲突
 - [x] 7. 所有可关闭配置区默认收起、开启时展开、关闭时可独立展开预配置；完成 OAuth Callback URL 复制、英文 i18n、页面标题和 Admin Console 文档
 
 ## 验收测试步骤
-1. 登录后台进入 Configuration，逐个切换六个 Tab，确认路由稳定且当前业务域清晰
+1. 登录后台进入 System Settings，逐个切换七个 Tab，确认不存在 Storage Tab，路由稳定且当前业务域清晰
 2. 修改字段后切换 Tab，确认出现保存、放弃、取消选择；保存后刷新仍显示新值
 3. 开启缺少配置的功能并保存，确认字段旁显示可操作错误并聚焦首个错误；关闭后相关字段收起但可独立展开
 4. 用两个浏览器页面读取同一版本后依次保存，确认后保存页面显示冲突、保留输入且可刷新最新配置
@@ -276,10 +276,10 @@
 - 不让远程 E2E 部署、创建资源、执行迁移或直接写 D1
 
 ## TODO 清单
-- [x] 1. 补齐真实本地首次安装、六个 Configuration 单例域、Payment Product、AI Provider 和 OAuth API Access E2E；禁止用单测、构建、mock 或直接数据库写入替代用户流程
+- [x] 1. 补齐真实本地首次安装、七个 Configuration 单例域、Payment Product、AI Provider 和 OAuth API Access E2E；禁止用单测、构建、mock 或直接数据库写入替代用户流程
 - [x] 2. 更新 `CREATE_OPCSTACK_APP.md`、`QUICK_START.md`、README、模板文档、公开中英文文档和 `AGENTS.md`，统一初始化、首次后台配置、Provider 和 OAuth API Access 用户旅程
 - [x] 3. 清理 ENV 文件、Wrangler 模板、准备脚本、生成配置和文档中的全部旧业务配置残留
-- [x] 4. 从空本地数据通过真实浏览器验证初始密码只显示一次、管理员登录并修改邮箱和密码、按域保存、刷新持久化和前台立即生效
+- [x] 4. 从空本地数据通过真实浏览器验证初始密码只显示一次、管理员登录并修改密码、OAuth 账号关联与 API Access 内嵌管理、按域保存、刷新持久化和前台立即生效
 - [x] 5. 通过公开 HTTP 验证 `opc-cli` PKCE / 设备授权、获批 scope 调用、未获批 scope 拒绝、Grant 撤销后 Access / Refresh Token 失效和两个不同名称、不同地址连接的凭据互不覆盖
 - [x] 6. 修正并验证生产扩展 Host Permission；运行完整类型检查、单元测试、构建、配置准备、本地浏览器 E2E 和本地 HTTP E2E
 - [x] 7. 对真实已部署 Cloudflare 实例执行只通过公开页面和 HTTP API 的管理员 Session、配置读写立即生效、OAuth 授权调用与撤销验收；不得部署、迁移、创建资源或直写远程 D1
@@ -287,7 +287,7 @@
 - [x] 9. 将所有实际执行命令、目标地址、通过结果和无法执行的外部前置条件记录到验收文档；只有真实 Cloudflare 场景通过后才完成本任务
 
 ## 验收测试步骤
-1. 仅填写技术设计规定的固定资源 ENV，从空数据库启动项目，确认终端只显示一次初始凭据、可登录并修改管理员邮箱和密码，所有可选业务能力明确禁用
+1. 填写技术设计规定的固定 ENV 与初始化邮箱，从空数据库启动项目，确认终端只显示一次初始凭据、可登录并修改管理员密码，所有可选业务能力明确禁用
 2. 通过后台配置一个业务域并通过 OAuth Client 配置另一个业务域，确认保存后新请求立即生效且旧操作快照不变
 3. 按 `QUICK_START.md` 和 `CREATE_OPCSTACK_APP.md` 分别走本地与 Cloudflare 引导，确认没有要求填写已迁入 D1 的业务 ENV
 4. 全仓搜索旧 ENV、Agent 授权和兼容关键词，确认没有旧逻辑残留
@@ -351,3 +351,23 @@
 2. 确认配置页没有账号/安全重复入口，Worker 日志位于顶栏左侧首个操作
 3. 创建、编辑、归档通知并查看用户、积分、内测码、兑换码页面，确认技术字段和小徽标已移除且布局一致
 4. 从空本地数据执行 `pnpm test:e2e:first-run`，确认真实浏览器和 HTTP 验收通过
+
+# Task-014: 收口管理员账号与存储策略来源
+
+## 描述
+管理员邮箱只在空 Meta D1 初始化时由 `SYSTEM_EMAIL` 提供，后续不可从设置页或管理 API 修改。设置页直接管理 OAuth 关联账号、密码和 API Grant。存储上传策略改为固定 ENV，删除 D1、管理 API、Scope 和后台 Storage Tab 的第二来源。
+
+## TODO 清单
+- [x] 1. 首次准备强制校验 `SYSTEM_EMAIL`，创建唯一管理员并生成一次性随机密码；后续准备不覆盖现有账号
+- [x] 2. 删除管理员邮箱修改 API 和设置页表单，并在 Better Auth 与 Email OTP 中显式关闭邮箱修改
+- [x] 3. 将 OAuth 关联账号、解除关联和 API Grant 管理直接放入设置页，删除独立 API Access 子页面
+- [x] 4. 将上传 MIME 允许列表和最大上传大小迁至固定 ENV，删除 Storage D1 字段、API、Scope、后台 Tab 和旧测试
+- [x] 5. 重建预发布 Meta Migration，同步创建引导、技术设计、模板文档、公开文档和 `AGENTS.md`
+- [x] 6. 运行完整类型检查、单元测试、构建和真实本地首次运行 E2E，不部署线上
+
+## 验收测试步骤
+1. 从空 Meta D1 启动，确认缺少或填写非法 `SYSTEM_EMAIL` 时立即失败；填写合法邮箱后只在首次创建时输出随机密码
+2. 登录设置页，确认没有修改邮箱入口，可修改密码、关联或解除 OAuth 账号，并可查看或撤销 API Grant
+3. 打开 System Settings，确认不存在 Storage Tab；修改上传策略只能通过 ENV 并在重启或部署后生效
+4. 全仓搜索 Storage 动态配置和管理员邮箱修改契约，确认没有兼容路由、D1 字段或双重来源
+5. 执行 `pnpm test:e2e:first-run`，确认真实浏览器与 HTTP 流程通过且未触发线上部署

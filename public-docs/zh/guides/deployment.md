@@ -174,7 +174,7 @@ pnpm dev
 | `.env.prod` | 生产部署身份与资源拓扑 |
 | `.env` | 本地覆盖 |
 
-这些文件只包含 `APP_NAME`、`APP_VERSION`、域名、扩展 host permissions、D1 分片、R2 资源开关与生命周期、Queue 拓扑、Cron triggers 和 Durable Object 拓扑。认证、邮件、支付、AI、Credits、Affiliate 和 Storage 规则都不能写入这些文件。
+这些文件包含产品身份、`DESIGN_SYSTEM`、首次初始化用的 `SYSTEM_EMAIL`、域名、扩展 host permissions、D1 分片、R2 资源开关与上传策略、Queue 拓扑、Cron triggers 和 Durable Object 拓扑。运行时 Authentication、Email Provider、Payment、AI、Credits、Affiliate 和第三方凭据不能写入这些文件。
 
 加载顺序：
 
@@ -441,7 +441,7 @@ EXTENSION_HOST_PERMISSIONS=https://example.com/*
 2. 设置可选的 `APP_CN_DOMAIN` 和 `APP_CN_CNAME_TARGET`
 3. 运行 `pnpm deploy:cloudflare`
 4. 保存首次准备只显示一次的管理员凭据
-5. 登录已部署应用并修改管理员邮箱和密码
+5. 登录已部署应用并修改自动生成的管理员密码
 6. 在 Admin / Configuration 配置并启用所需业务域
 7. 在外部 Provider 登记页面显示的 OAuth Callback 和 Payment Webhook URL
 8. 对已部署应用运行 `pnpm test:e2e:remote`

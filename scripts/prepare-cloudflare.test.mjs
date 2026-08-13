@@ -24,19 +24,30 @@ import { resolveAppCnCnameTarget } from './prepare-public.mjs'
 
 describe('prepare cloudflare dns config', () => {
 	it('creates the initial administrator only when D1 has no administrator', () => {
-		const result = resolveAdministratorInitialization([], () => 'random-password')
+		const result = resolveAdministratorInitialization(
+			[],
+			'owner@example.com',
+			() => 'random-password'
+		)
 
 		expect(result).toEqual({
 			create: true,
-			email: 'admin@opcstack.local',
+			email: 'owner@example.com',
 			password: 'random-password'
 		})
+	})
+
+	it('requires a valid administrator email for first initialization', () => {
+		expect(() => resolveAdministratorInitialization([], '', () => 'random-password'))
+			.toThrow('INITIAL_ADMIN_EMAIL_REQUIRED')
+		expect(() => resolveAdministratorInitialization([], 'invalid', () => 'random-password'))
+			.toThrow('INITIAL_ADMIN_EMAIL_INVALID')
 	})
 
 	it('does not reset an existing administrator during another prepare', () => {
 		const result = resolveAdministratorInitialization([
 			{ id: 'admin-1', email: 'owner@example.com' }
-		], () => {
+		], '', () => {
 			throw new Error('password must not be generated')
 		})
 
@@ -50,7 +61,7 @@ describe('prepare cloudflare dns config', () => {
 	it('inserts an administrator role without an email upsert', () => {
 		const sql = buildInitialAdministratorInsertSql({
 			userId: 'admin-1',
-			email: 'admin@opcstack.local',
+			email: 'owner@example.com',
 			affCode: 'ADMIN001',
 			passwordHash: 'password-hash',
 			nowMs: 123
@@ -250,7 +261,7 @@ describe('prepare cloudflare configuration initialization', () => {
 		expect(sql).toContain('general_config')
 		expect(sql).not.toContain('designSystem')
 		expect(sql).toContain('authentication_config')
-		expect(sql).toContain('storage_config')
+		expect(sql).not.toContain('storage_config')
 		expect(sql).toContain('ON CONFLICT(id) DO NOTHING')
 		expect(sql).not.toContain('chatOpenai')
 		expect(sql).not.toContain('defaultModel')
@@ -260,6 +271,19 @@ describe('prepare cloudflare configuration initialization', () => {
 })
 
 describe('prepare cloudflare runtime config validation', () => {
+	it('accepts explicit R2 upload policy from ENV', () => {
+		expect(() => validateRuntimeConfig(createRuntimeEnv())).not.toThrow()
+	})
+
+	it('rejects invalid R2 upload policy', () => {
+		expect(() => validateRuntimeConfig(createRuntimeEnv({
+			R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: ''
+		}))).toThrow('R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES_INVALID')
+		expect(() => validateRuntimeConfig(createRuntimeEnv({
+			R2_USER_UPLOAD_MAX_BYTES: '0'
+		}))).toThrow('R2_USER_UPLOAD_MAX_BYTES_INVALID')
+	})
+
 	it('generates and then reuses local system secrets', () => {
 		const generated = resolveLocalSystemSecrets({}, () => Buffer.alloc(32, 7))
 		const reused = resolveLocalSystemSecrets(generated, () => Buffer.alloc(32, 8))
@@ -520,6 +544,8 @@ function createRuntimeEnv(overrides = {}) {
 		BETTER_AUTH_SECRET: 'auth-secret',
 		CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 		R2_ENABLED: 'false',
+		R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES: 'image/png;image/jpeg;image/webp',
+		R2_USER_UPLOAD_MAX_BYTES: '5242880',
 		R2_ORIGIN_SIGNING_SECRET: 'r2-secret',
 		...overrides
 	}

@@ -4,8 +4,7 @@ import {
 	PaymentProductSchema,
 	UpdateAuthenticationConfigRequestSchema,
 	UpdateEmailConfigRequestSchema,
-	UpdateGeneralConfigRequestSchema,
-	UpdateStorageConfigRequestSchema
+	UpdateGeneralConfigRequestSchema
 } from './configuration'
 
 describe('configuration contract', () => {
@@ -16,26 +15,6 @@ describe('configuration contract', () => {
 		})
 
 		expect(result.success).toBe(true)
-	})
-
-	test('rejects duplicate Storage content types', (): void => {
-		const result = UpdateStorageConfigRequestSchema.safeParse({
-			allowed_content_types: ['image/png', 'image/png'],
-			max_upload_bytes: 1024,
-			expected_version: 1
-		})
-
-		expect(result.success).toBe(false)
-	})
-
-	test('rejects an empty Storage content type list', (): void => {
-		const result = UpdateStorageConfigRequestSchema.safeParse({
-			allowed_content_types: [],
-			max_upload_bytes: 1024,
-			expected_version: 1
-		})
-
-		expect(result.success).toBe(false)
 	})
 
 	test('accepts a payment product linked to exactly one provider', (): void => {

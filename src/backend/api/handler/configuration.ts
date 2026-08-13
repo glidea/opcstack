@@ -12,7 +12,6 @@ import {
 	GetEmailConfigApi,
 	GetGeneralConfigApi,
 	GetPaymentConfigApi,
-	GetStorageConfigApi,
 	UpdateAIProviderApi,
 	UpdateAIConfigApi,
 	UpdateAuthenticationConfigApi,
@@ -22,7 +21,6 @@ import {
 	UpdateGeneralConfigApi,
 	UpdatePaymentConfigApi,
 	UpdatePaymentProductApi,
-	UpdateStorageConfigApi,
 	type AIProvider as AIProviderResponse,
 	type AIConfig as AIConfigResponse,
 	type AuthenticationConfig as AuthenticationConfigResponse,
@@ -31,8 +29,7 @@ import {
 	type EmailConfig as EmailConfigResponse,
 	type GeneralConfig as GeneralConfigResponse,
 	type PaymentConfig as PaymentConfigResponse,
-	type PaymentProduct as PaymentProductResponse,
-	type StorageConfig as StorageConfigResponse
+	type PaymentProduct as PaymentProductResponse
 } from '../../../api-contract/configuration'
 import {
 	ConfigStoreError,
@@ -41,19 +38,16 @@ import {
 	getCreditsConfig,
 	getEmailConfig,
 	getGeneralConfig,
-	getStorageConfig,
 	updateGeneralConfig,
 	updateAffiliateConfig,
 	updateAuthenticationConfig,
 	updateCreditsConfig,
 	updateEmailConfig,
-	updateStorageConfig,
 	type AuthenticationConfig,
 	type AffiliateConfig,
 	type CreditsConfig,
 	type EmailConfig,
-	type GeneralConfig,
-	type StorageConfig
+	type GeneralConfig
 } from '../../config'
 
 import {
@@ -218,41 +212,6 @@ export async function updateGeneralConfigHandler(ctx: Context<ApiEnv>): Promise<
 		return ctx.json(toGeneralConfigResponse(config) as GeneralConfigResponse)
 	} catch (error) {
 		return mapConfigurationError(ctx, error, 'general')
-	}
-}
-
-export async function getStorageConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const request = await parseRequest(ctx, GetStorageConfigApi.request)
-	if (!request.success) {
-		const error = GetStorageConfigApi.errors.INVALID_REQUEST(request.message)
-		return ctx.json(error.body, error.status)
-	}
-
-	try {
-		const config: StorageConfig = await getStorageConfig(ctx.get('metaDb'))
-		return ctx.json(toStorageConfigResponse(config) as StorageConfigResponse)
-	} catch (error) {
-		return mapConfigurationError(ctx, error, 'storage')
-	}
-}
-
-export async function updateStorageConfigHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const request = await parseRequest(ctx, UpdateStorageConfigApi.request)
-	if (!request.success) {
-		const error = UpdateStorageConfigApi.errors.INVALID_REQUEST(request.message)
-		return ctx.json(error.body, error.status)
-	}
-
-	try {
-		const config: StorageConfig = await updateStorageConfig(ctx.get('metaDb'), {
-			allowedContentTypes: request.data.allowed_content_types,
-			maxUploadBytes: request.data.max_upload_bytes,
-			expectedVersion: request.data.expected_version,
-			nowMs: Date.now()
-		})
-		return ctx.json(toStorageConfigResponse(config) as StorageConfigResponse)
-	} catch (error) {
-		return mapConfigurationError(ctx, error, 'storage')
 	}
 }
 
@@ -691,14 +650,6 @@ function toGeneralConfigResponse(config: GeneralConfig): GeneralConfigResponse {
 	}
 }
 
-function toStorageConfigResponse(config: StorageConfig): StorageConfigResponse {
-	return {
-		allowed_content_types: config.allowedContentTypes,
-		max_upload_bytes: config.maxUploadBytes,
-		version: config.version
-	}
-}
-
 function toAuthenticationConfigResponse(
 	config: AuthenticationConfig,
 	baseUrl: string
@@ -764,7 +715,7 @@ function parseConfigCreditAmount(raw: string): number {
 function mapConfigurationError(
 	ctx: Context<ApiEnv>,
 	error: unknown,
-	domain: 'general' | 'authentication' | 'email' | 'storage' | 'credits' | 'affiliate' | 'payment' | 'ai'
+	domain: 'general' | 'authentication' | 'email' | 'credits' | 'affiliate' | 'payment' | 'ai'
 ): Response {
 	if (!(error instanceof ConfigStoreError)) {
 		throw error

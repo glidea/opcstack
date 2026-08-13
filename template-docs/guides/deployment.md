@@ -173,7 +173,7 @@ Agent rule: do not read or print generated secret state or token caches.
 | `.env.prod` | Production deployment identity and resource topology |
 | `.env` | Local override |
 
-These files contain only `APP_NAME`, `APP_VERSION`, domains, extension host permissions, D1 shards, R2 resource switches and lifecycle, Queue topology, Cron triggers, and Durable Object topology. They never contain authentication, email, payment, AI, credits, affiliate, or storage-rule configuration.
+These files contain product identity, `DESIGN_SYSTEM`, the first-run `SYSTEM_EMAIL`, domains, extension host permissions, D1 shards, R2 resource switches and upload policy, Queue topology, Cron triggers, and Durable Object topology. They never contain runtime Authentication, Email Provider, Payment, AI, Credits, Affiliate, or third-party credential configuration.
 
 Load order:
 
@@ -440,7 +440,7 @@ Use the deployed `APP_DOMAIN` in production extension builds.
 2. Set optional `APP_CN_DOMAIN` and `APP_CN_CNAME_TARGET`
 3. Run `pnpm deploy:cloudflare`
 4. Retain the one-time administrator credentials printed by the first preparation
-5. Sign in to the deployed app and change the administrator email and password
+5. Sign in to the deployed app and change the generated administrator password
 6. Configure and enable required business domains in Admin / Configuration
 7. Register the displayed OAuth callback and payment webhook URLs with external providers
 8. Run `pnpm test:e2e:remote` against the deployed app

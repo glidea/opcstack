@@ -9,13 +9,11 @@ import {
 	getCreditsConfigHandler,
 	getEmailConfigHandler,
 	getGeneralConfigHandler,
-	getStorageConfigHandler,
 	updateAuthenticationConfigHandler,
 	updateAffiliateConfigHandler,
 	updateCreditsConfigHandler,
 	updateEmailConfigHandler,
-	updateGeneralConfigHandler,
-	updateStorageConfigHandler
+	updateGeneralConfigHandler
 } from './configuration'
 
 describe('configuration handlers', () => {
@@ -59,62 +57,6 @@ describe('configuration handlers', () => {
 			body: {
 				docs_enabled: false,
 				version: 2
-			}
-		})
-	})
-
-	test('reads Storage configuration', async (): Promise<void> => {
-		const response: Response = await getStorageConfigHandler(
-			createContext({}, createMetaDb({ row: createSettingsRow() }))
-		)
-
-		expect({ status: response.status, body: await response.json() }).toEqual({
-			status: 200,
-			body: {
-				allowed_content_types: ['image/png', 'image/jpeg', 'image/webp'],
-				max_upload_bytes: 5_242_880,
-				version: 1
-			}
-		})
-	})
-
-	test('rejects invalid Storage configuration before writing', async (): Promise<void> => {
-		const response: Response = await updateStorageConfigHandler(
-			createContext(
-				{
-					allowed_content_types: [],
-					max_upload_bytes: 1024,
-					expected_version: 1
-				},
-				createMetaDb({ row: createSettingsRow() })
-			)
-		)
-		const body: { code: string; message: string } = await response.json()
-
-		expect({ status: response.status, code: body.code }).toEqual({
-			status: 400,
-			code: 'INVALID_REQUEST'
-		})
-		expect(body.message).toContain('allowed_content_types')
-	})
-
-	test('returns conflict for a stale Storage version', async (): Promise<void> => {
-		const response: Response = await updateStorageConfigHandler(
-			createContext(
-				{
-					allowed_content_types: ['image/png'],
-					max_upload_bytes: 1024,
-					expected_version: 1
-				},
-				createMetaDb({ row: createSettingsRow(), updated: undefined })
-			)
-		)
-
-		expect({ status: response.status, body: await response.json() }).toEqual({
-			status: 409,
-			body: {
-				code: 'CONFIG_CONFLICT',
-				message: 'Configuration has changed'
 			}
 		})
 	})
@@ -369,8 +311,6 @@ function createSettingsRow(): SystemSettings {
 		authenticationUpdatedAt: 1000,
 		emailVersion: 1,
 		emailUpdatedAt: 1000,
-		storageVersion: 1,
-		storageUpdatedAt: 1000,
 		creditsVersion: 1,
 		creditsUpdatedAt: 1000,
 		affiliateVersion: 1,
@@ -394,10 +334,6 @@ function createSettingsRow(): SystemSettings {
 			emailConfig: {
 				provider: null,
 			resendApiKey: null
-		},
-		storageConfig: {
-			allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
-			maxUploadBytes: 5_242_880
 		},
 		creditsConfig: {
 			signupEnabled: false,

@@ -447,6 +447,22 @@ function renderTemplate(template, env) {
 }
 
 export function validateRuntimeConfig(env) {
+	const allowedContentTypes = String(env.R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES ?? '')
+		.split(';')
+		.map((value) => value.trim())
+	if (
+		allowedContentTypes.length === 0 ||
+		allowedContentTypes.some((value) => !/^[^/\s]+\/[^/\s]+$/.test(value)) ||
+		new Set(allowedContentTypes).size !== allowedContentTypes.length
+	) {
+		throw new Error('R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES_INVALID')
+	}
+
+	const maxUploadBytes = Number(env.R2_USER_UPLOAD_MAX_BYTES)
+	if (!Number.isSafeInteger(maxUploadBytes) || maxUploadBytes <= 0) {
+		throw new Error('R2_USER_UPLOAD_MAX_BYTES_INVALID')
+	}
+
 	const configuredSystemSecrets = SYSTEM_SECRET_KEYS.filter((key) => {
 		return String(env[key] ?? '').trim() !== ''
 	})
@@ -456,7 +472,6 @@ export function validateRuntimeConfig(env) {
 		}
 		validateConfigEncryptionKey(env.CONFIG_ENCRYPTION_KEY)
 	}
-
 }
 
 function validateConfigEncryptionKey(value) {
@@ -682,10 +697,6 @@ export function buildSystemSettingsInitializationSql(input) {
 		provider: null,
 		resendApiKey: null
 	}
-	const storageConfig = {
-		allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
-		maxUploadBytes: 5_242_880
-	}
 	const creditsConfig = {
 		signupEnabled: false,
 		signupAmount: 100_000_000,
@@ -718,9 +729,9 @@ export function buildSystemSettingsInitializationSql(input) {
 
 	return [
 		'INSERT INTO system_settings',
-		'(id, general_config, general_version, general_updated_at, authentication_config, authentication_version, authentication_updated_at, email_config, email_version, email_updated_at, storage_config, storage_version, storage_updated_at, credits_config, credits_version, credits_updated_at, affiliate_config, affiliate_version, affiliate_updated_at, payment_config, payment_version, payment_updated_at, ai_config, ai_version, ai_updated_at, created_at)',
+		'(id, general_config, general_version, general_updated_at, authentication_config, authentication_version, authentication_updated_at, email_config, email_version, email_updated_at, credits_config, credits_version, credits_updated_at, affiliate_config, affiliate_version, affiliate_updated_at, payment_config, payment_version, payment_updated_at, ai_config, ai_version, ai_updated_at, created_at)',
 		'VALUES',
-		`(1, ${sqlString(JSON.stringify(generalConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(authenticationConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(emailConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(storageConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(creditsConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(affiliateConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(paymentConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(aiConfig))}, 1, ${input.nowMs}, ${input.nowMs})`,
+		`(1, ${sqlString(JSON.stringify(generalConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(authenticationConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(emailConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(creditsConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(affiliateConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(paymentConfig))}, 1, ${input.nowMs}, ${sqlString(JSON.stringify(aiConfig))}, 1, ${input.nowMs}, ${input.nowMs})`,
 		'ON CONFLICT(id) DO NOTHING'
 	].join(' ')
 }
@@ -747,7 +758,7 @@ export function hashAdminPassword(password) {
 	return `${saltHex}:${digestHex}`
 }
 
-export function resolveAdministratorInitialization(administrators, createPassword) {
+export function resolveAdministratorInitialization(administrators, email, createPassword) {
 	if (administrators.length > 1) {
 		throw new Error('MULTIPLE_ADMINISTRATORS')
 	}
@@ -758,9 +769,16 @@ export function resolveAdministratorInitialization(administrators, createPasswor
 			email: String(administrators[0].email)
 		}
 	}
+	const normalizedEmail = String(email ?? '').trim().toLowerCase()
+	if (normalizedEmail === '') {
+		throw new Error('INITIAL_ADMIN_EMAIL_REQUIRED')
+	}
+	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+		throw new Error('INITIAL_ADMIN_EMAIL_INVALID')
+	}
 	return {
 		create: true,
-		email: 'admin@opcstack.local',
+		email: normalizedEmail,
 		password: createPassword()
 	}
 }
@@ -839,10 +857,11 @@ function readAdministrators(metaDbName, migrateFlag) {
 	return executions.flatMap((execution) => Array.isArray(execution.results) ? execution.results : [])
 }
 
-function syncAdministrator(metaDbName, migrateFlag, shards) {
+function syncAdministrator(metaDbName, migrateFlag, shards, email) {
 	const nowMs = Date.now()
 	const initialization = resolveAdministratorInitialization(
 		readAdministrators(metaDbName, migrateFlag),
+		email,
 		createInitialAdministratorPassword
 	)
 	let userId = initialization.id
@@ -893,7 +912,7 @@ function syncAdministrator(metaDbName, migrateFlag, shards) {
 		console.log('\nInitial administrator credentials')
 		console.log(`Email: ${initialization.email}`)
 		console.log(`Password: ${initialization.password}`)
-		console.log('Change both values after signing in. This password will not be shown again.\n')
+		console.log('Change the password after signing in. This password will not be shown again.\n')
 	}
 }
 
@@ -1791,7 +1810,7 @@ async function main() {
 
 
 	console.log('\nEnsuring administrator...')
-	syncAdministrator(metaDbName, migrateFlag, shards)
+	syncAdministrator(metaDbName, migrateFlag, shards, env.SYSTEM_EMAIL)
 
 	console.log('\nCloudflare app prepared\n')
 }

@@ -2,12 +2,11 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 
 const initialEmail: string = process.env['E2E_ADMIN_EMAIL'] ?? ''
 const initialPassword: string = process.env['E2E_ADMIN_PASSWORD'] ?? ''
-const nextEmail: string = process.env['E2E_NEW_ADMIN_EMAIL'] ?? ''
 const nextPassword: string = process.env['E2E_NEW_ADMIN_PASSWORD'] ?? ''
 
 test('completes the first-run administrator journey in the browser', async ({ browser }: { browser: Browser }): Promise<void> => {
 	test.setTimeout(600_000)
-	for (const value of [initialEmail, initialPassword, nextEmail, nextPassword]) {
+	for (const value of [initialEmail, initialPassword, nextPassword]) {
 		expect(value).not.toBe('')
 	}
 
@@ -18,14 +17,15 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await signIn(page, initialEmail, initialPassword)
 
 	await goToHydrated(page, '/en/settings')
-	await page.locator('#settings-email').fill(nextEmail)
-	await page.getByRole('button', { name: 'Change email', exact: true }).click()
-	await expect(page.getByText('Email changed.')).toBeVisible()
+	await expect(page.locator('#settings-email')).toHaveCount(0)
+	await expect(page.getByRole('heading', { name: 'Connected accounts', exact: true })).toBeVisible()
+	await expect(page.getByRole('heading', { name: 'API access', exact: true })).toBeVisible()
+	await expect(page).not.toHaveURL(/settings\/api-access/)
 
 	await page.locator('#current-password').fill(initialPassword)
 	await page.locator('#new-password').fill(nextPassword)
 	await page.getByRole('button', { name: 'Change password', exact: true }).click()
-	await expect(page.getByText('Password changed.')).toBeVisible()
+	await expect(page.getByText('Password changed', { exact: true })).toBeVisible()
 
 	await goToHydrated(page, '/en/admin/configuration/general')
 	const docsSwitch = page.locator('#configuration-docs-enabled')
@@ -89,7 +89,7 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await verifyAdminBetaCodes(page)
 	await verifyAdminCreditCodes(page)
 	await verifyAdminListLayout(page)
-	await verifyAdminUsers(page, nextEmail)
+	await verifyAdminUsers(page, initialEmail)
 	await verifyAdminNotifications(page)
 
 	await goToHydrated(page, '/en')
@@ -103,7 +103,7 @@ test('completes the first-run administrator journey in the browser', async ({ br
 
 	const changedContext: BrowserContext = await browser.newContext()
 	const changedPage: Page = await changedContext.newPage()
-	await signIn(changedPage, nextEmail, nextPassword)
+	await signIn(changedPage, initialEmail, nextPassword)
 	await goToHydrated(changedPage, '/en/admin/configuration/general')
 	await expect(changedPage.getByRole('heading', { name: 'System settings' })).toBeVisible()
 	await changedContext.close()
@@ -261,12 +261,13 @@ async function openConfigurationTab(page: Page, domain: string): Promise<void> {
 }
 
 async function verifyConfigurationTabs(page: Page): Promise<void> {
-	const domains: string[] = ['general', 'authentication', 'email', 'storage', 'credits', 'affiliate']
+	const domains: string[] = ['general', 'authentication', 'email', 'credits', 'affiliate']
 	for (const domain of domains) {
 		await openConfigurationTab(page, domain)
 		await expect(page).toHaveURL(new RegExp(`/admin/configuration/${domain}$`))
 		await expect(page.getByRole('heading', { name: 'System settings' })).toBeVisible()
 	}
+	await expect(page.locator('a[href="/en/admin/configuration/storage"]')).toHaveCount(0)
 
 	await goToHydrated(page, '/en/admin/configuration/authentication')
 	await expect(page.locator('#auth-beta-code')).toHaveCount(0)

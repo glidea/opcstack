@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3e454034-53f3-4103-946d-2c0ed4123fca",
+  "id": "17a94557-26f4-49a5-812d-04cda3ca814c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "aff_referrals": {
@@ -1565,27 +1565,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "storage_config": {
-          "name": "storage_config",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "storage_version": {
-          "name": "storage_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "storage_updated_at": {
-          "name": "storage_updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "credits_config": {
           "name": "credits_config",
           "type": "text",
@@ -1689,11 +1668,11 @@
         },
         "system_settings_versions_check": {
           "name": "system_settings_versions_check",
-          "value": "\"system_settings\".\"general_version\" >= 1 and \"system_settings\".\"authentication_version\" >= 1 and \"system_settings\".\"email_version\" >= 1 and \"system_settings\".\"storage_version\" >= 1 and \"system_settings\".\"credits_version\" >= 1 and \"system_settings\".\"affiliate_version\" >= 1 and \"system_settings\".\"payment_version\" >= 1 and \"system_settings\".\"ai_version\" >= 1"
+          "value": "\"system_settings\".\"general_version\" >= 1 and \"system_settings\".\"authentication_version\" >= 1 and \"system_settings\".\"email_version\" >= 1 and \"system_settings\".\"credits_version\" >= 1 and \"system_settings\".\"affiliate_version\" >= 1 and \"system_settings\".\"payment_version\" >= 1 and \"system_settings\".\"ai_version\" >= 1"
         },
         "system_settings_json_check": {
           "name": "system_settings_json_check",
-          "value": "json_valid(\"system_settings\".\"general_config\") and json_type(\"system_settings\".\"general_config\") = 'object' and json_valid(\"system_settings\".\"authentication_config\") and json_type(\"system_settings\".\"authentication_config\") = 'object' and json_valid(\"system_settings\".\"email_config\") and json_type(\"system_settings\".\"email_config\") = 'object' and json_valid(\"system_settings\".\"storage_config\") and json_type(\"system_settings\".\"storage_config\") = 'object' and json_valid(\"system_settings\".\"credits_config\") and json_type(\"system_settings\".\"credits_config\") = 'object' and json_valid(\"system_settings\".\"affiliate_config\") and json_type(\"system_settings\".\"affiliate_config\") = 'object' and json_valid(\"system_settings\".\"payment_config\") and json_type(\"system_settings\".\"payment_config\") = 'object' and json_valid(\"system_settings\".\"ai_config\") and json_type(\"system_settings\".\"ai_config\") = 'object'"
+          "value": "json_valid(\"system_settings\".\"general_config\") and json_type(\"system_settings\".\"general_config\") = 'object' and json_valid(\"system_settings\".\"authentication_config\") and json_type(\"system_settings\".\"authentication_config\") = 'object' and json_valid(\"system_settings\".\"email_config\") and json_type(\"system_settings\".\"email_config\") = 'object' and json_valid(\"system_settings\".\"credits_config\") and json_type(\"system_settings\".\"credits_config\") = 'object' and json_valid(\"system_settings\".\"affiliate_config\") and json_type(\"system_settings\".\"affiliate_config\") = 'object' and json_valid(\"system_settings\".\"payment_config\") and json_type(\"system_settings\".\"payment_config\") = 'object' and json_valid(\"system_settings\".\"ai_config\") and json_type(\"system_settings\".\"ai_config\") = 'object'"
         }
       }
     },

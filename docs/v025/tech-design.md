@@ -1,6 +1,6 @@
 # D1 动态配置系统技术设计
 
-> 状态：已确认，执行中
+> 状态：已实现，持续验收
 
 ## 1. 技术决策
 
@@ -12,13 +12,14 @@
 
 Source of Truth 必须严格单一：任何一项配置要么属于 ENV，要么属于 D1，不允许同时定义、覆盖、回退或同步。能在 Worker 连接 `META_DB` 后读取的运行时配置优先存入 D1。
 
-ENV 只保留在连接 `META_DB` 前必须确定的输入：
+ENV 只保留必须在部署、构建或空库初始化时确定的输入：
 
 - Cloudflare 资源和 Worker 绑定的部署拓扑，例如应用标识、域名、D1 Shard、Queue、Cron、R2 和 Durable Object
-- 初始化后保存在 D1 的唯一管理员身份和认证凭据
+- 空库首次创建唯一管理员所需的 `SYSTEM_EMAIL`；创建后管理员邮箱只以 D1 账号为准
+- 必须随部署固化的主题和 R2 上传策略
 - Chrome 扩展 Manifest 必须在构建时固化的字段，例如版本和 host permissions
 
-准备脚本在 D1 中不存在管理员时创建唯一 `admin` 角色账号，初始邮箱为 `admin@opcstack.local`，密码随机生成。凭据仅在首次创建成功后显示一次，后续准备不覆盖管理员邮箱或密码。管理员在 Account / Security 修改邮箱和密码；当前管理员邮箱同时作为公开支持邮箱与发件人地址。
+准备脚本在 D1 中不存在管理员时使用 `SYSTEM_EMAIL` 创建唯一 `admin` 角色账号，密码随机生成。凭据仅在首次创建成功后显示一次，后续准备不覆盖管理员邮箱或密码。设置页允许修改密码，不允许修改邮箱；D1 管理员邮箱同时作为公开支持邮箱与发件人地址。
 
 `BETTER_AUTH_SECRET`、`CONFIG_ENCRYPTION_KEY` 和 `R2_ORIGIN_SIGNING_SECRET` 不是用户配置项。准备脚本在项目首次初始化时直接生成具体随机值。本地将值写入 `.env.secret.dev` 作为固定本地 secret 状态；远程将值写入 Cloudflare Worker Secrets。后续启动和部署只复用，不覆盖。D1 已初始化但对应根密钥缺失时直接失败，不生成替代密钥。
 
@@ -28,6 +29,8 @@ ENV 只保留在连接 `META_DB` 前必须确定的输入：
 - 邮件提供商、外部 OAuth、Turnstile、支付和 AI 的运行时配置与凭据
 - AI Provider、模型、路由权重和价格系数
 - Web 端需要的动态公开配置
+
+`DESIGN_SYSTEM`、`R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` 和 `R2_USER_UPLOAD_MAX_BYTES` 只属于 ENV。修改它们需要重新构建或部署，不在 D1、Admin API 或后台页面保留第二份配置。
 
 理由：
 
@@ -431,7 +434,6 @@ Access Token 到期后，CLI 使用 Refresh Token 换取新 Token。此时 Refre
 /admin/configuration/general
 /admin/configuration/authentication
 /admin/configuration/email
-/admin/configuration/storage
 /admin/configuration/credits
 /admin/configuration/affiliate
 /admin/configuration/payment
@@ -445,7 +447,7 @@ Access Token 到期后，CLI 使用 Refresh Token 换取新 Token。此时 Refre
 ```text
 Configuration
 ┌───────────────────────────────────────────────────────┐
-│ General  Authentication  Email  Storage  Credits ...  │
+│ General  Authentication  Email  Credits  Affiliate ... │
 ├───────────────────────────────────────────────────────┤
 │ AI                                                    │
 │                                                       │
@@ -559,7 +561,7 @@ Providers                                    [Add provider]
 根据现有运行时配置，顶部 Tab 建议固定为：
 
 ```text
-General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
+General | Authentication | Email | Credits | Affiliate | Payment | AI
 ```
 
 | Tab | 配置内容 |
@@ -567,13 +569,12 @@ General | Authentication | Email | Storage | Credits | Affiliate | Payment | AI
 | `General` | 公开文档等可完整动态生效的全局产品行为 |
 | `Authentication` | 注册策略、邮箱验证、域名白名单、Turnstile、Beta Gate 和外部登录方式 |
 | `Email` | 邮件提供商及其运行凭据 |
-| `Storage` | R2 业务开关、用户上传类型和大小限制 |
 | `Credits` | 注册奖励、每日签到和流水保留规则 |
 | `Affiliate` | 邀请奖励规则 |
 | `Payment` | 支付开关、提供商路由、测试模式、凭据和 Webhook |
 | `AI` | 路由权重和任务保留期；Provider 执行端点与模型在独立 AI Providers 页面 |
 
-这些 Tab 只呈现 D1 权威的运行时业务配置。应用域名、D1 Shards、Queue、Cron、R2 Bucket 与生命周期规则等部署拓扑继续只属于 ENV 和部署流程，不在后台以只读或可编辑字段重复展示。
+这些 Tab 只呈现 D1 权威的运行时业务配置。应用域名、D1 Shards、Queue、Cron、R2 Bucket、上传策略与生命周期规则等固定行为继续只属于 ENV 和部署流程，不在后台以只读或可编辑字段重复展示。
 
 ### 1.18 完整配置归属清单
 
@@ -618,16 +619,11 @@ Cloudflare 部署始终准备 Turnstile Widget，并把远程凭据写入默认�
 | Delivery provider | `emailConfig.provider` | Select：未配置 / `cloudflare` / `resend` |
 | Resend API key | `emailConfig.resendApiKey` | 密钥替换控件 |
 
-管理员邮箱在 Account / Security 编辑，不属于 Configuration 业务配置。它同时承担管理员登录、公开支持邮箱和发件人地址；仍为 `admin@opcstack.local` 时禁止配置 Email Provider。
+管理员邮箱由空库初始化时的 `SYSTEM_EMAIL` 确定，不属于 Configuration 业务配置，也不提供运行时修改入口。它同时承担管理员登录、公开支持邮箱和发件人地址，因此生产首次初始化必须提供真实且可用于邮件发送的地址。
 
 #### Storage
 
-| 目标配置 | D1 字段 | UI 控件 |
-| --- | --- | --- |
-| Allowed user upload MIME types | `storageConfig.allowedContentTypes` | 可增删的 MIME type 列表 |
-| Maximum user upload bytes | `storageConfig.maxUploadBytes` | Number input，UI 同时显示换算后的 MB |
-
-`R2_ENABLED` 决定是否创建 Bucket 和 Worker Binding，`R2_TMP_LIFECYCLE_RULES` 修改 Cloudflare Bucket 生命周期，两者都属于固定部署拓扑。`R2_ORIGIN_SIGNING_SECRET` 是准备脚本自动生成的 Worker 内部签名根密钥，不是业务配置。Storage Tab 不展示这三个值。
+Storage 不属于动态配置域。`R2_ENABLED`、`R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES`、`R2_USER_UPLOAD_MAX_BYTES` 和 `R2_TMP_LIFECYCLE_RULES` 全部由 ENV 决定；`R2_ORIGIN_SIGNING_SECRET` 由准备脚本生成。后台、D1 和 OAuth Scope Registry 不存在 Storage 配置副本。
 
 #### Credits
 
@@ -907,7 +903,7 @@ flowchart TB
     BusinessApi["Hono business APIs"]
     Authz["Identity + role + OAuth scope"]
     Config["Runtime configuration component"]
-    Runtime["Auth / Email / Storage / Credits<br/>Affiliate / Payment / AI"]
+    Runtime["Auth / Email / Credits<br/>Affiliate / Payment / AI"]
     Jobs["Queue consumers + Cron jobs"]
   end
 
@@ -996,7 +992,6 @@ Browser Session or OAuth Bearer Token
 | General | `POST /api/admin/get_general_config` | `POST /api/admin/update_general_config` | `config:general:read` / `config:general:write` |
 | Authentication | `POST /api/admin/get_authentication_config` | `POST /api/admin/update_authentication_config` | `config:authentication:read` / `config:authentication:write` |
 | Email | `POST /api/admin/get_email_config` | `POST /api/admin/update_email_config` | `config:email:read` / `config:email:write` |
-| Storage | `POST /api/admin/get_storage_config` | `POST /api/admin/update_storage_config` | `config:storage:read` / `config:storage:write` |
 | Credits | `POST /api/admin/get_credits_config` | `POST /api/admin/update_credits_config` | `config:credits:read` / `config:credits:write` |
 | Affiliate | `POST /api/admin/get_affiliate_config` | `POST /api/admin/update_affiliate_config` | `config:affiliate:read` / `config:affiliate:write` |
 | Payment | `POST /api/admin/get_payment_config` | `POST /api/admin/update_payment_config` | `config:payment:read` / `config:payment:write` |
@@ -1029,7 +1024,7 @@ flowchart LR
   Callback["GET /api/oauth/authorization_callback"]
   Poll["POST /api/oauth/poll_authorization"]
   Token["POST /api/auth/oauth2/token"]
-  Settings["GET /{locale}/settings/api-access"]
+  Settings["GET /{locale}/settings"]
   Grants["POST /api/oauth/list_grants<br/>POST /api/oauth/revoke_grant"]
 
   CLI --> Create
@@ -1064,7 +1059,6 @@ Better Auth OAuth Provider 继续签发 Access Token 和 Refresh Token。目标�
 /{locale}/admin/configuration/general
 /{locale}/admin/configuration/authentication
 /{locale}/admin/configuration/email
-/{locale}/admin/configuration/storage
 /{locale}/admin/configuration/credits
 /{locale}/admin/configuration/affiliate
 /{locale}/admin/configuration/payment
@@ -1206,7 +1200,7 @@ sequenceDiagram
   Prepare->>Meta: Apply Meta migrations
   Prepare->>Meta: INSERT initial system_settings only when missing<br/>(all switches disabled, encrypted Turnstile credentials, domain versions=1)
   Prepare->>Meta: UPSERT OAuth public client(client_id="opc-cli")
-  Prepare->>Meta: INSERT administrator(role=admin, email=admin@opcstack.local, random password) only when absent
+  Prepare->>Meta: INSERT administrator(role=admin, email=SYSTEM_EMAIL, random password) only when absent
   Prepare-->>Skill: Initialization completed + one-time credentials when created
   Skill-->>User: Local or Cloudflare application URL
   User->>Web: GET /{locale}/login
@@ -1242,7 +1236,7 @@ sequenceDiagram
   -> 启动本地实例或部署 Cloudflare 实例
   -> Migration 写入明确禁用的 D1 初始配置
   -> 终端首次显示一次性管理员邮箱和密码
-  -> 用户登录并在 Account / Security 修改凭据
+  -> 用户登录并在 Settings 修改随机密码
   -> 选择下一步
        - Build a feature
        - Configure application
@@ -1556,7 +1550,7 @@ erDiagram
 | `<domain>_updated_at` | INTEGER | NOT NULL |
 | `created_at` | INTEGER | NOT NULL |
 
-`<domain>` 固定为 `general`、`authentication`、`email`、`storage`、`credits`、`affiliate`、`payment`、`ai`。整表共 26 列，不增加全局 `updated_at`，因为它会制造与业务域更新时间重复的状态源。
+`<domain>` 固定为 `general`、`authentication`、`email`、`credits`、`affiliate`、`payment`、`ai`。整表共 23 列，不增加全局 `updated_at`，因为它会制造与业务域更新时间重复的状态源。
 
 #### 领域文档
 
@@ -1567,7 +1561,6 @@ erDiagram
 | Authentication | `turnstile.{enabled,siteKey,secretKey}` | 启用时 site key 和加密 secret 完整存在 |
 | Authentication | `providers.{google,github,linuxdo}.{enabled,clientId,clientSecret}` | 启用时 client id 和加密 secret 完整存在 |
 | Email | `provider`、`resendApiKey` | Provider 为 `null` / `cloudflare` / `resend`；Resend 配置时密钥完整存在 |
-| Storage | `allowedContentTypes`、`maxUploadBytes` | 类型非空唯一；字节数为正整数 |
 | Credits | `signupEnabled`、`signupAmount`、`dailyCheckinEnabled`、`dailyCheckinAmount`、`historyRetentionDays` | 金额为非负整数 units；保留天数 `> 0` |
 | Affiliate | `enabled`、`inviterCreditAmount`、`inviteeCreditAmount` | 金额为非负整数 units |
 | Payment | `enabled`、`defaultProvider`、`providerCountryOverrides` | Provider 为 `dodo` / `creem`；country 唯一 ISO alpha-2 |
@@ -1588,12 +1581,12 @@ Migration 写入可见、可编辑的明确值，而不是运行时代码默认�
 
 - 所有业务功能和 AI Provider 开关为 `false`
 - `docs_enabled = true`；Design System 由 `DESIGN_SYSTEM` ENV 决定
-- 上传类型为当前三种图片 MIME，最大 5 MiB
+- 上传类型和大小不写入 Migration，由固定 ENV 提供
 - Credits 和 Affiliate 金额保留当前模板值，但对应开关关闭
 - Payment Provider 为空，Country overrides 为空，测试模式为 `true`
 - AI 路由权重为 `1 / 0.8 / 0.2`，任务保留 30 天，Provider 集合为空
 - 本地写入 Cloudflare Turnstile 测试凭据；生产写入准备流程创建的 Widget 凭据；`turnstile_enabled = false`
-- 八个业务域版本均为 `1`
+- 七个业务域版本均为 `1`
 
 ### 4.4 `payment_products`
 
@@ -1732,7 +1725,6 @@ type SecretMutation =
 | General | `POST /api/admin/get_general_config` | `POST /api/admin/update_general_config` | `config:general:read` / `config:general:write` |
 | Authentication | `POST /api/admin/get_authentication_config` | `POST /api/admin/update_authentication_config` | `config:authentication:read` / `config:authentication:write` |
 | Email | `POST /api/admin/get_email_config` | `POST /api/admin/update_email_config` | `config:email:read` / `config:email:write` |
-| Storage | `POST /api/admin/get_storage_config` | `POST /api/admin/update_storage_config` | `config:storage:read` / `config:storage:write` |
 | Credits | `POST /api/admin/get_credits_config` | `POST /api/admin/update_credits_config` | `config:credits:read` / `config:credits:write` |
 | Affiliate | `POST /api/admin/get_affiliate_config` | `POST /api/admin/update_affiliate_config` | `config:affiliate:read` / `config:affiliate:write` |
 | Payment | `POST /api/admin/get_payment_config` | `POST /api/admin/update_payment_config` | `config:payment:read` / `config:payment:write` |
@@ -1743,7 +1735,6 @@ type SecretMutation =
 | Domain | Read / update response | Update request |
 | --- | --- | --- |
 | General | `{docs_enabled, version}` | `{docs_enabled, expected_version}` |
-| Storage | `{allowed_content_types: string[], max_upload_bytes: integer, version}` | 同字段加 `expected_version` |
 | Credits | `{signup_enabled, signup_amount: decimal string, daily_checkin_enabled, daily_checkin_amount: decimal string, history_retention_days, version}` | 同字段加 `expected_version` |
 | Affiliate | `{enabled, inviter_credit_amount: decimal string, invitee_credit_amount: decimal string, version}` | 同字段加 `expected_version` |
 
@@ -1926,7 +1917,7 @@ Token Response 为标准 `{access_token, refresh_token, token_type:'Bearer', exp
 | `payment:write` | `POST /api/create_payment_checkout`、`POST /api/cancel_subscription`、`POST /api/upgrade_subscription` |
 | `admin:overview:read` | `POST /api/admin/get_overview` |
 | `admin:users:read` | `POST /api/admin/list_users` |
-| `admin:users:write` | `POST /api/admin/update_administrator_email` |
+| `admin:users:write` | `POST /api/admin/grant_credits` 等用户管理写操作 |
 | `admin:beta:read` | `POST /api/admin/list_beta_codes` |
 | `admin:beta:write` | `POST /api/admin/generate_beta_codes` |
 | `admin:credits:read` | `POST /api/admin/list_credit_codes` |

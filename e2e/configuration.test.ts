@@ -6,12 +6,6 @@ type GeneralConfig = {
 	version: number
 }
 
-type StorageConfig = {
-	allowed_content_types: string[]
-	max_upload_bytes: number
-	version: number
-}
-
 type SecretMutation = { action: 'keep' } | { action: 'remove' }
 
 type AuthenticationConfig = {
@@ -55,11 +49,9 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 		adminSessionCookie = await getAdminSessionCookie(appBaseUrl)
 	})
 
-	test('saved General and Storage configuration affects the next operation', async (): Promise<void> => {
+	test('saved General configuration affects the next operation', async (): Promise<void> => {
 		const originalGeneral: GeneralConfig = await readConfig<GeneralConfig>('get_general_config')
-		const originalStorage: StorageConfig = await readConfig<StorageConfig>('get_storage_config')
 		let generalVersion: number = originalGeneral.version
-		let storageVersion: number = originalStorage.version
 		try {
 			const generalResponse: Response = await callAdminConfig('update_general_config', {
 				docs_enabled: false,
@@ -85,42 +77,10 @@ describe.skipIf(remote)('dynamic configuration e2e', () => {
 			})
 			expect(docsResponse.status).toBe(404)
 
-			const storageResponse: Response = await callAdminConfig('update_storage_config', {
-				allowed_content_types: ['text/plain'],
-				max_upload_bytes: 4,
-				expected_version: storageVersion
-			})
-			const savedStorage: StorageConfig = await readJson<StorageConfig>(storageResponse)
-			storageVersion = savedStorage.version
-			const storageBookmark: string = requireBookmark(storageResponse)
-
-			const uploadResponse: Response = await fetch(
-				`${appBaseUrl}/api/admin/r2/public/e2e/configuration.txt`,
-				{
-					method: 'PUT',
-					headers: {
-						cookie: adminSessionCookie,
-						'content-type': 'text/plain',
-						'content-length': '5',
-						'x-d1-meta-bookmark': storageBookmark
-					},
-					body: '12345'
-				}
-			)
-			const uploadPayload: { code?: string } = await uploadResponse.json()
-			expect({ status: uploadResponse.status, code: uploadPayload.code }).toEqual({
-				status: 400,
-				code: 'R2_USER_UPLOAD_SIZE_TOO_LARGE'
-			})
 		} finally {
 			await callAdminConfig('update_general_config', {
 				docs_enabled: originalGeneral.docs_enabled,
 				expected_version: generalVersion
-			})
-			await callAdminConfig('update_storage_config', {
-				allowed_content_types: originalStorage.allowed_content_types,
-				max_upload_bytes: originalStorage.max_upload_bytes,
-				expected_version: storageVersion
 			})
 		}
 	})

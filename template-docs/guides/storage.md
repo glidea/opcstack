@@ -129,8 +129,8 @@ const upload = await apiClient.uploadR2PublicObject({
 The upload API enforces the real rules:
 
 - Upload paths cannot contain `..`
-- `Content-Length` is required and must not exceed the Storage domain `max_upload_bytes`
-- `Content-Type` must be listed in the Storage domain `allowed_content_types`
+- `Content-Length` is required and must not exceed `R2_USER_UPLOAD_MAX_BYTES`
+- `Content-Type` must be listed in `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES`
 - User uploads may only write `private/<userId>/*` or `tmp/private/<userId>/*`
 - Admin public uploads write `public/*`
 
@@ -250,12 +250,12 @@ The main storage settings are:
 | Key | Purpose |
 | --- | --- |
 | `R2_ENABLED` | Enables R2 provisioning and binding |
-| Storage `allowed_content_types` | Upload MIME allowlist saved in Meta D1 |
-| Storage `max_upload_bytes` | Max user upload size saved in Meta D1 |
+| `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES` | Semicolon-separated upload MIME allowlist |
+| `R2_USER_UPLOAD_MAX_BYTES` | Maximum upload size in bytes |
 | `R2_TMP_LIFECYCLE_RULES` | Temporary object deletion rules |
 | `R2_ORIGIN_SIGNING_SECRET` | Signs internal image origin reads |
 
-`prepare-cloudflare` creates the bucket, configures the Worker binding, syncs temporary lifecycle rules, and writes generated runtime config.
+Storage policy is fixed deployment configuration. Edit `.env.dev` or `.env.prod`, then restart or redeploy. There is no Storage configuration in Meta D1 or the admin console. `prepare-cloudflare` validates the policy, creates the bucket, configures the Worker binding, syncs temporary lifecycle rules, and writes generated runtime config.
 
 ## Common Mistakes
 

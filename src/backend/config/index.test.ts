@@ -8,13 +8,11 @@ import {
 	getCreditsConfig,
 	getEmailConfig,
 	getPublicRuntimeConfig,
-	getStorageConfig,
 	readSystemSettingsSnapshot,
 	updateAuthenticationConfig,
 	updateAffiliateConfig,
 	updateCreditsConfig,
 	updateEmailConfig,
-	updateStorageConfig,
 	updateSystemSettingsDomain
 } from './index'
 
@@ -319,20 +317,6 @@ describe('system configuration store', () => {
 		})
 	})
 
-	it('rejects configuring Email while the administrator uses the local address', async (): Promise<void> => {
-		const db: MetaDb = createConfigDb({ row: createSettingsRow(1) })
-
-		await expect(updateEmailConfig(db, TEST_ENCRYPTION_KEY, {
-			provider: 'cloudflare',
-			resendApiKey: { action: 'keep' },
-			expectedVersion: 1,
-			nowMs: 2000
-		})).rejects.toEqual(new ConfigStoreError(
-			'INVALID_UPDATE',
-			'Administrator email must be changed before configuring an Email provider'
-		))
-	})
-
 	it('rejects requiring email verification without an Email provider', async (): Promise<void> => {
 		let writes: number = 0
 		const db: MetaDb = createConfigDb({
@@ -361,50 +345,6 @@ describe('system configuration store', () => {
 			'Email provider is required when email verification is enabled'
 		))
 		expect(writes).toBe(0)
-	})
-
-	it('reads Storage as a validated operation snapshot', async (): Promise<void> => {
-		const db: MetaDb = createConfigDb({ row: createSettingsRow(1) })
-
-		const result = await getStorageConfig(db)
-
-		expect(result).toEqual({
-			allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
-			maxUploadBytes: 5_242_880,
-			version: 1
-		})
-	})
-
-	it('rejects invalid Storage data read from D1', async (): Promise<void> => {
-		const row: SystemSettings = createSettingsRow(1)
-		row.storageConfig.allowedContentTypes = ['image/png', 'image/png']
-		const db: MetaDb = createConfigDb({ row })
-
-		await expect(getStorageConfig(db)).rejects.toEqual(
-			new ConfigStoreError('SETTINGS_INVALID', 'Storage settings are invalid')
-		)
-	})
-
-	it('updates Storage as one versioned domain', async (): Promise<void> => {
-		const updated: SystemSettings = createSettingsRow(1, 2)
-		updated.storageConfig = {
-			allowedContentTypes: ['text/plain'],
-			maxUploadBytes: 1024
-		}
-		const db: MetaDb = createConfigDb({ row: createSettingsRow(1), updated })
-
-		const result = await updateStorageConfig(db, {
-			allowedContentTypes: ['text/plain'],
-			maxUploadBytes: 1024,
-			expectedVersion: 1,
-			nowMs: 2000
-		})
-
-		expect(result).toEqual({
-			allowedContentTypes: ['text/plain'],
-			maxUploadBytes: 1024,
-			version: 2
-		})
 	})
 
 	it('reads Credits and Affiliate as validated operation snapshots', async (): Promise<void> => {
@@ -516,7 +456,7 @@ function createConfigDb(input: ConfigDbInput): MetaDb {
 	} as unknown as MetaDb
 }
 
-function createSettingsRow(generalVersion: number, storageVersion: number = 1): SystemSettings {
+function createSettingsRow(generalVersion: number): SystemSettings {
 	return {
 		id: 1,
 		generalVersion,
@@ -525,8 +465,6 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 		authenticationUpdatedAt: 1000,
 		emailVersion: 1,
 		emailUpdatedAt: 1000,
-		storageVersion,
-		storageUpdatedAt: 1000,
 		creditsVersion: 1,
 		creditsUpdatedAt: 1000,
 		affiliateVersion: 1,
@@ -550,10 +488,6 @@ function createSettingsRow(generalVersion: number, storageVersion: number = 1): 
 		emailConfig: {
 			provider: null,
 			resendApiKey: null
-		},
-		storageConfig: {
-			allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
-			maxUploadBytes: 5_242_880
 		},
 		creditsConfig: {
 			signupEnabled: false,

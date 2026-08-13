@@ -7,12 +7,6 @@ type GeneralConfig = {
 	version: number
 }
 
-type StorageConfig = {
-	allowed_content_types: string[]
-	max_upload_bytes: number
-	version: number
-}
-
 type OAuthGrant = {
 	id: string
 	scopes: string[]
@@ -24,14 +18,13 @@ export async function verifyConfigurationAndOAuthJourney(input: {
 	appBaseUrl: string
 	cookies: CookieJar
 }): Promise<void> {
-	const scopes: string[] = ['config:storage:read', 'config:storage:write']
+	const scopes: string[] = ['config:credits:read']
 	const originalGeneral: GeneralConfig = await callAdmin<GeneralConfig>(
 		input,
 		'get_general_config',
 		{}
 	)
 	let generalVersion: number = originalGeneral.version
-	let storageVersion: number | undefined
 	let grantId: string | undefined
 	let token: OAuthTokenSet | undefined
 	try {
@@ -58,15 +51,13 @@ export async function verifyConfigurationAndOAuthJourney(input: {
 			cookies: input.cookies,
 			scopes
 		})
-		const storageResponse: Response = await callOAuthRaw(
+		const creditsResponse: Response = await callOAuthRaw(
 			input.appBaseUrl,
 			token.access_token,
-			'get_storage_config',
+			'get_credits_config',
 			{}
 		)
-		expect(storageResponse.status, await storageResponse.clone().text()).toBe(200)
-		const originalStorage: StorageConfig = await readJson<StorageConfig>(storageResponse)
-		storageVersion = originalStorage.version
+		expect(creditsResponse.status, await creditsResponse.clone().text()).toBe(200)
 		const forbiddenResponse: Response = await callOAuthRaw(
 			input.appBaseUrl,
 			token.access_token,
@@ -78,21 +69,6 @@ export async function verifyConfigurationAndOAuthJourney(input: {
 			code: 'FORBIDDEN',
 			message: 'Required API scope is missing'
 		})
-		const updateStorageResponse: Response = await callOAuthRaw(
-			input.appBaseUrl,
-			token.access_token,
-			'update_storage_config',
-			{
-				allowed_content_types: originalStorage.allowed_content_types,
-				max_upload_bytes: originalStorage.max_upload_bytes + 1,
-				expected_version: storageVersion
-			}
-		)
-		expect(updateStorageResponse.status).toBe(200)
-		const savedStorage: StorageConfig = await readJson<StorageConfig>(updateStorageResponse)
-		storageVersion = savedStorage.version
-		expect(savedStorage.max_upload_bytes).toBe(originalStorage.max_upload_bytes + 1)
-
 		const grantsResponse: Response = await fetch(`${input.appBaseUrl}/api/oauth/list_grants`, {
 			method: 'POST',
 			headers: browserHeaders(input.appBaseUrl, input.cookies),
@@ -117,7 +93,7 @@ export async function verifyConfigurationAndOAuthJourney(input: {
 		const revokedAccessResponse: Response = await callOAuthRaw(
 			input.appBaseUrl,
 			token.access_token,
-			'get_storage_config',
+			'get_credits_config',
 			{}
 		)
 		expect(revokedAccessResponse.status).toBe(401)
@@ -133,20 +109,6 @@ export async function verifyConfigurationAndOAuthJourney(input: {
 		})
 		expect(refreshResponse.ok).toBe(false)
 	} finally {
-		if (storageVersion !== undefined) {
-			const currentStorage: StorageConfig = await callAdmin<StorageConfig>(
-				input,
-				'get_storage_config',
-				{}
-			)
-			if (currentStorage.version === storageVersion) {
-				await callAdmin<StorageConfig>(input, 'update_storage_config', {
-					allowed_content_types: currentStorage.allowed_content_types,
-					max_upload_bytes: currentStorage.max_upload_bytes - 1,
-					expected_version: currentStorage.version
-				})
-			}
-		}
 		await callAdmin<GeneralConfig>(input, 'update_general_config', {
 			docs_enabled: originalGeneral.docs_enabled,
 			expected_version: generalVersion

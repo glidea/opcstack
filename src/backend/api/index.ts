@@ -58,7 +58,7 @@ import {
 	listAdminAiTasksHandler
 } from './handler/admin-ai-tasks'
 import { getAdminOverviewHandler } from './handler/admin-overview'
-import { listAdminUsersHandler, updateAdministratorEmailHandler } from './handler/admin-users'
+import { listAdminUsersHandler } from './handler/admin-users'
 import {
 	createAIProviderHandler,
 	createPaymentProductHandler,
@@ -71,7 +71,6 @@ import {
 	getEmailConfigHandler,
 	getGeneralConfigHandler,
 	getPaymentConfigHandler,
-	getStorageConfigHandler,
 	updateAIProviderHandler,
 	updateAIConfigHandler,
 	updateAuthenticationConfigHandler,
@@ -81,7 +80,6 @@ import {
 	updateGeneralConfigHandler,
 	updatePaymentConfigHandler,
 	updatePaymentProductHandler,
-	updateStorageConfigHandler
 } from './handler/configuration'
 import { authCore } from './auth'
 import { logError } from '../lib/log'
@@ -163,7 +161,6 @@ authOnlyApi.post(
 const adminApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 adminApi.use('/admin/*', authMiddleware, administratorMiddleware)
 adminApi.post('/admin/list_users', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_users')), listAdminUsersHandler)
-adminApi.post('/admin/update_administrator_email', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_administrator_email')), updateAdministratorEmailHandler)
 adminApi.post('/admin/generate_beta_codes', requireApiScope(getProtectedJsonRouteScope('/api/admin/generate_beta_codes')), generateBetaCodesHandler)
 adminApi.post('/admin/list_beta_codes', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_beta_codes')), listBetaCodesHandler)
 adminApi.post('/admin/generate_credit_codes', requireApiScope(getProtectedJsonRouteScope('/api/admin/generate_credit_codes')), generateCreditCodesHandler)
@@ -184,8 +181,6 @@ adminApi.post('/admin/get_authentication_config', requireApiScope(getProtectedJs
 adminApi.post('/admin/update_authentication_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_authentication_config')), updateAuthenticationConfigHandler)
 adminApi.post('/admin/get_email_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_email_config')), getEmailConfigHandler)
 adminApi.post('/admin/update_email_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_email_config')), updateEmailConfigHandler)
-adminApi.post('/admin/get_storage_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_storage_config')), getStorageConfigHandler)
-adminApi.post('/admin/update_storage_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_storage_config')), updateStorageConfigHandler)
 adminApi.post('/admin/get_credits_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_credits_config')), getCreditsConfigHandler)
 adminApi.post('/admin/update_credits_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_credits_config')), updateCreditsConfigHandler)
 adminApi.post('/admin/get_affiliate_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_affiliate_config')), getAffiliateConfigHandler)

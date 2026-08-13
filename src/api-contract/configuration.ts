@@ -16,30 +16,6 @@ export const UpdateGeneralConfigRequestSchema = z.object({
 })
 export type UpdateGeneralConfigRequest = z.infer<typeof UpdateGeneralConfigRequestSchema>
 
-export const GetStorageConfigRequestSchema = z.object({})
-export type GetStorageConfigRequest = z.infer<typeof GetStorageConfigRequestSchema>
-
-const AllowedContentTypesSchema = z
-	.array(z.string().trim().min(1))
-	.min(1)
-	.refine((items: string[]): boolean => new Set(items).size === items.length, {
-		message: 'Content types must be unique'
-	})
-
-export const StorageConfigSchema = z.object({
-	allowed_content_types: AllowedContentTypesSchema,
-	max_upload_bytes: z.number().int().positive(),
-	version: z.number().int().min(1)
-})
-export type StorageConfig = z.infer<typeof StorageConfigSchema>
-
-export const UpdateStorageConfigRequestSchema = z.object({
-	allowed_content_types: AllowedContentTypesSchema,
-	max_upload_bytes: z.number().int().positive(),
-	expected_version: z.number().int().min(1)
-})
-export type UpdateStorageConfigRequest = z.infer<typeof UpdateStorageConfigRequestSchema>
-
 export const SecretMutationSchema = z.discriminatedUnion('action', [
 	z.object({ action: z.literal('keep') }),
 	z.object({ action: z.literal('replace'), value: z.string().trim().min(1) }),
@@ -204,18 +180,6 @@ export const GetGeneralConfigApi = {
 export const UpdateGeneralConfigApi = {
 	request: UpdateGeneralConfigRequestSchema,
 	response: GeneralConfigSchema,
-	errors: ConfigurationErrors
-}
-
-export const GetStorageConfigApi = {
-	request: GetStorageConfigRequestSchema,
-	response: StorageConfigSchema,
-	errors: ConfigurationErrors
-}
-
-export const UpdateStorageConfigApi = {
-	request: UpdateStorageConfigRequestSchema,
-	response: StorageConfigSchema,
 	errors: ConfigurationErrors
 }
 

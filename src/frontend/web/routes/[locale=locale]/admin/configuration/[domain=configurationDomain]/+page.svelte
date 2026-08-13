@@ -8,14 +8,12 @@
 	import EmailConfigurationForm from '../EmailConfigurationForm.svelte'
 	import GeneralConfigurationForm from '../GeneralConfigurationForm.svelte'
 	import PaymentConfigurationForm from '../PaymentConfigurationForm.svelte'
-	import StorageConfigurationForm from '../StorageConfigurationForm.svelte'
 	import type { ConfigurationDomain } from '../configuration-page'
 
 	const forms: Partial<Record<ConfigurationDomain, Component>> = {
 		general: GeneralConfigurationForm,
 		authentication: AuthenticationConfigurationForm,
 		email: EmailConfigurationForm,
-		storage: StorageConfigurationForm,
 		credits: CreditsConfigurationForm,
 		affiliate: AffiliateConfigurationForm,
 		payment: PaymentConfigurationForm,
