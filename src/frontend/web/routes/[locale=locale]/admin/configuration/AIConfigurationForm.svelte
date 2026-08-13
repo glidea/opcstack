@@ -22,7 +22,7 @@
 	import ConfigurationSection from './ConfigurationSection.svelte'
 	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
 	import { removeConfigurationEntity, replaceConfigurationEntity } from './configuration-collections'
-	import { dispatchConfigurationDirty, focusFirstConfigurationError, isConfigurationConflict } from './configuration-page'
+	import { dispatchConfigurationEditorState, focusFirstConfigurationError, isConfigurationConflict } from './configuration-page'
 
 	type SavedAIForm = {
 		routingErrorWeight: string
@@ -104,10 +104,10 @@
 		}
 	}
 
-	async function saveConfig(): Promise<void> {
+	async function saveConfig(): Promise<boolean> {
 		if (!validate()) {
 			focusFirstConfigurationError()
-			return
+			return false
 		}
 		saving = true
 		error = ''
@@ -121,11 +121,13 @@
 			})
 			applyConfig(config)
 			toast.success($_('admin.configuration.saved'))
+			return true
 		} catch (saveError) {
 			conflict = isConfigurationConflict(saveError)
 			error = saveError instanceof ApiClientError
 				? saveError.body.message
 				: $_('admin.configuration.saveError')
+			return false
 		} finally {
 			saving = false
 		}
@@ -190,10 +192,10 @@
 
 	$effect((): void => {
 		dirty = loaded && snapshot() !== savedSnapshot
-		dispatchConfigurationDirty(dirty)
+		dispatchConfigurationEditorState(dirty, saveConfig)
 	})
 	onMount((): void => { void loadConfig() })
-	onDestroy((): void => dispatchConfigurationDirty(false))
+	onDestroy((): void => dispatchConfigurationEditorState(false, saveConfig))
 </script>
 
 {#if !loaded}

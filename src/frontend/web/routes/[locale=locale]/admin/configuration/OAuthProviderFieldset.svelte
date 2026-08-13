@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { _ } from '$frontend/i18n'
+	import CopyIcon from '@lucide/svelte/icons/copy'
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down'
+	import { Button } from '$frontend/ui/button'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import { Switch } from '$frontend/ui/switch'
+	import { toast } from 'svelte-sonner'
 	import ConfigurationSection from './ConfigurationSection.svelte'
 	import SecretField from './SecretField.svelte'
 	import type { SecretAction } from './configuration-page'
@@ -29,24 +33,43 @@
 		callbackUrl: string
 		clientIdError?: string
 		secretError?: string
-	} = $props()
+		} = $props()
+
+	let expanded: boolean = $state(enabled)
+
+	$effect((): void => {
+		if (enabled) expanded = true
+	})
+
+	async function copyCallbackUrl(): Promise<void> {
+		await navigator.clipboard.writeText(callbackUrl)
+		toast.success($_('admin.configuration.copied'))
+	}
 </script>
 
 <ConfigurationSection {title}>
-	<Field.Field orientation="horizontal">
-		<Field.Label for={`${id}-enabled`}>{$_('admin.configuration.enabled')}</Field.Label>
-		<Switch id={`${id}-enabled`} bind:checked={enabled} />
-	</Field.Field>
-	{#if enabled}
+	<div class="flex items-center justify-between gap-3">
+		<Field.Field orientation="horizontal" class="flex-1">
+			<Field.Label for={`${id}-enabled`}>{$_('admin.configuration.enabled')}</Field.Label>
+			<Switch id={`${id}-enabled`} bind:checked={enabled} />
+		</Field.Field>
+		<Button type="button" size="icon-sm" variant="ghost" onclick={() => (expanded = !expanded)} aria-label={expanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={expanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}>
+			<ChevronDownIcon class={expanded ? 'rotate-180' : ''} />
+		</Button>
+	</div>
+	{#if expanded}
+		<Field.Field>
+			<Field.Label for={`${id}-callback-url`}>{$_('admin.configuration.authentication.callbackUrl')}</Field.Label>
+			<div class="flex gap-2">
+				<Input id={`${id}-callback-url`} value={callbackUrl} readonly />
+				<Button type="button" size="icon" variant="outline" onclick={copyCallbackUrl} aria-label={$_('admin.configuration.copy')} title={$_('admin.configuration.copy')}><CopyIcon /></Button>
+			</div>
+		</Field.Field>
 		<Field.Field data-invalid={clientIdError !== ''}>
 			<Field.Label for={`${id}-client-id`}>{$_('admin.configuration.authentication.clientId')}</Field.Label>
 			<Input id={`${id}-client-id`} autocomplete="off" bind:value={clientId} aria-invalid={clientIdError !== ''} />
 			<Field.Error>{clientIdError}</Field.Error>
 		</Field.Field>
 		<SecretField id={`${id}-client-secret`} label={$_('admin.configuration.authentication.clientSecret')} configured={secretConfigured} bind:action={secretAction} bind:value={secretValue} error={secretError} />
-		<Field.Field>
-			<Field.Label for={`${id}-callback-url`}>{$_('admin.configuration.authentication.callbackUrl')}</Field.Label>
-			<Input id={`${id}-callback-url`} value={callbackUrl} readonly />
-		</Field.Field>
 	{/if}
 </ConfigurationSection>

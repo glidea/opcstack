@@ -3,15 +3,16 @@
 	import type { StorageConfig } from '$apiContract/configuration'
 	import { ApiClientError, client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
-	import * as Alert from '$frontend/ui/alert'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import { Textarea } from '$frontend/ui/textarea'
+	import { toast } from 'svelte-sonner'
 	import ConfigurationActions from './ConfigurationActions.svelte'
 	import ConfigurationLoadError from './ConfigurationLoadError.svelte'
 	import ConfigurationSection from './ConfigurationSection.svelte'
-	import { dispatchConfigurationDirty } from './configuration-page'
+	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
+	import { dispatchConfigurationEditorState, focusFirstConfigurationError, isConfigurationConflict } from './configuration-page'
 
 	let contentTypes: string = $state('')
 	let maxUploadMb: string = $state('')
@@ -20,6 +21,7 @@
 	let loaded: boolean = $state(false)
 	let saving: boolean = $state(false)
 	let error: string = $state('')
+	let conflict: boolean = $state(false)
 	let contentTypesError: string = $state('')
 	let maxUploadError: string = $state('')
 	let dirty: boolean = $state(false)
@@ -32,6 +34,7 @@
 		version = config.version
 		savedSnapshot = snapshot()
 		error = ''
+		conflict = false
 	}
 
 	function parseContentTypes(): string[] {
@@ -52,8 +55,8 @@
 		catch (loadError) { error = loadError instanceof ApiClientError ? loadError.body.message : $_('admin.configuration.loadError') }
 	}
 
-	async function saveConfig(): Promise<void> {
-		if (!validate()) return
+	async function saveConfig(): Promise<boolean> {
+		if (!validate()) { focusFirstConfigurationError(); return false }
 		saving = true
 		error = ''
 		try {
@@ -62,7 +65,9 @@
 				max_upload_bytes: Math.round(Number(maxUploadMb) * 1024 * 1024),
 				expected_version: version
 			}))
-		} catch (saveError) { error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError') }
+			toast.success($_('admin.configuration.saved'))
+			return true
+		} catch (saveError) { conflict = isConfigurationConflict(saveError); error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError'); return false }
 		finally { saving = false }
 	}
 
@@ -75,15 +80,15 @@
 		error = ''
 	}
 
-	$effect(() => { dirty = loaded && snapshot() !== savedSnapshot; dispatchConfigurationDirty(dirty) })
+	$effect(() => { dirty = loaded && snapshot() !== savedSnapshot; dispatchConfigurationEditorState(dirty, saveConfig) })
 	onMount((): void => { void loadConfig() })
-	onDestroy((): void => dispatchConfigurationDirty(false))
+	onDestroy((): void => dispatchConfigurationEditorState(false, saveConfig))
 </script>
 
 {#if !loaded}
 	{#if error === ''}<div class="space-y-4 py-8"><Skeleton class="h-36 w-full" /><Skeleton class="h-28 w-full" /></div>{:else}<ConfigurationLoadError {error} onRetry={loadConfig} />{/if}
 {:else}
-	{#if error !== ''}<Alert.Root variant="destructive"><Alert.Description>{error}</Alert.Description></Alert.Root>{/if}
+	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
 		<ConfigurationSection title={$_('admin.configuration.storage.uploads')}>
 			<Field.Field data-invalid={contentTypesError !== ''}>

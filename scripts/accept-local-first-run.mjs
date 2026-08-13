@@ -22,6 +22,7 @@ async function main() {
 	let worker
 	let vite
 	let workerLogPath
+	let viteLogPath
 	try {
 		await cp(SOURCE_ROOT, workspace, {
 			recursive: true,
@@ -60,11 +61,12 @@ async function main() {
 			workspace,
 			workerLogPath
 		)
+		viteLogPath = join(temporaryRoot, 'vite.log')
 		vite = await startServer(
 			'pnpm',
 			['exec', 'vite', 'dev', '--mode', 'dev', '--port', '5173', '--strictPort'],
 			workspace,
-			join(temporaryRoot, 'vite.log')
+			viteLogPath
 		)
 		await waitForHealth('http://localhost:5173/api/health')
 
@@ -80,9 +82,19 @@ async function main() {
 		}
 		await runVisible(
 			'pnpm',
-			['exec', 'vitest', '--config', 'vitest.e2e.config.ts', 'e2e/first-run.test.ts'],
+			['exec', 'playwright', 'test', 'e2e-browser/first-run.spec.ts'],
 			workspace,
 			initialEnvironment
+		)
+		await runVisible(
+			'pnpm',
+			['exec', 'vitest', '--config', 'vitest.e2e.config.ts', 'e2e/first-run.test.ts'],
+			workspace,
+			{
+				...initialEnvironment,
+				E2E_ADMIN_EMAIL: nextEmail,
+				E2E_ADMIN_PASSWORD: nextPassword
+			}
 		)
 		await runVisible('pnpm', ['test:e2e'], workspace, {
 			...process.env,
@@ -96,6 +108,12 @@ async function main() {
 			const workerLog = await readFile(workerLogPath, 'utf8').catch(() => '')
 			if (workerLog !== '') {
 				console.error(sanitize(workerLog))
+			}
+		}
+		if (viteLogPath) {
+			const viteLog = await readFile(viteLogPath, 'utf8').catch(() => '')
+			if (viteLog !== '') {
+				console.error(sanitize(viteLog))
 			}
 		}
 		throw error

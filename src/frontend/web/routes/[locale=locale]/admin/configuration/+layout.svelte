@@ -8,17 +8,28 @@
 	import { Button } from '$frontend/ui/button'
 	import * as AlertDialog from '$frontend/ui/alert-dialog'
 	import * as Tabs from '$frontend/ui/tabs'
-	import { createConfigurationNavigation, type ConfigurationNavigationItem } from './configuration-page'
+	import {
+		createConfigurationNavigation,
+		resolveConfigurationNavigation,
+		type ConfigurationEditorStateDetail,
+		type ConfigurationNavigationDecision,
+		type ConfigurationNavigationItem,
+		type ConfigurationSave
+	} from './configuration-page'
 
 	let { data, children }: { data: { locale: string }; children: Snippet } = $props()
 	let dirty: boolean = $state(false)
 	let confirmOpen: boolean = $state(false)
 	let pendingHref: string = $state('')
+	let navigationSaving: boolean = $state(false)
+	let saveCurrent: ConfigurationSave | null = null
 	const navigation: ConfigurationNavigationItem[] = $derived(createConfigurationNavigation(data.locale))
 	const activeDomain: string = $derived(page.url.pathname.split('/').at(-1) ?? 'general')
 
-	function handleDirty(event: Event): void {
-		dirty = (event as CustomEvent<boolean>).detail
+	function handleEditorState(event: Event): void {
+		const detail: ConfigurationEditorStateDetail = (event as CustomEvent<ConfigurationEditorStateDetail>).detail
+		dirty = detail.dirty
+		saveCurrent = detail.save
 	}
 
 	function discardAndNavigate(): void {
@@ -34,16 +45,31 @@
 		confirmOpen = false
 	}
 
+	async function saveAndNavigate(): Promise<void> {
+		if (saveCurrent === null) return
+		navigationSaving = true
+		const saved: boolean = await saveCurrent()
+		navigationSaving = false
+		if (!saved) {
+			keepEditing()
+			return
+		}
+		discardAndNavigate()
+	}
+
 	beforeNavigate((navigation: BeforeNavigate): void => {
-		if (!dirty || navigation.to?.url.pathname === page.url.pathname) return
+		const targetPath: string | undefined = navigation.to?.url.pathname
+		if (targetPath === undefined) return
+		const decision: ConfigurationNavigationDecision = resolveConfigurationNavigation(dirty, page.url.pathname, targetPath)
+		if (decision.action === 'navigate') return
 		navigation.cancel()
-		pendingHref = navigation.to?.url.pathname ?? ''
-		confirmOpen = pendingHref !== ''
+		pendingHref = decision.href
+		confirmOpen = true
 	})
 
 	onMount((): (() => void) => {
-		window.addEventListener('configuration-editor-dirty', handleDirty)
-		return (): void => window.removeEventListener('configuration-editor-dirty', handleDirty)
+		window.addEventListener('configuration-editor-state', handleEditorState)
+		return (): void => window.removeEventListener('configuration-editor-state', handleEditorState)
 	})
 </script>
 
@@ -79,9 +105,12 @@
 			<AlertDialog.Description>{$_('admin.configuration.unsaved.description')}</AlertDialog.Description>
 		</AlertDialog.Header>
 		<AlertDialog.Footer>
-			<AlertDialog.Cancel onclick={keepEditing}>{$_('admin.configuration.unsaved.cancel')}</AlertDialog.Cancel>
-			<AlertDialog.Action variant="destructive" onclick={discardAndNavigate}>
+			<AlertDialog.Cancel disabled={navigationSaving} onclick={keepEditing}>{$_('admin.configuration.unsaved.cancel')}</AlertDialog.Cancel>
+			<AlertDialog.Action variant="destructive" disabled={navigationSaving} onclick={discardAndNavigate}>
 				{$_('admin.configuration.unsaved.discard')}
+			</AlertDialog.Action>
+			<AlertDialog.Action disabled={navigationSaving} onclick={() => { void saveAndNavigate() }}>
+				{$_('admin.configuration.save')}
 			</AlertDialog.Action>
 		</AlertDialog.Footer>
 	</AlertDialog.Content>

@@ -2,10 +2,10 @@
 
 ## 当前执行状态
 
-- Task-001 至 Task-007 已提交；其中 Task-006 的 `固定 Provider + Channel` 双轨模型已被后续决策否定，必须由 Task-006A 完整替换，不能视为最终完成
-- Task-008 至 Task-010 未完成
-- 当前工作区存在未提交的 Configuration UI、Payment 集合交互、Playwright 首次运行验收和生产扩展 Host Permission 修改；这些修改只通过了局部前端测试与 `svelte-check`，尚未完成真实浏览器验收、完整测试、提交和推送
-- `docs/v025/tech-design.md`、`AGENTS.md`、AI API、D1 Schema、运行时代码、管理后台和 AI 文档仍使用旧 Channel 语义，必须按 Task-006A 同步收口
+- Task-001 至 Task-007 和 Task-006A 已实现、验证、提交并推送
+- Task-001 至 Task-008 和 Task-006A 已实现并验证；Task-009 至 Task-010 未完成
+- Task-008 已通过空数据首次启动的真实浏览器旅程、配置 HTTP E2E、91 个测试文件和 593 个单元测试；Task-009 再收口 Payment Product 与 AI Provider，Task-010 最后完成文档、旧逻辑搜索、OAuth HTTP 流程和真实 Cloudflare 远程验收
+- 未通过对应任务的行为测试、真实用户流程和完整回归前，不把已有局部代码视为完成
 
 # Task-001: 建立 D1 配置存储与加密内核
 
@@ -220,8 +220,6 @@
 
 # Task-008: 实现基础 Configuration 管理界面
 
-> 当前状态：进行中，未提交。六个表单的固定保存栏、成功 Toast、冲突提示、首个错误定位、Secret 待删除与撤销、关闭状态独立展开和 OAuth Callback 复制已有局部修改；局部 17 个测试和 `svelte-check` 已通过，但尚未完成浏览器验收和完整回归。
-
 ## 描述
 在后台增加单一 `Configuration` 入口和顶部水平业务 Tab，先实现 General、Authentication、Email、Storage、Credits、Affiliate 六个单例域。表单使用显式保存、脏状态切换拦截、启用后展开配置和字段级错误，不增加草稿或发布概念。
 
@@ -230,21 +228,21 @@
 - 不增加自动保存或统一 Save All；业务域存在未保存修改时显示固定操作栏，移动端避开安全区域
 
 ## TODO 清单
-- [ ] 1. 补齐路由、Tab、显式保存、脏状态、离开拦截、字段错误和冲突保留输入的行为测试，替换只搜索源码字符串的弱测试
+- [x] 1. 用纯状态测试和真实浏览器测试覆盖路由、Tab、显式保存、脏状态、字段错误和冲突保留输入，删除读取 Svelte 源码并搜索字符串的弱测试
 - [x] 2. 实现 Configuration 布局、水平 Tab、默认重定向和 Admin 导航入口，并从管理员账号入口明确链接到 Account / Security
-- [ ] 3. 实现六个单例域表单，复用现有 UI Primitive 和 API Contract 类型
-- [ ] 4. 实现 Secret 的 keep、replace、remove、待删除和撤销交互及脱敏配置状态
-- [ ] 5. 实现脏状态固定操作栏、保存成功提示、字段错误定位、配置冲突保留输入与刷新入口
-- [ ] 6. 实现关闭功能的独立展开编辑、Callback / Webhook URL 复制，并补齐英文 UI 文案、i18n、SEO 和 Admin Console 文档
+- [x] 3. 完成 General、Authentication、Email、Storage、Credits、Affiliate 六个单例域表单，所有字段严格对应 API Contract，不保留旧 ENV 或页面私有配置模型
+- [x] 4. 完成 Secret 的 keep、replace、remove、待删除和撤销交互；浏览器永远不接收已保存明文、密文、IV 或伪掩码值
+- [x] 5. 完成脏状态固定操作栏和跨 Tab 离开确认；用户可选择保存后离开、放弃后离开或取消导航，保存失败时停留并保留输入
+- [x] 6. 完成保存成功 Toast、首个字段错误聚焦、`CONFIG_CONFLICT` 保留输入与刷新入口，并通过双页面并发更新验证冲突
+- [x] 7. 所有可关闭配置区默认收起、开启时展开、关闭时可独立展开预配置；完成 OAuth Callback URL 复制、英文 i18n、页面标题和 Admin Console 文档
 
 ## 验收测试步骤
 1. 登录后台进入 Configuration，逐个切换六个 Tab，确认路由稳定且当前业务域清晰
 2. 修改字段后切换 Tab，确认出现保存、放弃、取消选择；保存后刷新仍显示新值
-3. 开启缺少配置的功能并保存，确认字段旁显示可操作错误，关闭后相关字段收起
+3. 开启缺少配置的功能并保存，确认字段旁显示可操作错误并聚焦首个错误；关闭后相关字段收起但可独立展开
+4. 用两个浏览器页面读取同一版本后依次保存，确认后保存页面显示冲突、保留输入且可刷新最新配置
 
 # Task-009: 实现 Payment Product 与 AI Provider 管理界面
-
-> 当前状态：进行中，未提交。Payment 国家路由已从文本框改为结构化行编辑，Webhook 增加复制操作，Product 与旧 AI Channel 编辑器已改为右侧 Sheet；这些修改尚未经过真实浏览器验收。旧 AI Channel UI 将被 Task-006A 推翻，不能继续作为完成依据。
 
 ## 描述
 完成 Payment、AI 两个复杂 Tab，在单例表单下方分别管理 Product 和 Provider 集合。集合实体使用独立新建、编辑、删除流程，保存后只替换对应实体，不触发整个业务域重读；AI 路由权重保留在系统设置并显式暴露。
@@ -254,12 +252,13 @@
 - 不展示任何密钥明文、密文或 IV
 
 ## TODO 清单
-- [ ] 1. 先增加 Product、Provider 新建编辑删除、版本冲突和 Secret 操作的前端行为测试
-- [ ] 2. 实现 Payment Provider 配置、Webhook URL 复制、国家路由可编辑表格和 Product 管理界面
-- [ ] 3. 基于 Task-006A 实现 AI Provider 管理界面，字段只包含 Provider 实体属性，不再展示 Area、Channel 或固定 Provider 配置
-- [x] 4. 在 AI 系统设置中暴露错误率、延迟和价格三个非负相对权重并校验总和大于零；Task-006A 迁移时保持该配置与下一次选择立即生效语义
-- [x] 5. 处理实体级 loading、empty、error、冲突刷新和删除确认状态
-- [ ] 6. 将 Product 与 Provider 编辑统一为右侧抽屉并同步 Admin Console、Payment 和 AI 操作文档
+- [ ] 1. 用状态测试和真实浏览器测试覆盖 Product、Provider 新建、编辑、删除、停用、版本冲突和 Secret 操作，不使用源码字符串断言
+- [ ] 2. 完成 Payment 开关、默认 Provider、Provider 凭据、Webhook URL 复制和国家路由结构化行编辑；关闭时允许独立展开预配置
+- [ ] 3. 完成 Product 表格和右侧抽屉，只支持可执行的 `remote_product`，实体保存只替换目标 Product，不重置 Payment 单例草稿
+- [ ] 4. 基于 Task-006A 完成 AI Provider 表格和右侧抽屉，字段仅为 `id`、`name`、完整 `type`、`models`、`base_url`、`api_key`、`price_multiplier`、`enabled`，不展示 Area、Channel、Capability 或 Adapter
+- [x] 5. 在 AI 系统设置中暴露错误率、延迟和价格三个非负相对权重并校验总和大于零；Task-006A 迁移时保持该配置与下一次选择立即生效语义
+- [ ] 6. Product 与 Provider 使用各自版本处理 loading、empty、error、删除确认和 `CONFIG_CONFLICT`；冲突不覆盖新版本且保留抽屉输入
+- [ ] 7. 同步 Admin Console、Payment 和 AI 操作文档，统一使用 Provider 术语
 
 ## 验收测试步骤
 1. 在 Payment Tab 保存 Provider 后新建、编辑和删除 Product，确认每次只更新目标实体
@@ -267,8 +266,6 @@
 3. 用两个页面并发编辑同一实体，确认后保存页面收到 `CONFIG_CONFLICT` 且不会覆盖新版本
 
 # Task-010: 收口初始化引导与端到端验收
-
-> 当前状态：进行中，未提交。Playwright 首次运行用例、临时项目中的浏览器执行链路、生产扩展 Host Permission 修正和对应测试已经写入工作区；目前只确认 Playwright 能发现用例，尚未真实运行完整浏览器流程。已有远程 HTTP E2E 代码不等于真实远程验收通过。
 
 ## 描述
 清理所有旧配置来源和文档，重写创建项目、本地运行、Cloudflare 部署、首次后台配置及 OAuth API Access 用户旅程。以本地完整用户流程和远程可恢复安全场景验证项目壳子可先启动，业务配置可随后保存并立即生效。
@@ -278,13 +275,15 @@
 - 不让远程 E2E 部署、创建资源、执行迁移或直接写 D1
 
 ## TODO 清单
-- [ ] 1. 补齐真实本地首次安装、浏览器管理后台、Payment Product、AI Provider 和 Cloudflare HTTP E2E 场景，禁止用单测、构建、mock 或直接数据库写入替代用户流程
-- [ ] 2. 更新 `CREATE_OPCSTACK_APP.md`、`QUICK_START.md`、README、模板文档、公开中英文文档和 `AGENTS.md`，清理固定 Provider、AI Channel、静态管理员 Token、旧 Agent 授权及其他过期描述
+- [ ] 1. 补齐真实本地首次安装、六个 Configuration 单例域、Payment Product、AI Provider 和 OAuth API Access E2E；禁止用单测、构建、mock 或直接数据库写入替代用户流程
+- [ ] 2. 更新 `CREATE_OPCSTACK_APP.md`、`QUICK_START.md`、README、模板文档、公开中英文文档和 `AGENTS.md`，统一初始化、首次后台配置、Provider 和 OAuth API Access 用户旅程
 - [x] 3. 清理 ENV 文件、Wrangler 模板、准备脚本、生成配置和文档中的全部旧业务配置残留
-- [ ] 4. 从空本地数据通过真实浏览器完整验证初始化密码只显示一次、管理员登录并修改凭据、按域配置和前台生效，并通过 HTTP 验证 OAuth Client 授权调用和撤销流程
-- [ ] 5. 修正生产扩展 Host Permission，运行完整类型检查、单元测试、构建、配置准备、浏览器 E2E 和 HTTP E2E 测试
-- [ ] 6. 对真实已部署 Cloudflare 实例执行只通过公开 HTTP 的管理员 Session、配置读写立即生效、OAuth 授权调用与撤销验收，不部署、不迁移、不直写远程 D1
-- [ ] 7. 清理测试名称和 Given 文案中的 `admin api token`，压平预发布 Migration 中先创建再删除的旧 Agent 表与 AI Channel 历史，最终全仓搜索无旧逻辑残留
+- [ ] 4. 从空本地数据通过真实浏览器验证初始密码只显示一次、管理员登录并修改邮箱和密码、按域保存、刷新持久化和前台立即生效
+- [ ] 5. 通过公开 HTTP 验证 `opc-cli` PKCE / 设备授权、获批 scope 调用、未获批 scope 拒绝、Grant 撤销后 Access / Refresh Token 失效和两个同名不同地址连接互不冲突
+- [ ] 6. 修正并验证生产扩展 Host Permission；运行完整类型检查、单元测试、构建、配置准备、本地浏览器 E2E 和本地 HTTP E2E
+- [ ] 7. 对真实已部署 Cloudflare 实例执行只通过公开页面和 HTTP API 的管理员 Session、配置读写立即生效、OAuth 授权调用与撤销验收；不得部署、迁移、创建资源或直写远程 D1
+- [ ] 8. 清理测试名称和 Given 文案中的 `admin api token`，压平预发布 Migration 中旧 Agent 表与 AI Channel 历史，最终搜索确认无旧 API、旧 Schema、旧运行时 ENV 或兼容读取
+- [ ] 9. 将所有实际执行命令、目标地址、通过结果和无法执行的外部前置条件记录到验收文档；只有真实 Cloudflare 场景通过后才完成本任务
 
 ## 验收测试步骤
 1. 仅填写技术设计规定的固定资源 ENV，从空数据库启动项目，确认终端只显示一次初始凭据、可登录并修改管理员邮箱和密码，所有可选业务能力明确禁用

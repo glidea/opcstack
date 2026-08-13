@@ -6,6 +6,7 @@
 	import type { SystemLocale } from "$frontend/i18n/locales";
 	import "$frontend/styles/app.css";
 	import "$frontend/i18n";
+	import { Toaster } from "$frontend/ui/sonner";
 
 	const REGISTRATION_UTM_SOURCE_COOKIE = 'registration_utm_source';
 	const REGISTRATION_UTM_SOURCE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
@@ -61,6 +62,7 @@
 </svelte:head>
 
 <div class="min-h-svh">
+	<Toaster />
 	{@render children()}
 	{#if $page.route.id?.startsWith('/[locale=locale]/admin') !== true}
 		<footer

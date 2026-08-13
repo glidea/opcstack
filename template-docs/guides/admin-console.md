@@ -41,9 +41,9 @@ The locale can be `en` or `zh`. Language switching keeps the current admin path 
 
 Open **Configuration** and use the horizontal business tabs. General, Authentication, Email, Storage, Credits, and Affiliate each have one explicit form. Saving one tab immediately changes subsequent requests in that domain. An operation already in progress keeps the snapshot it started with.
 
-Changing a field marks only the current tab as unsaved. Switching tabs or leaving the page requires choosing whether to discard the changes or keep editing. **Discard** restores the last saved values. There is no draft, publish step, automatic save, or cross-domain Save All.
+Changing a field marks only the current tab as unsaved. Switching tabs or leaving the page requires choosing **Save**, **Discard**, or **Cancel**. Save validates and persists the current domain before navigating. Discard restores the last saved values and navigates. Cancel stays on the current form. There is no draft, publish step, automatic save, or cross-domain Save All.
 
-Authentication and Email reveal dependent settings only after the feature is enabled. Missing required fields are shown beside the affected control and the old configuration remains active. Secret fields never display plaintext. Choose **Keep current value**, **Replace value**, or **Remove value** before saving. Provider callback URLs are derived from the application URL and are read-only.
+Disabled feature sections are collapsed by default. Enable a feature to expand its settings, or use the section expand control to configure it while it remains disabled. An empty disabled provider is valid, but a partially configured provider is rejected. Missing required fields are shown beside the affected control and the old configuration remains active. Secret fields never display plaintext. Choose **Keep current value**, **Replace value**, or **Remove value** before saving. Provider callback URLs are derived from the application URL and are read-only with a copy action.
 
 Payment keeps provider settings and products independent. Save provider routing, credentials, test mode, and the read-only webhook URLs in the upper form. AI routing weights are saved in the upper form, while Providers have independent create, edit, and delete sheets.
 

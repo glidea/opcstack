@@ -3,15 +3,18 @@
 	import type { AffiliateConfig } from '$apiContract/configuration'
 	import { ApiClientError, client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
-	import * as Alert from '$frontend/ui/alert'
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down'
+	import { Button } from '$frontend/ui/button'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import { Switch } from '$frontend/ui/switch'
+	import { toast } from 'svelte-sonner'
 	import ConfigurationActions from './ConfigurationActions.svelte'
 	import ConfigurationLoadError from './ConfigurationLoadError.svelte'
 	import ConfigurationSection from './ConfigurationSection.svelte'
-	import { dispatchConfigurationDirty } from './configuration-page'
+	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
+	import { dispatchConfigurationEditorState, focusFirstConfigurationError, isConfigurationConflict } from './configuration-page'
 
 	let enabled: boolean = $state(false)
 	let inviterAmount: string = $state('0')
@@ -21,9 +24,11 @@
 	let loaded: boolean = $state(false)
 	let saving: boolean = $state(false)
 	let error: string = $state('')
+	let conflict: boolean = $state(false)
 	let inviterError: string = $state('')
 	let inviteeError: string = $state('')
 	let dirty: boolean = $state(false)
+	let expanded: boolean = $state(false)
 
 	function snapshot(): string { return JSON.stringify({ enabled, inviterAmount, inviteeAmount }) }
 	function applyConfig(config: AffiliateConfig): void {
@@ -33,6 +38,8 @@
 		version = config.version
 		savedSnapshot = snapshot()
 		error = ''
+		conflict = false
+		expanded = config.enabled
 	}
 	function validate(): boolean {
 		const pattern: RegExp = /^\d+(?:\.\d{1,6})?$/
@@ -45,12 +52,12 @@
 		try { applyConfig(await client.api.getAffiliateConfig()); loaded = true }
 		catch (loadError) { error = loadError instanceof ApiClientError ? loadError.body.message : $_('admin.configuration.loadError') }
 	}
-	async function saveConfig(): Promise<void> {
-		if (!validate()) return
+	async function saveConfig(): Promise<boolean> {
+		if (!validate()) { focusFirstConfigurationError(); return false }
 		saving = true
 		error = ''
-		try { applyConfig(await client.api.updateAffiliateConfig({ enabled, inviter_credit_amount: inviterAmount, invitee_credit_amount: inviteeAmount, expected_version: version })) }
-		catch (saveError) { error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError') }
+		try { applyConfig(await client.api.updateAffiliateConfig({ enabled, inviter_credit_amount: inviterAmount, invitee_credit_amount: inviteeAmount, expected_version: version })); toast.success($_('admin.configuration.saved')); return true }
+		catch (saveError) { conflict = isConfigurationConflict(saveError); error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError'); return false }
 		finally { saving = false }
 	}
 	function discardChanges(): void {
@@ -62,19 +69,19 @@
 		inviteeError = ''
 		error = ''
 	}
-	$effect(() => { dirty = loaded && snapshot() !== savedSnapshot; dispatchConfigurationDirty(dirty) })
+	$effect(() => { dirty = loaded && snapshot() !== savedSnapshot; dispatchConfigurationEditorState(dirty, saveConfig) })
 	onMount((): void => { void loadConfig() })
-	onDestroy((): void => dispatchConfigurationDirty(false))
+	onDestroy((): void => dispatchConfigurationEditorState(false, saveConfig))
 </script>
 
 {#if !loaded}
 	{#if error === ''}<div class="space-y-4 py-8"><Skeleton class="h-48 w-full" /></div>{:else}<ConfigurationLoadError {error} onRetry={loadConfig} />{/if}
 {:else}
-	{#if error !== ''}<Alert.Root variant="destructive"><Alert.Description>{error}</Alert.Description></Alert.Root>{/if}
+	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
 		<ConfigurationSection title={$_('admin.configuration.affiliate.referrals')}>
-			<Field.Field orientation="horizontal"><Field.Label for="affiliate-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="affiliate-enabled" bind:checked={enabled} /></Field.Field>
-			{#if enabled}
+			<div class="flex items-center justify-between gap-3"><Field.Field orientation="horizontal" class="flex-1"><Field.Label for="affiliate-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="affiliate-enabled" bind:checked={enabled} /></Field.Field><Button type="button" size="icon-sm" variant="ghost" onclick={() => (expanded = !expanded)} aria-label={expanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={expanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}><ChevronDownIcon class={expanded ? 'rotate-180' : ''} /></Button></div>
+			{#if enabled || expanded}
 				<Field.Field data-invalid={inviterError !== ''}><Field.Label for="affiliate-inviter">{$_('admin.configuration.affiliate.inviterAmount')}</Field.Label><Input id="affiliate-inviter" inputmode="decimal" bind:value={inviterAmount} aria-invalid={inviterError !== ''} /><Field.Error>{inviterError}</Field.Error></Field.Field>
 				<Field.Field data-invalid={inviteeError !== ''}><Field.Label for="affiliate-invitee">{$_('admin.configuration.affiliate.inviteeAmount')}</Field.Label><Input id="affiliate-invitee" inputmode="decimal" bind:value={inviteeAmount} aria-invalid={inviteeError !== ''} /><Field.Error>{inviteeError}</Field.Error></Field.Field>
 			{/if}

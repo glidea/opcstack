@@ -3,20 +3,25 @@
 	import type { AuthenticationConfig } from '$apiContract/configuration'
 	import { ApiClientError, client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
-	import * as Alert from '$frontend/ui/alert'
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down'
+	import { Button } from '$frontend/ui/button'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import { Switch } from '$frontend/ui/switch'
 	import { Textarea } from '$frontend/ui/textarea'
+	import { toast } from 'svelte-sonner'
 	import ConfigurationActions from './ConfigurationActions.svelte'
 	import ConfigurationLoadError from './ConfigurationLoadError.svelte'
 	import ConfigurationSection from './ConfigurationSection.svelte'
+	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
 	import OAuthProviderFieldset from './OAuthProviderFieldset.svelte'
 	import SecretField from './SecretField.svelte'
 	import {
 		buildSecretMutation,
-		dispatchConfigurationDirty,
+		dispatchConfigurationEditorState,
+		focusFirstConfigurationError,
+		isConfigurationConflict,
 		validateAuthenticationForm,
 		type SecretAction
 	} from './configuration-page'
@@ -78,8 +83,11 @@
 	let loaded: boolean = $state(false)
 	let saving: boolean = $state(false)
 	let error: string = $state('')
+	let conflict: boolean = $state(false)
 	let errors: Record<string, string> = $state({})
 	let dirty: boolean = $state(false)
+	let emailSignupExpanded: boolean = $state(false)
+	let turnstileExpanded: boolean = $state(false)
 
 	function fields(): AuthenticationFields {
 		return {
@@ -127,6 +135,9 @@
 		savedSnapshot = snapshot()
 		errors = {}
 		error = ''
+		conflict = false
+		emailSignupExpanded = config.email_signup_enabled
+		turnstileExpanded = config.turnstile_enabled
 	}
 
 	function fieldError(name: string): string {
@@ -152,8 +163,8 @@
 		catch (loadError) { error = loadError instanceof ApiClientError ? loadError.body.message : $_('admin.configuration.loadError') }
 	}
 
-	async function saveConfig(): Promise<void> {
-		if (!validate()) return
+	async function saveConfig(): Promise<boolean> {
+		if (!validate()) { focusFirstConfigurationError(); return false }
 		saving = true
 		error = ''
 		try {
@@ -177,7 +188,9 @@
 				linuxdo_client_secret: buildSecretMutation(linuxdoSecretAction, linuxdoSecretValue),
 				expected_version: version
 			}))
-		} catch (saveError) { error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError') }
+			toast.success($_('admin.configuration.saved'))
+			return true
+		} catch (saveError) { conflict = isConfigurationConflict(saveError); error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError'); return false }
 		finally { saving = false }
 	}
 
@@ -208,28 +221,28 @@
 		error = ''
 	}
 
-	$effect(() => { dirty = loaded && snapshot() !== savedSnapshot; dispatchConfigurationDirty(dirty) })
+	$effect(() => { dirty = loaded && snapshot() !== savedSnapshot; dispatchConfigurationEditorState(dirty, saveConfig) })
 	onMount((): void => { void loadConfig() })
-	onDestroy((): void => dispatchConfigurationDirty(false))
+	onDestroy((): void => dispatchConfigurationEditorState(false, saveConfig))
 </script>
 
 {#if !loaded}
 	{#if error === ''}<div class="space-y-4 py-8"><Skeleton class="h-48 w-full" /><Skeleton class="h-48 w-full" /></div>{:else}<ConfigurationLoadError {error} onRetry={loadConfig} />{/if}
 {:else}
-	{#if error !== ''}<Alert.Root variant="destructive"><Alert.Description>{error}</Alert.Description></Alert.Root>{/if}
+	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
 		<ConfigurationSection title={$_('admin.configuration.authentication.access')}>
 			<Field.Field orientation="horizontal"><Field.Label for="auth-beta-code">{$_('admin.configuration.authentication.betaCode')}</Field.Label><Switch id="auth-beta-code" bind:checked={betaCodeEnabled} /></Field.Field>
-			<Field.Field orientation="horizontal"><Field.Label for="auth-email-signup">{$_('admin.configuration.authentication.emailSignup')}</Field.Label><Switch id="auth-email-signup" bind:checked={emailSignupEnabled} /></Field.Field>
-			{#if emailSignupEnabled}
+			<div class="flex items-center justify-between gap-3"><Field.Field orientation="horizontal" class="flex-1"><Field.Label for="auth-email-signup">{$_('admin.configuration.authentication.emailSignup')}</Field.Label><Switch id="auth-email-signup" bind:checked={emailSignupEnabled} /></Field.Field><Button type="button" size="icon-sm" variant="ghost" onclick={() => (emailSignupExpanded = !emailSignupExpanded)} aria-label={emailSignupExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={emailSignupExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}><ChevronDownIcon class={emailSignupExpanded ? 'rotate-180' : ''} /></Button></div>
+			{#if emailSignupEnabled || emailSignupExpanded}
 				<Field.Field><Field.Label for="auth-email-allowlist">{$_('admin.configuration.authentication.domainAllowlist')}</Field.Label><Textarea id="auth-email-allowlist" bind:value={emailDomainAllowlist} /><Field.Description>{$_('admin.configuration.authentication.domainAllowlistDescription')}</Field.Description></Field.Field>
 				<Field.Field orientation="horizontal"><Field.Label for="auth-email-verification">{$_('admin.configuration.authentication.requireVerification')}</Field.Label><Switch id="auth-email-verification" bind:checked={emailRequireVerification} /></Field.Field>
 				<Field.Field data-invalid={fieldError('emailCooldownSeconds') !== ''}><Field.Label for="auth-email-cooldown">{$_('admin.configuration.authentication.cooldown')}</Field.Label><Input id="auth-email-cooldown" type="number" min="1" inputmode="numeric" bind:value={emailCooldownSeconds} aria-invalid={fieldError('emailCooldownSeconds') !== ''} /><Field.Error>{fieldError('emailCooldownSeconds')}</Field.Error></Field.Field>
 			{/if}
 		</ConfigurationSection>
 		<ConfigurationSection title={$_('admin.configuration.authentication.turnstile')}>
-			<Field.Field orientation="horizontal"><Field.Label for="auth-turnstile-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="auth-turnstile-enabled" bind:checked={turnstileEnabled} /></Field.Field>
-			{#if turnstileEnabled}
+			<div class="flex items-center justify-between gap-3"><Field.Field orientation="horizontal" class="flex-1"><Field.Label for="auth-turnstile-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="auth-turnstile-enabled" bind:checked={turnstileEnabled} /></Field.Field><Button type="button" size="icon-sm" variant="ghost" onclick={() => (turnstileExpanded = !turnstileExpanded)} aria-label={turnstileExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={turnstileExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}><ChevronDownIcon class={turnstileExpanded ? 'rotate-180' : ''} /></Button></div>
+			{#if turnstileEnabled || turnstileExpanded}
 				<Field.Field data-invalid={fieldError('turnstileSiteKey') !== ''}><Field.Label for="auth-turnstile-site-key">{$_('admin.configuration.authentication.siteKey')}</Field.Label><Input id="auth-turnstile-site-key" autocomplete="off" bind:value={turnstileSiteKey} aria-invalid={fieldError('turnstileSiteKey') !== ''} /><Field.Error>{fieldError('turnstileSiteKey')}</Field.Error></Field.Field>
 				<SecretField id="auth-turnstile-secret" label={$_('admin.configuration.authentication.secretKey')} configured={turnstileSecretConfigured} bind:action={turnstileSecretAction} bind:value={turnstileSecretValue} error={fieldError('turnstileSecretKey')} />
 			{/if}

@@ -167,6 +167,29 @@ describe('system configuration store', () => {
 		expect(writes).toBe(0)
 	})
 
+	it('rejects a partially configured disabled OAuth provider before writing', async (): Promise<void> => {
+		const db: MetaDb = createConfigDb({ row: createSettingsRow(1) })
+
+		await expect(updateAuthenticationConfig(db, TEST_ENCRYPTION_KEY, {
+			betaCodeEnabled: false,
+			emailSignupEnabled: false,
+			emailSignupDomainAllowlist: [],
+			emailRequireVerification: false,
+			emailUserActionCooldownSeconds: 50,
+			turnstile: { enabled: false, siteKey: null, secretKey: { action: 'keep' } },
+			providers: {
+				google: { enabled: false, clientId: 'client-id', clientSecret: { action: 'keep' } },
+				github: { enabled: false, clientId: null, clientSecret: { action: 'keep' } },
+				linuxdo: { enabled: false, clientId: null, clientSecret: { action: 'keep' } }
+			},
+			expectedVersion: 1,
+			nowMs: 2000
+		})).rejects.toEqual(new ConfigStoreError(
+			'INVALID_UPDATE',
+			'providers.google.clientSecret is required when Google authentication is configured'
+		))
+	})
+
 	it('replaces an Email secret and validates the resulting provider atomically', async (): Promise<void> => {
 		const updated: SystemSettings = createSettingsRow(1)
 		updated.emailConfig = {
@@ -190,6 +213,21 @@ describe('system configuration store', () => {
 		})
 
 		expect(result).toEqual({ ...updated.emailConfig, version: 2 })
+	})
+
+	it('rejects a partially configured disabled Email provider', async (): Promise<void> => {
+		const db: MetaDb = createConfigDb({ row: createSettingsRow(1) })
+
+		await expect(updateEmailConfig(db, TEST_ENCRYPTION_KEY, {
+			enabled: false,
+			provider: 'resend',
+			resendApiKey: { action: 'keep' },
+			expectedVersion: 1,
+			nowMs: 2000
+		})).rejects.toEqual(new ConfigStoreError(
+			'INVALID_UPDATE',
+			'resendApiKey is required when the Resend provider is configured'
+		))
 	})
 
 	it('rejects enabling Email while the administrator uses the local address', async (): Promise<void> => {

@@ -20,15 +20,13 @@ type AiConfig = {
 
 const firstRun: boolean = process.env['E2E_FIRST_RUN'] === '1'
 const appBaseUrl: string = process.env['APP_BASE_URL'] ?? 'http://localhost:5173'
-const initialEmail: string = process.env['E2E_ADMIN_EMAIL'] ?? ''
-const initialPassword: string = process.env['E2E_ADMIN_PASSWORD'] ?? ''
-const nextEmail: string = process.env['E2E_NEW_ADMIN_EMAIL'] ?? ''
-const nextPassword: string = process.env['E2E_NEW_ADMIN_PASSWORD'] ?? ''
+const administratorEmail: string = process.env['E2E_ADMIN_EMAIL'] ?? ''
+const administratorPassword: string = process.env['E2E_ADMIN_PASSWORD'] ?? ''
 let cookies: CookieJar
 
 describe.skipIf(!firstRun)('first-run user journey', (): void => {
 	beforeAll(async (): Promise<void> => {
-		for (const value of [initialEmail, initialPassword, nextEmail, nextPassword]) {
+		for (const value of [administratorEmail, administratorPassword]) {
 			if (value === '') {
 				throw new Error('FIRST_RUN_E2E_CREDENTIALS_REQUIRED')
 			}
@@ -37,14 +35,14 @@ describe.skipIf(!firstRun)('first-run user journey', (): void => {
 		expect(healthResponse.status).toBe(200)
 	})
 
-	test('completes setup, configuration, OAuth access and revocation through HTTP', async (): Promise<void> => {
-		const initialSignIn = await signInWithPassword({
+	test('verifies disabled defaults, OAuth configuration access and revocation through HTTP', async (): Promise<void> => {
+		const signIn = await signInWithPassword({
 			appBaseUrl,
-			email: initialEmail,
-			password: initialPassword
+			email: administratorEmail,
+			password: administratorPassword
 		})
-		expect(initialSignIn.response.status).toBe(200)
-		cookies = initialSignIn.cookies
+		expect(signIn.response.status).toBe(200)
+		cookies = signIn.cookies
 
 		const authentication: AuthenticationConfig = await callAdmin<AuthenticationConfig>(
 			'get_authentication_config'
@@ -78,41 +76,6 @@ describe.skipIf(!firstRun)('first-run user journey', (): void => {
 			payment: false,
 			aiProviders: false
 		})
-
-		const emailResponse: Response = await fetch(
-			`${appBaseUrl}/api/admin/update_administrator_email`,
-			{
-				method: 'POST',
-				headers: browserHeaders(appBaseUrl, cookies),
-				body: JSON.stringify({ email: nextEmail })
-			}
-		)
-		expect(emailResponse.status).toBe(200)
-
-		const passwordResponse: Response = await fetch(`${appBaseUrl}/api/auth/change-password`, {
-			method: 'POST',
-			headers: browserHeaders(appBaseUrl, cookies),
-			body: JSON.stringify({
-				currentPassword: initialPassword,
-				newPassword: nextPassword,
-				revokeOtherSessions: true
-			})
-		})
-		expect(passwordResponse.status).toBe(200)
-
-		const rejectedInitialSignIn = await signInWithPassword({
-			appBaseUrl,
-			email: initialEmail,
-			password: initialPassword
-		})
-		expect(rejectedInitialSignIn.response.ok).toBe(false)
-		const changedSignIn = await signInWithPassword({
-			appBaseUrl,
-			email: nextEmail,
-			password: nextPassword
-		})
-		expect(changedSignIn.response.status).toBe(200)
-		cookies = changedSignIn.cookies
 
 		await verifyConfigurationAndOAuthJourney({ appBaseUrl, cookies })
 	})

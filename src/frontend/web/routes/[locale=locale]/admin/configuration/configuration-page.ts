@@ -1,4 +1,5 @@
 import type { SecretMutation } from '$apiContract/configuration'
+import { ApiClientError } from '$apiContract/client'
 
 export const CONFIGURATION_DOMAINS = [
 	'general',
@@ -22,6 +23,14 @@ export type EditorState<TValue> = {
 	dirty: boolean
 }
 export type SecretAction = SecretMutation['action']
+export type ConfigurationSave = () => Promise<boolean>
+export type ConfigurationEditorStateDetail = {
+	dirty: boolean
+	save: ConfigurationSave
+}
+export type ConfigurationNavigationDecision =
+	| { action: 'navigate' }
+	| { action: 'confirm'; href: string }
 
 export type AuthenticationFormValidationInput = {
 	turnstileEnabled: boolean
@@ -64,6 +73,15 @@ export function isConfigurationDomain(value: string): value is ConfigurationDoma
 	return CONFIGURATION_DOMAINS.includes(value as ConfigurationDomain)
 }
 
+export function resolveConfigurationNavigation(
+	dirty: boolean,
+	currentPath: string,
+	targetPath: string
+): ConfigurationNavigationDecision {
+	if (!dirty || currentPath === targetPath) return { action: 'navigate' }
+	return { action: 'confirm', href: targetPath }
+}
+
 export function createEditorState<TValue>(value: TValue): EditorState<TValue> {
 	return { value, savedValue: value, dirty: false }
 }
@@ -98,7 +116,8 @@ export function validateAuthenticationForm(
 	input: AuthenticationFormValidationInput
 ): Record<string, string> {
 	const errors: Record<string, string> = {}
-	if (input.turnstileEnabled) {
+	const turnstileConfigured: boolean = input.turnstileEnabled || input.turnstileSiteKey.trim() !== '' || hasSecretValue(input.turnstileSecretConfigured, input.turnstileSecretAction, input.turnstileSecretValue)
+	if (turnstileConfigured) {
 		if (input.turnstileSiteKey.trim() === '') errors['turnstileSiteKey'] = 'Site key is required'
 		if (!hasSecret(input.turnstileSecretConfigured, input.turnstileSecretAction, input.turnstileSecretValue)) {
 			errors['turnstileSecretKey'] = 'Secret key is required'
@@ -112,9 +131,10 @@ export function validateAuthenticationForm(
 
 export function validateEmailForm(input: EmailFormValidationInput): Record<string, string> {
 	const errors: Record<string, string> = {}
-	if (input.enabled && input.provider === null) errors['provider'] = 'Provider is required'
+	const configured: boolean = input.enabled || input.provider !== null || hasSecretValue(input.resendApiKeyConfigured, input.resendApiKeyAction, input.resendApiKeyValue)
+	if (configured && input.provider === null) errors['provider'] = 'Provider is required'
 	if (
-		input.enabled &&
+		configured &&
 		input.provider === 'resend' &&
 		!hasSecret(input.resendApiKeyConfigured, input.resendApiKeyAction, input.resendApiKeyValue)
 	) {
@@ -123,8 +143,22 @@ export function validateEmailForm(input: EmailFormValidationInput): Record<strin
 	return errors
 }
 
-export function dispatchConfigurationDirty(dirty: boolean): void {
-	window.dispatchEvent(new CustomEvent<boolean>('configuration-editor-dirty', { detail: dirty }))
+export function dispatchConfigurationEditorState(dirty: boolean, save: ConfigurationSave): void {
+	if (typeof window === 'undefined') return
+	const detail: ConfigurationEditorStateDetail = { dirty, save }
+	window.dispatchEvent(new CustomEvent<ConfigurationEditorStateDetail>('configuration-editor-state', { detail }))
+}
+
+export function isConfigurationConflict(error: unknown): boolean {
+	return error instanceof ApiClientError && error.body.code === 'CONFIG_CONFLICT'
+}
+
+export function focusFirstConfigurationError(): void {
+	requestAnimationFrame((): void => {
+		const field: HTMLElement | null = document.querySelector<HTMLElement>('[aria-invalid="true"]')
+		field?.focus()
+		field?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+	})
 }
 
 function validateProvider(
@@ -136,10 +170,22 @@ function validateProvider(
 	secretAction: SecretAction,
 	secretValue: string
 ): void {
-	if (!enabled) return
+	const configured: boolean = enabled || clientId.trim() !== '' || hasSecretValue(secretConfigured, secretAction, secretValue)
+	if (!configured) return
 	if (clientId.trim() === '') errors[`${provider}ClientId`] = 'Client ID is required'
 	if (!hasSecret(secretConfigured, secretAction, secretValue)) {
 		errors[`${provider}ClientSecret`] = 'Client secret is required'
+	}
+}
+
+function hasSecretValue(configured: boolean, action: SecretAction, value: string): boolean {
+	switch (action) {
+		case 'keep':
+			return configured
+		case 'replace':
+			return value.trim() !== ''
+		case 'remove':
+			return configured
 	}
 }
 

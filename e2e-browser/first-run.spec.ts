@@ -1,0 +1,110 @@
+import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
+
+const initialEmail: string = process.env['E2E_ADMIN_EMAIL'] ?? ''
+const initialPassword: string = process.env['E2E_ADMIN_PASSWORD'] ?? ''
+const nextEmail: string = process.env['E2E_NEW_ADMIN_EMAIL'] ?? ''
+const nextPassword: string = process.env['E2E_NEW_ADMIN_PASSWORD'] ?? ''
+
+test('completes the first-run administrator journey in the browser', async ({ browser }: { browser: Browser }): Promise<void> => {
+	test.setTimeout(180_000)
+	for (const value of [initialEmail, initialPassword, nextEmail, nextPassword]) {
+		expect(value).not.toBe('')
+	}
+
+	const context: BrowserContext = await browser.newContext()
+	const page: Page = await context.newPage()
+	await signIn(page, initialEmail, initialPassword)
+
+	await goToHydrated(page, '/en/settings')
+	await page.locator('#settings-email').fill(nextEmail)
+	await page.getByRole('button', { name: 'Change email', exact: true }).click()
+	await expect(page.getByText('Email changed.')).toBeVisible()
+
+	await page.locator('#current-password').fill(initialPassword)
+	await page.locator('#new-password').fill(nextPassword)
+	await page.getByRole('button', { name: 'Change password', exact: true }).click()
+	await expect(page.getByText('Password changed.')).toBeVisible()
+
+	await goToHydrated(page, '/en/admin/configuration/general')
+	const docsSwitch = page.locator('#configuration-docs-enabled')
+	await expect(docsSwitch).toBeVisible()
+	const docsWereEnabled: boolean = (await docsSwitch.getAttribute('aria-checked')) === 'true'
+
+	await docsSwitch.click()
+	await expect(page.getByText('Unsaved changes')).toBeVisible()
+	await openConfigurationTab(page, 'email')
+	const leaveDialog = page.getByRole('alertdialog')
+	await expect(leaveDialog).toBeVisible()
+	await leaveDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+	await expect(page).toHaveURL(/\/admin\/configuration\/general$/)
+
+	await openConfigurationTab(page, 'email')
+	await leaveDialog.getByRole('button', { name: 'Discard changes', exact: true }).click()
+	await expect(page).toHaveURL(/\/admin\/configuration\/email$/)
+
+	await openConfigurationTab(page, 'general')
+	const concurrentPage: Page = await context.newPage()
+	await goToHydrated(concurrentPage, '/en/admin/configuration/general')
+	await docsSwitch.click()
+	await expect(page.getByText('Unsaved changes')).toBeVisible()
+	await openConfigurationTab(page, 'email')
+	await leaveDialog.getByRole('button', { name: 'Save', exact: true }).click()
+	await expect(page).toHaveURL(/\/admin\/configuration\/email$/)
+	await expect(page.getByText('Configuration saved')).toBeVisible()
+
+	await concurrentPage.locator('#configuration-docs-enabled').click()
+	await concurrentPage.getByRole('button', { name: 'Save', exact: true }).click()
+	await expect(concurrentPage.getByRole('button', { name: 'Refresh current data', exact: true })).toBeVisible()
+	await concurrentPage.getByRole('button', { name: 'Refresh current data', exact: true }).click()
+	await expect(concurrentPage.getByRole('button', { name: 'Refresh current data', exact: true })).toHaveCount(0)
+
+	await verifyConfigurationTabs(page)
+	await openConfigurationTab(page, 'email')
+	await page.getByRole('button', { name: 'Expand configuration', exact: true }).click()
+	await page.locator('#email-enabled').click()
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+	await expect(page.locator('#email-provider')).toHaveAttribute('aria-invalid', 'true')
+	await page.getByRole('button', { name: 'Discard', exact: true }).click()
+
+	await goToHydrated(page, '/en')
+	const docsNavigation = page.locator('header nav a[href="/en/docs"]')
+	if (docsWereEnabled) {
+		await expect(docsNavigation).toHaveCount(0)
+	} else {
+		await expect(docsNavigation).toBeVisible()
+	}
+	await context.close()
+
+	const changedContext: BrowserContext = await browser.newContext()
+	const changedPage: Page = await changedContext.newPage()
+	await signIn(changedPage, nextEmail, nextPassword)
+	await goToHydrated(changedPage, '/en/admin/configuration/general')
+	await expect(changedPage.getByRole('heading', { name: 'Configuration' })).toBeVisible()
+	await changedContext.close()
+})
+
+async function signIn(page: Page, email: string, password: string): Promise<void> {
+	await goToHydrated(page, '/en/login')
+	await page.locator('#login-email').fill(email)
+	await page.locator('#login-password').fill(password)
+	await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+	await expect(page).toHaveURL(/\/en$/)
+}
+
+async function goToHydrated(page: Page, path: string): Promise<void> {
+	await page.goto(path)
+	await page.waitForLoadState('networkidle')
+}
+
+async function openConfigurationTab(page: Page, domain: string): Promise<void> {
+	await page.locator(`a[href="/en/admin/configuration/${domain}"]`).click()
+}
+
+async function verifyConfigurationTabs(page: Page): Promise<void> {
+	const domains: string[] = ['general', 'authentication', 'email', 'storage', 'credits', 'affiliate']
+	for (const domain of domains) {
+		await openConfigurationTab(page, domain)
+		await expect(page).toHaveURL(new RegExp(`/admin/configuration/${domain}$`))
+		await expect(page.getByRole('heading', { name: 'Configuration' })).toBeVisible()
+	}
+}

@@ -792,16 +792,17 @@ async function applyAuthenticationProviderUpdate(
 }
 
 function validateAuthenticationDependencies(config: AuthenticationSettingsDocument): void {
-	if (config.turnstile.enabled && !config.turnstile.siteKey) {
+	const turnstileConfigured: boolean = config.turnstile.enabled || config.turnstile.siteKey !== null || config.turnstile.secretKey !== null
+	if (turnstileConfigured && !config.turnstile.siteKey) {
 		throw new ConfigStoreError(
 			'INVALID_UPDATE',
-			'turnstile.siteKey is required when Turnstile is enabled'
+			`turnstile.siteKey is required when Turnstile is ${config.turnstile.enabled ? 'enabled' : 'configured'}`
 		)
 	}
-	if (config.turnstile.enabled && !config.turnstile.secretKey) {
+	if (turnstileConfigured && !config.turnstile.secretKey) {
 		throw new ConfigStoreError(
 			'INVALID_UPDATE',
-			'turnstile.secretKey is required when Turnstile is enabled'
+			`turnstile.secretKey is required when Turnstile is ${config.turnstile.enabled ? 'enabled' : 'configured'}`
 		)
 	}
 	validateAuthenticationProvider('google', 'Google', config.providers.google)
@@ -814,28 +815,30 @@ function validateAuthenticationProvider(
 	label: 'Google' | 'GitHub' | 'LinuxDO',
 	provider: AuthenticationSettingsDocument['providers']['google']
 ): void {
-	if (provider.enabled && !provider.clientId) {
+	const configured: boolean = provider.enabled || provider.clientId !== null || provider.clientSecret !== null
+	if (configured && !provider.clientId) {
 		throw new ConfigStoreError(
 			'INVALID_UPDATE',
-			`providers.${path}.clientId is required when ${label} authentication is enabled`
+			`providers.${path}.clientId is required when ${label} authentication is ${provider.enabled ? 'enabled' : 'configured'}`
 		)
 	}
-	if (provider.enabled && !provider.clientSecret) {
+	if (configured && !provider.clientSecret) {
 		throw new ConfigStoreError(
 			'INVALID_UPDATE',
-			`providers.${path}.clientSecret is required when ${label} authentication is enabled`
+			`providers.${path}.clientSecret is required when ${label} authentication is ${provider.enabled ? 'enabled' : 'configured'}`
 		)
 	}
 }
 
 function validateEmailDependencies(config: EmailSettingsDocument): void {
-	if (config.enabled && !config.provider) {
-		throw new ConfigStoreError('INVALID_UPDATE', 'provider is required when Email is enabled')
+	const configured: boolean = config.enabled || config.provider !== null || config.resendApiKey !== null
+	if (configured && !config.provider) {
+		throw new ConfigStoreError('INVALID_UPDATE', `provider is required when Email is ${config.enabled ? 'enabled' : 'configured'}`)
 	}
-	if (config.enabled && config.provider === 'resend' && !config.resendApiKey) {
+	if (configured && config.provider === 'resend' && !config.resendApiKey) {
 		throw new ConfigStoreError(
 			'INVALID_UPDATE',
-			'resendApiKey is required when the Resend provider is enabled'
+			`resendApiKey is required when the Resend provider is ${config.enabled ? 'enabled' : 'configured'}`
 		)
 	}
 }

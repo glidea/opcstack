@@ -3,15 +3,16 @@
 	import type { DesignSystem, GeneralConfig } from '$apiContract/configuration'
 	import { ApiClientError, client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
-	import * as Alert from '$frontend/ui/alert'
 	import * as Field from '$frontend/ui/field'
 	import * as Select from '$frontend/ui/select'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import { Switch } from '$frontend/ui/switch'
+	import { toast } from 'svelte-sonner'
 	import ConfigurationActions from './ConfigurationActions.svelte'
 	import ConfigurationLoadError from './ConfigurationLoadError.svelte'
 	import ConfigurationSection from './ConfigurationSection.svelte'
-	import { dispatchConfigurationDirty } from './configuration-page'
+	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
+	import { dispatchConfigurationEditorState, isConfigurationConflict } from './configuration-page'
 
 	let designSystem: DesignSystem = $state('apple-saas')
 	let docsEnabled: boolean = $state(false)
@@ -20,6 +21,7 @@
 	let loaded: boolean = $state(false)
 	let saving: boolean = $state(false)
 	let error: string = $state('')
+	let conflict: boolean = $state(false)
 	let dirty: boolean = $state(false)
 
 	function snapshot(): string {
@@ -32,6 +34,7 @@
 		version = config.version
 		savedSnapshot = snapshot()
 		error = ''
+		conflict = false
 	}
 
 	async function loadConfig(): Promise<void> {
@@ -44,7 +47,7 @@
 		}
 	}
 
-	async function saveConfig(): Promise<void> {
+	async function saveConfig(): Promise<boolean> {
 		saving = true
 		error = ''
 		try {
@@ -53,8 +56,12 @@
 				docs_enabled: docsEnabled,
 				expected_version: version
 			}))
+			toast.success($_('admin.configuration.saved'))
+			return true
 		} catch (saveError) {
+			conflict = isConfigurationConflict(saveError)
 			error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError')
+			return false
 		} finally {
 			saving = false
 		}
@@ -69,17 +76,17 @@
 
 	$effect(() => {
 		dirty = loaded && snapshot() !== savedSnapshot
-		dispatchConfigurationDirty(dirty)
+		dispatchConfigurationEditorState(dirty, saveConfig)
 	})
 
 	onMount((): void => { void loadConfig() })
-	onDestroy((): void => dispatchConfigurationDirty(false))
+	onDestroy((): void => dispatchConfigurationEditorState(false, saveConfig))
 </script>
 
 {#if !loaded}
 	{#if error === ''}<div class="space-y-4 py-8"><Skeleton class="h-28 w-full" /><Skeleton class="h-28 w-full" /></div>{:else}<ConfigurationLoadError {error} onRetry={loadConfig} />{/if}
 {:else}
-	{#if error !== ''}<Alert.Root variant="destructive"><Alert.Description>{error}</Alert.Description></Alert.Root>{/if}
+	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
 		<ConfigurationSection title={$_('admin.configuration.general.appearance')}>
 			<Field.Field>

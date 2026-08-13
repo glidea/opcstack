@@ -2,9 +2,9 @@
 	import type { SecretAction } from './configuration-page'
 	import { _ } from '$frontend/i18n'
 	import { Badge } from '$frontend/ui/badge'
+	import { Button } from '$frontend/ui/button'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
-	import * as Select from '$frontend/ui/select'
 
 	let {
 		id,
@@ -20,7 +20,22 @@
 		action?: SecretAction
 		value?: string
 		error?: string
-	} = $props()
+		} = $props()
+
+	function replaceSecret(): void {
+		action = 'replace'
+		value = ''
+	}
+
+	function removeSecret(): void {
+		action = 'remove'
+		value = ''
+	}
+
+	function undoSecretChange(): void {
+		action = 'keep'
+		value = ''
+	}
 </script>
 
 <Field.Field data-invalid={error !== ''}>
@@ -28,18 +43,23 @@
 		<Field.Label for={`${id}-action`}>{label}</Field.Label>
 		<Badge variant="secondary">{configured ? $_('admin.configuration.secret.configured') : $_('admin.configuration.secret.notConfigured')}</Badge>
 	</div>
-	<Select.Root type="single" bind:value={action}>
-		<Select.Trigger id={`${id}-action`} class="w-full" aria-invalid={error !== ''}>
-			{$_(`admin.configuration.secret.${action}`)}
-		</Select.Trigger>
-		<Select.Content>
-			<Select.Item value="keep">{$_('admin.configuration.secret.keep')}</Select.Item>
-			<Select.Item value="replace">{$_('admin.configuration.secret.replace')}</Select.Item>
-			<Select.Item value="remove">{$_('admin.configuration.secret.remove')}</Select.Item>
-		</Select.Content>
-	</Select.Root>
+	{#if action === 'keep'}
+		<div class="flex flex-wrap gap-2">
+			<Button type="button" size="sm" variant="outline" onclick={replaceSecret}>{$_('admin.configuration.secret.replace')}</Button>
+			{#if configured}<Button type="button" size="sm" variant="ghost" onclick={removeSecret}>{$_('admin.configuration.secret.remove')}</Button>{/if}
+		</div>
+	{:else if action === 'remove'}
+		<div class="flex items-center justify-between gap-3 border border-destructive/40 bg-destructive/5 px-3 py-2">
+			<span class="text-sm text-destructive">{$_('admin.configuration.secret.pendingRemoval')}</span>
+			<Button type="button" size="sm" variant="ghost" onclick={undoSecretChange}>{$_('admin.configuration.secret.undo')}</Button>
+		</div>
+	{:else}
+		<div class="flex justify-end">
+			<Button type="button" size="sm" variant="ghost" onclick={undoSecretChange}>{$_('admin.configuration.secret.undo')}</Button>
+		</div>
+	{/if}
 	{#if action === 'replace'}
-		<Input id={id} type="password" autocomplete="new-password" bind:value aria-invalid={error !== ''} />
+		<Input id={id} type="password" autocomplete="new-password" bind:value aria-invalid={error !== ''} autofocus />
 	{/if}
 	<Field.Error>{error}</Field.Error>
 </Field.Field>
