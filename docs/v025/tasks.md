@@ -1,5 +1,12 @@
 ！！！每完成一个任务并且验证通过之后就commit一下！！固定提醒
 
+## 当前执行状态
+
+- Task-001 至 Task-007 已提交；其中 Task-006 的 `固定 Provider + Channel` 双轨模型已被后续决策否定，必须由 Task-006A 完整替换，不能视为最终完成
+- Task-008 至 Task-010 未完成
+- 当前工作区存在未提交的 Configuration UI、Payment 集合交互、Playwright 首次运行验收和生产扩展 Host Permission 修改；这些修改只通过了局部前端测试与 `svelte-check`，尚未完成真实浏览器验收、完整测试、提交和推送
+- `docs/v025/tech-design.md`、`AGENTS.md`、AI API、D1 Schema、运行时代码、管理后台和 AI 文档仍使用旧 Channel 语义，必须按 Task-006A 同步收口
+
 # Task-001: 建立 D1 配置存储与加密内核
 
 ## 描述
@@ -78,7 +85,7 @@
 ## 验收测试步骤
 1. 从空 D1 启动本地项目，确认脚本自动生成三个根密钥并在再次启动时保持不变
 2. 首次远程部署确认三个值进入 Worker Secrets，后续部署不上传或覆盖已有值
-3. 使用旧静态 Bearer Token 调用管理员接口确认返回 401，使用 `SYSTEM_EMAIL` Session 确认成功
+3. 使用旧静态 Bearer Token 调用管理员接口确认返回 401，使用当前 D1 管理员浏览器 Session 确认成功
 4. 模拟已有 D1 丢失根密钥，确认准备阶段明确失败而不是生成错误的新密钥
 
 # Task-003B: 将管理员身份与首次凭据迁入 D1
@@ -146,6 +153,8 @@
 
 # Task-006: 迁移 AI Provider 与 Channel 配置
 
+> 历史状态：该任务已按旧设计实现并提交，但旧设计后来被否定。最终系统不得保留固定 Provider 与 Channel 两套配置；Task-006A 完成前，AI 配置迁移不算最终验收通过。
+
 ## 描述
 实现 AI 单例配置和 Channel 集合 API，将同步 Provider、异步 Channel Router、Queue Consumer 和清理任务全部切换到 D1。Channel 继续保留现有身份、路由指标和 Video 固定执行渠道语义，但不再从 ENV 发现渠道。
 
@@ -164,6 +173,29 @@
 1. 新建并启用 Channel 后提交对应 AI 任务，确认 Consumer 使用该 Channel 且指标仍按 Channel ID 记录
 2. 更新路由权重或停用 Channel 后提交新任务，确认新执行读取新配置，已开始的 Video 任务仍使用持久化渠道
 3. 运行 AI、Consumer 和 Cron 测试并搜索旧 AI ENV，确认运行时只从 D1 读取配置
+
+# Task-006A: 将 AI 配置统一为 Provider
+
+## 描述
+删除固定 Provider 与 Channel 双轨模型，只保留 `ai_providers` 作为具体执行端点的唯一来源。Provider Type 使用 `image_openai`、`image_gemini`、`tts_seed` 等完整类型，不再拆分 `area`、`provider`、`capability` 或 `adapter`；路由器只负责对已经筛选好的 Provider 候选排序。
+
+## 不包含
+- 不实现跨 Provider Type 的模型映射，例如在 OpenAI 和 Gemini 模型之间自动转换
+- 不保留 `ai_channels`、固定 Provider 配置、旧 API、旧字段或兼容读取
+
+## TODO 清单
+- [ ] 1. 先修订 `docs/v025/tech-design.md` 并增加失败测试，明确 Provider 数据模型、同步调用选择、异步失败切换、Video 固定 Provider 和权重立即生效语义
+- [ ] 2. 将 `system_settings.ai_config` 收口为路由权重与任务保留期，将 `ai_channels` 重建为 `ai_providers`；Provider 包含 `id`、`name`、`type`、`models`、`base_url`、`api_key`、`price_multiplier`、`enabled` 和独立版本
+- [ ] 3. 将 AI Contract、配置组件和 Admin API 统一为 Provider CRUD，删除九个固定 Provider、Channel CRUD、`area + provider` 非法组合及对应错误码
+- [ ] 4. 配置组件按 `type + model + enabled` 解析候选；Router 只接收候选、指标和系统权重进行排序，不识别 Image、OpenAI 或具体 Provider Type
+- [ ] 5. 将 Chat、Image、TTS、Realtime、Video、Queue Consumer、任务字段和指标字段切换到 Provider Type 与 Provider ID；Video 创建远程任务后固定 Provider ID
+- [ ] 6. 删除源码、测试、Migration、文档和 `AGENTS.md` 中的 AI Channel、固定 Provider、`capability`、`adapter` 及旧命名残留
+
+## 验收测试步骤
+1. 创建两个 `image_openai` Provider，并让它们同时声明 `gpt-image-1`，确认任务只在这两个候选之间按权重排序
+2. 修改错误率、延迟和价格权重后提交新任务，确认新执行立即使用新权重，已开始的执行仍使用自己的配置快照
+3. 创建 Video 远程任务后停用其 Provider，确认后续轮询仍使用持久化 Provider ID；新任务不再选择已停用 Provider
+4. 全仓搜索并检查最终 D1 Schema，确认不存在 `ai_channels`、固定 Provider 配置和 Channel 兼容逻辑
 
 # Task-007: 用通用 OAuth API Access 替换 Agent 授权
 
@@ -188,47 +220,55 @@
 
 # Task-008: 实现基础 Configuration 管理界面
 
+> 当前状态：进行中，未提交。六个表单的固定保存栏、成功 Toast、冲突提示、首个错误定位、Secret 待删除与撤销、关闭状态独立展开和 OAuth Callback 复制已有局部修改；局部 17 个测试和 `svelte-check` 已通过，但尚未完成浏览器验收和完整回归。
+
 ## 描述
 在后台增加单一 `Configuration` 入口和顶部水平业务 Tab，先实现 General、Authentication、Email、Storage、Credits、Affiliate 六个单例域。表单使用显式保存、脏状态切换拦截、启用后展开配置和字段级错误，不增加草稿或发布概念。
 
 ## 不包含
-- 不实现 Payment Product 和 AI Channel 集合编辑
-- 不增加自动保存、统一 Save All 或移动端吸底保存栏
+- 不实现 Payment Product 和 AI Provider 集合编辑
+- 不增加自动保存或统一 Save All；业务域存在未保存修改时显示固定操作栏，移动端避开安全区域
 
 ## TODO 清单
-- [x] 1. 先增加路由、Tab、显式保存、脏状态和配置错误的前端失败测试
+- [ ] 1. 补齐路由、Tab、显式保存、脏状态、离开拦截、字段错误和冲突保留输入的行为测试，替换只搜索源码字符串的弱测试
 - [x] 2. 实现 Configuration 布局、水平 Tab、默认重定向和 Admin 导航入口，并从管理员账号入口明确链接到 Account / Security
-- [x] 3. 实现六个单例域表单，复用现有 UI Primitive 和 API Contract 类型
-- [x] 4. 实现 Secret 的 keep、replace、remove 交互及脱敏配置状态
-- [x] 5. 补齐英文 UI 文案、i18n、SEO 和 Admin Console 文档
+- [ ] 3. 实现六个单例域表单，复用现有 UI Primitive 和 API Contract 类型
+- [ ] 4. 实现 Secret 的 keep、replace、remove、待删除和撤销交互及脱敏配置状态
+- [ ] 5. 实现脏状态固定操作栏、保存成功提示、字段错误定位、配置冲突保留输入与刷新入口
+- [ ] 6. 实现关闭功能的独立展开编辑、Callback / Webhook URL 复制，并补齐英文 UI 文案、i18n、SEO 和 Admin Console 文档
 
 ## 验收测试步骤
 1. 登录后台进入 Configuration，逐个切换六个 Tab，确认路由稳定且当前业务域清晰
 2. 修改字段后切换 Tab，确认出现保存、放弃、取消选择；保存后刷新仍显示新值
 3. 开启缺少配置的功能并保存，确认字段旁显示可操作错误，关闭后相关字段收起
 
-# Task-009: 实现 Payment 与 AI 集合配置界面
+# Task-009: 实现 Payment Product 与 AI Provider 管理界面
+
+> 当前状态：进行中，未提交。Payment 国家路由已从文本框改为结构化行编辑，Webhook 增加复制操作，Product 与旧 AI Channel 编辑器已改为右侧 Sheet；这些修改尚未经过真实浏览器验收。旧 AI Channel UI 将被 Task-006A 推翻，不能继续作为完成依据。
 
 ## 描述
-完成 Payment、AI 两个复杂 Tab，在单例表单下方分别管理 Product 和 Channel 集合。集合实体使用独立新建、编辑、删除流程，保存后只替换对应实体，不触发整个业务域重读。
+完成 Payment、AI 两个复杂 Tab，在单例表单下方分别管理 Product 和 Provider 集合。集合实体使用独立新建、编辑、删除流程，保存后只替换对应实体，不触发整个业务域重读；AI 路由权重保留在系统设置并显式暴露。
 
 ## 不包含
 - 不增加批量编辑、拖拽排序或跨实体 Save All
 - 不展示任何密钥明文、密文或 IV
 
 ## TODO 清单
-- [x] 1. 先增加 Product、Channel 新建编辑删除、版本冲突和 Secret 操作的前端失败测试
-- [x] 2. 实现 Payment Provider 配置、派生 Webhook URL 和 Product 管理界面
-- [x] 3. 实现 AI 路由配置、固定 Provider 配置和 Channel 管理界面
-- [x] 4. 处理实体级 loading、empty、error、冲突刷新和删除确认状态
-- [x] 5. 同步 Admin Console、Payment 和 AI 操作文档
+- [ ] 1. 先增加 Product、Provider 新建编辑删除、版本冲突和 Secret 操作的前端行为测试
+- [ ] 2. 实现 Payment Provider 配置、Webhook URL 复制、国家路由可编辑表格和 Product 管理界面
+- [ ] 3. 基于 Task-006A 实现 AI Provider 管理界面，字段只包含 Provider 实体属性，不再展示 Area、Channel 或固定 Provider 配置
+- [x] 4. 在 AI 系统设置中暴露错误率、延迟和价格三个非负相对权重并校验总和大于零；Task-006A 迁移时保持该配置与下一次选择立即生效语义
+- [x] 5. 处理实体级 loading、empty、error、冲突刷新和删除确认状态
+- [ ] 6. 将 Product 与 Provider 编辑统一为右侧抽屉并同步 Admin Console、Payment 和 AI 操作文档
 
 ## 验收测试步骤
 1. 在 Payment Tab 保存 Provider 后新建、编辑和删除 Product，确认每次只更新目标实体
-2. 在 AI Tab 保存 Provider 和路由权重后管理 Channel，确认密钥只显示已配置状态
+2. 在 AI Tab 保存路由权重并新建、编辑和停用 Provider，确认密钥只显示已配置状态，页面不存在 Channel 或独立 Area 字段
 3. 用两个页面并发编辑同一实体，确认后保存页面收到 `CONFIG_CONFLICT` 且不会覆盖新版本
 
 # Task-010: 收口初始化引导与端到端验收
+
+> 当前状态：进行中，未提交。Playwright 首次运行用例、临时项目中的浏览器执行链路、生产扩展 Host Permission 修正和对应测试已经写入工作区；目前只确认 Playwright 能发现用例，尚未真实运行完整浏览器流程。已有远程 HTTP E2E 代码不等于真实远程验收通过。
 
 ## 描述
 清理所有旧配置来源和文档，重写创建项目、本地运行、Cloudflare 部署、首次后台配置及 OAuth API Access 用户旅程。以本地完整用户流程和远程可恢复安全场景验证项目壳子可先启动，业务配置可随后保存并立即生效。
@@ -238,12 +278,13 @@
 - 不让远程 E2E 部署、创建资源、执行迁移或直接写 D1
 
 ## TODO 清单
-- [x] 1. 先写真实本地首次安装和真实 Cloudflare HTTP E2E 验收场景，禁止用单测、构建、mock 或直接数据库写入替代用户流程
-- [x] 2. 更新 `CREATE_OPCSTACK_APP.md`、`QUICK_START.md`、README、模板文档、公开中英文文档和 `AGENTS.md`
+- [ ] 1. 补齐真实本地首次安装、浏览器管理后台、Payment Product、AI Provider 和 Cloudflare HTTP E2E 场景，禁止用单测、构建、mock 或直接数据库写入替代用户流程
+- [ ] 2. 更新 `CREATE_OPCSTACK_APP.md`、`QUICK_START.md`、README、模板文档、公开中英文文档和 `AGENTS.md`，清理固定 Provider、AI Channel、静态管理员 Token、旧 Agent 授权及其他过期描述
 - [x] 3. 清理 ENV 文件、Wrangler 模板、准备脚本、生成配置和文档中的全部旧业务配置残留
-- [x] 4. 从空本地数据完整验证初始化密码只显示一次、管理员登录并修改凭据、按域配置、前台生效、OAuth Client 授权调用和撤销流程
-- [x] 5. 运行完整类型检查、单元测试、构建、配置准备和 E2E 测试
-- [x] 6. 对真实已部署 Cloudflare 实例执行只通过公开 HTTP 的管理员 Session、配置读写立即生效、OAuth 授权调用与撤销验收，不部署、不迁移、不直写远程 D1
+- [ ] 4. 从空本地数据通过真实浏览器完整验证初始化密码只显示一次、管理员登录并修改凭据、按域配置和前台生效，并通过 HTTP 验证 OAuth Client 授权调用和撤销流程
+- [ ] 5. 修正生产扩展 Host Permission，运行完整类型检查、单元测试、构建、配置准备、浏览器 E2E 和 HTTP E2E 测试
+- [ ] 6. 对真实已部署 Cloudflare 实例执行只通过公开 HTTP 的管理员 Session、配置读写立即生效、OAuth 授权调用与撤销验收，不部署、不迁移、不直写远程 D1
+- [ ] 7. 清理测试名称和 Given 文案中的 `admin api token`，压平预发布 Migration 中先创建再删除的旧 Agent 表与 AI Channel 历史，最终全仓搜索无旧逻辑残留
 
 ## 验收测试步骤
 1. 仅填写技术设计规定的固定资源 ENV，从空数据库启动项目，确认终端只显示一次初始凭据、可登录并修改管理员邮箱和密码，所有可选业务能力明确禁用
