@@ -87,6 +87,7 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await verifyPaymentProductJourney(page, concurrentPage)
 	await verifyAIProviderJourney(page, concurrentPage)
 	await verifyAdminBetaCodes(page)
+	await verifyAdminCreditCodes(page)
 	await verifyAdminUsers(page, nextEmail)
 
 	await goToHydrated(page, '/en')
@@ -114,6 +115,24 @@ async function verifyAdminBetaCodes(page: Page): Promise<void> {
 		page.locator('#beta-code-filter').boundingBox(),
 		page.locator('#beta-user-filter').boundingBox(),
 		page.locator('#beta-status-filter').boundingBox(),
+		page.getByRole('button', { name: 'Apply filters', exact: true }).boundingBox()
+	])
+	for (const position of positions) {
+		expect(position).not.toBeNull()
+	}
+	const controlTopPositions: number[] = positions.map((position): number => position?.y ?? -1)
+	expect(Math.max(...controlTopPositions) - Math.min(...controlTopPositions)).toBeLessThanOrEqual(1)
+	await expect(page.getByText('Advanced filters', { exact: true })).toBeVisible()
+}
+
+async function verifyAdminCreditCodes(page: Page): Promise<void> {
+	await goToHydrated(page, '/en/admin/credit-codes')
+	const generateButton = page.getByRole('button', { name: 'Generate codes', exact: true })
+	await expect(generateButton).toHaveCSS('height', '36px')
+	const positions = await Promise.all([
+		page.locator('#credit-code-filter').boundingBox(),
+		page.locator('#credit-user-filter').boundingBox(),
+		page.locator('#credit-status-filter').boundingBox(),
 		page.getByRole('button', { name: 'Apply filters', exact: true }).boundingBox()
 	])
 	for (const position of positions) {
