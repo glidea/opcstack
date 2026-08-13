@@ -237,7 +237,7 @@
 					<ExternalLinkIcon class="size-3.5" />
 				</Button>
 			{/if}
-			<Button variant="outline" size="icon-sm" onclick={loadTasks} aria-label={$_('admin.aiTasks.refresh')} title={$_('admin.aiTasks.refresh')}>
+			<Button variant="outline" size="icon" onclick={loadTasks} aria-label={$_('admin.aiTasks.refresh')} title={$_('admin.aiTasks.refresh')}>
 				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 			</Button>
 		</div>

@@ -79,6 +79,6 @@ describe('admin credit codes page', (): void => {
 
 	test('uses a standard primary action and an unframed filter toolbar', (): void => {
 		expect(pageSource).toContain('<Button onclick={() => (generateOpen = true)}>')
-		expect(pageSource).toContain('class="admin-filter-bar border-0 bg-transparent p-0"')
+		expect(pageSource).toContain('class="admin-filter-bar"')
 	})
 })

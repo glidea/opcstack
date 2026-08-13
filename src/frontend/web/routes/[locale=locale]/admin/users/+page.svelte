@@ -163,12 +163,12 @@
 <main class="admin-page">
 	<header class="admin-page-header">
 		<h1>{$_('admin.users.title')}</h1>
-		<Button variant="outline" size="icon-sm" onclick={loadUsers} aria-label={$_('admin.users.refresh')} title={$_('admin.users.refresh')}>
+		<Button variant="outline" size="icon" onclick={loadUsers} aria-label={$_('admin.users.refresh')} title={$_('admin.users.refresh')}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 		</Button>
 	</header>
 
-	<form class="admin-filter-bar w-full border-0 bg-transparent p-0 sm:max-w-xl" onsubmit={submitSearch}>
+	<form class="admin-filter-bar w-full sm:max-w-xl" onsubmit={submitSearch}>
 		<Field.Field>
 			<Field.Label class="sr-only" for="user-search">{$_('admin.users.searchLabel')}</Field.Label>
 			<InputGroup.Root>

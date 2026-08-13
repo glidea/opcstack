@@ -210,10 +210,10 @@
 	<header class="admin-page-header">
 		<h1>{$_('admin.notifications.title')}</h1>
 		<div class="admin-page-actions">
-			<Button variant="outline" size="icon-sm" onclick={loadNotifications} aria-label={$_('admin.notifications.refresh')} title={$_('admin.notifications.refresh')}>
+			<Button variant="outline" size="icon" onclick={loadNotifications} aria-label={$_('admin.notifications.refresh')} title={$_('admin.notifications.refresh')}>
 				<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 			</Button>
-			<Button size="sm" onclick={openPublisher}><PlusIcon />{$_('admin.notifications.publish.action')}</Button>
+			<Button onclick={openPublisher}><PlusIcon />{$_('admin.notifications.publish.action')}</Button>
 		</div>
 	</header>
 

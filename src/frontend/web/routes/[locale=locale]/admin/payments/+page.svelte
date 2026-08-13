@@ -179,7 +179,7 @@
 <main class="admin-page">
 	<header class="admin-page-header">
 		<h1>{$_('admin.payments.title')}</h1>
-		<Button variant="outline" size="icon-sm" onclick={loadTransactions} aria-label={$_('admin.payments.refresh')} title={$_('admin.payments.refresh')}>
+		<Button variant="outline" size="icon" onclick={loadTransactions} aria-label={$_('admin.payments.refresh')} title={$_('admin.payments.refresh')}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 		</Button>
 	</header>

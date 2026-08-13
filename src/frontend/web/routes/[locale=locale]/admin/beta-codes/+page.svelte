@@ -179,7 +179,7 @@
 		</div>
 	</header>
 
-	<form class="admin-filter-bar border-0 bg-transparent p-0" onsubmit={applyFilters}>
+	<form class="admin-filter-bar" onsubmit={applyFilters}>
 		<div class="admin-filter-primary md:grid-cols-2 lg:grid-cols-[minmax(11rem,1fr)_minmax(14rem,1.3fr)_minmax(9rem,0.7fr)_auto] lg:items-end">
 			<Field.Field>
 				<Field.Label for="beta-code-filter">{$_('admin.betaCodes.code')}</Field.Label>

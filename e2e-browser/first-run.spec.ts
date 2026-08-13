@@ -88,6 +88,7 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await verifyAIProviderJourney(page, concurrentPage)
 	await verifyAdminBetaCodes(page)
 	await verifyAdminCreditCodes(page)
+	await verifyAdminListLayout(page)
 	await verifyAdminUsers(page, nextEmail)
 
 	await goToHydrated(page, '/en')
@@ -141,6 +142,33 @@ async function verifyAdminCreditCodes(page: Page): Promise<void> {
 	const controlTopPositions: number[] = positions.map((position): number => position?.y ?? -1)
 	expect(Math.max(...controlTopPositions) - Math.min(...controlTopPositions)).toBeLessThanOrEqual(1)
 	await expect(page.getByText('Advanced filters', { exact: true })).toBeVisible()
+}
+
+async function verifyAdminListLayout(page: Page): Promise<void> {
+	const listPages: string[] = [
+		'/en/admin/users',
+		'/en/admin/beta-codes',
+		'/en/admin/credit-codes',
+		'/en/admin/feedback',
+		'/en/admin/notifications',
+		'/en/admin/payments',
+		'/en/admin/ai-tasks'
+	]
+	for (const path of listPages) {
+		await goToHydrated(page, path)
+		const refreshButton = page.locator('.admin-page-header button[aria-label]').last()
+		await expect(refreshButton).toHaveCSS('height', '36px')
+		const filterBar = page.locator('form.admin-filter-bar')
+		const style = await filterBar.evaluate((element: HTMLElement): { borderTopWidth: string; paddingTop: string; backgroundColor: string } => {
+			const computedStyle: CSSStyleDeclaration = window.getComputedStyle(element)
+			return {
+				borderTopWidth: computedStyle.borderTopWidth,
+				paddingTop: computedStyle.paddingTop,
+				backgroundColor: computedStyle.backgroundColor
+			}
+		})
+		expect(style).toEqual({ borderTopWidth: '0px', paddingTop: '0px', backgroundColor: 'rgba(0, 0, 0, 0)' })
+	}
 }
 
 async function verifyAdminUsers(page: Page, administratorEmail: string): Promise<void> {

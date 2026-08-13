@@ -244,7 +244,7 @@
 	}
 
 	.admin-filter-bar {
-		@apply grid gap-3 rounded-md border bg-muted/30 p-3;
+		@apply grid gap-3;
 	}
 
 	.admin-filter-primary {

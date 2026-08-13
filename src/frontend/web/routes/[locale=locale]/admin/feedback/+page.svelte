@@ -175,7 +175,7 @@
 <main class="admin-page">
 	<header class="admin-page-header">
 		<h1>{$_('admin.feedback.title')}</h1>
-		<Button variant="outline" size="icon-sm" onclick={loadFeedbacks} aria-label={$_('admin.feedback.refresh')} title={$_('admin.feedback.refresh')}>
+		<Button variant="outline" size="icon" onclick={loadFeedbacks} aria-label={$_('admin.feedback.refresh')} title={$_('admin.feedback.refresh')}>
 			<RefreshCwIcon class={listState.status === 'loading' ? 'animate-spin' : ''} />
 		</Button>
 	</header>

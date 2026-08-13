@@ -66,7 +66,7 @@
 <main class="admin-page">
 	<header class="admin-page-header">
 		<h1>{$_('admin.overview.title')}</h1>
-		<Button variant="outline" size="icon-sm" onclick={refresh} disabled={refreshing} aria-label={$_('admin.overview.refresh')} title={$_('admin.overview.refresh')}>
+		<Button variant="outline" size="icon" onclick={refresh} disabled={refreshing} aria-label={$_('admin.overview.refresh')} title={$_('admin.overview.refresh')}>
 			<RefreshCwIcon class={refreshing ? 'animate-spin' : ''} />
 		</Button>
 	</header>
