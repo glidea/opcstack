@@ -73,10 +73,10 @@
 	<AppHeader logoHref={`/${data.locale}/admin/dashboard`} showSidebarTrigger>
 		{#snippet leadingActions()}
 			{#if data.cloudflareWorkerUrl}
-				<a href={data.cloudflareWorkerUrl} target="_blank" rel="noopener" class={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+				<a href={data.cloudflareWorkerUrl} target="_blank" rel="noopener" class={buttonVariants({ variant: 'ghost', size: 'sm' })} aria-label={$_('admin.cloudflare.worker')} title={$_('admin.cloudflare.worker')}>
 					<CloudIcon class="size-4" />
-					<span>{$_('admin.cloudflare.worker')}</span>
-					<ExternalLinkIcon class="size-3.5 text-muted-foreground" />
+					<span class="hidden sm:inline">{$_('admin.cloudflare.worker')}</span>
+					<ExternalLinkIcon class="hidden size-3.5 text-muted-foreground sm:block" />
 				</a>
 			{/if}
 		{/snippet}
@@ -86,16 +86,16 @@
 	</AppHeader>
 
 	<div class="flex min-h-0 flex-1">
-		<Sidebar.Root class="border-r md:top-12 md:h-[calc(100svh-3rem)]">
-			<Sidebar.Content class="py-3">
-				<Sidebar.Group class="px-3 py-1.5">
+		<Sidebar.Root>
+			<Sidebar.Content class="py-2">
+				<Sidebar.Group class="px-2 py-1">
 					<Sidebar.GroupContent>
 						<Sidebar.Menu class="gap-0.5">
 							{#each navigation as item}
 								{@const Icon: Component = sectionIcons[item.id]}
 								{@const isActive: boolean = item.id === currentItem.id}
 								<Sidebar.MenuItem>
-									<Sidebar.MenuButton {isActive} class="h-9 px-2.5 data-active:bg-sidebar-primary data-active:text-sidebar-primary-foreground">
+									<Sidebar.MenuButton {isActive} class="h-9 px-2.5 font-medium data-active:bg-sidebar-primary data-active:text-sidebar-primary-foreground">
 										{#snippet child({ props })}
 											<a href={item.href} aria-current={isActive ? 'page' : undefined} {...props}>
 												<Icon class="size-4" />

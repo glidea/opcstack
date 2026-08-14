@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import type { GetDashboardResponse } from '$apiContract/dashboard'
 import {
-	createDashboardDrilldowns,
+	createAttentionItems,
 	createDashboardInitialState,
 	createTaskDistribution,
 	formatPaidAmount,
@@ -57,13 +57,27 @@ describe('admin dashboard page state', () => {
 })
 
 describe('admin dashboard presentation', () => {
-	test('builds actionable drilldown filters', (): void => {
-		expect(createDashboardDrilldowns('en', dashboard)).toEqual({
-		failedTasks:
-			'/en/admin/ai-tasks?status=failed&created_at_start=1786185600000&created_at_end=1786272000000',
-		claimedCodes: '/en/admin/credit-codes?status=claimed',
-		disputedPayments: '/en/admin/payments?status=disputed'
+	test('lists each pending exception with its filtered drilldown', (): void => {
+		expect(createAttentionItems('en', dashboard)).toEqual([
+			{
+				id: 'failedTasks',
+				count: 3,
+				href: '/en/admin/ai-tasks?status=failed&created_at_start=1786185600000&created_at_end=1786272000000'
+			},
+			{ id: 'claimedCodes', count: 4, href: '/en/admin/credit-codes?status=claimed' },
+			{ id: 'disputedPayments', count: 2, href: '/en/admin/payments?status=disputed' }
+		])
 	})
+
+	test('leaves the attention queue empty when nothing needs action', (): void => {
+		const settledDashboard: GetDashboardResponse = {
+			...dashboard,
+			payments: { ...dashboard.payments, disputed_count: 0 },
+			ai_tasks: { ...dashboard.ai_tasks, failed_count_24h: 0 },
+			redemption_codes: { claimed_count: 0 }
+		}
+
+		expect(createAttentionItems('zh', settledDashboard)).toEqual([])
 	})
 
 	test('calculates processing tasks and task distribution', (): void => {

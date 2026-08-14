@@ -256,7 +256,7 @@
 	}
 
 	.admin-table-panel {
-		@apply overflow-hidden rounded-md border bg-background;
+		@apply overflow-hidden rounded-sm border bg-background;
 	}
 
 	.admin-table-panel [data-slot="table-header"] {
@@ -277,11 +277,31 @@
 	}
 
 	.admin-metric-strip {
-		@apply grid overflow-hidden rounded-md border bg-background sm:grid-cols-2 xl:grid-cols-4;
+		@apply grid overflow-hidden rounded-sm border bg-background sm:grid-cols-2 xl:grid-cols-4;
 	}
 
 	.admin-metric {
-		@apply min-h-32 p-4 sm:p-5;
+		@apply flex min-h-24 flex-col justify-center gap-1 p-4 sm:px-5;
+	}
+
+	.admin-metric-label {
+		font-size: 12px;
+		font-weight: 500;
+		line-height: 1.43;
+		letter-spacing: -0.01em;
+		@apply text-muted-foreground;
+	}
+
+	.admin-metric-value {
+		@apply text-2xl font-semibold tabular-nums;
+	}
+
+	.admin-metric-meta {
+		font-size: 12px;
+		font-weight: 450;
+		line-height: 1.43;
+		letter-spacing: -0.01em;
+		@apply text-muted-foreground;
 	}
 
 	.admin-metric + .admin-metric {
@@ -317,11 +337,25 @@
 	}
 
 	.admin-dashboard-panel {
-		@apply overflow-hidden rounded-md border bg-background;
+		@apply overflow-hidden rounded-sm border bg-background;
 	}
 
 	.admin-dashboard-panel-header {
-		@apply flex min-h-14 items-center justify-between gap-4 border-b px-4;
+		@apply flex min-h-11 items-center justify-between gap-3 border-b px-4;
+	}
+
+	.admin-dashboard-queue-row {
+		@apply flex min-h-12 items-center gap-3 px-4 transition-colors hover:bg-accent;
+	}
+
+	.admin-shell {
+		--header-h: 3rem;
+	}
+
+	.admin-shell [data-slot="sidebar-container"] {
+		top: var(--header-h) !important;
+		bottom: 0 !important;
+		height: auto !important;
 	}
 
 	:root:not([data-design="brutalism"]) .admin-shell [data-slot="button"]:not(:focus-visible),

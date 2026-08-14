@@ -5,10 +5,12 @@ export type DashboardState =
 	| { status: 'loaded'; data: GetDashboardResponse }
 	| { status: 'error' }
 
-export type DashboardDrilldowns = {
-	failedTasks: string
-	claimedCodes: string
-	disputedPayments: string
+export type AttentionItemId = 'failedTasks' | 'claimedCodes' | 'disputedPayments'
+
+export type AttentionItem = {
+	id: AttentionItemId
+	count: number
+	href: string
 }
 
 export type TaskDistributionItem = {
@@ -31,21 +33,34 @@ export async function loadDashboard(
 	}
 }
 
-export function createDashboardDrilldowns(
+export function createAttentionItems(
 	locale: string,
 	dashboard: GetDashboardResponse
-): DashboardDrilldowns {
+): AttentionItem[] {
 	const window = dashboard.windows.last_24_hours
 	const failedTaskParams: URLSearchParams = new URLSearchParams({
 		status: 'failed',
 		created_at_start: String(window.start_at),
 		created_at_end: String(window.end_at)
 	})
-	return {
-		failedTasks: `/${locale}/admin/ai-tasks?${failedTaskParams.toString()}`,
-		claimedCodes: `/${locale}/admin/credit-codes?status=claimed`,
-		disputedPayments: `/${locale}/admin/payments?status=disputed`
-	}
+	const items: AttentionItem[] = [
+		{
+			id: 'failedTasks',
+			count: dashboard.ai_tasks.failed_count_24h,
+			href: `/${locale}/admin/ai-tasks?${failedTaskParams.toString()}`
+		},
+		{
+			id: 'claimedCodes',
+			count: dashboard.redemption_codes.claimed_count,
+			href: `/${locale}/admin/credit-codes?status=claimed`
+		},
+		{
+			id: 'disputedPayments',
+			count: dashboard.payments.disputed_count,
+			href: `/${locale}/admin/payments?status=disputed`
+		}
+	]
+	return items.filter((item: AttentionItem): boolean => item.count > 0)
 }
 
 export function getProcessingTaskCount(dashboard: GetDashboardResponse): number {
