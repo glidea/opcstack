@@ -17,9 +17,9 @@ import {
 	OAUTH_API_CLIENT_ID,
 	OAuthApiAccessError,
 	getOAuthGrant,
-	getPendingOAuthGrant
+	getPendingOAuthGrant,
+	isAdministratorScope
 } from './oauth-api-access'
-import { isAdministratorScope } from '../scopes'
 import { isAdministrator } from './administrator'
 import {
 	getCreditsConfig,

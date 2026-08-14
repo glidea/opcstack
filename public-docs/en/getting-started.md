@@ -40,7 +40,7 @@ pnpm dev
 
 After startup open http://localhost:5173
 
-Set `SYSTEM_EMAIL` before the first preparation. The command creates that D1 administrator and prints a random one-time password. Sign in, replace the password under Settings, then configure business features under Admin / System Settings. `.env.dev` and `.env.prod` also own build-time theme and R2 upload policy. Internal root secrets are generated automatically; business credentials are encrypted in D1.
+Set `SYSTEM_EMAIL` before the first preparation. The command creates that local D1 administrator and prints a random one-time password. Sign in, replace the password under Settings, then configure singleton business settings under System settings. Payment products and AI providers use standalone workspaces. `.env.dev` and `.env.prod` also own build-time theme and R2 upload policy. Internal root secrets are generated automatically; business credentials are encrypted in D1.
 
 ## 3. Deploy to Cloudflare
 
@@ -49,6 +49,8 @@ pnpm deploy:cloudflare
 ```
 
 First remote deploy prompts you to create a Cloudflare API Token. Follow the link, create it, paste it once. The token is cached in `.wrangler/cloudflare-api-token` after that.
+
+Production D1 is independent from local D1. Its first deployment creates a separate administrator from `.env.prod` `SYSTEM_EMAIL` and prints a separate random password once.
 
 See [Deployment](guides/deployment.md) for the full provisioning and deploy flow.
 
@@ -67,7 +69,9 @@ See [Frontend](guides/frontend.md) for extension entrypoints and shared frontend
 
 ## Optional: China access domain
 
-If you need a separate China entrypoint, set `APP_CN_DOMAIN` in `.env.dev` or `.env.prod`. `prepare:cloudflare:*` wires it into R2 CORS and Turnstile domains. Without `APP_CN_CNAME_TARGET`, it uses a Worker custom domain. With `APP_CN_CNAME_TARGET`, it keeps your preferred CNAME and attaches the Worker through a normal zone route.
+If you need a separate China entrypoint, set `APP_CN_DOMAIN` in `.env.dev` or `.env.prod`. `prepare:cloudflare:*` auto wires it into R2 CORS and Turnstile domains. It adds a Worker custom domain when no external CNAME target is configured.
+
+To auto configure DNS, also set `APP_CN_CNAME_TARGET`. The script creates or updates one unproxied CNAME and adds a normal Worker zone route for that hostname. It does not pick acceleration targets; you provide the target from your DNS acceleration provider.
 
 ## Sync template updates
 

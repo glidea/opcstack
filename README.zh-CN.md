@@ -116,7 +116,7 @@ vim .env.dev
 pnpm dev
 ```
 
-首次准备会自动生成 Worker 内部根密钥，并创建 `admin@opcstack.local` 和随机密码。使用终端只显示一次的凭据登录，在 Account / Security 修改邮箱和密码，再到 Admin / Configuration 配置业务能力。业务凭据加密保存在 D1，不写入 env 文件。
+首次启动前先在 `.env.dev` 填写 `SYSTEM_EMAIL`。首次准备会生成 Worker 内部根密钥，在本地 D1 创建该管理员，并只显示一次随机密码。登录后在设置页修改随机密码，再到系统设置配置单例业务配置。支付商品和 AI 提供商使用独立工作区。业务凭据加密保存在 D1，不写入 env 文件。
 
 部署到 Cloudflare：
 

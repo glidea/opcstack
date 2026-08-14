@@ -88,7 +88,7 @@ flowchart TB
 - 只有**一个 Worker 部署**。Web 页面、API、Webhook、Cron 和队列消费者都在同一个代码库里，一起发布。不需要运行独立服务。
 - **边缘**是 Cloudflare 的全球网络。DNS 和 TLS 在那里终结，请求自动路由到最近的 Worker 实例。
 - **客户端**是 Web 应用（浏览器）和 Chrome 扩展。它们共享 `src/frontend/lib/` 中的大部分前端代码。
-- **外部 SaaS** 是第三方提供商。应用启动后，在 Admin / Configuration 中按业务域启用和配置。
+- **外部 SaaS** 是第三方提供商。应用启动后，在系统设置中配置单例凭据，在对应提供商工作区管理集合实体。
 
 ## 请求流程
 
@@ -114,7 +114,7 @@ API 在 `src/backend/api/index.ts` 中被拆分为四个路由组：
 | `userApi`     | Session 或 OAuth Token + 内测门控         | 已认证用户 JSON API                           |
 | `adminApi`    | Session 或 OAuth Token + D1 管理员角色     | 管理员 JSON API                               |
 
-受保护的 JSON 路由必须在中央权限表声明一个 scope。浏览器 Session 直接满足该 scope，OAuth Access Token 必须显式包含它。管理员路由还会校验授权用户当前仍持有 D1 管理员角色。流式传输和对象读写等仅限浏览器的路由会显式拒绝 OAuth Token。
+受保护的 JSON 路由必须在路由注册旁直接声明一个 scope。浏览器 Session 直接满足该 scope，OAuth Access Token 必须显式包含它。管理员路由还会校验授权用户当前仍持有 D1 管理员角色。流式传输和对象读写等仅限浏览器的路由会显式拒绝 OAuth Token。
 
 ## 数据架构
 

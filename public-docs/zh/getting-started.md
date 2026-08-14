@@ -40,7 +40,7 @@ pnpm dev
 
 启动后打开 http://localhost:5173
 
-首次准备前填写 `SYSTEM_EMAIL`。准备脚本用它创建 D1 管理员，并在终端显示随机的一次性密码。登录后在设置页修改密码，再到后台系统设置配置业务能力。`.env.dev` 和 `.env.prod` 还负责构建期主题和 R2 上传策略。内部根密钥由脚本自动生成，业务凭据加密保存在 D1。
+首次准备前填写 `SYSTEM_EMAIL`。准备脚本用它创建本地 D1 管理员，并在终端显示随机的一次性密码。登录后在设置页修改密码，再到系统设置配置单例业务设置。支付商品和 AI 提供商使用独立工作区。`.env.dev` 和 `.env.prod` 还负责构建期主题和 R2 上传策略。内部根密钥由脚本自动生成，业务凭据加密保存在 D1。
 
 ## 3. 部署到 Cloudflare
 
@@ -49,6 +49,8 @@ pnpm deploy:cloudflare
 ```
 
 首次远程部署时会提示创建 Cloudflare API Token。按链接创建后粘贴一次即可。之后 Token 会缓存在 `.wrangler/cloudflare-api-token`。
+
+生产 D1 与本地 D1 相互独立。首次生产部署会使用 `.env.prod` 的 `SYSTEM_EMAIL` 创建另一套管理员，并只显示一次另一份随机密码。
 
 完整的资源供给和部署流程请参阅 [部署](guides/deployment.md)。
 

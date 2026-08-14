@@ -201,7 +201,7 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Fixed deployment config lives in `.env.dev` and `.env.prod`. `.env` is a local override.
 - Generated local root secret state lives under `.wrangler/`. It is not user configuration and is not part of env loading. Production roots live in Cloudflare Worker Secrets.
 - Agents must not read, print, search, edit, create, or copy generated secret state or token caches: `.wrangler/local-system-secrets.env`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
-- Third-party credentials are entered through Admin Configuration or an OAuth-authorized API and encrypted in D1. Never add them to env files.
+- Third-party credentials are entered through System settings, a provider workspace, or an OAuth-authorized API and encrypted in D1. Never add them to env files.
 - Env loading order: `.env.dev` or `.env.prod` -> `.env` -> `process.env`.
 - Env files contain fixed deployment and initialization inputs only and are ordered by shared product identity, domains, frontend exposure, and infrastructure.
 - The fixed ENV set is `APP_NAME`, `APP_VERSION`, `DESIGN_SYSTEM`, `SYSTEM_EMAIL`, `APP_DOMAIN`, `APP_CN_DOMAIN`, `APP_CN_CNAME_TARGET`, `EXTENSION_HOST_PERMISSIONS`, `D1_SHARDS`, `R2_ENABLED`, `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES`, `R2_USER_UPLOAD_MAX_BYTES`, `R2_TMP_LIFECYCLE_RULES`, `QUEUE_NAMES`, `QUEUE_MAX_CONCURRENCY`, `CRONS`, and `DO_NAMES`.
@@ -291,7 +291,7 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - Better Auth lives in `src/backend/api/auth/index.ts`.
 - Administrator lookup and OAuth API access authentication logic live beside Better Auth in `src/backend/api/auth/`. Do not create separate top-level backend auth domains for them.
 - `authMiddleware` injects `userId` into `ctx.variables`.
-- Protected JSON API routes accept Better Auth browser sessions or OAuth Bearer tokens. Every route is registered in `src/backend/api/scopes.ts`; OAuth access must pass `requireApiScope(scope)`, while protocol and byte-stream routes reject OAuth tokens.
+- Protected JSON API routes accept Better Auth browser sessions or OAuth Bearer tokens. Route registration in `src/backend/api/index.ts` declares the required scope directly through `requireApiScope(scope)`. The OAuth scope vocabulary lives in `src/backend/api/auth/oauth-api-access.ts`. Protocol and byte-stream routes reject OAuth tokens.
 - The generic credential client is `opc auth connect` plus `opc api request`; it injects tokens and must not contain business API types or route-specific methods.
 - `administratorMiddleware` verifies the authenticated user's current D1 `admin` role for browser sessions and OAuth access. Admin and configuration scopes never bypass the role check.
 - `SYSTEM_EMAIL` is required only when an empty Meta D1 creates the unique administrator. The created D1 account becomes the runtime identity, public support contact, and outbound sender; later prepares ignore `SYSTEM_EMAIL`, and the settings page does not allow changing the email.

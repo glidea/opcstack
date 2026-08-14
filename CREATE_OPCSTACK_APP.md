@@ -39,7 +39,7 @@ Agents must follow these rules:
 - Do not edit generated secret state
 - Do not ask the user to paste secrets into chat
 - Do not print secret values
-- Enter third-party credentials only through the running Admin Configuration page or its OAuth-authorized API
+- Enter third-party credentials only through the running System settings or provider workspace, or through its OAuth-authorized API
 
 Users do not maintain business secret env files. `prepare-cloudflare` owns the internal root secrets. If generated root secret state is missing after D1 initialization, report that recovery is required; never generate a replacement root.
 
@@ -123,27 +123,23 @@ Keep unrelated settings unchanged unless the user explicitly asks.
 
 Notes:
 
-- Authentication, Email, Turnstile, social login, and beta gate are configured after startup in the admin Configuration workspace
+- Authentication, Email, Turnstile, social login, and beta gate are configured after startup in System settings
 - R2 upload policy, Queues, Cron, and AI queue names may already have template values in `.env.dev`; do not ask about them during local setup unless the user wants to change the defaults
 - Production deployment topology belongs in `.env.prod`, not in local setup
 
 ---
 
-## Phase 4: Initialize Local Secrets And Administrator
-
-`prepare-cloudflare` generates `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET` on first initialization. Local development keeps this generated state inside the ignored `.wrangler/` directory. Production uploads the values directly as Cloudflare Worker Secrets.
-
-The same initialization creates the unique D1 administrator using `SYSTEM_EMAIL` and a random password. The command prints the credentials only after the first initialization succeeds. Later preparation never changes the D1 email or password. Tell the user to sign in and replace the generated password under Settings. The settings page intentionally does not allow changing the administrator email.
-
----
-
-## Phase 5: Start Local Development
+## Phase 4: Start And Initialize Local Development
 
 Run:
 
 ```bash
 pnpm dev
 ```
+
+As part of this command, `prepare-cloudflare` generates `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET` on first initialization. Local development keeps this generated state inside the ignored `.wrangler/` directory. Production uploads independently generated values as Cloudflare Worker Secrets.
+
+The same initialization creates the unique local D1 administrator using `SYSTEM_EMAIL` and a random password. The command prints the credentials only after the first initialization succeeds. Later preparation never changes the D1 email or password. Tell the user to sign in and replace the generated password under Settings. The settings page intentionally does not allow changing the administrator email.
 
 This command:
 
@@ -172,7 +168,7 @@ Do not finish local setup while a required dev server command is still running u
 
 ---
 
-## Phase 6: Offer A GitHub Repository
+## Phase 5: Offer A GitHub Repository
 
 After local startup succeeds, ask whether the user wants to create a private GitHub repository.
 
@@ -188,7 +184,7 @@ Whether or not `origin` exists, keep `upstream` pointed at `https://github.com/g
 
 ---
 
-## Phase 7: Route The Next Step
+## Phase 6: Route The Next Step
 
 After local setup succeeds, do not continue into every possible configuration task. Ask what the user wants next.
 
@@ -196,8 +192,9 @@ Use these options:
 
 ```text
 1. Build a business feature
-2. Configure production environment
-3. Understand a template module
+2. Configure local business capabilities
+3. Configure production environment
+4. Understand a template module
 ```
 
 ### If The User Chooses Build A Business Feature
@@ -219,6 +216,16 @@ Route by feature type:
 | AI | `AGENTS.md`, `src/backend/ai/`, `src/backend/consumers/` |
 
 Do not require the user to read `public-docs/` before development. The Agent should inspect stable template docs, source files, and tests, then explain the relevant path.
+
+### If The User Chooses Configure Local Business Capabilities
+
+Keep the local servers running and guide the user through the relevant workspace:
+
+- System settings for Authentication, Email, Credits, Affiliate, Payment credentials, and AI routing
+- Payment products for remote payment product links and local entitlements
+- AI providers for endpoints, models, credentials, and availability
+
+When an Agent or CLI needs API access, run `opc auth connect` against `http://localhost:5173`, show the authorization URL, and wait for the user to approve explicit scopes. OAuth API access is available locally and in production; it is not a production-only step.
 
 ### If The User Chooses Continue Extension Development
 
@@ -258,7 +265,7 @@ First collect only fixed deployment topology in `.env.prod`:
 
 These are the complete long-lived ENV inputs. `SYSTEM_EMAIL` is an initialization input, not a runtime override of the D1 administrator. Do not add Authentication, Email Provider, Credits, Affiliate, Payment, AI, or third-party credentials to ENV.
 
-Then run `pnpm deploy:cloudflare`. On the first deployment, retain the one-time administrator credentials, open the deployed application, sign in, and change the generated password under Settings.
+Then run `pnpm deploy:cloudflare`. Production D1 is independent from local D1. On the first production deployment, it creates a separate administrator from `.env.prod` `SYSTEM_EMAIL`, generates a separate random password, and prints those credentials once. Retain them, open the deployed application, sign in, and change the generated password under Settings.
 
 After the shell is running, ask which business modules they want to configure:
 
@@ -271,7 +278,8 @@ After the shell is running, ask which business modules they want to configure:
 Rules:
 
 - Fixed deployment topology goes to `.env.prod`
-- Business settings and third-party credentials go to Meta D1 through Admin / Configuration
+- Singleton business settings and third-party credentials go to Meta D1 through System settings
+- Payment products and AI providers use their standalone workspaces
 - Human operators use the browser Session
 - Agents and CLI clients run `opc auth connect`, show the authorization URL, and wait for the user to approve explicit scopes
 - Deployment is done with `pnpm deploy:cloudflare`
@@ -309,6 +317,7 @@ Health: http://localhost:5173/api/health
 
 Next step:
 - Build a business feature
+- Configure local business capabilities
 - Configure production environment
 - Understand a template module
 ```

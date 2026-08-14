@@ -540,7 +540,7 @@ Use a stable `source_id` for the operator action. Include the user id or grant i
 
 ## Configuration
 
-Credits settings are managed in the admin Configuration area and stored in Meta D1. API amounts are decimal strings: `100` and `100.000000` both mean 100 credits. D1 stores the same value as `100000000` integer units.
+Credits settings are managed in the Credits tab under System settings and stored in Meta D1. API amounts are decimal strings: `100` and `100.000000` both mean 100 credits. D1 stores the same value as `100000000` integer units.
 
 `CRONS=*/10 * * * *` remains deployment topology configuration and is required for expiration and cleanup jobs.
 

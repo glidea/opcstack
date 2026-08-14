@@ -87,7 +87,7 @@ A few things to notice:
 - There is only **one Worker deployment**. Web pages, API, webhooks, cron, and queue consumers all live in the same codebase and ship together. You do not run separate services.
 - The **edge** is Cloudflare's global network. DNS and TLS terminate there, and the request is routed to the nearest Worker instance automatically.
 - **Clients** are the web app (browser) and the Chrome extension. They share most of the frontend code in `src/frontend/lib/`.
-- **External SaaS** are third-party providers. Enable and configure them by business domain in Admin / Configuration after the application starts.
+- **External SaaS** are third-party providers. Configure singleton credentials in System settings and collection entities in their provider workspaces after the application starts.
 
 ## Request Flow
 
@@ -113,7 +113,7 @@ The API is split into four route groups in `src/backend/api/index.ts`:
 | `userApi` | Session or scoped OAuth token + beta gate | Authenticated user JSON endpoints |
 | `adminApi` | Session or scoped OAuth token + D1 administrator role | Admin JSON endpoints |
 
-Protected JSON routes declare one scope in the central scope registry. Browser sessions satisfy that route scope directly. OAuth access tokens must contain it. Admin routes additionally require the current user to retain the D1 administrator role. Browser-only streaming and object routes explicitly reject OAuth tokens.
+Protected JSON routes declare one scope directly beside route registration. Browser sessions satisfy that route scope directly. OAuth access tokens must contain it. Admin routes additionally require the current user to retain the D1 administrator role. Browser-only streaming and object routes explicitly reject OAuth tokens.
 
 Contracts and handlers are organized by business domain, such as credits, payment, notifications, and AI. The route groups above express access control only. User and administrator operations for the same domain stay in the same domain module.
 

@@ -4,7 +4,7 @@ import { authCore } from '../auth'
 import { OAUTH_API_CLIENT_ID, getOAuthGrant } from '../auth/oauth-api-access'
 import { getAuthRuntimeConfig, type AuthRuntimeConfig } from '../../config'
 import { isAdministrator } from '../auth/administrator'
-import type { ApiScope } from '../scopes'
+import type { ApiScope } from '../auth/oauth-api-access'
 
 export type OAuthAuthorization = {
 	userId: string

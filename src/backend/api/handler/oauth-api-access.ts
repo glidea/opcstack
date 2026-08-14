@@ -21,12 +21,12 @@ import {
 	createAuthorizationRequest,
 	denyAuthorization,
 	getAuthorizationDetailsByState,
+	isAdministratorScope,
 	pollAuthorization,
 	resolveAuthorizationByState,
 	resolveAuthorizationByUserCode,
 	revokeOAuthGrant
 } from '../auth/oauth-api-access'
-import { isAdministratorScope } from '../scopes'
 import type { ApiEnv } from '..'
 import { authCore } from '../auth'
 import { getRequestAuthRuntimeConfig } from '../middleware/auth'

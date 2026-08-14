@@ -22,7 +22,7 @@ https://<APP_DOMAIN>/api/webhook/dodo
 https://<APP_DOMAIN>/api/webhook/creem
 ```
 
-Configure the matching URL in the provider dashboard, then save its signing secret in Configuration > Payment.
+Configure the matching URL in the provider dashboard, then save its signing secret in **Admin > System settings > Payment**.
 
 ## Product rules
 

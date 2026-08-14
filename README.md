@@ -116,11 +116,11 @@ vim .env.dev
 pnpm dev
 ```
 
-The first preparation generates the internal Worker secrets and creates
-`admin@opcstack.local` with a random password. Sign in with the credentials printed once in
-the terminal, change the email and password under Account / Security, then configure business
-features under Admin / Configuration. Business credentials are encrypted in D1, not stored in
-env files.
+Set `SYSTEM_EMAIL` in `.env.dev` before the first start. The first preparation generates the
+internal Worker secrets, creates that administrator in local D1, and prints a random password
+once. Sign in, change the generated password under Settings, then configure singleton business
+settings under System settings. Payment products and AI providers have separate workspaces.
+Business credentials are encrypted in D1, not stored in env files.
 
 Deploy to Cloudflare:
 

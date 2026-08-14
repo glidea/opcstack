@@ -161,6 +161,7 @@ pnpm dev
 | `wrangler.jsonc` | Wrangler 使用的运行时 Worker 配置 |
 | `.wrangler/wrangler.types.jsonc` | 含完整密钥 schema 的类型生成配置 |
 | `.wrangler/runtime-secrets.env` | 传给 Wrangler 的运行时密钥 |
+| `.wrangler/runtime-secrets.mode` | 标记 `runtime-secrets.env` 属于 dev 还是 prod，避免跨环境恢复待上传密钥 |
 | `src/frontend/lib/config/client.generated.ts` | 公共前端和扩展配置 |
 | D1 migrations | 由 Drizzle schema 生成 |
 
@@ -393,7 +394,7 @@ Binding 和类命名：
 
 用户不提供这些值。本地准备首次生成并持久化，生产准备在首次部署时创建 Cloudflare Worker Secrets，后续不覆盖。D1 已初始化但对应根密钥丢失时，准备流程直接失败，不生成替代密钥。
 
-所有第三方凭据都通过 Admin / Configuration 或 OAuth 授权 API 加密写入 D1，不是 Worker Secret。
+所有第三方凭据都通过系统设置、独立提供商工作区或 OAuth 授权 API 加密写入 D1，不是 Worker Secret。
 
 `.wrangler/wrangler.types.jsonc` 可能包含完整密钥 schema，以保持生成的 `Env` 类型稳定。这不意味着每个密钥在运行时都是必需的。
 
@@ -408,9 +409,9 @@ Binding 和类命名：
 | LinuxDO OAuth | OAuth id 和密钥，使用 `APP_DOMAIN` 的回调 URL |
 | Resend | API key 和 D1 管理员邮箱的已验证发件人域名 |
 | Cloudflare Email | 付费 Worker 方案和 `SEND_EMAIL` binding |
-| Dodo | Configuration > Payment 中的凭据、产品 id、指向 Worker 的 webhook |
-| Creem | Configuration > Payment 中的凭据、产品 id、指向 Worker 的 webhook |
-| AI providers | AI Tab 中的 API keys、base URLs、模型和路由权重 |
+| Dodo | 系统设置 > 支付中的凭据、支付商品中的商品关联、指向 Worker 的 Webhook |
+| Creem | 系统设置 > 支付中的凭据、支付商品中的商品关联、指向 Worker 的 Webhook |
+| AI 提供商 | AI 提供商中的 API Key、Base URL 和模型，系统设置 > AI 中的路由权重 |
 
 如果某功能被禁用，不要配置假的生产凭据。保持功能开关为 false。
 
@@ -440,7 +441,7 @@ EXTENSION_HOST_PERMISSIONS=https://example.com/*
 3. 运行 `pnpm deploy:cloudflare`
 4. 保存首次准备只显示一次的管理员凭据
 5. 登录已部署应用并修改自动生成的管理员密码
-6. 在 Admin / Configuration 配置并启用所需业务域
+6. 在系统设置配置单例业务域，在独立工作区管理集合实体
 7. 在外部 Provider 登记页面显示的 OAuth Callback 和 Payment Webhook URL
 8. 对已部署应用运行 `pnpm test:e2e:remote`
 
@@ -458,7 +459,7 @@ CI 应直接设置 `CLOUDFLARE_API_TOKEN`。本地部署可使用缓存 token。
 
 **将业务配置写入固定 ENV**
 
-`.env.dev` 和 `.env.prod` 只负责部署拓扑。业务设置和第三方凭据必须通过 Admin / Configuration 写入 D1。
+`.env.dev` 和 `.env.prod` 只负责部署拓扑。业务设置和第三方凭据必须通过系统设置、独立提供商工作区或 OAuth 授权 API 写入 D1。
 
 **在有用户后修改 `D1_SHARDS` 而没有迁移方案**
 

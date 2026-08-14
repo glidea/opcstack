@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MetaDb } from '../../db'
 import {
+	API_SCOPES,
 	OAuthApiAccessError,
 	POLL_INTERVAL_SECONDS,
 	canonicalizeScopes,
@@ -12,6 +13,14 @@ import {
 } from './oauth-api-access'
 
 describe('OAuth API access domain', () => {
+	it('owns the complete public scope vocabulary', () => {
+		expect(API_SCOPES).toContain('credits:read')
+		expect(API_SCOPES).toContain('config:ai:write')
+		expect(API_SCOPES).not.toContain('admin:users:write')
+		expect(API_SCOPES).not.toContain('config:storage:read')
+		expect(API_SCOPES).not.toContain('config:storage:write')
+	})
+
 	it('sorts and removes duplicate registered scopes', () => {
 		expect(canonicalizeScopes(['credits:write', 'credits:read', 'credits:write'])).toEqual([
 			'credits:read',

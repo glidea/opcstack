@@ -160,6 +160,7 @@ Generated files:
 | `wrangler.jsonc` | Runtime Worker config used by Wrangler |
 | `.wrangler/wrangler.types.jsonc` | Type-generation config with full secret schema |
 | `.wrangler/runtime-secrets.env` | Local runtime secrets or new Worker Secrets pending upload |
+| `.wrangler/runtime-secrets.mode` | Marks whether `runtime-secrets.env` belongs to dev or prod so one mode never recovers pending secrets from the other |
 | `src/frontend/lib/config/client.generated.ts` | Public frontend and extension config |
 | D1 migrations | Generated from Drizzle schemas |
 
@@ -394,7 +395,7 @@ Generated once by `prepare-cloudflare` and always required:
 
 Users never provide these values. Local preparation generates and persists them once. Production preparation creates them as Cloudflare Worker Secrets on the first deployment and never overwrites them. If initialized D1 state loses the matching roots, preparation fails instead of generating replacements.
 
-All third-party credentials are encrypted in D1 and managed through Admin / Configuration or an OAuth-authorized API call. They are not Worker secrets.
+All third-party credentials are encrypted in D1 and managed through System settings, a provider workspace, or an OAuth-authorized API call. They are not Worker secrets.
 
 `.wrangler/wrangler.types.jsonc` may include the full secret schema so generated `Env` stays stable. That does not mean every secret is required at runtime.
 
@@ -409,9 +410,9 @@ External services must point back to the deployed Worker origin.
 | LinuxDO OAuth | OAuth id and secret, callback URL using `APP_DOMAIN` |
 | Resend | API key and verified sender domain for the D1 administrator email |
 | Cloudflare Email | Paid Worker plan and `SEND_EMAIL` binding |
-| Dodo | Configuration > Payment credentials, product ids, webhook to Worker |
-| Creem | Configuration > Payment credentials, product ids, webhook to Worker |
-| AI providers | API keys, base URLs, models, and routing weights in the AI tab |
+| Dodo | Credentials in System settings > Payment, products in Payment products, webhook to Worker |
+| Creem | Credentials in System settings > Payment, products in Payment products, webhook to Worker |
+| AI providers | API keys, base URLs, and models in AI providers; routing weights in System settings > AI |
 
 If a feature is disabled, do not configure fake production credentials. Keep the feature switch false.
 
@@ -441,7 +442,7 @@ Use the deployed `APP_DOMAIN` in production extension builds.
 3. Run `pnpm deploy:cloudflare`
 4. Retain the one-time administrator credentials printed by the first preparation
 5. Sign in to the deployed app and change the generated administrator password
-6. Configure and enable required business domains in Admin / Configuration
+6. Configure singleton business domains in System settings and collection entities in their standalone workspaces
 7. Register the displayed OAuth callback and payment webhook URLs with external providers
 8. Run `pnpm test:e2e:remote` against the deployed app
 
@@ -459,7 +460,7 @@ Edit env files or `wrangler.jsonc.tpl`. `wrangler.jsonc` is generated.
 
 **Putting business settings in fixed env**
 
-`.env.dev` and `.env.prod` own deployment topology only. Business settings and third-party credentials belong in D1 through Admin / Configuration.
+`.env.dev` and `.env.prod` own deployment topology only. Business settings and third-party credentials belong in D1 through System settings, standalone provider workspaces, or OAuth-authorized APIs.
 
 **Changing `D1_SHARDS` after users exist without a migration plan**
 
@@ -471,7 +472,7 @@ Remote E2E verifies an existing deployment. Deployment is done by `prepare-cloud
 
 **Forgetting CN side effects**
 
-`APP_CN_DOMAIN` affects Worker routes, R2 CORS, and Turnstile domains. Treat it as a real second entrypoint.
+`APP_CN_DOMAIN` affects Worker routing, R2 CORS, and Turnstile domains. With `APP_CN_CNAME_TARGET`, DNS stays on your preferred CNAME and the Worker is attached through a normal zone route.
 
 **Leaving enabled features without secrets**
 

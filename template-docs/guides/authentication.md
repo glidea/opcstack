@@ -89,7 +89,7 @@ The password hasher in `buildPasswordHasher` uses `crypto.subtle.digest('SHA-1',
 
 The template includes one fixed public OAuth client, `opc-cli`. It uses Authorization Code with PKCE, so it has no client secret. The CLI owns device authorization polling, code exchange, refresh rotation, and credentials stored by connection name.
 
-Every protected JSON route is registered in `src/backend/api/scopes.ts` with one business scope. `authMiddleware` accepts a browser session or OAuth Bearer token. `requireApiScope(scope)` lets browser sessions pass and requires OAuth grants to contain the route scope. Administrator and configuration scopes also run `administratorMiddleware` against the current D1 role.
+Every protected JSON route declares one business scope directly beside its route registration in `src/backend/api/index.ts`. The valid OAuth scope vocabulary lives in `src/backend/api/auth/oauth-api-access.ts`. `authMiddleware` accepts a browser session or OAuth Bearer token. `requireApiScope(scope)` lets browser sessions pass and requires OAuth grants to contain the route scope. Administrator and configuration scopes also run `administratorMiddleware` against the current D1 role.
 
 ```text
 opc auth connect --name shop-prod --server https://app.example.com --scopes config:ai:read,config:ai:write

@@ -90,7 +90,7 @@ POST /api/auth/email-otp/verify-email
 
 模板内置一个固定公共 OAuth Client：`opc-cli`。它使用 Authorization Code + PKCE，没有 Client Secret。CLI 负责设备授权轮询、授权码交换、Refresh Token 轮换，并按连接名称保存凭据。
 
-每个受保护 JSON 路由都必须在 `src/backend/api/scopes.ts` 注册一个业务 scope。`authMiddleware` 接受浏览器 Session 或 OAuth Bearer Token。`requireApiScope(scope)` 允许浏览器 Session 直接通过，并要求 OAuth Grant 包含对应 scope。管理员和配置 scope 还会通过 `administratorMiddleware` 复核当前 D1 角色。
+每个受保护 JSON 路由都在 `src/backend/api/index.ts` 的路由注册旁直接声明一个业务 scope，合法 Scope 词汇由 `src/backend/api/auth/oauth-api-access.ts` 统一定义。`authMiddleware` 接受浏览器 Session 或 OAuth Bearer Token。`requireApiScope(scope)` 允许浏览器 Session 直接通过，并要求 OAuth Grant 包含对应 scope。管理员和配置 scope 还会通过 `administratorMiddleware` 复核当前 D1 角色。
 
 ```text
 opc auth connect --name shop-prod --server https://app.example.com --scopes config:ai:read,config:ai:write
@@ -160,7 +160,7 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 4. 让 Cloudflare 创建所需的 SPF、DKIM、DMARC 和 bounce 记录
 5. 等待发送域名激活
 6. 首次准备前将 `SYSTEM_EMAIL` 设为接入域名上的地址
-7. 打开后台 Configuration 的 Email Tab，选择 Cloudflare 并保存
+7. 打开 **后台 > 系统设置 > 邮件**，选择 Cloudflare 并保存
 
 如果需要本地真实发送而不依赖 Cloudflare 远端邮件行为，使用 Resend。
 
@@ -174,7 +174,7 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 2. 添加并验证发送域名
 3. 创建带发送权限的 API key
 4. 首次准备前将 `SYSTEM_EMAIL` 设为已验证域名上的地址
-5. 打开后台 Configuration 的 Email Tab
+5. 打开 **后台 > 系统设置 > 邮件**
 6. 选择 Resend，填写 API key 并保存
 
 `from` 地址始终是首次准备时创建的 D1 管理员邮箱。如果 Resend 拒绝邮件，先修复发件域名，并用正确的 `SYSTEM_EMAIL` 初始化新部署。
@@ -188,7 +188,7 @@ Worker 在 `wrangler.jsonc.tpl` 中已有名为 `SEND_EMAIL` 的 `send_email` bi
 正常生产步骤：
 
 1. 部署应用
-2. 打开后台 Configuration 的 Authentication Tab
+2. 打开 **后台 > 系统设置 > 认证**
 3. 启用 Turnstile 并保存，生成的凭据已经存在
 
 手动配置步骤：
@@ -231,7 +231,7 @@ http://localhost:5173/api/auth/callback/google
 4. 创建类型为 **Web application** 的 OAuth client
 5. 将上述回调 URL 添加到 **Authorized redirect URIs**
 6. Google 要求时，将应用域名添加到 **Authorized domains**
-7. 打开后台 Configuration 的 Authentication Tab
+7. 打开 **后台 > 系统设置 > 认证**
 8. 填写 client ID 和 client secret，启用 Google 并保存
 
 Google 要求 redirect URI 完全匹配。scheme、host、port 或 path 不匹配会返回 `redirect_uri_mismatch`。
@@ -265,7 +265,7 @@ http://localhost:5173/api/auth/callback/github
 3. 创建新 OAuth App
 4. 将 **Homepage URL** 设置为 `APP_BASE_URL`
 5. 将 **Authorization callback URL** 设置为上述回调 URL
-6. 打开后台 Configuration 的 Authentication Tab
+6. 打开 **后台 > 系统设置 > 认证**
 7. 填写 client ID 和生成的 client secret，启用 GitHub 并保存
 
 GitHub OAuth App 只有一个回调 URL。如果本地和生产需要同时工作，请为它们分别创建独立的 OAuth App。
@@ -297,7 +297,7 @@ http://localhost:5173/api/auth/oauth2/callback/linuxdo
 1. 打开 LinuxDo OAuth 应用控制台
 2. 创建 OAuth 应用
 3. 设置上述回调 URL
-4. 打开后台 Configuration 的 Authentication Tab
+4. 打开 **后台 > 系统设置 > 认证**
 5. 填写 client ID 和 client secret，启用 LinuxDo 并保存
 
 运行时直接使用以下 LinuxDo 端点：
@@ -425,7 +425,7 @@ await client.auth.signOut()
 
 ## 配置
 
-Authentication 和 Email 配置只保存在 Meta D1 的 `system_settings` 记录中。打开后台 Configuration，编辑单个 Tab 并显式保存。每次保存都会校验完整业务域，成功后无需重新部署，后续请求立即生效。
+认证和邮件配置只保存在 Meta D1 的 `system_settings` 记录中。打开后台系统设置，编辑对应 Tab 并显式保存。每次保存都会校验完整业务域，成功后无需重新部署，后续请求立即生效。
 
 Authentication Tab 管理注册策略、内测门控、邮件验证、Turnstile 开关，以及 Google、GitHub 和 LinuxDo 凭据。Turnstile 凭据由初始化流程写入，不能在此页面修改。Email Tab 管理 Provider 和 Resend API key。Provider 是否存在是邮件能力的单一状态源，不再有独立邮件开关。读取密钥时只返回是否已配置；替换或删除 OAuth 或邮件密钥都是显式保存动作。
 

@@ -1,9 +1,58 @@
 import { and, eq, sql } from 'drizzle-orm'
-import type { ApiScope } from '../scopes'
-import { isApiScope } from '../scopes'
 import type { MetaDb } from '../../db'
 import { runRawD1Batch } from '../../db'
 import { oauthAuthorizationRequest, oauthGrant } from '../../db/schema'
+
+export const API_SCOPES = [
+	'account:write',
+	'credits:read',
+	'credits:write',
+	'affiliate:read',
+	'affiliate:write',
+	'feedback:write',
+	'notifications:read',
+	'notifications:write',
+	'payment:read',
+	'payment:write',
+	'admin:dashboard:read',
+	'admin:users:read',
+	'admin:beta:read',
+	'admin:beta:write',
+	'admin:credits:read',
+	'admin:credits:write',
+	'admin:affiliate:read',
+	'admin:feedback:read',
+	'admin:notifications:read',
+	'admin:notifications:write',
+	'admin:payment:read',
+	'admin:ai:read',
+	'config:general:read',
+	'config:general:write',
+	'config:authentication:read',
+	'config:authentication:write',
+	'config:email:read',
+	'config:email:write',
+	'config:credits:read',
+	'config:credits:write',
+	'config:affiliate:read',
+	'config:affiliate:write',
+	'config:payment:read',
+	'config:payment:write',
+	'config:ai:read',
+	'config:ai:write'
+] as const
+
+export type ApiScope = (typeof API_SCOPES)[number]
+
+const API_SCOPE_SET: ReadonlySet<string> = new Set<string>(API_SCOPES)
+
+export function isApiScope(value: string): value is ApiScope {
+	return API_SCOPE_SET.has(value)
+}
+
+export function isAdministratorScope(scope: ApiScope): boolean {
+	return scope.startsWith('admin:') || scope.startsWith('config:')
+}
 
 export const OAUTH_API_CLIENT_ID = 'opc-cli'
 export const OAUTH_API_REDIRECT_PATH = '/api/oauth/authorization_callback'
