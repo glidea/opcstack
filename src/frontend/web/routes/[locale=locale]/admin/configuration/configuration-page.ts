@@ -182,6 +182,16 @@ export function isConfigurationConflict(error: unknown): boolean {
 	return error instanceof ApiClientError && error.body.code === 'CONFIG_CONFLICT'
 }
 
+export function resolveConfigurationSaveError(
+	error: unknown,
+	conflictMessage: string,
+	fallbackMessage: string
+): string {
+	if (isConfigurationConflict(error)) return conflictMessage
+	if (error instanceof ApiClientError) return error.body.message
+	return fallbackMessage
+}
+
 export function focusFirstConfigurationError(): void {
 	requestAnimationFrame((): void => {
 		const field: HTMLElement | null = document.querySelector<HTMLElement>('[aria-invalid="true"]')

@@ -361,6 +361,7 @@
 	"admin.configuration.collapse": "收起配置",
 	"admin.configuration.loadError": "无法加载配置",
 	"admin.configuration.saveError": "无法保存配置",
+	"admin.configuration.conflict": "配置已被其他管理员修改，请刷新后重新保存",
 	"admin.configuration.retry": "重试",
 	"admin.configuration.enabled": "启用",
 	"admin.configuration.select": "选择服务商",

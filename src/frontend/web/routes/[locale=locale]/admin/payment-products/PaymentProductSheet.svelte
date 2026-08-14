@@ -17,6 +17,7 @@
 	import * as ToggleGroup from '$frontend/ui/toggle-group'
 	import PackageIcon from '@lucide/svelte/icons/package'
 	import Settings2Icon from '@lucide/svelte/icons/settings-2'
+	import { resolveConfigurationSaveError } from '../configuration/configuration-page'
 	import { validatePaymentProductForm } from './payment-products-page'
 
 	export type ConfiguredPaymentProvider = {
@@ -100,7 +101,7 @@
 			open = false
 		} catch (error) {
 			conflict = error instanceof ApiClientError && error.body.code === 'CONFIG_CONFLICT'
-			requestError = error instanceof ApiClientError ? error.body.message : $_('admin.configuration.entity.saveError')
+			requestError = resolveConfigurationSaveError(error, $_('admin.configuration.conflict'), $_('admin.configuration.entity.saveError'))
 		} finally {
 			saving = false
 		}

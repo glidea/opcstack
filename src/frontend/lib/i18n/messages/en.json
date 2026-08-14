@@ -361,6 +361,7 @@
 	"admin.configuration.collapse": "Collapse configuration",
 	"admin.configuration.loadError": "Configuration could not be loaded",
 	"admin.configuration.saveError": "Configuration could not be saved",
+	"admin.configuration.conflict": "This configuration was changed elsewhere. Refresh before saving again",
 	"admin.configuration.retry": "Retry",
 	"admin.configuration.enabled": "Enabled",
 	"admin.configuration.select": "Select a provider",

@@ -17,6 +17,7 @@
 		dispatchConfigurationEditorState,
 		focusFirstConfigurationError,
 		isConfigurationConflict,
+		resolveConfigurationSaveError,
 		validateEmailForm,
 		type SecretAction
 	} from './configuration-page'
@@ -63,7 +64,7 @@
 		saving = true
 		error = ''
 		try { applyConfig(await client.api.updateEmailConfig({ provider: provider === 'none' ? null : provider, resend_api_key: buildSecretMutation(resendApiKeyAction, resendApiKeyValue), expected_version: version })); toast.success($_('admin.configuration.saved')); return true }
-		catch (saveError) { conflict = isConfigurationConflict(saveError); error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError'); return false }
+		catch (saveError) { conflict = isConfigurationConflict(saveError); error = resolveConfigurationSaveError(saveError, $_('admin.configuration.conflict'), $_('admin.configuration.saveError')); return false }
 		finally { saving = false }
 	}
 	function discardChanges(): void {

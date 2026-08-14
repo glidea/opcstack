@@ -70,6 +70,8 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	const anonymousPage: Page = await anonymousContext.newPage()
 	await goToHydrated(anonymousPage, '/en/login')
 	await expect(anonymousPage.getByRole('link', { name: 'Forgot password?', exact: true })).toHaveCount(0)
+	await goToHydrated(anonymousPage, '/en/register')
+	await expect(anonymousPage.getByText('Registration is disabled.', { exact: true })).toBeVisible()
 	await anonymousContext.close()
 
 	await page.locator('#email-provider').click()

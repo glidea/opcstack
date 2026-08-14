@@ -12,7 +12,7 @@
 	import ConfigurationLoadError from './ConfigurationLoadError.svelte'
 	import ConfigurationSection from './ConfigurationSection.svelte'
 	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
-	import { dispatchConfigurationEditorState, focusFirstConfigurationError, isConfigurationConflict } from './configuration-page'
+	import { dispatchConfigurationEditorState, focusFirstConfigurationError, isConfigurationConflict, resolveConfigurationSaveError } from './configuration-page'
 
 	let enabled: boolean = $state(false)
 	let inviterAmount: string = $state('0')
@@ -53,7 +53,7 @@
 		saving = true
 		error = ''
 		try { applyConfig(await client.api.updateAffiliateConfig({ enabled, inviter_credit_amount: inviterAmount, invitee_credit_amount: inviteeAmount, expected_version: version })); toast.success($_('admin.configuration.saved')); return true }
-		catch (saveError) { conflict = isConfigurationConflict(saveError); error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError'); return false }
+		catch (saveError) { conflict = isConfigurationConflict(saveError); error = resolveConfigurationSaveError(saveError, $_('admin.configuration.conflict'), $_('admin.configuration.saveError')); return false }
 		finally { saving = false }
 	}
 	function discardChanges(): void {

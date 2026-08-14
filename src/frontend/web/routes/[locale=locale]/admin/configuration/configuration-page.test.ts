@@ -9,6 +9,7 @@ import {
 	dispatchConfigurationEditorState,
 	isConfigurationConflict,
 	markEditorSaved,
+	resolveConfigurationSaveError,
 	resolveConfigurationNavigation,
 	setEditorValue,
 	validateAuthenticationForm,
@@ -61,6 +62,16 @@ describe('configuration editor state', () => {
 	it('recognizes stale singleton updates without treating other failures as conflicts', () => {
 		expect(isConfigurationConflict(new ApiClientError(409, { code: 'CONFIG_CONFLICT', message: 'changed' }))).toBe(true)
 		expect(isConfigurationConflict(new ApiClientError(500, { code: 'CONFIG_UNAVAILABLE', message: 'failed' }))).toBe(false)
+	})
+
+	it('shows the localized conflict message instead of the API message', () => {
+		const error: ApiClientError = new ApiClientError(409, {
+			code: 'CONFIG_CONFLICT',
+			message: 'Configuration has changed'
+		})
+		expect(resolveConfigurationSaveError(error, '配置已被其他管理员修改', '无法保存配置')).toBe(
+			'配置已被其他管理员修改'
+		)
 	})
 
 	it('creates all three explicit secret operations', () => {

@@ -107,3 +107,42 @@
   - 当前 Schema、Migration、配置契约、管理 API、Scope、页面和文档均不存在 Storage 动态配置或管理员邮箱修改链路
 
 本轮只执行本地验收，未部署线上。
+
+## Task-019 完整生产部署与真实线上验收
+
+- 目标地址：`https://opcstack.glidea.app`
+- 生产初始化
+  - 项目尚未正式发布且不保留旧结构兼容，因此重建 Meta D1 与唯一 APAC Tenant D1，并从压平后的 `0000` Migration 初始化
+  - 新 Meta D1：`e8d7fcb6-cc09-4d2a-957e-58d9f1c3183f`
+  - 新 Tenant D1：`45fbe642-0814-47ba-8c09-6b3c22f7a694`
+  - 初始化系统配置、OAuth Client、Shard Registry 和管理员后完成 Cloudflare Worker 部署
+  - 当前管理员凭据仅保存在忽略文件 `.wrangler/remote-admin-credentials.json`，文件权限为 `0600`
+- 本地完整验证
+  - `pnpm test -- --run`：通过 94 个测试文件、621 个测试，TypeScript 与 Svelte 检查为 0 error、0 warning
+  - `pnpm exec vite build`：Web SSR 与客户端生产构建通过
+  - `pnpm build:extension`：Chrome MV3 扩展生产构建与打包通过
+  - `pnpm test:e2e:first-run`：空库首次准备、重复准备、真实浏览器、43 个本地 HTTP 场景和 CLI OAuth 流程通过；10 个不适用场景按条件跳过
+- 配置来源与遗留审计
+  - 固定 ENV 只保留产品身份、域名、前端暴露和 Cloudflare 拓扑配置；第三方凭据只由 D1 动态配置持有
+  - 内部根密钥只由准备脚本生成，本地状态和 Cloudflare Worker Secret 均不作为用户配置
+  - Meta 与 Tenant 均只保留一份压平 Migration；当前 Schema、Migration、契约、页面和文档未发现 `ADMIN_API_TOKEN`、`SUPER_ADMIN_PASSWORD`、`ai_channels`、Channel Router、Storage 动态配置或旧字段兼容读取
+- `E2E_REMOTE=1 pnpm exec vitest --run --config vitest.e2e.config.ts`
+  - 通过 16 个远程测试文件中的 42 个测试，11 个不适用于当前禁用配置的测试按条件跳过，0 失败
+  - 公开 HTTP 覆盖健康检查、文档、登录保护、管理员 API、OAuth PKCE、Scope 允许与拒绝、Grant 撤销、配置保存和 D1 bookmark 立即一致性
+  - 测试只调用已部署环境的公开 HTTP API，未执行远程 Migration、资源创建或直接 D1 写入
+- In App Browser 真实生产回归
+  - 管理员登录、Session、扁平后台导航、Worker 日志入口和全部系统设置 Tab 正常
+  - 用户列表展示剩余积分；用户详情移除准入、验证、邀请码和数据库字段；通过 UI 发放 1 积分后积分流水立即出现
+  - 邀请记录工作区可访问；通知完成创建、修改与归档，详情不展示内部 ID
+  - AI Provider 完成创建、编辑、停用和删除，创建表单不要求内部 ID，类型和模型使用面向用户的名称与标签输入
+  - 两个页面制造配置版本冲突后，旧页面保留输入并显示本地化冲突提示；测试后恢复原配置
+  - 账号设置页没有修改邮箱入口，OAuth 关联、密码与 API Access 位于同一页；被撤销 Grant 保留为审计记录且不可再次撤销
+  - 未配置邮件服务时登录页隐藏忘记密码入口；关闭注册时注册页明确显示注册已关闭，不再出现空白壳子
+  - 中英文 Getting Started 文档均正常渲染，无 `500`
+  - 390px 移动端验证系统设置、支付商品和账号设置无页面级横向溢出；设置 Tab 使用局部横向滚动
+- 支付商品生产限制
+  - 生产未配置真实 Dodo 或 Creem 凭据，因此创建入口按设计禁用并直接引导到支付平台设置，未伪造远端商品目录
+  - 完整商品关联、重复拒绝、冲突和删除生命周期已由空库真实本地浏览器 E2E 覆盖
+- 验收产生的可追溯数据
+  - 管理员余额保留 1 积分，流水说明为 `Task 019 E2E`
+  - 测试通知已归档，临时 AI Provider 已删除，General 配置已恢复

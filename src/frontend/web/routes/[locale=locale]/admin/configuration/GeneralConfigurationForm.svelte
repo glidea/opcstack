@@ -14,7 +14,7 @@
 	import ConfigurationLoadError from './ConfigurationLoadError.svelte'
 	import ConfigurationSection from './ConfigurationSection.svelte'
 	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
-	import { dispatchConfigurationEditorState, isConfigurationConflict } from './configuration-page'
+	import { dispatchConfigurationEditorState, isConfigurationConflict, resolveConfigurationSaveError } from './configuration-page'
 
 	let docsEnabled: boolean = $state(false)
 	let version: number = $state(1)
@@ -59,7 +59,7 @@
 			return true
 		} catch (saveError) {
 			conflict = isConfigurationConflict(saveError)
-			error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError')
+			error = resolveConfigurationSaveError(saveError, $_('admin.configuration.conflict'), $_('admin.configuration.saveError'))
 			return false
 		} finally {
 			saving = false

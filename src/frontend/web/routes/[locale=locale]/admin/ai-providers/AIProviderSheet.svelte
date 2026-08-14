@@ -10,6 +10,7 @@
 	import * as Sheet from '$frontend/ui/sheet'
 	import { Switch } from '$frontend/ui/switch'
 	import TagInput from '../configuration/TagInput.svelte'
+	import { resolveConfigurationSaveError } from '../configuration/configuration-page'
 	import { isAIProviderCustomEndpoint, validateAIProviderForm } from './ai-providers-page'
 
 	const providerTypes: AIProviderType[] = [
@@ -97,7 +98,7 @@
 			open = false
 		} catch (saveError) {
 			conflict = saveError instanceof ApiClientError && saveError.body.code === 'CONFIG_CONFLICT'
-			requestError = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.entity.saveError')
+			requestError = resolveConfigurationSaveError(saveError, $_('admin.configuration.conflict'), $_('admin.configuration.entity.saveError'))
 		} finally {
 			saving = false
 		}

@@ -20,6 +20,7 @@
 		dispatchConfigurationEditorState,
 		focusFirstConfigurationError,
 		isConfigurationConflict,
+		resolveConfigurationSaveError,
 		validateAuthenticationForm,
 		type SecretAction
 	} from './configuration-page'
@@ -169,7 +170,7 @@
 			}))
 			toast.success($_('admin.configuration.saved'))
 			return true
-		} catch (saveError) { conflict = isConfigurationConflict(saveError); error = saveError instanceof ApiClientError ? saveError.body.message : $_('admin.configuration.saveError'); return false }
+		} catch (saveError) { conflict = isConfigurationConflict(saveError); error = resolveConfigurationSaveError(saveError, $_('admin.configuration.conflict'), $_('admin.configuration.saveError')); return false }
 		finally { saving = false }
 	}
 

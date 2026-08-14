@@ -140,6 +140,13 @@
 		<h1 class="text-[28px] font-semibold tracking-tight">{$_('auth.register.title')}</h1>
 	</div>
 
+	{#if !registrationEnabled}
+		<Alert>
+			<CircleAlertIcon />
+			<AlertDescription>{$_('auth.error.registrationDisabled')}</AlertDescription>
+		</Alert>
+	{/if}
+
 	{#if registrationEnabled && googleAuthEnabled}
 		<Button variant="secondary" class="w-full" onclick={handleGoogleSignup}>
 			<GoogleIcon />
