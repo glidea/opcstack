@@ -485,7 +485,7 @@ Video selects a Provider only when creating a new remote task. After the Provide
 
 Configuration saves take effect for the next request, queue message, WebSocket connection, or cron trigger. One operation keeps the snapshot it started with. A Video task that already has a remote task ID keeps its persisted Provider.
 
-Open **Admin > System settings > AI routing** to choose Balanced, Reliability, Speed, Cost, or Custom routing and set task retention. Open **Admin > AI providers** to manage Provider entities. Choose a workload and implementation, then add model names as tags. OPCStack generates the internal ID. Official implementations use built-in API addresses; only OpenAI-compatible implementations require a Base URL. Provider create, edit, and delete operations update only the target row. Stale versions require an explicit refresh. The page shows only whether an API key is configured.
+Open **Admin > System settings > AI routing** to choose Balanced, Reliability, Speed, Cost, or Custom routing and set task retention. Open **Admin > AI providers** to manage Provider entities. Choose a workload and implementation, then add model names as tags. OPCStack generates the internal ID. Base URL starts with the implementation's official address and can be changed to a proxy or compatible endpoint. Provider create, edit, and delete operations update only the target row. Stale versions require an explicit refresh. The page shows only whether an API key is configured.
 
 No AI business setting or credential belongs in `.env.dev`, `.env.prod`, `.env.secret.*`, or `wrangler.jsonc`.
 

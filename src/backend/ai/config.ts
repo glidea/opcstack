@@ -71,7 +71,7 @@ export interface UpdateAIConfigInput {
 export interface WriteAIProviderFields {
 	name: string
 	type: AIProviderType
-	baseUrl: string | null
+	baseUrl: string
 	models: string[]
 	priceMultiplier: number
 	enabled: boolean
@@ -155,15 +155,15 @@ export async function getAIRuntimeConfig(
 	const view: AIConfigView = await getAIConfig(db)
 	const providers: AIProviderRuntimeConfig[] = []
 	for (const provider of view.providers) {
-		const type: AIProviderType = parseAIProviderFields(provider).type
+		const fields: z.infer<typeof AIProviderFieldsSchema> = parseAIProviderFields(provider)
 		providers.push({
 			id: provider.id,
 			name: provider.name,
-			type,
+			type: fields.type,
 			models: provider.models,
 			priceMultiplier: provider.priceMultiplier,
 			endpoint: {
-				baseURL: resolveAIProviderBaseUrl(type, provider.baseUrl),
+				baseURL: fields.baseUrl,
 				apiKey: await decryptConfigSecret(encryptionKey, {
 					ciphertext: provider.apiKeyCiphertext,
 					iv: provider.apiKeyIv
@@ -323,56 +323,10 @@ function parseAISettings(value: unknown): AISettingsDocument {
 function parseAIProviderFields(value: unknown): z.infer<typeof AIProviderFieldsSchema> {
 	const result: z.ZodSafeParseResult<z.infer<typeof AIProviderFieldsSchema>> =
 		AIProviderFieldsSchema.safeParse(value)
-	if (
-		!result.success ||
-		new Set(result.data.models).size !== result.data.models.length ||
-		!isValidAIProviderBaseUrl(result.data.type, result.data.baseUrl)
-	) {
+	if (!result.success || new Set(result.data.models).size !== result.data.models.length) {
 		throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
 	}
 	return result.data
-}
-
-function resolveAIProviderBaseUrl(type: AIProviderType, baseUrl: string | null): string {
-	switch (type) {
-		case 'chat_openai':
-		case 'image_openai':
-			if (baseUrl === null) {
-				throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
-			}
-			return baseUrl
-		case 'image_gemini':
-		case 'tts_gemini':
-			if (baseUrl !== null) throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
-			return 'https://generativelanguage.googleapis.com'
-		case 'image_seedream':
-		case 'video_seedance':
-			if (baseUrl !== null) throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
-			return 'https://ark.cn-beijing.volces.com/api/v3'
-		case 'image_aliyun':
-			if (baseUrl !== null) throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
-			return 'https://dashscope.aliyuncs.com/api/v1'
-		case 'tts_seed':
-		case 'realtime_doubao':
-			if (baseUrl !== null) throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
-			return 'https://openspeech.bytedance.com/api/v3'
-	}
-}
-
-function isValidAIProviderBaseUrl(type: AIProviderType, baseUrl: string | null): boolean {
-	switch (type) {
-		case 'chat_openai':
-		case 'image_openai':
-			return baseUrl !== null
-		case 'image_gemini':
-		case 'image_seedream':
-		case 'image_aliyun':
-		case 'tts_gemini':
-		case 'tts_seed':
-		case 'realtime_doubao':
-		case 'video_seedance':
-			return baseUrl === null
-	}
 }
 
 function aiConfigErrorMessage(code: AIConfigErrorCode): string {
@@ -409,7 +363,7 @@ const AIProviderFieldsSchema = z.object({
 	id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
 	name: z.string().trim().min(1),
 	type: AIProviderTypeSchema,
-	baseUrl: z.string().url().nullable(),
+	baseUrl: z.string().url(),
 	models: z.array(z.string().trim().min(1)).min(1),
 	priceMultiplier: z.number().positive().finite()
 })

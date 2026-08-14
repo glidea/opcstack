@@ -11,7 +11,7 @@
 	import { Switch } from '$frontend/ui/switch'
 	import TagInput from '../configuration/TagInput.svelte'
 	import { resolveConfigurationSaveError } from '../configuration/configuration-page'
-	import { isAIProviderCustomEndpoint, validateAIProviderForm } from './ai-providers-page'
+	import { resolveAIProviderDefaultBaseUrl, validateAIProviderForm } from './ai-providers-page'
 
 	const providerTypes: AIProviderType[] = [
 		'chat_openai', 'image_gemini', 'image_openai', 'image_seedream', 'image_aliyun',
@@ -29,7 +29,7 @@
 
 	let providerType: AIProviderType = $state('image_gemini')
 	let name: string = $state('')
-	let baseUrl: string = $state('')
+	let baseUrl: string = $state(resolveAIProviderDefaultBaseUrl('image_gemini'))
 	let models: string[] = $state([])
 	let priceMultiplier: string = $state('1')
 	let enabled: boolean = $state(true)
@@ -41,7 +41,6 @@
 	let saving: boolean = $state(false)
 	let wasOpen: boolean = false
 	let lastProviderType: AIProviderType = 'image_gemini'
-	const customEndpoint: boolean = $derived(isAIProviderCustomEndpoint(providerType))
 
 	$effect((): void => {
 		if (open && !wasOpen) resetForm()
@@ -54,7 +53,7 @@
 		if (name.trim() === '' || name === oldDefaultName) {
 			name = $_(`admin.aiProviders.defaultNames.${providerType}`)
 		}
-		baseUrl = ''
+		baseUrl = resolveAIProviderDefaultBaseUrl(providerType)
 		lastProviderType = providerType
 	})
 
@@ -62,7 +61,7 @@
 		providerType = provider?.type ?? 'image_gemini'
 		lastProviderType = providerType
 		name = provider?.name ?? $_(`admin.aiProviders.defaultNames.${providerType}`)
-		baseUrl = provider?.base_url ?? ''
+		baseUrl = provider?.base_url ?? resolveAIProviderDefaultBaseUrl(providerType)
 		models = provider?.models ?? []
 		priceMultiplier = provider === null ? '1' : String(provider.price_multiplier)
 		enabled = provider?.enabled ?? true
@@ -82,7 +81,7 @@
 		conflict = false
 		try {
 			const fields = {
-				name: name.trim(), type: providerType, base_url: customEndpoint ? baseUrl.trim() : null,
+				name: name.trim(), type: providerType, base_url: baseUrl.trim(),
 				models,
 				price_multiplier: Number(priceMultiplier), enabled
 			}
@@ -129,11 +128,7 @@
 				<Field.Error>{fieldError('type')}</Field.Error>
 			</Field.Field>
 			<Field.Field data-invalid={fieldError('name') !== ''}><Field.Label for="ai-provider-name">{$_('admin.aiProviders.name')}</Field.Label><Input id="ai-provider-name" bind:value={name} autocomplete="off" aria-invalid={fieldError('name') !== ''} /><Field.Description>{$_('admin.aiProviders.nameDescription')}</Field.Description><Field.Error>{fieldError('name')}</Field.Error></Field.Field>
-			{#if customEndpoint}
-				<Field.Field data-invalid={fieldError('baseUrl') !== ''}><Field.Label for="ai-provider-base-url">{$_('admin.aiProviders.baseUrl')}</Field.Label><Input id="ai-provider-base-url" bind:value={baseUrl} type="url" autocomplete="url" placeholder="https://api.example.com/v1" aria-invalid={fieldError('baseUrl') !== ''} /><Field.Description>{$_('admin.aiProviders.baseUrlDescription')}</Field.Description><Field.Error>{fieldError('baseUrl')}</Field.Error></Field.Field>
-			{:else}
-				<p class="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{$_('admin.aiProviders.officialEndpointDescription')}</p>
-			{/if}
+			<Field.Field data-invalid={fieldError('baseUrl') !== ''}><Field.Label for="ai-provider-base-url">{$_('admin.aiProviders.baseUrl')}</Field.Label><Input id="ai-provider-base-url" bind:value={baseUrl} type="url" autocomplete="url" placeholder="https://api.example.com/v1" aria-invalid={fieldError('baseUrl') !== ''} /><Field.Description>{$_('admin.aiProviders.baseUrlDescription')}</Field.Description><Field.Error>{fieldError('baseUrl')}</Field.Error></Field.Field>
 			<Field.Field data-invalid={fieldError('models') !== ''}><Field.Label for="ai-provider-models">{$_('admin.aiProviders.models')}</Field.Label><TagInput id="ai-provider-models" bind:value={models} placeholder={$_('admin.aiProviders.modelsPlaceholder')} /><Field.Description>{$_('admin.aiProviders.modelsDescription')}</Field.Description><Field.Error>{fieldError('models')}</Field.Error></Field.Field>
 			<div class="grid gap-4 sm:grid-cols-2">
 				<Field.Field data-invalid={fieldError('priceMultiplier') !== ''}><Field.Label for="ai-provider-price-multiplier">{$_('admin.aiProviders.priceMultiplier')}</Field.Label><Input id="ai-provider-price-multiplier" bind:value={priceMultiplier} inputmode="decimal" autocomplete="off" aria-invalid={fieldError('priceMultiplier') !== ''} /><Field.Description>{$_('admin.aiProviders.priceMultiplierDescription')}</Field.Description><Field.Error>{fieldError('priceMultiplier')}</Field.Error></Field.Field>

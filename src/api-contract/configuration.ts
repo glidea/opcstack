@@ -382,7 +382,7 @@ export const AIProviderSchema = z.object({
 	id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
 	name: z.string().min(1),
 	type: AIProviderTypeSchema,
-	base_url: z.string().url().nullable(),
+	base_url: z.string().url(),
 	models: z.array(z.string().min(1)).min(1),
 	price_multiplier: z.number().positive(),
 	api_key_configured: z.literal(true),
@@ -414,7 +414,7 @@ export type UpdateAIConfigRequest = z.infer<typeof UpdateAIConfigRequestSchema>
 const AIProviderWriteFieldsSchema = z.object({
 	name: z.string().trim().min(1),
 	type: AIProviderTypeSchema,
-	base_url: z.string().url().nullable(),
+	base_url: z.string().url(),
 	models: z.array(z.string().trim().min(1)).min(1),
 	price_multiplier: z.number().positive(),
 	enabled: z.boolean()

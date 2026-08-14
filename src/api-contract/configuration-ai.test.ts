@@ -2,11 +2,11 @@ import { describe, expect, test } from 'vitest'
 import { CreateAIProviderRequestSchema } from './configuration'
 
 describe('AI provider configuration contract', (): void => {
-	test('accepts an official provider without an ID or base URL', (): void => {
+	test('accepts an official provider without a caller-provided ID', (): void => {
 		const result = CreateAIProviderRequestSchema.safeParse({
 			name: 'Google Gemini image',
 			type: 'image_gemini',
-			base_url: null,
+			base_url: 'https://generativelanguage.googleapis.com',
 			models: ['gemini-2.5-flash-image'],
 			price_multiplier: 1,
 			api_key: 'secret',
@@ -21,7 +21,7 @@ describe('AI provider configuration contract', (): void => {
 			id: 'caller-owned-id',
 			name: 'Google Gemini image',
 			type: 'image_gemini',
-			base_url: null,
+			base_url: 'https://generativelanguage.googleapis.com',
 			models: ['gemini-2.5-flash-image'],
 			price_multiplier: 1,
 			api_key: 'secret',
@@ -29,5 +29,19 @@ describe('AI provider configuration contract', (): void => {
 		})
 
 		expect(result.success).toBe(false)
+	})
+
+	test('rejects a provider without a Base URL', (): void => {
+		const result = CreateAIProviderRequestSchema.safeParse({
+			name: 'Google Gemini image',
+			type: 'image_gemini',
+			base_url: null,
+			models: ['gemini-2.5-flash-image'],
+			price_multiplier: 1,
+			api_key: 'secret',
+			enabled: true
+		})
+
+		expect({ success: result.success }).toEqual({ success: false })
 	})
 })

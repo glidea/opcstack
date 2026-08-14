@@ -215,7 +215,7 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - Better Auth, beta gate, Turnstile, social OAuth, and email delivery share one request-scoped Authentication and Email snapshot. Registration uses `registrationEnabled`; Email availability is derived only from `emailConfig.provider`. Without a Provider, password login and unverified registration remain available, while email verification, password reset, and other email actions are unavailable.
 - Migrate one business domain atomically: after its runtime reads D1, delete the same ENV keys and parsers in that change. Never keep ENV fallback for a migrated setting.
 - Runtime business configuration lives in `META_DB`. Do not add an Env fallback for a D1-owned setting.
-- AI providers, routing weights, and task retention are D1-owned. Provider credentials are encrypted with `CONFIG_ENCRYPTION_KEY`.
+- AI providers, routing weights, and task retention are D1-owned. Each Provider stores its Base URL; the admin form prefills the official address and allows custom endpoints. Provider credentials are encrypted with `CONFIG_ENCRYPTION_KEY`.
 - `APP_CN_DOMAIN` is optional. When set without `APP_CN_CNAME_TARGET`, `prepare-cloudflare.mjs` adds it as a second Worker custom domain. It always adds it as an R2 CORS origin and Turnstile domain.
 - `APP_CN_CNAME_TARGET` is optional. When set with `APP_CN_DOMAIN` in prod mode, `prepare-cloudflare.mjs` creates or updates one unproxied DNS CNAME for `APP_CN_DOMAIN`, skips the Worker custom domain for that hostname, and adds a normal Worker zone route. It does not choose acceleration targets.
 - Add public runtime config keys to `wrangler.jsonc.tpl` `vars` first.

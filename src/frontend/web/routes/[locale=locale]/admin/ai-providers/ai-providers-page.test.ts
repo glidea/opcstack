@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { AIProvider } from '$apiContract/configuration'
-import { removeAIProvider, replaceAIProvider, validateAIProviderForm } from './ai-providers-page'
+import {
+	removeAIProvider,
+	replaceAIProvider,
+	resolveAIProviderDefaultBaseUrl,
+	validateAIProviderForm
+} from './ai-providers-page'
 
 const provider: AIProvider = {
 	id: 'gemini-primary',
 	type: 'image_gemini',
 	name: 'Gemini primary',
-	base_url: null,
+	base_url: 'https://generativelanguage.googleapis.com',
 	models: ['gemini-2.5-flash-image'],
 	price_multiplier: 1,
 	api_key_configured: true,
@@ -26,7 +31,7 @@ describe('AI provider workspace', () => {
 	it('requires a secret for creation and allows an edit to keep it', () => {
 		const input = {
 			type: 'image_gemini', name: 'Gemini primary',
-			baseUrl: '', models: ['gemini-2.5-flash-image'],
+			baseUrl: 'https://generativelanguage.googleapis.com', models: ['gemini-2.5-flash-image'],
 			priceMultiplier: '1', apiKeyValue: ''
 		}
 
@@ -34,11 +39,11 @@ describe('AI provider workspace', () => {
 		expect(validateAIProviderForm({ ...input, editing: true, apiKeyAction: 'keep' } as Parameters<typeof validateAIProviderForm>[0])).toEqual({})
 	})
 
-	it('requires a URL only for OpenAI-compatible provider types', () => {
+	it('requires a URL for every provider type', () => {
 		const input = {
 			editing: false,
-			type: 'image_openai',
-			name: 'Compatible image provider',
+			type: 'image_gemini',
+			name: 'Gemini image provider',
 			baseUrl: '',
 			models: ['gpt-image-1'],
 			priceMultiplier: '1',
@@ -47,5 +52,21 @@ describe('AI provider workspace', () => {
 		}
 
 		expect(validateAIProviderForm(input as Parameters<typeof validateAIProviderForm>[0])).toEqual({ baseUrl: 'Valid base URL is required' })
+	})
+
+	it('provides an editable official Base URL for each provider type', () => {
+		expect({
+			openai: resolveAIProviderDefaultBaseUrl('image_openai'),
+			gemini: resolveAIProviderDefaultBaseUrl('image_gemini'),
+			seedream: resolveAIProviderDefaultBaseUrl('image_seedream'),
+			aliyun: resolveAIProviderDefaultBaseUrl('image_aliyun'),
+			seed: resolveAIProviderDefaultBaseUrl('tts_seed')
+		}).toEqual({
+			openai: 'https://api.openai.com/v1',
+			gemini: 'https://generativelanguage.googleapis.com',
+			seedream: 'https://ark.cn-beijing.volces.com/api/v3',
+			aliyun: 'https://dashscope.aliyuncs.com/api/v1',
+			seed: 'https://openspeech.bytedance.com/api/v3'
+		})
 	})
 })

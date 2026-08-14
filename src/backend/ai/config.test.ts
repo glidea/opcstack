@@ -32,7 +32,7 @@ describe('AI D1 configuration', (): void => {
 		).rejects.toEqual(new AIConfigError('AI_PROVIDER_CONFIG_INVALID'))
 	})
 
-	test('generates provider ID without storing a copy of the official endpoint', async (): Promise<void> => {
+	test('generates provider ID and stores the configured endpoint', async (): Promise<void> => {
 		let inserted: Partial<AIProvider> | undefined
 		const db: MetaDb = {
 			insert: (): Record<string, unknown> => ({
@@ -50,7 +50,7 @@ describe('AI D1 configuration', (): void => {
 		await createAIProvider(db, createEncryptionKey(), {
 			name: 'Google Gemini image',
 			type: 'image_gemini',
-			baseUrl: null,
+			baseUrl: 'https://gemini-proxy.example.com',
 			models: ['gemini-2.5-flash-image'],
 			priceMultiplier: 1,
 			apiKey: 'provider-secret',
@@ -63,17 +63,44 @@ describe('AI D1 configuration', (): void => {
 			baseUrl: inserted?.baseUrl
 		}).toEqual({
 			id: expect.stringMatching(/^[0-9a-f-]{36}$/),
-			baseUrl: null
+			baseUrl: 'https://gemini-proxy.example.com'
 		})
 	})
 
-	test('requires a base URL for OpenAI-compatible providers', async (): Promise<void> => {
+	test('requires a base URL for every provider', async (): Promise<void> => {
 		await expect(
 			createAIProvider({} as MetaDb, createEncryptionKey(), {
 				...createProviderInput('provider-secret'),
 				baseUrl: null
-			} as Parameters<typeof createAIProvider>[2])
+			} as unknown as Parameters<typeof createAIProvider>[2])
 		).rejects.toEqual(new AIConfigError('AI_PROVIDER_CONFIG_INVALID'))
+	})
+
+	test('uses the configured endpoint for an official provider implementation', async (): Promise<void> => {
+		const providerSecret = await encryptConfigSecret(createEncryptionKey(), 'provider-secret')
+		const db: MetaDb = {
+			query: {
+				systemSettings: {
+					findFirst: async (): Promise<SystemSettings> => ({
+						aiConfig: createAISettings(),
+						aiVersion: 4
+					}) as SystemSettings
+				},
+				aiProvider: {
+					findMany: async (): Promise<AIProvider[]> => [{
+						...createProviderRow(providerSecret.ciphertext, providerSecret.iv),
+						type: 'image_gemini',
+						baseUrl: 'https://gemini-proxy.example.com'
+					}]
+				}
+			}
+		} as unknown as MetaDb
+
+		const result = await getAIRuntimeConfig(db, createEncryptionKey())
+
+		expect({ baseUrl: result.providers[0]?.endpoint.baseURL }).toEqual({
+			baseUrl: 'https://gemini-proxy.example.com'
+		})
 	})
 
 	test('encrypts a provider credential before inserting it', async (): Promise<void> => {

@@ -26,12 +26,10 @@ export function removeAIProvider(items: AIProvider[], providerId: string): AIPro
 export function validateAIProviderForm(input: AIProviderFormValidationInput): Record<string, string> {
 	const errors: Record<string, string> = {}
 	if (input.name.trim() === '') errors['name'] = 'Name is required'
-	if (isAIProviderCustomEndpoint(input.type)) {
-		try {
-			new URL(input.baseUrl)
-		} catch {
-			errors['baseUrl'] = 'Valid base URL is required'
-		}
+	try {
+		new URL(input.baseUrl)
+	} catch {
+		errors['baseUrl'] = 'Valid base URL is required'
 	}
 	if (input.models.length === 0) errors['models'] = 'At least one model is required'
 	const priceMultiplier: number = Number(input.priceMultiplier)
@@ -40,18 +38,21 @@ export function validateAIProviderForm(input: AIProviderFormValidationInput): Re
 	return errors
 }
 
-export function isAIProviderCustomEndpoint(type: AIProviderType): boolean {
+export function resolveAIProviderDefaultBaseUrl(type: AIProviderType): string {
 	switch (type) {
 		case 'chat_openai':
 		case 'image_openai':
-			return true
+			return 'https://api.openai.com/v1'
 		case 'image_gemini':
-		case 'image_seedream':
-		case 'image_aliyun':
 		case 'tts_gemini':
+			return 'https://generativelanguage.googleapis.com'
+		case 'image_seedream':
+		case 'video_seedance':
+			return 'https://ark.cn-beijing.volces.com/api/v3'
+		case 'image_aliyun':
+			return 'https://dashscope.aliyuncs.com/api/v1'
 		case 'tts_seed':
 		case 'realtime_doubao':
-		case 'video_seedance':
-			return false
+			return 'https://openspeech.bytedance.com/api/v3'
 	}
 }
