@@ -164,7 +164,7 @@
 		</Button>
 	</header>
 
-	<form class="admin-filter-bar w-full sm:max-w-xl" onsubmit={submitSearch}>
+	<form class="admin-filter-bar sm:max-w-lg" onsubmit={submitSearch}>
 		<Field.Field>
 			<Field.Label class="sr-only" for="user-search">{$_('admin.users.searchLabel')}</Field.Label>
 			<InputGroup.Root>
@@ -226,8 +226,10 @@
 							<Table.Row class="group">
 								<Table.Cell>
 									<div class="max-w-72">
-										<p class="truncate text-sm font-medium">{user.name}</p>
-										<p class="truncate text-xs text-muted-foreground">{user.email}</p>
+										<p class="truncate text-sm font-medium">{user.name === '' ? user.email : user.name}</p>
+										{#if user.name !== '' && user.name !== user.email}
+											<p class="truncate text-xs text-muted-foreground">{user.email}</p>
+										{/if}
 									</div>
 								</Table.Cell>
 								<Table.Cell>{user.registration_utm_source ?? $_('admin.users.sourceDirect')}</Table.Cell>

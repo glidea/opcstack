@@ -1,8 +1,10 @@
 import type { ListUsersResponseItem } from '$apiContract/users'
 
-export function formatAdminUserIdentity(user: ListUsersResponseItem): string {
+export function formatAdminUserIdentity(
+	user: Pick<ListUsersResponseItem, 'name' | 'email'>
+): string {
 	const name: string = user.name.trim()
-	return name === '' ? user.email : `${name} · ${user.email}`
+	return name === '' || name === user.email ? user.email : `${name} · ${user.email}`
 }
 
 export function findAdminUserById(

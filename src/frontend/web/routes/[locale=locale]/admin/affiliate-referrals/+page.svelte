@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
 	import { client } from '$apiContract/client'
-	import type { AdminAffiliateReferralItem, ListAdminAffiliateReferralsRequest, ListAdminAffiliateReferralsResponse } from '$apiContract/affiliate'
+	import type { ListAdminAffiliateReferralsRequest, ListAdminAffiliateReferralsResponse } from '$apiContract/affiliate'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
@@ -13,12 +13,16 @@
 	import * as Select from '$frontend/ui/select'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import * as Table from '$frontend/ui/table'
+	import CheckCircleIcon from '@lucide/svelte/icons/check-circle'
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left'
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right'
+	import ClockIcon from '@lucide/svelte/icons/clock'
+	import MoveRightIcon from '@lucide/svelte/icons/move-right'
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import UserRoundPlusIcon from '@lucide/svelte/icons/user-round-plus'
 	import { onMount } from 'svelte'
+	import { formatAdminUserIdentity } from '../user-picker'
 
 	type ReferralListState = { status: 'loading' } | { status: 'loaded'; data: ListAdminAffiliateReferralsResponse } | { status: 'error' }
 
@@ -96,9 +100,6 @@
 		return new Intl.DateTimeFormat(data.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(value)
 	}
 
-	function userIdentity(user: AdminAffiliateReferralItem['inviter']): string {
-		return user.name === '' ? user.email : `${user.name} · ${user.email}`
-	}
 </script>
 
 <main class="admin-page">
@@ -123,12 +124,12 @@
 	{:else}
 		<div class="admin-table-panel">
 			<Table.Root class="min-w-[760px]">
-				<Table.Header><Table.Row><Table.Head>{$_('admin.affiliateReferrals.created')}</Table.Head><Table.Head>{$_('admin.affiliateReferrals.inviter')}</Table.Head><Table.Head>{$_('admin.affiliateReferrals.invitee')}</Table.Head><Table.Head>{$_('admin.affiliateReferrals.rewardStatus')}</Table.Head></Table.Row></Table.Header>
+				<Table.Header><Table.Row><Table.Head>{$_('admin.affiliateReferrals.created')}</Table.Head><Table.Head colspan={3}>{$_('admin.affiliateReferrals.relationship')}</Table.Head><Table.Head>{$_('admin.affiliateReferrals.rewardStatus')}</Table.Head></Table.Row></Table.Header>
 				<Table.Body>
 					{#if listState.status === 'loading'}
-						{#each Array(6) as _item}<Table.Row>{#each Array(4) as _cell}<Table.Cell><Skeleton class="h-5 w-28" /></Table.Cell>{/each}</Table.Row>{/each}
+						{#each Array(6) as _item}<Table.Row>{#each Array(5) as _cell}<Table.Cell><Skeleton class="h-5 w-28" /></Table.Cell>{/each}</Table.Row>{/each}
 					{:else}
-						{#each listState.data.items as item (item.id)}<Table.Row><Table.Cell>{formatDate(item.created_at)}</Table.Cell><Table.Cell class="max-w-64 truncate font-medium">{userIdentity(item.inviter)}</Table.Cell><Table.Cell class="max-w-64 truncate">{userIdentity(item.invitee)}</Table.Cell><Table.Cell class={item.reward_status === 'completed' ? 'text-emerald-700' : 'text-muted-foreground'}>{item.reward_status === 'completed' ? $_('admin.affiliateReferrals.completed') : $_('admin.affiliateReferrals.pending')}</Table.Cell></Table.Row>{/each}
+						{#each listState.data.items as item (item.id)}<Table.Row><Table.Cell class="text-muted-foreground">{formatDate(item.created_at)}</Table.Cell><Table.Cell class="max-w-48 truncate font-medium">{formatAdminUserIdentity(item.inviter)}</Table.Cell><Table.Cell class="w-6 px-0 text-center text-muted-foreground"><MoveRightIcon class="size-3.5" /></Table.Cell><Table.Cell class="max-w-48 truncate">{formatAdminUserIdentity(item.invitee)}</Table.Cell><Table.Cell>{#if item.reward_status === 'completed'}<span class="inline-flex items-center gap-1.5 text-emerald-700"><CheckCircleIcon class="size-3.5 shrink-0" />{$_('admin.affiliateReferrals.completed')}</span>{:else}<span class="inline-flex items-center gap-1.5 text-muted-foreground"><ClockIcon class="size-3.5 shrink-0" />{$_('admin.affiliateReferrals.pending')}</span>{/if}</Table.Cell></Table.Row>{/each}
 					{/if}
 				</Table.Body>
 			</Table.Root>

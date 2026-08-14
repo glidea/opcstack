@@ -20,6 +20,12 @@ describe('admin user picker', (): void => {
 		})
 	})
 
+	test('does not repeat the email when the account name matches it', (): void => {
+		expect({ identity: formatAdminUserIdentity({ ...user, name: user.email }) }).toEqual({
+			identity: 'ada@example.com'
+		})
+	})
+
 	test('finds the exact user when restoring a user ID from the URL', (): void => {
 		expect({ user: findAdminUserById([user], 'user-1') }).toEqual({ user })
 	})

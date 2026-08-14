@@ -16,6 +16,8 @@
 	import * as Sheet from '$frontend/ui/sheet'
 	import GrantCreditsDialog from './GrantCreditsDialog.svelte'
 	import { createUserContextLinks, type UserContextLinks } from './users-page'
+	import { formatCreditAmount } from '../presentation'
+	import { formatAdminUserIdentity } from '../user-picker'
 
 	let {
 		open = $bindable(false),
@@ -71,7 +73,10 @@
 
 			<div class="flex-1 space-y-6 overflow-y-auto px-4 pb-6">
 				<div class="flex flex-wrap gap-2">
-					<Button size="sm" onclick={() => (grantOpen = true)}>
+					<Button size="sm" onclick={(): void => {
+						open = false
+						grantOpen = true
+					}}>
 						<CoinsIcon />
 						{$_('admin.users.grant.action')}
 					</Button>
@@ -85,7 +90,7 @@
 					<Alert.Root>
 						<CheckIcon />
 						<Alert.Title>
-							{$_('admin.users.grant.balance', { values: { balance: lastGrantBalance } })}
+							{$_('admin.users.grant.balance', { values: { balance: formatCreditAmount(lastGrantBalance, locale) } })}
 						</Alert.Title>
 					</Alert.Root>
 				{/if}
@@ -96,7 +101,7 @@
 						{#if user.inviter}
 							<div class="grid gap-1">
 								<dt class="text-xs text-muted-foreground">{$_('admin.users.invitedBy')}</dt>
-								<dd>{user.inviter.name} · {user.inviter.email}</dd>
+								<dd>{formatAdminUserIdentity(user.inviter)}</dd>
 							</div>
 						{/if}
 						<div class="grid gap-1">
@@ -123,11 +128,14 @@
 					</div>
 				</section>
 			</div>
-
-			<GrantCreditsDialog bind:open={grantOpen} {user} {locale} onGranted={(balance: string): void => {
-				lastGrantBalance = balance
-				onCreditsGranted(balance)
-			}} />
 		{/if}
 	</Sheet.Content>
 </Sheet.Root>
+
+{#if user}
+	<GrantCreditsDialog bind:open={grantOpen} {user} {locale} onGranted={(balance: string): void => {
+		lastGrantBalance = balance
+		onCreditsGranted(balance)
+		open = true
+	}} />
+{/if}

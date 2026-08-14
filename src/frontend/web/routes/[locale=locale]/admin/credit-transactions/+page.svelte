@@ -19,6 +19,8 @@
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left'
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right'
 	import HistoryIcon from '@lucide/svelte/icons/history'
+	import MoveDownIcon from '@lucide/svelte/icons/move-down'
+	import MoveUpIcon from '@lucide/svelte/icons/move-up'
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
@@ -196,7 +198,7 @@
 						{#each Array(6) as _item}<Table.Row>{#each Array(5) as _cell}<Table.Cell><Skeleton class="h-5 w-24" /></Table.Cell>{/each}</Table.Row>{/each}
 					{:else}
 						{#each listState.data.items as item (item.id)}
-							<Table.Row><Table.Cell>{formatDate(item.created_at)}</Table.Cell><Table.Cell>{transactionTypeLabel(item.type)}</Table.Cell><Table.Cell class={`text-right font-medium tabular-nums ${Number(item.amount) < 0 ? 'text-destructive' : 'text-emerald-700'}`}>{formatAmount(item.amount)}</Table.Cell><Table.Cell class="text-right tabular-nums">{formatCreditAmount(item.balance_after, data.locale)}</Table.Cell><Table.Cell class="max-w-72 truncate text-muted-foreground">{item.description ?? $_('admin.creditTransactions.noDescription')}</Table.Cell></Table.Row>
+							<Table.Row><Table.Cell>{formatDate(item.created_at)}</Table.Cell><Table.Cell>{transactionTypeLabel(item.type)}</Table.Cell><Table.Cell class="text-right"><span class={`inline-flex items-center justify-end gap-1 font-medium tabular-nums ${Number(item.amount) < 0 ? 'text-destructive' : 'text-emerald-700'}`}>{#if Number(item.amount) < 0}<MoveDownIcon class="size-3 shrink-0" />{:else}<MoveUpIcon class="size-3 shrink-0" />{/if}{formatAmount(item.amount)}</span></Table.Cell><Table.Cell class="text-right tabular-nums">{formatCreditAmount(item.balance_after, data.locale)}</Table.Cell><Table.Cell class="max-w-72 truncate text-muted-foreground">{item.description ?? $_('admin.creditTransactions.noDescription')}</Table.Cell></Table.Row>
 						{/each}
 					{/if}
 				</Table.Body>

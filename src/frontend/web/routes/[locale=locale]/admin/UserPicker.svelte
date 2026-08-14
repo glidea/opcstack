@@ -170,7 +170,7 @@
 								>
 									<div class="min-w-0">
 										<p class="truncate font-medium">{user.name || user.email}</p>
-										{#if user.name !== ''}<p class="truncate text-xs text-muted-foreground">{user.email}</p>{/if}
+										{#if user.name !== '' && user.name !== user.email}<p class="truncate text-xs text-muted-foreground">{user.email}</p>{/if}
 									</div>
 								</Command.Item>
 							{/each}

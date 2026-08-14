@@ -4,6 +4,7 @@ import { describe, expect, test } from 'vitest'
 
 const adminDirectory: string = fileURLToPath(new URL('.', import.meta.url))
 const adminLayoutSource: string = readFileSync(`${adminDirectory}+layout.svelte`, 'utf8')
+const userDetailSource: string = readFileSync(`${adminDirectory}users/UserDetailSheet.svelte`, 'utf8')
 const appCssSource: string = readFileSync(
 	fileURLToPath(new URL('../../../../lib/styles/app.css', import.meta.url)),
 	'utf8'
@@ -153,5 +154,33 @@ describe('admin dashboard composition', (): void => {
 				disputedPayments: '争议支付'
 			}
 		})
+	})
+})
+
+describe('admin user operations composition', (): void => {
+	const userSource: string = readPage('users')
+	const referralSource: string = readPage('affiliate-referrals')
+	const creditTransactionSource: string = readPage('credit-transactions')
+
+	test('does not repeat an email when the user name is the same value', (): void => {
+		expect(userSource).toContain("user.name !== user.email")
+	})
+
+	test('closes user details before opening the credit grant dialog', (): void => {
+		expect(userDetailSource).toContain('open = false')
+		expect(userDetailSource.lastIndexOf('<GrantCreditsDialog')).toBeGreaterThan(
+			userDetailSource.lastIndexOf('</Sheet.Root>')
+		)
+	})
+
+	test('keeps invitation loading rows aligned to the five-column relationship table', (): void => {
+		expect(referralSource).toContain('<Table.Head colspan={3}>')
+		expect(referralSource).toContain('{#each Array(5) as _cell}')
+	})
+
+	test('shows signed credit changes with a direction icon', (): void => {
+		expect(creditTransactionSource).toContain('<MoveDownIcon')
+		expect(creditTransactionSource).toContain('<MoveUpIcon')
+		expect(creditTransactionSource).toContain('`+${formatted}`')
 	})
 })
