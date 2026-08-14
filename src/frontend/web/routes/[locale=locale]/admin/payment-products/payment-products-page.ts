@@ -1,13 +1,15 @@
-import type { PaymentProduct } from '$apiContract/configuration'
+import type {
+	ListRemotePaymentProductsResponse,
+	PaymentProduct,
+	RemotePaymentProduct
+} from '$apiContract/configuration'
 
 export type PaymentProductFormValidationInput = {
-	productId: string
 	type: 'one_time' | 'subscription'
 	creditsAmount: string
 	subscriptionPlan: string
 	upgradeRank: string
 	periodCreditsAmount: string
-	providerProductId: string
 }
 
 export function replacePaymentProduct(items: PaymentProduct[], product: PaymentProduct): PaymentProduct[] {
@@ -24,8 +26,6 @@ export function removePaymentProduct(items: PaymentProduct[], productId: string)
 
 export function validatePaymentProductForm(input: PaymentProductFormValidationInput): Record<string, string> {
 	const errors: Record<string, string> = {}
-	if (input.productId.trim() === '') errors['productId'] = 'Product ID is required'
-	if (input.providerProductId.trim() === '') errors['providerProductId'] = 'Provider product ID is required'
 	if (input.type === 'one_time' && !isPositiveCreditAmount(input.creditsAmount)) {
 		errors['creditsAmount'] = 'Enter a positive credit amount with at most six decimal places'
 	}
@@ -40,6 +40,17 @@ export function validatePaymentProductForm(input: PaymentProductFormValidationIn
 		}
 	}
 	return errors
+}
+
+export function findRemotePaymentProduct(
+	product: PaymentProduct,
+	catalog: ListRemotePaymentProductsResponse | undefined
+): RemotePaymentProduct | undefined {
+	if (catalog === undefined) return undefined
+	if ((catalog.environment === 'test') !== product.test_mode) return undefined
+	return catalog.items.find((item: RemotePaymentProduct): boolean => {
+		return item.provider_product_id === product.provider_product_id
+	})
 }
 
 function isPositiveCreditAmount(value: string): boolean {

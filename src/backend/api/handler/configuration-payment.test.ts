@@ -27,13 +27,11 @@ describe('payment configuration handlers', (): void => {
 				default_provider: null,
 				country_provider_overrides: [],
 				dodo: {
-					test_mode: true,
 					api_key_configured: true,
 					webhook_secret_configured: true,
 					webhook_url: 'https://app.example.com/api/webhook/dodo'
 				},
 				creem: {
-					test_mode: false,
 					api_key_configured: false,
 					webhook_secret_configured: false,
 					webhook_url: 'https://app.example.com/api/webhook/creem'
@@ -70,12 +68,10 @@ function createPaymentConfig(): PaymentConfigView {
 		providerCountryOverrides: [],
 		providers: {
 			dodo: {
-				testMode: true,
 				apiKey: { ciphertext: 'encrypted', iv: 'iv' },
 				webhookSecret: { ciphertext: 'encrypted', iv: 'iv' }
 			},
 			creem: {
-				testMode: false,
 				apiKey: null,
 				webhookSecret: null
 			}

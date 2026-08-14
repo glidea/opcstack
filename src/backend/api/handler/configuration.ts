@@ -12,6 +12,7 @@ import {
 	GetEmailConfigApi,
 	GetGeneralConfigApi,
 	GetPaymentConfigApi,
+	ListRemotePaymentProductsApi,
 	UpdateAIProviderApi,
 	UpdateAIConfigApi,
 	UpdateAuthenticationConfigApi,
@@ -29,7 +30,8 @@ import {
 	type EmailConfig as EmailConfigResponse,
 	type GeneralConfig as GeneralConfigResponse,
 	type PaymentConfig as PaymentConfigResponse,
-	type PaymentProduct as PaymentProductResponse
+	type PaymentProduct as PaymentProductResponse,
+	type ListRemotePaymentProductsResponse
 } from '../../../api-contract/configuration'
 import {
 	ConfigStoreError,
@@ -70,6 +72,8 @@ import {
 	type PaymentConfigView,
 	type PaymentProductValues
 } from '../../payment/config'
+import { listRemotePaymentProducts, type RemotePaymentCatalog } from '../../payment/catalog'
+import type { ProviderProduct } from '../../payment/contract'
 import type { AIProvider, PaymentProduct } from '../../db/schema.meta'
 
 import { formatDecimal, parseDecimal } from '../../lib/decimal'
@@ -319,12 +323,10 @@ export async function updatePaymentConfigHandler(ctx: Context<ApiEnv>): Promise<
 				providerCountryOverrides: request.data.country_provider_overrides,
 				providers: {
 					dodo: {
-						testMode: request.data.dodo_test_mode,
 						apiKey: request.data.dodo_api_key,
 						webhookSecret: request.data.dodo_webhook_secret
 					},
 					creem: {
-						testMode: request.data.creem_test_mode,
 						apiKey: request.data.creem_api_key,
 						webhookSecret: request.data.creem_webhook_secret
 					}
@@ -339,6 +341,36 @@ export async function updatePaymentConfigHandler(ctx: Context<ApiEnv>): Promise<
 	}
 }
 
+export async function listRemotePaymentProductsHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, ListRemotePaymentProductsApi.request)
+	if (!request.success) {
+		const error = ListRemotePaymentProductsApi.errors.INVALID_REQUEST(request.message)
+		return ctx.json(error.body, error.status)
+	}
+	try {
+		const catalog: RemotePaymentCatalog = await listRemotePaymentProducts(
+			ctx.get('metaDb'),
+			ctx.env.CONFIG_ENCRYPTION_KEY,
+			request.data.provider
+		)
+		const response: ListRemotePaymentProductsResponse = {
+			provider: catalog.provider,
+			environment: catalog.environment,
+			items: catalog.products.map((product: ProviderProduct) => ({
+				provider_product_id: product.providerProductId,
+				name: product.name,
+				description: product.description,
+				price_amount: product.priceAmount,
+				currency: product.currency,
+				type: product.billingMode
+			}))
+		}
+		return ctx.json(response)
+	} catch (error) {
+		return mapPaymentConfigurationError(ctx, error)
+	}
+}
+
 export async function createPaymentProductHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const request = await parseRequest(ctx, CreatePaymentProductApi.request)
 	if (!request.success) {
@@ -346,9 +378,25 @@ export async function createPaymentProductHandler(ctx: Context<ApiEnv>): Promise
 		return ctx.json(error.body, error.status)
 	}
 	try {
+		const catalog: RemotePaymentCatalog = await listRemotePaymentProducts(
+			ctx.get('metaDb'),
+			ctx.env.CONFIG_ENCRYPTION_KEY,
+			request.data.provider
+		)
+		const remoteProduct: ProviderProduct | undefined = catalog.products.find(
+			(product: ProviderProduct): boolean =>
+				product.providerProductId === request.data.provider_product_id
+		)
+		if (remoteProduct === undefined) {
+			throw new PaymentConfigError('PAYMENT_PRODUCT_NOT_FOUND')
+		}
 		const product: PaymentProduct = await createPaymentProduct(ctx.get('metaDb'), {
-			...toPaymentProductInput(request.data),
+			id: crypto.randomUUID(),
 			provider: request.data.provider,
+			testMode: catalog.environment === 'test',
+			providerProductId: remoteProduct.providerProductId,
+			type: remoteProduct.billingMode,
+			...toPaymentProductEntitlementInput(request.data),
 			nowMs: Date.now()
 		})
 		return ctx.json(toPaymentProductResponse(product) as PaymentProductResponse)
@@ -365,7 +413,8 @@ export async function updatePaymentProductHandler(ctx: Context<ApiEnv>): Promise
 	}
 	try {
 		const product: PaymentProduct = await updatePaymentProduct(ctx.get('metaDb'), {
-			...toPaymentProductInput(request.data),
+			id: request.data.product_id,
+			...toPaymentProductEntitlementInput(request.data),
 			expectedVersion: request.data.expected_version,
 			nowMs: Date.now()
 		})
@@ -559,13 +608,11 @@ function toPaymentConfigResponse(config: PaymentConfigView, baseUrl: string): Pa
 		default_provider: config.defaultProvider,
 		country_provider_overrides: config.providerCountryOverrides,
 		dodo: {
-			test_mode: config.providers.dodo.testMode,
 			api_key_configured: config.providers.dodo.apiKey !== null,
 			webhook_secret_configured: config.providers.dodo.webhookSecret !== null,
 			webhook_url: new URL('/api/webhook/dodo', baseUrl).toString()
 		},
 		creem: {
-			test_mode: config.providers.creem.testMode,
 			api_key_configured: config.providers.creem.apiKey !== null,
 			webhook_secret_configured: config.providers.creem.webhookSecret !== null,
 			webhook_url: new URL('/api/webhook/creem', baseUrl).toString()
@@ -591,18 +638,13 @@ function toPaymentProductResponse(product: PaymentProduct): PaymentProductRespon
 	}
 }
 
-function toPaymentProductInput(product: {
-	product_id: string
-	type: 'one_time' | 'subscription'
+function toPaymentProductEntitlementInput(product: {
 	credits_amount: string | null
 	subscription_plan: string | null
 	upgrade_rank: number | null
 	period_credits_amount: string | null
-	provider_product_id: string
-}): PaymentProductValues {
+}): Omit<PaymentProductValues, 'id' | 'type' | 'providerProductId'> {
 	return {
-		id: product.product_id,
-		type: product.type,
 		creditsAmount:
 			product.credits_amount === null ? null : parseConfigCreditAmount(product.credits_amount),
 		subscriptionPlan: product.subscription_plan,
@@ -610,8 +652,7 @@ function toPaymentProductInput(product: {
 		periodCreditsAmount:
 			product.period_credits_amount === null
 				? null
-				: parseConfigCreditAmount(product.period_credits_amount),
-		providerProductId: product.provider_product_id
+				: parseConfigCreditAmount(product.period_credits_amount)
 	}
 }
 
@@ -635,7 +676,6 @@ function mapPaymentConfigurationError(ctx: Context<ApiEnv>, error: unknown): Res
 		case 'PAYMENT_PROVIDER_INVALID':
 		case 'PAYMENT_PROVIDER_COUNTRY_OVERRIDES_INVALID':
 		case 'PAYMENT_PROVIDER_CREDENTIALS_MISSING':
-		case 'PAYMENT_PRODUCT_ENVIRONMENT_MISMATCH':
 		case 'PAYMENT_PRODUCTS_INVALID': {
 			const response = GetPaymentConfigApi.errors.INVALID_REQUEST(error.message)
 			return ctx.json(response.body, response.status)

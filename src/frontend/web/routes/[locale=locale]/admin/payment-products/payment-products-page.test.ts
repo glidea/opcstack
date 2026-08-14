@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { PaymentProduct } from '$apiContract/configuration'
-import { removePaymentProduct, replacePaymentProduct, validatePaymentProductForm } from './payment-products-page'
+import {
+	findRemotePaymentProduct,
+	removePaymentProduct,
+	replacePaymentProduct,
+	validatePaymentProductForm
+} from './payment-products-page'
 
 const product: PaymentProduct = {
 	product_id: 'credits-100',
@@ -24,20 +29,35 @@ describe('payment product workspace', () => {
 		expect(removePaymentProduct([product, sibling], product.product_id)).toEqual([sibling])
 	})
 
-	it('requires one provider product ID and fields for the selected product type', () => {
+	it('validates only local entitlement fields', () => {
 		expect(validatePaymentProductForm({
-			productId: 'monthly-pro',
 			type: 'subscription',
 			creditsAmount: '',
 			subscriptionPlan: '',
 			upgradeRank: '',
-			periodCreditsAmount: '',
-			providerProductId: ''
+			periodCreditsAmount: ''
 		})).toEqual({
-			providerProductId: 'Provider product ID is required',
 			subscriptionPlan: 'Subscription plan is required',
 			upgradeRank: 'Upgrade rank must be a non-negative whole number',
 			periodCreditsAmount: 'Enter a positive credit amount with at most six decimal places'
 		})
+	})
+
+	it('matches a product only in the provider current environment', () => {
+		const catalog = {
+			provider: 'dodo' as const,
+			environment: 'test' as const,
+			items: [{
+				provider_product_id: 'prod_100',
+				name: '100 credits',
+				description: null,
+				price_amount: 500,
+				currency: 'USD',
+				type: 'one_time' as const
+			}]
+		}
+
+		expect(findRemotePaymentProduct(product, catalog)?.name).toBe('100 credits')
+		expect(findRemotePaymentProduct({ ...product, test_mode: false }, catalog)).toBeUndefined()
 	})
 })

@@ -90,6 +90,7 @@ export const PROTECTED_JSON_ROUTES: ProtectedJsonRoute[] = [
 	{ method: 'POST', path: '/api/admin/get_affiliate_config', scope: 'config:affiliate:read', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/update_affiliate_config', scope: 'config:affiliate:write', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/get_payment_config', scope: 'config:payment:read', access: 'admin' },
+	{ method: 'POST', path: '/api/admin/list_remote_payment_products', scope: 'config:payment:read', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/create_payment_product', scope: 'config:payment:write', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/update_payment_config', scope: 'config:payment:write', access: 'admin' },
 	{ method: 'POST', path: '/api/admin/update_payment_product', scope: 'config:payment:write', access: 'admin' },

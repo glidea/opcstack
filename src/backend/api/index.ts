@@ -72,6 +72,7 @@ import {
 	getEmailConfigHandler,
 	getGeneralConfigHandler,
 	getPaymentConfigHandler,
+	listRemotePaymentProductsHandler,
 	updateAIProviderHandler,
 	updateAIConfigHandler,
 	updateAuthenticationConfigHandler,
@@ -80,7 +81,7 @@ import {
 	updateEmailConfigHandler,
 	updateGeneralConfigHandler,
 	updatePaymentConfigHandler,
-	updatePaymentProductHandler,
+	updatePaymentProductHandler
 } from './handler/configuration'
 import { authCore } from './auth'
 import { logError } from '../lib/log'
@@ -189,6 +190,7 @@ adminApi.post('/admin/update_credits_config', requireApiScope(getProtectedJsonRo
 adminApi.post('/admin/get_affiliate_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_affiliate_config')), getAffiliateConfigHandler)
 adminApi.post('/admin/update_affiliate_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_affiliate_config')), updateAffiliateConfigHandler)
 adminApi.post('/admin/get_payment_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_payment_config')), getPaymentConfigHandler)
+adminApi.post('/admin/list_remote_payment_products', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_remote_payment_products')), listRemotePaymentProductsHandler)
 adminApi.post('/admin/update_payment_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_payment_config')), updatePaymentConfigHandler)
 adminApi.post('/admin/create_payment_product', requireApiScope(getProtectedJsonRouteScope('/api/admin/create_payment_product')), createPaymentProductHandler)
 adminApi.post('/admin/update_payment_product', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_payment_product')), updatePaymentProductHandler)

@@ -18,6 +18,7 @@ export const PAYMENT_PROVIDER_CREEM = 'creem'
 
 export type PaymentProviderName = typeof PAYMENT_PROVIDER_DODO | typeof PAYMENT_PROVIDER_CREEM
 export type PaymentProductType = 'one_time' | 'subscription'
+export type PaymentEnvironment = 'test' | 'live'
 
 export interface PaymentProviderCountryOverride {
 	country: string
@@ -60,7 +61,6 @@ export type PaymentConfigErrorCode =
 	| 'PAYMENT_PRODUCTS_INVALID'
 	| 'PAYMENT_PRODUCT_NOT_FOUND'
 	| 'PAYMENT_PRODUCT_CONFLICT'
-	| 'PAYMENT_PRODUCT_ENVIRONMENT_MISMATCH'
 	| 'PAYMENT_PRODUCT_REFERENCED'
 
 export class PaymentConfigError extends Error {
@@ -87,8 +87,6 @@ function paymentConfigErrorMessage(code: PaymentConfigErrorCode): string {
 			return 'Payment product was not found'
 		case 'PAYMENT_PRODUCT_CONFLICT':
 			return 'Payment product has changed'
-		case 'PAYMENT_PRODUCT_ENVIRONMENT_MISMATCH':
-			return 'Payment product belongs to another provider environment'
 		case 'PAYMENT_PRODUCT_REFERENCED':
 			return 'Payment product is referenced by an effective subscription'
 	}
@@ -142,27 +140,31 @@ export interface UpdatePaymentConfigInput {
 }
 
 export interface PaymentProviderUpdate {
-	testMode: boolean
 	apiKey: SecretMutation
 	webhookSecret: SecretMutation
 }
 
-export interface PaymentProductValues {
-	id: string
-	type: PaymentProductType
+export interface PaymentProductEntitlementValues {
 	creditsAmount: number | null
 	subscriptionPlan: string | null
 	upgradeRank: number | null
 	periodCreditsAmount: number | null
+}
+
+export interface PaymentProductValues extends PaymentProductEntitlementValues {
+	id: string
+	type: PaymentProductType
 	providerProductId: string
 }
 
 export interface CreatePaymentProductInput extends PaymentProductValues {
 	provider: PaymentProviderName
+	testMode: boolean
 	nowMs: number
 }
 
-export interface UpdatePaymentProductInput extends PaymentProductValues {
+export interface UpdatePaymentProductInput extends PaymentProductEntitlementValues {
+	id: string
 	expectedVersion: number
 	nowMs: number
 }
@@ -216,9 +218,10 @@ export async function getPaymentRuntimeConfig(
 		if (config.apiKey === null || config.webhookSecret === null) {
 			continue
 		}
+		const apiKey: string = await decryptConfigSecret(encryptionKey, config.apiKey)
 		providerConfigs[provider] = {
-			testMode: config.testMode,
-			apiKey: await decryptConfigSecret(encryptionKey, config.apiKey),
+			testMode: getPaymentProviderEnvironment(provider, apiKey) === 'test',
+			apiKey,
 			webhookSecret: await decryptConfigSecret(encryptionKey, config.webhookSecret)
 		}
 		providers.push(provider)
@@ -231,7 +234,13 @@ export async function getPaymentRuntimeConfig(
 		providerConfigs,
 		products: view.products
 			.filter((product: PaymentProduct): boolean => {
-				return view.providers[product.provider as PaymentProviderName].testMode === product.testMode
+				const providerConfig: PaymentProviderRuntimeConfig | undefined =
+					providerConfigs[product.provider as PaymentProviderName]
+				if (providerConfig === undefined) return false
+				return paymentProductMatchesEnvironment(
+					product,
+					providerConfig.testMode ? 'test' : 'live'
+				)
 			})
 			.map(toRuntimeProduct)
 	}
@@ -259,9 +268,7 @@ export function validatePaymentSettings(
 		if (credentials.apiKey === null || credentials.webhookSecret === null) {
 			throw new PaymentConfigError('PAYMENT_PROVIDER_CREDENTIALS_MISSING')
 		}
-		const hasProduct: boolean = products.some((product: PaymentProduct): boolean => {
-			return product.provider === provider && product.testMode === credentials.testMode
-		})
+		const hasProduct: boolean = products.some((product: PaymentProduct): boolean => product.provider === provider)
 		if (!hasProduct) {
 			throw new PaymentConfigError('PAYMENT_PROVIDER_INVALID')
 		}
@@ -284,7 +291,7 @@ export async function createPaymentProduct(
 		.values({
 			id: input.id,
 			provider: input.provider,
-			testMode: providerSettings.testMode,
+			testMode: input.testMode,
 			providerProductId: input.providerProductId,
 			type: input.type,
 			creditsAmount: input.creditsAmount,
@@ -308,30 +315,23 @@ export async function updatePaymentProduct(
 	db: MetaDb,
 	input: UpdatePaymentProductInput
 ): Promise<PaymentProduct> {
-	validatePaymentProduct(input)
 	const existing: PaymentProduct | undefined = await db.query.paymentProduct.findFirst({
 		where: eq(paymentProduct.id, input.id)
 	})
 	if (!existing) {
 		throw new PaymentConfigError('PAYMENT_PRODUCT_NOT_FOUND')
 	}
+	validatePaymentProduct({
+		...input,
+		type: existing.type as PaymentProductType,
+		providerProductId: existing.providerProductId
+	})
 	if (existing.version !== input.expectedVersion) {
 		throw new PaymentConfigError('PAYMENT_PRODUCT_CONFLICT')
-	}
-	const settings = await readSystemSettingsSnapshot(db)
-	const paymentSettings: PaymentSettingsDocument = parsePaymentSettings(settings.paymentConfig)
-	const providerSettings = paymentSettings.providers[existing.provider as PaymentProviderName]
-	if (providerSettings.apiKey === null || providerSettings.webhookSecret === null) {
-		throw new PaymentConfigError('PAYMENT_PROVIDER_CREDENTIALS_MISSING')
-	}
-	if (providerSettings.testMode !== existing.testMode) {
-		throw new PaymentConfigError('PAYMENT_PRODUCT_ENVIRONMENT_MISMATCH')
 	}
 	const rows: PaymentProduct[] = await db
 		.update(paymentProduct)
 		.set({
-			providerProductId: input.providerProductId,
-			type: input.type,
 			creditsAmount: input.creditsAmount,
 			subscriptionPlan: input.subscriptionPlan,
 			upgradeRank: input.upgradeRank,
@@ -435,7 +435,6 @@ async function mutateProvider(
 	input: PaymentProviderUpdate
 ): Promise<PaymentSettingsDocument['providers']['dodo']> {
 	return {
-		testMode: input.testMode,
 		apiKey: await mutateConfigSecret(encryptionKey, current.apiKey, input.apiKey),
 		webhookSecret: await mutateConfigSecret(
 			encryptionKey,
@@ -447,10 +446,30 @@ async function mutateProvider(
 
 const EncryptedSecretSchema = z.object({ ciphertext: z.string().min(1), iv: z.string().min(1) })
 const ProviderSchema = z.object({
-	testMode: z.boolean(),
 	apiKey: EncryptedSecretSchema.nullable(),
 	webhookSecret: EncryptedSecretSchema.nullable()
 })
+
+export function getPaymentProviderEnvironment(
+	provider: PaymentProviderName,
+	apiKey: string
+): PaymentEnvironment {
+	switch (provider) {
+		case PAYMENT_PROVIDER_DODO:
+			if (apiKey.startsWith('test_') || apiKey.startsWith('dodo_test_')) return 'test'
+			return 'live'
+		case PAYMENT_PROVIDER_CREEM:
+			if (apiKey.startsWith('creem_test_')) return 'test'
+			return 'live'
+	}
+}
+
+export function paymentProductMatchesEnvironment(
+	product: Pick<PaymentProduct, 'testMode'>,
+	environment: PaymentEnvironment
+): boolean {
+	return product.testMode === (environment === 'test')
+}
 const PaymentSettingsSchema = z.object({
 	enabled: z.boolean(),
 	defaultProvider: z.enum(['dodo', 'creem']).nullable(),

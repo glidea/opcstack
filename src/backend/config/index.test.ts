@@ -506,8 +506,8 @@ function createSettingsRow(generalVersion: number): SystemSettings {
 			defaultProvider: null,
 			providerCountryOverrides: [],
 			providers: {
-				dodo: { testMode: false, apiKey: null, webhookSecret: null },
-				creem: { testMode: false, apiKey: null, webhookSecret: null }
+				dodo: { apiKey: null, webhookSecret: null },
+				creem: { apiKey: null, webhookSecret: null }
 			}
 		}
 	} as unknown as SystemSettings

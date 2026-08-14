@@ -249,7 +249,6 @@ export const PaymentProductSchema = z.object({
 export type PaymentProduct = z.infer<typeof PaymentProductSchema>
 
 const PaymentProviderConfigSchema = z.object({
-	test_mode: z.boolean(),
 	api_key_configured: z.boolean(),
 	webhook_secret_configured: z.boolean(),
 	webhook_url: z.string().url()
@@ -275,35 +274,53 @@ export const UpdatePaymentConfigRequestSchema = z.object({
 	country_provider_overrides: z.array(
 		z.object({ country: z.string().trim().length(2), provider: PaymentProviderNameSchema })
 	),
-	dodo_test_mode: z.boolean(),
 	dodo_api_key: SecretMutationSchema,
 	dodo_webhook_secret: SecretMutationSchema,
-	creem_test_mode: z.boolean(),
 	creem_api_key: SecretMutationSchema,
 	creem_webhook_secret: SecretMutationSchema,
 	expected_version: z.number().int().min(1)
 })
 export type UpdatePaymentConfigRequest = z.infer<typeof UpdatePaymentConfigRequestSchema>
 
-const PaymentProductBusinessFieldsSchema = z.object({
-	product_id: z.string().trim().min(1),
-	type: z.enum(['one_time', 'subscription']),
+const PaymentProductEntitlementFieldsSchema = z.object({
 	credits_amount: CreditConfigAmountSchema.nullable(),
 	subscription_plan: z.string().trim().min(1).nullable(),
 	upgrade_rank: z.number().int().nonnegative().nullable(),
 	period_credits_amount: CreditConfigAmountSchema.nullable()
 })
-export const CreatePaymentProductRequestSchema = PaymentProductBusinessFieldsSchema.extend({
+export const CreatePaymentProductRequestSchema = PaymentProductEntitlementFieldsSchema.extend({
 	provider: PaymentProviderNameSchema,
 	provider_product_id: z.string().trim().min(1)
 }).strict()
 export type CreatePaymentProductRequest = z.infer<typeof CreatePaymentProductRequestSchema>
 
-export const UpdatePaymentProductRequestSchema = PaymentProductBusinessFieldsSchema.extend({
-	provider_product_id: z.string().trim().min(1),
+export const UpdatePaymentProductRequestSchema = PaymentProductEntitlementFieldsSchema.extend({
+	product_id: z.string().trim().min(1),
 	expected_version: z.number().int().min(1)
 }).strict()
 export type UpdatePaymentProductRequest = z.infer<typeof UpdatePaymentProductRequestSchema>
+
+export const ListRemotePaymentProductsRequestSchema = z.object({
+	provider: PaymentProviderNameSchema
+}).strict()
+export type ListRemotePaymentProductsRequest = z.infer<typeof ListRemotePaymentProductsRequestSchema>
+
+export const RemotePaymentProductSchema = z.object({
+	provider_product_id: z.string(),
+	name: z.string(),
+	description: z.string().nullable(),
+	price_amount: z.number(),
+	currency: z.string(),
+	type: z.enum(['one_time', 'subscription'])
+})
+export type RemotePaymentProduct = z.infer<typeof RemotePaymentProductSchema>
+
+export const ListRemotePaymentProductsResponseSchema = z.object({
+	provider: PaymentProviderNameSchema,
+	environment: z.enum(['test', 'live']),
+	items: z.array(RemotePaymentProductSchema)
+})
+export type ListRemotePaymentProductsResponse = z.infer<typeof ListRemotePaymentProductsResponseSchema>
 export const DeletePaymentProductRequestSchema = z.object({
 	product_id: z.string().trim().min(1),
 	expected_version: z.number().int().min(1)
@@ -315,6 +332,12 @@ export type DeletePaymentProductResponse = z.infer<typeof DeletePaymentProductRe
 export const GetPaymentConfigApi = {
 	request: GetPaymentConfigRequestSchema,
 	response: PaymentConfigSchema,
+	errors: ConfigurationErrors
+}
+
+export const ListRemotePaymentProductsApi = {
+	request: ListRemotePaymentProductsRequestSchema,
+	response: ListRemotePaymentProductsResponseSchema,
 	errors: ConfigurationErrors
 }
 

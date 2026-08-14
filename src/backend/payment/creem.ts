@@ -66,6 +66,7 @@ interface CreemProduct {
 	price: number
 	currency: string
 	billingType: typeof CREEM_BILLING_TYPE_RECURRING | typeof CREEM_BILLING_TYPE_ONETIME
+	status?: 'active' | 'archived'
 }
 
 interface CreemCheckout {
@@ -112,6 +113,7 @@ type CreemWebhookEvent = {
 export interface CreemClient {
 	products: {
 		get(productId: string): Promise<CreemProduct>
+		search(pageNumber?: number, pageSize?: number): Promise<{ items: CreemProduct[] }>
 	}
 	checkouts: {
 		create(input: {
@@ -154,6 +156,13 @@ export class CreemPaymentProvider implements PaymentProvider {
 		this.webhookSecret = webhookSecret
 	}
 
+	async discoverProducts(): Promise<ProviderProduct[]> {
+		const response = await this.client.products.search(1, 100)
+		return response.items
+			.filter((product: CreemProduct): boolean => product.status !== 'archived')
+			.map(mapCreemProviderProduct)
+	}
+
 	async listProducts(input: ListProductsInput): Promise<ProviderProduct[]> {
 		const products: CreemProduct[] = await Promise.all(
 			input.providerProductIds.map((providerProductId: string) => {
@@ -161,19 +170,7 @@ export class CreemPaymentProvider implements PaymentProvider {
 			})
 		)
 
-		return products.map((product: CreemProduct) => {
-			return {
-				providerProductId: product.id,
-				name: product.name,
-				description: product.description,
-				priceAmount: product.price,
-				currency: product.currency,
-				billingMode:
-					product.billingType === CREEM_BILLING_TYPE_RECURRING
-						? PAYMENT_BILLING_MODE_SUBSCRIPTION
-						: PAYMENT_BILLING_MODE_ONE_TIME
-			}
-		})
+		return products.map(mapCreemProviderProduct)
 	}
 
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
@@ -254,6 +251,20 @@ function defaultCreateCreemClient(options: CreemClientOptions): CreemClient {
 		apiKey: options.apiKey,
 		serverIdx: options.serverIdx
 	}) as unknown as CreemClient
+}
+
+function mapCreemProviderProduct(product: CreemProduct): ProviderProduct {
+	return {
+		providerProductId: product.id,
+		name: product.name,
+		description: product.description,
+		priceAmount: product.price,
+		currency: product.currency,
+		billingMode:
+			product.billingType === CREEM_BILLING_TYPE_RECURRING
+				? PAYMENT_BILLING_MODE_SUBSCRIPTION
+				: PAYMENT_BILLING_MODE_ONE_TIME
+	}
 }
 
 function isCreemSignatureValid(rawBody: string, signature: string, secret: string): boolean {

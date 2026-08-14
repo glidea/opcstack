@@ -356,7 +356,7 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - Admin page headers contain only the title and relevant actions. Do not add explanatory subtitles that restate the page purpose or data source.
 - Admin pages use the shared `admin-page`, `admin-page-header`, `admin-filter-bar`, `admin-table-panel`, and `admin-pagination` layout classes from `app.css`; do not create page-specific workspace widths or duplicate table scroll containers.
 - Admin sidebar is one flat ordered list. Payment Products and AI Providers are standalone workspaces; System Settings contains only singleton domain forms, including payment platform credentials and AI routing weights.
-- Payment Products store one `provider`, one `provider_product_id`, and a creation-time `test_mode` snapshot. Provider and environment are immutable after creation; the product selector only includes payment providers with complete current-environment credentials.
+- Payment Products store one `provider`, one `provider_product_id`, and a creation-time `test_mode` snapshot. The environment is derived from the current API key. Provider and environment are immutable after creation; administrators select remote products from configured Provider catalogs and never enter internal IDs, remote IDs, type, price, or currency manually.
 - Admin overview metrics use one divided metric strip. Keep actionable work queues visually primary and avoid identical metric card grids.
 - Admin user filters and actions must select users by name or email. Never require operators to type a user ID; pass it internally after selection.
 - Turnstile credentials are initialized during Cloudflare preparation and preserved in D1. The Authentication workspace exposes only the dynamic enabled switch.

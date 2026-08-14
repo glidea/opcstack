@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import { beforeEach, describe, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import {
 	CreemPaymentProvider,
@@ -55,6 +55,31 @@ describe('CreemPaymentProvider.listProducts', () => {
 			billingModes: products.map((item) => item.billingMode),
 			priceAmounts: products.map((item) => item.priceAmount)
 		}
+	})
+})
+
+describe('CreemPaymentProvider.discoverProducts', () => {
+	test('lists active products from the connected environment', async (): Promise<void> => {
+		const client: CreemClient = createMockClient()
+		vi.mocked(client.products.search).mockResolvedValue({
+			items: [
+				createCreemProduct('prod_1', 'onetime', 1000),
+				createCreemProduct('prod_2', 'recurring', 3000)
+			]
+		} as never)
+
+		const provider = new CreemPaymentProvider(client, 'whsec')
+		const products = await provider.discoverProducts()
+
+		expect(products.map((item) => ({
+			id: item.providerProductId,
+			type: item.billingMode,
+			price: item.priceAmount,
+			currency: item.currency
+		}))).toEqual([
+			{ id: 'prod_1', type: 'one_time', price: 1000, currency: 'USD' },
+			{ id: 'prod_2', type: 'subscription', price: 3000, currency: 'USD' }
+		])
 	})
 })
 
@@ -477,7 +502,8 @@ describe('createCreemPayment', () => {
 function createMockClient(): CreemClient {
 	return {
 		products: {
-			get: vi.fn()
+			get: vi.fn(),
+			search: vi.fn()
 		},
 		checkouts: {
 			create: vi.fn()

@@ -571,7 +571,7 @@ General | Authentication | Email | Credits | Affiliate | Payment | AI
 | `Email` | 邮件提供商及其运行凭据 |
 | `Credits` | 注册奖励、每日签到和流水保留规则 |
 | `Affiliate` | 邀请奖励规则 |
-| `Payment` | 支付开关、提供商路由、测试模式、凭据和 Webhook |
+| `Payment` | 支付开关、提供商路由、凭据和 Webhook |
 | `AI` | 路由权重和任务保留期；Provider 执行端点与模型在独立 AI Providers 页面 |
 
 这些 Tab 只呈现 D1 权威的运行时业务配置。应用域名、D1 Shards、Queue、Cron、R2 Bucket、上传策略与生命周期规则等固定行为继续只属于 ENV 和部署流程，不在后台以只读或可编辑字段重复展示。
@@ -650,21 +650,18 @@ Storage 不属于动态配置域。`R2_ENABLED`、`R2_USER_UPLOAD_ALLOWED_CONTEN
 | Payment enabled | `paymentConfig.enabled` | Toggle |
 | Default provider | `paymentConfig.defaultProvider` | Select：`dodo` / `creem` |
 | Country provider overrides | `paymentConfig.providerCountryOverrides` | Country + provider 可编辑表格，不使用 JSON 文本框 |
-| Dodo test mode | `paymentConfig.providers.dodo.testMode` | Toggle |
 | Dodo API key | `paymentConfig.providers.dodo.apiKey` | 密钥替换控件 |
 | Dodo webhook secret | `paymentConfig.providers.dodo.webhookSecret` | 密钥替换控件 |
-| Creem test mode | `paymentConfig.providers.creem.testMode` | Toggle |
 | Creem API key | `paymentConfig.providers.creem.apiKey` | 密钥替换控件 |
 | Creem webhook secret | `paymentConfig.providers.creem.webhookSecret` | 密钥替换控件 |
 | Payment products | `payment_products` | Product 表格 + 右侧编辑抽屉，不使用 JSON 文本框 |
 
-Payment Product 编辑字段：
+Payment Product 创建流程：
 
-- Internal product ID
-- Type：`one_time` / `subscription`
-- One-time credits amount，或 subscription plan、upgrade rank、period credits amount
-- Dodo remote product ID
-- Creem remote product ID
+- 选择已配置完整凭据的支付平台
+- 从该平台当前 API Key 对应环境读取并选择远端商品
+- `one_time` 填写一次性积分；`subscription` 填写套餐名、升级顺序和每周期积分
+- 内部 ID 由服务端生成；远端 ID、类型、价格、币种和环境不允许手填
 
 当前 `inline_product` 能被配置解析器接受，但 Dodo 和 Creem 执行时都会拒绝。新配置模型和后台不保留这个不可执行选项，只支持 `remote_product`。
 
@@ -1564,7 +1561,7 @@ erDiagram
 | Credits | `signupEnabled`、`signupAmount`、`dailyCheckinEnabled`、`dailyCheckinAmount`、`historyRetentionDays` | 金额为非负整数 units；保留天数 `> 0` |
 | Affiliate | `enabled`、`inviterCreditAmount`、`inviteeCreditAmount` | 金额为非负整数 units |
 | Payment | `enabled`、`defaultProvider`、`providerCountryOverrides` | Provider 为 `dodo` / `creem`；country 唯一 ISO alpha-2 |
-| Payment | `providers.{dodo,creem}.{testMode,apiKey,webhookSecret}` | 被路由引用的 Provider 必须具有完整凭据和 Product 映射 |
+| Payment | `providers.{dodo,creem}.{apiKey,webhookSecret}` | 环境由 API Key 派生；被路由引用的 Provider 必须具有完整凭据和当前环境 Product 映射 |
 | AI | `routing.{errorWeight,latencyWeight,priceWeight}`、`taskRetentionDays` | 权重非负且总和 `> 0`；保留天数 `> 0` |
 
 JSON 文档内部使用代码侧 camelCase，Admin JSON API 继续使用 snake_case。Handler 负责显式映射，不把持久化文档直接作为公共 API Contract。
@@ -1583,7 +1580,7 @@ Migration 写入可见、可编辑的明确值，而不是运行时代码默认�
 - `docs_enabled = true`；Design System 由 `DESIGN_SYSTEM` ENV 决定
 - 上传类型和大小不写入 Migration，由固定 ENV 提供
 - Credits 和 Affiliate 金额保留当前模板值，但对应开关关闭
-- Payment Provider 为空，Country overrides 为空，测试模式为 `true`
+- Payment Provider 凭据为空，Country overrides 为空
 - AI 路由权重为 `1 / 0.8 / 0.2`，任务保留 30 天，Provider 集合为空
 - 本地写入 Cloudflare Turnstile 测试凭据；生产写入准备流程创建的 Widget 凭据；`turnstile_enabled = false`
 - 七个业务域版本均为 `1`
@@ -1790,7 +1787,6 @@ Payment 契约：
 type PaymentProviderName = 'dodo' | 'creem'
 
 type PaymentProviderConfigView = {
-	test_mode: boolean
 	api_key_configured: boolean
 	webhook_secret_configured: boolean
 	webhook_url: string
@@ -1810,7 +1806,7 @@ type PaymentConfigView = {
 }
 ```
 
-`UpdatePaymentConfigRequest` 使用相同的开关、路由和 Provider test mode，将每个 Provider 的两个 `*_configured` 替换成 `SecretMutation`，不提交 `webhook_url` 和 `products`，并提交 `expected_version`。启用时 Default Provider、Country override 指向的 Provider、凭据和至少一个对应 Product 必须完整。
+`UpdatePaymentConfigRequest` 使用相同的开关和路由，将每个 Provider 的两个 `*_configured` 替换成 `SecretMutation`，不提交 `webhook_url` 和 `products`，并提交 `expected_version`。Provider 环境仅由 API Key 派生。启用时 Default Provider、Country override 指向的 Provider、凭据和至少一个当前环境 Product 必须完整。
 
 AI 契约：
 

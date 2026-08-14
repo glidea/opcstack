@@ -60,7 +60,6 @@ export type AffiliateSettingsDocument = {
 }
 
 export type PaymentProviderSettings = {
-	testMode: boolean
 	apiKey: EncryptedConfigValue | null
 	webhookSecret: EncryptedConfigValue | null
 }

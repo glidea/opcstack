@@ -58,6 +58,7 @@ function paymentProviderErrorMessage(code: PaymentProviderErrorCode): string {
 export interface PaymentProvider {
 	readonly name: PaymentProviderName
 
+	discoverProducts(): Promise<ProviderProduct[]>
 	listProducts(input: ListProductsInput): Promise<ProviderProduct[]>
 	createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult>
 	changeSubscriptionPlan(input: ChangeSubscriptionPlanInput): Promise<ChangeSubscriptionPlanResult>

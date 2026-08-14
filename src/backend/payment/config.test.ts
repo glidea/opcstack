@@ -4,12 +4,34 @@ import type { PaymentSettingsDocument } from '../db/schema.meta'
 import {
 	createPaymentProduct,
 	deletePaymentProduct,
+	getPaymentProviderEnvironment,
+	paymentProductMatchesEnvironment,
 	PaymentConfigError,
 	PaymentProviderRouter,
 	validatePaymentSettings
 } from './config'
 
 describe('Payment D1 configuration', (): void => {
+	test('derives the current environment from provider credentials', (): void => {
+		expect({
+			dodoTest: getPaymentProviderEnvironment('dodo', 'test_example'),
+			dodoLive: getPaymentProviderEnvironment('dodo', 'live_example'),
+			creemTest: getPaymentProviderEnvironment('creem', 'creem_test_example'),
+			creemLive: getPaymentProviderEnvironment('creem', 'creem_example')
+		}).toEqual({
+			dodoTest: 'test',
+			dodoLive: 'live',
+			creemTest: 'test',
+			creemLive: 'live'
+		})
+	})
+
+	test('excludes products from another provider environment', (): void => {
+		expect({
+			test: paymentProductMatchesEnvironment(createProductRow(), 'test'),
+			live: paymentProductMatchesEnvironment(createProductRow(), 'live')
+		}).toEqual({ test: true, live: false })
+	})
 	test('routes a country to its configured provider', (): void => {
 		const router: PaymentProviderRouter = new PaymentProviderRouter({
 			defaultProvider: 'creem',
@@ -34,6 +56,7 @@ describe('Payment D1 configuration', (): void => {
 			createPaymentProduct({} as MetaDb, {
 				id: 'credits-100',
 				provider: 'dodo',
+				testMode: true,
 				providerProductId: 'prod-1',
 				type: 'one_time',
 				creditsAmount: null,
@@ -74,8 +97,8 @@ function createPaymentSettings(): PaymentSettingsDocument {
 		defaultProvider: null,
 		providerCountryOverrides: [],
 		providers: {
-			dodo: { testMode: true, apiKey: null, webhookSecret: null },
-			creem: { testMode: true, apiKey: null, webhookSecret: null }
+			dodo: { apiKey: null, webhookSecret: null },
+			creem: { apiKey: null, webhookSecret: null }
 		}
 	}
 }

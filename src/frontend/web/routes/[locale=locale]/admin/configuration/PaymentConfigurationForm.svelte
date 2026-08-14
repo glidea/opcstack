@@ -32,12 +32,10 @@
 		enabled: boolean
 		defaultProvider: '' | PaymentProviderName
 		countryOverrides: CountryOverride[]
-		dodoTestMode: boolean
 		dodoApiKeyAction: SecretAction
 		dodoApiKeyValue: string
 		dodoWebhookSecretAction: SecretAction
 		dodoWebhookSecretValue: string
-		creemTestMode: boolean
 		creemApiKeyAction: SecretAction
 		creemApiKeyValue: string
 		creemWebhookSecretAction: SecretAction
@@ -47,7 +45,6 @@
 	let enabled: boolean = $state(false)
 	let defaultProvider: '' | PaymentProviderName = $state('')
 	let countryOverrides: CountryOverride[] = $state([])
-	let dodoTestMode: boolean = $state(false)
 	let dodoApiKeyConfigured: boolean = $state(false)
 	let dodoApiKeyAction: SecretAction = $state('keep')
 	let dodoApiKeyValue: string = $state('')
@@ -55,7 +52,6 @@
 	let dodoWebhookSecretAction: SecretAction = $state('keep')
 	let dodoWebhookSecretValue: string = $state('')
 	let dodoWebhookUrl: string = $state('')
-	let creemTestMode: boolean = $state(false)
 	let creemApiKeyConfigured: boolean = $state(false)
 	let creemApiKeyAction: SecretAction = $state('keep')
 	let creemApiKeyValue: string = $state('')
@@ -78,14 +74,13 @@
 	])
 
 	function snapshot(): string {
-		return JSON.stringify({ enabled, defaultProvider, countryOverrides, dodoTestMode, dodoApiKeyAction, dodoApiKeyValue, dodoWebhookSecretAction, dodoWebhookSecretValue, creemTestMode, creemApiKeyAction, creemApiKeyValue, creemWebhookSecretAction, creemWebhookSecretValue } satisfies SavedPaymentForm)
+		return JSON.stringify({ enabled, defaultProvider, countryOverrides, dodoApiKeyAction, dodoApiKeyValue, dodoWebhookSecretAction, dodoWebhookSecretValue, creemApiKeyAction, creemApiKeyValue, creemWebhookSecretAction, creemWebhookSecretValue } satisfies SavedPaymentForm)
 	}
 
 	function applyConfig(config: PaymentConfig): void {
 		enabled = config.enabled
 		defaultProvider = config.default_provider ?? ''
 		countryOverrides = config.country_provider_overrides.map((item: CountryOverride): CountryOverride => ({ ...item }))
-		dodoTestMode = config.dodo.test_mode
 		dodoApiKeyConfigured = config.dodo.api_key_configured
 		dodoApiKeyAction = 'keep'
 		dodoApiKeyValue = ''
@@ -93,7 +88,6 @@
 		dodoWebhookSecretAction = 'keep'
 		dodoWebhookSecretValue = ''
 		dodoWebhookUrl = config.dodo.webhook_url
-		creemTestMode = config.creem.test_mode
 		creemApiKeyConfigured = config.creem.api_key_configured
 		creemApiKeyAction = 'keep'
 		creemApiKeyValue = ''
@@ -171,10 +165,8 @@
 				enabled,
 				default_provider: defaultProvider === '' ? null : defaultProvider,
 				country_provider_overrides: overrides,
-				dodo_test_mode: dodoTestMode,
 				dodo_api_key: buildSecretMutation(dodoApiKeyAction, dodoApiKeyValue),
 				dodo_webhook_secret: buildSecretMutation(dodoWebhookSecretAction, dodoWebhookSecretValue),
-				creem_test_mode: creemTestMode,
 				creem_api_key: buildSecretMutation(creemApiKeyAction, creemApiKeyValue),
 				creem_webhook_secret: buildSecretMutation(creemWebhookSecretAction, creemWebhookSecretValue),
 				expected_version: version
@@ -195,12 +187,10 @@
 		enabled = value.enabled
 		defaultProvider = value.defaultProvider
 		countryOverrides = value.countryOverrides.map((item: CountryOverride): CountryOverride => ({ ...item }))
-		dodoTestMode = value.dodoTestMode
 		dodoApiKeyAction = value.dodoApiKeyAction
 		dodoApiKeyValue = value.dodoApiKeyValue
 		dodoWebhookSecretAction = value.dodoWebhookSecretAction
 		dodoWebhookSecretValue = value.dodoWebhookSecretValue
-		creemTestMode = value.creemTestMode
 		creemApiKeyAction = value.creemApiKeyAction
 		creemApiKeyValue = value.creemApiKeyValue
 		creemWebhookSecretAction = value.creemWebhookSecretAction
@@ -238,13 +228,13 @@
 			{/if}
 		</ConfigurationSection>
 		<ConfigurationSection title="Dodo Payments" description={$_('admin.configuration.payment.dodoDescription')}>
-				<Field.Field orientation="horizontal"><Field.Label for="payment-dodo-test">{$_('admin.configuration.payment.testMode')}</Field.Label><Switch id="payment-dodo-test" bind:checked={dodoTestMode} /></Field.Field>
+				<Field.Description>{$_('admin.configuration.payment.environmentFromKey')}</Field.Description>
 				<SecretField id="payment-dodo-api-key" label={$_('admin.configuration.payment.apiKey')} configured={dodoApiKeyConfigured} bind:action={dodoApiKeyAction} bind:value={dodoApiKeyValue} error={errors['dodoApiKey'] ?? ''} />
 				<SecretField id="payment-dodo-webhook-secret" label={$_('admin.configuration.payment.webhookSecret')} configured={dodoWebhookSecretConfigured} bind:action={dodoWebhookSecretAction} bind:value={dodoWebhookSecretValue} error={errors['dodoWebhookSecret'] ?? ''} />
 				<Field.Field><Field.Label for="payment-dodo-webhook-url">{$_('admin.configuration.payment.webhookUrl')}</Field.Label><div class="flex max-w-md items-center gap-2"><code id="payment-dodo-webhook-url" class="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{dodoWebhookUrl}</code><Button type="button" size="icon-sm" variant="ghost" onclick={() => copyWebhookUrl(dodoWebhookUrl)} aria-label={$_('admin.configuration.copy')} title={$_('admin.configuration.copy')}><CopyIcon /></Button></div></Field.Field>
 			</ConfigurationSection>
 			<ConfigurationSection title="Creem" description={$_('admin.configuration.payment.creemDescription')}>
-				<Field.Field orientation="horizontal"><Field.Label for="payment-creem-test">{$_('admin.configuration.payment.testMode')}</Field.Label><Switch id="payment-creem-test" bind:checked={creemTestMode} /></Field.Field>
+				<Field.Description>{$_('admin.configuration.payment.environmentFromKey')}</Field.Description>
 				<SecretField id="payment-creem-api-key" label={$_('admin.configuration.payment.apiKey')} configured={creemApiKeyConfigured} bind:action={creemApiKeyAction} bind:value={creemApiKeyValue} error={errors['creemApiKey'] ?? ''} />
 				<SecretField id="payment-creem-webhook-secret" label={$_('admin.configuration.payment.webhookSecret')} configured={creemWebhookSecretConfigured} bind:action={creemWebhookSecretAction} bind:value={creemWebhookSecretValue} error={errors['creemWebhookSecret'] ?? ''} />
 				<Field.Field><Field.Label for="payment-creem-webhook-url">{$_('admin.configuration.payment.webhookUrl')}</Field.Label><div class="flex max-w-md items-center gap-2"><code id="payment-creem-webhook-url" class="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{creemWebhookUrl}</code><Button type="button" size="icon-sm" variant="ghost" onclick={() => copyWebhookUrl(creemWebhookUrl)} aria-label={$_('admin.configuration.copy')} title={$_('admin.configuration.copy')}><CopyIcon /></Button></div></Field.Field>

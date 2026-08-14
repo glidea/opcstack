@@ -1,4 +1,4 @@
-import { beforeEach, describe, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
 import {
 	DodoPaymentProvider,
@@ -57,6 +57,31 @@ describe('DodoPaymentProvider.listProducts', () => {
 			billingModes: products.map((item) => item.billingMode),
 			priceAmounts: products.map((item) => item.priceAmount)
 		}
+	})
+})
+
+describe('DodoPaymentProvider.discoverProducts', () => {
+	test('lists active products from the connected environment', async (): Promise<void> => {
+		const client: DodoClient = createMockClient()
+		vi.mocked(client.products.list).mockReturnValue(
+			createAsyncProducts([
+				createDodoListedProduct('p1', false, 1200),
+				createDodoListedProduct('p2', true, 5600)
+			]) as never
+		)
+
+		const provider = new DodoPaymentProvider(client, 'whsec')
+		const products = await provider.discoverProducts()
+
+		expect(products.map((item) => ({
+			id: item.providerProductId,
+			type: item.billingMode,
+			price: item.priceAmount,
+			currency: item.currency
+		}))).toEqual([
+			{ id: 'p1', type: 'one_time', price: 1200, currency: 'USD' },
+			{ id: 'p2', type: 'subscription', price: 5600, currency: 'USD' }
+		])
 	})
 })
 
@@ -412,7 +437,8 @@ describe('createDodoPayment', () => {
 function createMockClient(): DodoClient {
 	return {
 		products: {
-			retrieve: vi.fn()
+			retrieve: vi.fn(),
+			list: vi.fn()
 		},
 		checkoutSessions: {
 			create: vi.fn()
@@ -427,6 +453,12 @@ function createMockClient(): DodoClient {
 	}
 }
 
+async function* createAsyncProducts(products: unknown[]): AsyncIterable<unknown> {
+	for (const product of products) {
+		yield product
+	}
+}
+
 function createDodoProduct(
 	productId: string,
 	isRecurring: boolean,
@@ -438,6 +470,24 @@ function createDodoProduct(
 		description: null,
 		is_recurring: isRecurring,
 		price: {
+			type: isRecurring ? 'recurring_price' : 'one_time_price',
+			price: priceAmount,
+			currency: 'USD'
+		}
+	}
+}
+
+function createDodoListedProduct(
+	productId: string,
+	isRecurring: boolean,
+	priceAmount: number
+): unknown {
+	return {
+		product_id: productId,
+		name: productId,
+		description: null,
+		is_recurring: isRecurring,
+		price_detail: {
 			type: isRecurring ? 'recurring_price' : 'one_time_price',
 			price: priceAmount,
 			currency: 'USD'

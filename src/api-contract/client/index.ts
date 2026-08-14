@@ -84,6 +84,8 @@ import type {
 	DeletePaymentProductResponse,
 	EmailConfig,
 	GeneralConfig,
+	ListRemotePaymentProductsRequest,
+	ListRemotePaymentProductsResponse,
 	PaymentConfig,
 	PaymentProduct,
 	UpdateAIProviderRequest,
@@ -196,6 +198,7 @@ type ApiMethods = {
 	listFeedbacks(input: ListFeedbacksRequest): Promise<ListFeedbacksResponse>
 	listNotifications(input: ListNotificationsRequest): Promise<ListNotificationsResponse>
 	listPaymentProducts(): Promise<ListPaymentProductsResponse>
+	listRemotePaymentProducts(input: ListRemotePaymentProductsRequest): Promise<ListRemotePaymentProductsResponse>
 	listPaymentTransactions(
 		input: ListPaymentTransactionsRequest
 	): Promise<ListPaymentTransactionsResponse>
@@ -498,6 +501,11 @@ function createApiMethods(
 		},
 		listPaymentProducts(): Promise<ListPaymentProductsResponse> {
 			return call({ path: '/api/list_payment_products', body: {} })
+		},
+		listRemotePaymentProducts(
+			input: ListRemotePaymentProductsRequest
+		): Promise<ListRemotePaymentProductsResponse> {
+			return call({ path: '/api/admin/list_remote_payment_products', body: input })
 		},
 		listPaymentTransactions(
 			input: ListPaymentTransactionsRequest

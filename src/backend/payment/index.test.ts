@@ -103,8 +103,8 @@ function createDisabledPaymentDb(): MetaDb {
 						defaultProvider: null,
 						providerCountryOverrides: [],
 						providers: {
-							dodo: { testMode: true, apiKey: null, webhookSecret: null },
-							creem: { testMode: true, apiKey: null, webhookSecret: null }
+							dodo: { apiKey: null, webhookSecret: null },
+							creem: { apiKey: null, webhookSecret: null }
 						}
 					},
 					paymentVersion: 1

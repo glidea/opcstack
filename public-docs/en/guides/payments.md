@@ -8,11 +8,11 @@ order: 3
 
 # Payments
 
-Open **Admin > Configuration > Payment** to manage payment providers and products. Payment configuration is stored in D1 and takes effect for new requests immediately after saving.
+Open **Admin > System settings > Payment** to connect payment providers. Open **Admin > Payment products** to link remote products to customer entitlements. Payment configuration is stored in D1 and takes effect for new requests immediately after saving.
 
-Create products before enabling payment. One-time products grant credits once. Subscription products require a plan, upgrade rank, and credits granted for each paid period. Provider dashboards own product names, prices, currencies, and billing modes.
+Create products in the provider dashboard first. In Payment products, choose a connected platform and select its remote product from the catalog. The system reads the name, price, currency, billing mode, environment, and remote ID. You only define the local credit or subscription entitlement.
 
-For each enabled provider, add its API key and webhook signing secret. Copy the displayed webhook URL into the provider dashboard. Test and live credentials must match the selected mode.
+For each enabled provider, add its API key and webhook signing secret. Copy the displayed webhook URL into the provider dashboard. The system detects test or live mode from the API key; switching credentials does not expose products linked to the other environment.
 
 Product edits use optimistic versions. A stale update or deletion of a product referenced by an effective subscription is rejected instead of overwriting current state.
 

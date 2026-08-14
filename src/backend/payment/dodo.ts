@@ -60,6 +60,7 @@ type DodoWebhookEvent = DodoPayments.UnwrapWebhookEvent
 export interface DodoClient {
 	products: {
 		retrieve(productId: string): Promise<DodoProduct>
+		list(input?: { archived?: boolean }): AsyncIterable<DodoPayments.ProductListResponse>
 	}
 	checkoutSessions: {
 		create(input: {
@@ -112,6 +113,14 @@ export class DodoPaymentProvider implements PaymentProvider {
 		this.webhookSecret = webhookSecret
 	}
 
+	async discoverProducts(): Promise<ProviderProduct[]> {
+		const products: ProviderProduct[] = []
+		for await (const product of this.client.products.list({ archived: false })) {
+			products.push(mapDodoListedProduct(product))
+		}
+		return products
+	}
+
 	async listProducts(input: ListProductsInput): Promise<ProviderProduct[]> {
 		const products: DodoProduct[] = await Promise.all(
 			input.providerProductIds.map((providerProductId: string) => {
@@ -119,20 +128,7 @@ export class DodoPaymentProvider implements PaymentProvider {
 			})
 		)
 
-		return products.map((product: DodoProduct) => {
-			const priceAmount: number = toDodoPriceAmount(product)
-			const currency: string = toDodoCurrency(product)
-			return {
-				providerProductId: product.product_id,
-				name: product.name ?? '',
-				description: product.description ?? null,
-				priceAmount,
-				currency,
-				billingMode: product.is_recurring
-					? PAYMENT_BILLING_MODE_SUBSCRIPTION
-					: PAYMENT_BILLING_MODE_ONE_TIME
-			}
-		})
+		return products.map(mapDodoProduct)
 	}
 
 	async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
@@ -238,6 +234,37 @@ function toDodoPriceAmount(product: DodoProduct): number {
 
 function toDodoCurrency(product: DodoProduct): string {
 	return product.price.currency
+}
+
+function mapDodoProduct(product: DodoProduct): ProviderProduct {
+	return {
+		providerProductId: product.product_id,
+		name: product.name ?? '',
+		description: product.description ?? null,
+		priceAmount: toDodoPriceAmount(product),
+		currency: toDodoCurrency(product),
+		billingMode: product.is_recurring
+			? PAYMENT_BILLING_MODE_SUBSCRIPTION
+			: PAYMENT_BILLING_MODE_ONE_TIME
+	}
+}
+
+function mapDodoListedProduct(product: DodoPayments.ProductListResponse): ProviderProduct {
+	const price: DodoPayments.ProductListResponse['price_detail'] = product.price_detail
+	if (price === null || price === undefined) {
+		throw new Error('Dodo product price is missing')
+	}
+	return {
+		providerProductId: product.product_id,
+		name: product.name ?? '',
+		description: product.description ?? null,
+		priceAmount:
+			price.type === DODO_PRICE_TYPE_USAGE_BASED ? price.fixed_price : price.price,
+		currency: price.currency,
+		billingMode: product.is_recurring
+			? PAYMENT_BILLING_MODE_SUBSCRIPTION
+			: PAYMENT_BILLING_MODE_ONE_TIME
+	}
 }
 
 function mapDodoWebhookEvent(event: DodoWebhookEvent): PaymentEvent {
