@@ -124,7 +124,7 @@
 	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
 			<Dialog.Title>{$_('admin.creditCodes.generate.title')}</Dialog.Title>
-			<Dialog.Description class="sr-only">{$_('admin.creditCodes.generate.description')}</Dialog.Description>
+			<Dialog.Description>{$_('admin.creditCodes.generate.description')}</Dialog.Description>
 		</Dialog.Header>
 
 		{#if codes.length > 0}
@@ -213,12 +213,16 @@
 						<Field.Label for="credit-code-count">{$_('admin.creditCodes.generate.count')}</Field.Label>
 						<Input id="credit-code-count" bind:value={countInput} inputmode="numeric" autocomplete="off" aria-invalid={countError !== ''} />
 						<Field.Description>{$_('admin.creditCodes.generate.countHint')}</Field.Description>
-						<Field.Error>{countError}</Field.Error>
+						{#if countError !== ''}
+							<Field.Error>{countError}</Field.Error>
+						{/if}
 					</Field.Field>
 					<Field.Field data-invalid={amountError !== ''}>
 						<Field.Label for="credit-code-amount">{$_('admin.creditCodes.amount')}</Field.Label>
 						<Input id="credit-code-amount" bind:value={amountInput} inputmode="decimal" autocomplete="off" aria-invalid={amountError !== ''} />
-						<Field.Error>{amountError}</Field.Error>
+						{#if amountError !== ''}
+							<Field.Error>{amountError}</Field.Error>
+						{/if}
 					</Field.Field>
 				</div>
 				<Field.Field>

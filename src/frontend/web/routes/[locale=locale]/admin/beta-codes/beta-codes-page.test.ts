@@ -13,6 +13,11 @@ const pageSource: string = readFileSync(
 	'utf8'
 )
 
+const dialogSource: string = readFileSync(
+	fileURLToPath(new URL('./GenerateBetaCodesDialog.svelte', import.meta.url)),
+	'utf8'
+)
+
 describe('admin beta codes page', (): void => {
 	test('parses filters and pagination from the URL', (): void => {
 		const url = new URL(
@@ -65,5 +70,10 @@ describe('admin beta codes page', (): void => {
 	test('uses a standard primary action and an unframed filter toolbar', (): void => {
 		expect(pageSource).toContain('<Button onclick={() => (generateOpen = true)}>')
 		expect(pageSource).toContain('class="admin-filter-bar"')
+	})
+
+	test('generate dialog description is visible and errors render only when non-empty', (): void => {
+		expect(dialogSource).not.toContain('sr-only')
+		expect(dialogSource).toContain("{#if countError !== ''}")
 	})
 })
