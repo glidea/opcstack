@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
-	import type { AdminAiTaskSummary, AdminAiTaskType, ListAdminAiTasksRequest, ListAdminAiTasksResponse } from '$apiContract/ai-tasks'
+	import type { AITaskSummary, AITaskType, ListAITasksRequest, ListAITasksResponse } from '$apiContract/ai'
 	import { client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
@@ -26,10 +26,10 @@
 	import UserPicker from '../UserPicker.svelte'
 	import { createCloudflareQueuesUrl } from '../cloudflare'
 	import { createAdminPageSearch, readAdminDetailKey } from '../detail-state'
-	import AiTaskDetailSheet from './AiTaskDetailSheet.svelte'
-	import { createAiTaskSearchParams, createAiTaskUserHref, getAiTaskStatusVariant, parseAiTaskListQuery, type CloudflareResourceContext } from './ai-tasks-page'
+	import AITaskDetailSheet from './AITaskDetailSheet.svelte'
+	import { createAITaskSearchParams, createAITaskUserHref, getAITaskStatusVariant, parseAITaskListQuery, type CloudflareResourceContext } from './ai-tasks-page'
 
-	type AiTaskListState = { status: 'loading' } | { status: 'loaded'; data: ListAdminAiTasksResponse } | { status: 'error' }
+	type AITaskListState = { status: 'loading' } | { status: 'loaded'; data: ListAITasksResponse } | { status: 'error' }
 
 	let {
 		data
@@ -40,9 +40,9 @@
 		}
 	} = $props()
 
-	const initialQuery: ListAdminAiTasksRequest = parseAiTaskListQuery(page.url)
+	const initialQuery: ListAITasksRequest = parseAITaskListQuery(page.url)
 	const initialDetailKey: string = readAdminDetailKey(page.url)
-	let query: ListAdminAiTasksRequest = $state(initialQuery)
+	let query: ListAITasksRequest = $state(initialQuery)
 	let taskTypeInput: string = $state(initialQuery.task_type ?? 'all')
 	let idInput: string = $state(initialQuery.id ?? '')
 	let userInput: string = $state(initialQuery.user_id ?? '')
@@ -53,8 +53,8 @@
 	let createdStartInput: string = $state(formatDateTimeInput(initialQuery.created_at_start))
 	let createdEndInput: string = $state(formatDateTimeInput(initialQuery.created_at_end))
 	let currentPage: number = $state(initialQuery.page ?? 1)
-	let listState: AiTaskListState = $state({ status: 'loading' })
-	let selectedTask: AdminAiTaskSummary | null = $state(null)
+	let listState: AITaskListState = $state({ status: 'loading' })
+	let selectedTask: AITaskSummary | null = $state(null)
 	let detailOpen: boolean = $state(false)
 	let initialized: boolean = $state(false)
 	let detailStateReady: boolean = $state(false)
@@ -91,13 +91,13 @@
 	async function loadTasks(): Promise<void> {
 		listState = { status: 'loading' }
 		try {
-			const response: ListAdminAiTasksResponse = await client.api.listAdminAiTasks(query)
+			const response: ListAITasksResponse = await client.api.listAITasks(query)
 			listState = {
 				status: 'loaded',
 				data: response
 			}
 			if (!detailStateReady) {
-				const selected: AdminAiTaskSummary | undefined = response.items.find((task: AdminAiTaskSummary): boolean => createTaskDetailKey(task) === initialDetailKey)
+				const selected: AITaskSummary | undefined = response.items.find((task: AITaskSummary): boolean => createTaskDetailKey(task) === initialDetailKey)
 				if (selected !== undefined) {
 					selectedTask = selected
 					detailOpen = true
@@ -111,7 +111,7 @@
 
 	function applyFilters(event: SubmitEvent): void {
 		event.preventDefault()
-		const taskType: AdminAiTaskType | undefined = readTaskType(taskTypeInput)
+		const taskType: AITaskType | undefined = readTaskType(taskTypeInput)
 		const id: string = idInput.trim()
 		const userId: string = userInput.trim()
 		const status: string = statusInput === 'all' ? '' : statusInput
@@ -152,8 +152,8 @@
 		void loadTasks()
 	}
 
-	function updateUrl(input: ListAdminAiTasksRequest, detailKey: string = ''): void {
-		const search: string = createAdminPageSearch(createAiTaskSearchParams(input), detailKey)
+	function updateUrl(input: ListAITasksRequest, detailKey: string = ''): void {
+		const search: string = createAdminPageSearch(createAITaskSearchParams(input), detailKey)
 		void goto(`${page.url.pathname}${search === '' ? '' : `?${search}`}`, {
 			keepFocus: true,
 			noScroll: true
@@ -161,15 +161,15 @@
 	}
 
 	function hasFilters(): boolean {
-		return createAiTaskSearchParams({ ...query, page: 1 }).toString() !== ''
+		return createAITaskSearchParams({ ...query, page: 1 }).toString() !== ''
 	}
 
-	function openTask(task: AdminAiTaskSummary): void {
+	function openTask(task: AITaskSummary): void {
 		selectedTask = task
 		detailOpen = true
 	}
 
-	function createTaskDetailKey(task: AdminAiTaskSummary): string {
+	function createTaskDetailKey(task: AITaskSummary): string {
 		return JSON.stringify([task.task_type, task.shard_id, task.id])
 	}
 
@@ -189,7 +189,7 @@
 		return localTime.toISOString().slice(0, 16)
 	}
 
-	function readTaskType(value: string): AdminAiTaskType | undefined {
+	function readTaskType(value: string): AITaskType | undefined {
 		switch (value) {
 			case 'image':
 			case 'tts':
@@ -351,10 +351,10 @@
 								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
 								<Table.Cell><Badge variant="outline">{taskTypeLabel(item.task_type)}</Badge></Table.Cell>
 								<Table.Cell class="max-w-44 truncate font-mono text-xs" title={item.id}>{item.id}</Table.Cell>
-								<Table.Cell><UserReference userId={item.user_id} href={createAiTaskUserHref(data.locale, item.user_id)} /></Table.Cell>
+								<Table.Cell><UserReference userId={item.user_id} href={createAITaskUserHref(data.locale, item.user_id)} /></Table.Cell>
 								<Table.Cell><div>{item.provider_type}</div><div class="font-mono text-xs text-muted-foreground">{item.provider_id ?? $_('admin.common.none')}</div></Table.Cell>
 								<Table.Cell>{item.model ?? $_('admin.common.none')}</Table.Cell>
-								<Table.Cell><Badge variant={getAiTaskStatusVariant(item.status)}>{taskStatusLabel(item.status)}</Badge></Table.Cell>
+								<Table.Cell><Badge variant={getAITaskStatusVariant(item.status)}>{taskStatusLabel(item.status)}</Badge></Table.Cell>
 								<Table.Cell>{item.attempt_count}</Table.Cell>
 								<Table.Cell>{formatDate(item.updated_at)}</Table.Cell>
 								<Table.Cell class={`sticky right-0 z-10 text-right group-hover:bg-accent ${item.status === 'failed' ? 'bg-destructive/5' : 'bg-background'}`}><Button class="ml-auto" variant="ghost" size="icon-sm" onclick={() => openTask(item)} aria-label={$_('admin.aiTasks.view')} title={$_('admin.aiTasks.view')}><ChevronRightIcon /></Button></Table.Cell>
@@ -385,5 +385,5 @@
 </main>
 
 {#key selectedTask ? `${selectedTask.task_type}:${selectedTask.shard_id}:${selectedTask.id}` : ''}
-	<AiTaskDetailSheet bind:open={detailOpen} summary={selectedTask} locale={data.locale} cloudflare={data.cloudflare} />
+	<AITaskDetailSheet bind:open={detailOpen} summary={selectedTask} locale={data.locale} cloudflare={data.cloudflare} />
 {/key}

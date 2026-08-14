@@ -1,11 +1,11 @@
-import type { GetAdminOverviewResponse } from '$apiContract/overview'
+import type { GetDashboardResponse } from '$apiContract/dashboard'
 
-export type AdminOverviewState =
+export type DashboardState =
 	| { status: 'loading' }
-	| { status: 'loaded'; data: GetAdminOverviewResponse }
+	| { status: 'loaded'; data: GetDashboardResponse }
 	| { status: 'error' }
 
-export type OverviewDrilldowns = {
+export type DashboardDrilldowns = {
 	failedTasks: string
 	claimedCodes: string
 	disputedPayments: string
@@ -17,13 +17,13 @@ export type TaskDistributionItem = {
 	percentage: number
 }
 
-export function createOverviewInitialState(): AdminOverviewState {
+export function createDashboardInitialState(): DashboardState {
 	return { status: 'loading' }
 }
 
-export async function loadAdminOverview(
-	request: () => Promise<GetAdminOverviewResponse>
-): Promise<AdminOverviewState> {
+export async function loadDashboard(
+	request: () => Promise<GetDashboardResponse>
+): Promise<DashboardState> {
 	try {
 		return { status: 'loaded', data: await request() }
 	} catch {
@@ -31,11 +31,11 @@ export async function loadAdminOverview(
 	}
 }
 
-export function createOverviewDrilldowns(
+export function createDashboardDrilldowns(
 	locale: string,
-	overview: GetAdminOverviewResponse
-): OverviewDrilldowns {
-	const window = overview.windows.last_24_hours
+	dashboard: GetDashboardResponse
+): DashboardDrilldowns {
+	const window = dashboard.windows.last_24_hours
 	const failedTaskParams: URLSearchParams = new URLSearchParams({
 		status: 'failed',
 		created_at_start: String(window.start_at),
@@ -48,19 +48,19 @@ export function createOverviewDrilldowns(
 	}
 }
 
-export function getProcessingTaskCount(overview: GetAdminOverviewResponse): number {
-	return overview.ai_tasks.total_24h - overview.ai_tasks.terminal_count_24h
+export function getProcessingTaskCount(dashboard: GetDashboardResponse): number {
+	return dashboard.ai_tasks.total_24h - dashboard.ai_tasks.terminal_count_24h
 }
 
 export function createTaskDistribution(
-	overview: GetAdminOverviewResponse
+	dashboard: GetDashboardResponse
 ): TaskDistributionItem[] {
-	const total: number = overview.ai_tasks.total_24h
+	const total: number = dashboard.ai_tasks.total_24h
 	return (
 		[
-			['image', overview.ai_tasks.by_type_24h.image],
-			['tts', overview.ai_tasks.by_type_24h.tts],
-			['video', overview.ai_tasks.by_type_24h.video]
+			['image', dashboard.ai_tasks.by_type_24h.image],
+			['tts', dashboard.ai_tasks.by_type_24h.tts],
+			['video', dashboard.ai_tasks.by_type_24h.video]
 		] as const
 	).map(([type, count]): TaskDistributionItem => {
 		return {

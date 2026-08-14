@@ -26,7 +26,7 @@ import {
 	listCreditTransactionsHandler,
 	redeemCreditCodeHandler
 } from './handler/credits'
-import { bindAffHandler, getAffSummaryHandler, listAdminAffiliateReferralsHandler } from './handler/aff'
+import { bindAffiliateHandler, getAffiliateSummaryHandler, listAdminAffiliateReferralsHandler } from './handler/affiliate'
 import { listFeedbacksHandler, submitFeedbackHandler } from './handler/feedback'
 import {
 	archiveNotificationHandler,
@@ -35,7 +35,7 @@ import {
 	listNotificationsHandler,
 	readNotificationHandler,
 	updateNotificationHandler
-} from './handler/notification'
+} from './handler/notifications'
 import {
 	cancelSubscriptionHandler,
 	createPaymentCheckoutHandler,
@@ -47,7 +47,6 @@ import {
 	listPaymentTransactionsHandler,
 	upgradeSubscriptionHandler
 } from './handler/payment'
-import { aiRealtimeConnectHandler } from './handler/ai-realtime'
 import {
 	readR2ImageOriginHandler,
 	readR2ObjectHandler,
@@ -55,11 +54,12 @@ import {
 	uploadR2PublicObjectHandler
 } from './handler/r2'
 import {
-	getAdminAiTaskHandler,
-	listAdminAiTasksHandler
-} from './handler/ai-tasks'
-import { getAdminOverviewHandler } from './handler/overview'
-import { listAdminUsersHandler } from './handler/users'
+	aiRealtimeConnectHandler,
+	getAITaskHandler,
+	listAITasksHandler
+} from './handler/ai'
+import { getDashboardHandler } from './handler/dashboard'
+import { listUsersHandler } from './handler/users'
 import {
 	createAIProviderHandler,
 	createPaymentProductHandler,
@@ -162,7 +162,7 @@ authOnlyApi.post(
 
 const adminApi: Hono<ApiEnv> = new Hono<ApiEnv>()
 adminApi.use('/admin/*', authMiddleware, administratorMiddleware)
-adminApi.post('/admin/list_users', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_users')), listAdminUsersHandler)
+adminApi.post('/admin/list_users', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_users')), listUsersHandler)
 adminApi.post('/admin/generate_beta_codes', requireApiScope(getProtectedJsonRouteScope('/api/admin/generate_beta_codes')), generateBetaCodesHandler)
 adminApi.post('/admin/list_beta_codes', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_beta_codes')), listBetaCodesHandler)
 adminApi.post('/admin/generate_credit_codes', requireApiScope(getProtectedJsonRouteScope('/api/admin/generate_credit_codes')), generateCreditCodesHandler)
@@ -176,9 +176,9 @@ adminApi.post('/admin/list_notifications', requireApiScope(getProtectedJsonRoute
 adminApi.post('/admin/update_notification', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_notification')), updateNotificationHandler)
 adminApi.post('/admin/archive_notification', requireApiScope(getProtectedJsonRouteScope('/api/admin/archive_notification')), archiveNotificationHandler)
 adminApi.post('/admin/list_payment_transactions', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_payment_transactions')), listAdminPaymentTransactionsHandler)
-adminApi.post('/admin/list_ai_tasks', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_ai_tasks')), listAdminAiTasksHandler)
-adminApi.post('/admin/get_ai_task', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_ai_task')), getAdminAiTaskHandler)
-adminApi.post('/admin/get_overview', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_overview')), getAdminOverviewHandler)
+adminApi.post('/admin/list_ai_tasks', requireApiScope(getProtectedJsonRouteScope('/api/admin/list_ai_tasks')), listAITasksHandler)
+adminApi.post('/admin/get_ai_task', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_ai_task')), getAITaskHandler)
+adminApi.post('/admin/get_dashboard', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_dashboard')), getDashboardHandler)
 adminApi.post('/admin/get_general_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_general_config')), getGeneralConfigHandler)
 adminApi.post('/admin/update_general_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/update_general_config')), updateGeneralConfigHandler)
 adminApi.post('/admin/get_authentication_config', requireApiScope(getProtectedJsonRouteScope('/api/admin/get_authentication_config')), getAuthenticationConfigHandler)
@@ -216,8 +216,8 @@ userApi.post(
 	listCreditTransactionsHandler
 )
 userApi.post('/daily_checkin', requireApiScope(getProtectedJsonRouteScope('/api/daily_checkin')), dailyCheckinHandler)
-userApi.post('/get_aff_summary', requireApiScope(getProtectedJsonRouteScope('/api/get_aff_summary')), getAffSummaryHandler)
-userApi.post('/bind_aff', requireApiScope(getProtectedJsonRouteScope('/api/bind_aff')), bindAffHandler)
+userApi.post('/get_affiliate_summary', requireApiScope(getProtectedJsonRouteScope('/api/get_affiliate_summary')), getAffiliateSummaryHandler)
+userApi.post('/bind_affiliate', requireApiScope(getProtectedJsonRouteScope('/api/bind_affiliate')), bindAffiliateHandler)
 userApi.post('/redeem_credit_code', requireApiScope(getProtectedJsonRouteScope('/api/redeem_credit_code')), redeemCreditCodeHandler)
 userApi.post('/submit_feedback', requireApiScope(getProtectedJsonRouteScope('/api/submit_feedback')), submitFeedbackHandler)
 userApi.post('/list_notifications', requireApiScope(getProtectedJsonRouteScope('/api/list_notifications')), listNotificationsHandler)

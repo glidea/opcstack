@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ListAdminUsersResponseItem } from '$apiContract/users'
+	import type { ListUsersResponseItem } from '$apiContract/users'
 	import BellIcon from '@lucide/svelte/icons/bell'
 	import BotIcon from '@lucide/svelte/icons/bot'
 	import CheckIcon from '@lucide/svelte/icons/check'
@@ -24,7 +24,7 @@
 		onCreditsGranted
 	}: {
 		open?: boolean
-		user: ListAdminUsersResponseItem | null
+		user: ListUsersResponseItem | null
 		locale: string
 		onCreditsGranted: (balance: string) => void
 	} = $props()

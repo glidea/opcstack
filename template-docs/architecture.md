@@ -115,6 +115,8 @@ The API is split into four route groups in `src/backend/api/index.ts`:
 
 Protected JSON routes declare one scope in the central scope registry. Browser sessions satisfy that route scope directly. OAuth access tokens must contain it. Admin routes additionally require the current user to retain the D1 administrator role. Browser-only streaming and object routes explicitly reject OAuth tokens.
 
+Contracts and handlers are organized by business domain, such as credits, payment, notifications, and AI. The route groups above express access control only. User and administrator operations for the same domain stay in the same domain module.
+
 ## Data Architecture
 
 Two database tiers with different ownership:

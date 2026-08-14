@@ -74,7 +74,7 @@ describe('aff api e2e', () => {
 	runCases(publicCases, async (_given, when) => {
 		switch (when.action) {
 			case 'get_summary_without_auth': {
-				const res: Response = await postJson('/api/get_aff_summary', {})
+				const res: Response = await postJson('/api/get_affiliate_summary', {})
 				const payload = (await res.json()) as { code: string }
 				return {
 					status: res.status,
@@ -83,7 +83,7 @@ describe('aff api e2e', () => {
 				}
 			}
 			case 'bind_without_auth': {
-				const res: Response = await postJson('/api/bind_aff', {
+				const res: Response = await postJson('/api/bind_affiliate', {
 					aff_code: 'ABC12345'
 				})
 				const payload = (await res.json()) as { code: string }
@@ -127,7 +127,7 @@ describe('aff api e2e', () => {
 			const runId: string = String(Date.now())
 			const token: string = await createUserToken(`aff-summary-${runId}`)
 			const summaryRes: Response = await postJson(
-				'/api/get_aff_summary',
+				'/api/get_affiliate_summary',
 				{},
 				{
 					authorization: `Bearer ${token}`
@@ -193,7 +193,7 @@ describe('aff api e2e', () => {
 			const inviterToken: string = await createUserToken(`aff-inviter-${when.action}-${runId}`)
 			const inviteeToken: string = await createUserToken(`aff-invitee-${when.action}-${runId}`)
 			const beforeSummaryRes: Response = await postJson(
-				'/api/get_aff_summary',
+				'/api/get_affiliate_summary',
 				{},
 				{
 					authorization: `Bearer ${inviterToken}`
@@ -202,7 +202,7 @@ describe('aff api e2e', () => {
 			const beforeSummary = (await beforeSummaryRes.json()) as AffSummaryResponse
 
 			const firstBindRes: Response = await postJson(
-				'/api/bind_aff',
+				'/api/bind_affiliate',
 				{
 					aff_code: beforeSummary.aff_code
 				},
@@ -215,7 +215,7 @@ describe('aff api e2e', () => {
 			let secondBindCode = ''
 			if (when.action === 'bind_twice') {
 				const secondBindRes: Response = await postJson(
-					'/api/bind_aff',
+					'/api/bind_affiliate',
 					{
 						aff_code: beforeSummary.aff_code
 					},
@@ -229,7 +229,7 @@ describe('aff api e2e', () => {
 			}
 
 			const afterSummaryRes: Response = await postJson(
-				'/api/get_aff_summary',
+				'/api/get_affiliate_summary',
 				{},
 				{
 					authorization: `Bearer ${inviterToken}`

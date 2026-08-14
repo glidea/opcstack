@@ -14,7 +14,7 @@
 	import UsersIcon from '@lucide/svelte/icons/users'
 	import VideoIcon from '@lucide/svelte/icons/video'
 	import { client } from '$apiContract/client'
-	import type { GetAdminOverviewResponse } from '$apiContract/overview'
+	import type { GetDashboardResponse } from '$apiContract/dashboard'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Badge } from '$frontend/ui/badge'
@@ -22,7 +22,7 @@
 	import * as Empty from '$frontend/ui/empty'
 	import { Progress } from '$frontend/ui/progress'
 	import { Skeleton } from '$frontend/ui/skeleton'
-	import { createOverviewDrilldowns, createOverviewInitialState, createTaskDistribution, formatPaidAmount, getProcessingTaskCount, loadAdminOverview, type AdminOverviewState, type OverviewDrilldowns, type TaskDistributionItem } from './overview-page'
+	import { createDashboardDrilldowns, createDashboardInitialState, createTaskDistribution, formatPaidAmount, getProcessingTaskCount, loadDashboard, type DashboardState, type DashboardDrilldowns, type TaskDistributionItem } from './dashboard-page'
 
 	let {
 		data
@@ -32,13 +32,13 @@
 		}
 	} = $props()
 
-	let overviewState: AdminOverviewState = $state(createOverviewInitialState())
+	let dashboardState: DashboardState = $state(createDashboardInitialState())
 	let refreshing: boolean = $state(false)
 
 	async function refresh(): Promise<void> {
 		refreshing = true
-		overviewState = await loadAdminOverview((): Promise<GetAdminOverviewResponse> => {
-			return client.api.getAdminOverview()
+		dashboardState = await loadDashboard((): Promise<GetDashboardResponse> => {
+			return client.api.getDashboard()
 		})
 		refreshing = false
 	}
@@ -55,7 +55,7 @@
 	}
 
 	function taskTypeLabel(type: TaskDistributionItem['type']): string {
-		return $_(`admin.overview.ai.${type}`)
+		return $_(`admin.dashboard.ai.${type}`)
 	}
 
 	onMount((): void => {
@@ -65,13 +65,13 @@
 
 <main class="admin-page">
 	<header class="admin-page-header">
-		<h1>{$_('admin.overview.title')}</h1>
-		<Button variant="outline" size="icon" onclick={refresh} disabled={refreshing} aria-label={$_('admin.overview.refresh')} title={$_('admin.overview.refresh')}>
+		<h1>{$_('admin.dashboard.title')}</h1>
+		<Button variant="outline" size="icon" onclick={refresh} disabled={refreshing} aria-label={$_('admin.dashboard.refresh')} title={$_('admin.dashboard.refresh')}>
 			<RefreshCwIcon class={refreshing ? 'animate-spin' : ''} />
 		</Button>
 	</header>
 
-	{#if overviewState.status === 'loading'}
+	{#if dashboardState.status === 'loading'}
 		<div class="admin-metric-strip" aria-label={$_('admin.loading')}>
 			{#each Array(4) as _item}
 				<div class="admin-metric space-y-4">
@@ -81,82 +81,82 @@
 				</div>
 			{/each}
 		</div>
-	{:else if overviewState.status === 'error'}
+	{:else if dashboardState.status === 'error'}
 		<Alert.Root variant="destructive">
 			<TriangleAlertIcon />
-			<Alert.Title>{$_('admin.overview.error.title')}</Alert.Title>
-			<Alert.Description>{$_('admin.overview.error.description')}</Alert.Description>
+			<Alert.Title>{$_('admin.dashboard.error.title')}</Alert.Title>
+			<Alert.Description>{$_('admin.dashboard.error.description')}</Alert.Description>
 			<Alert.Action>
-				<Button variant="ghost" size="sm" onclick={refresh}>{$_('admin.overview.retry')}</Button>
+				<Button variant="ghost" size="sm" onclick={refresh}>{$_('admin.dashboard.retry')}</Button>
 			</Alert.Action>
 		</Alert.Root>
 	{:else}
-		{@const overview: GetAdminOverviewResponse = overviewState.data}
-		{@const drilldowns: OverviewDrilldowns = createOverviewDrilldowns(data.locale, overview)}
-		{@const distribution: TaskDistributionItem[] = createTaskDistribution(overview)}
-		{@const processingTasks: number = getProcessingTaskCount(overview)}
-		{@const pendingCount: number = overview.redemption_codes.claimed_count + overview.ai_tasks.failed_count_24h + overview.payments.disputed_count}
+		{@const dashboard: GetDashboardResponse = dashboardState.data}
+		{@const drilldowns: DashboardDrilldowns = createDashboardDrilldowns(data.locale, dashboard)}
+		{@const distribution: TaskDistributionItem[] = createTaskDistribution(dashboard)}
+		{@const processingTasks: number = getProcessingTaskCount(dashboard)}
+		{@const pendingCount: number = dashboard.redemption_codes.claimed_count + dashboard.ai_tasks.failed_count_24h + dashboard.payments.disputed_count}
 
-		<section aria-labelledby="overview-metrics-title">
-			<h2 id="overview-metrics-title" class="sr-only">{$_('admin.overview.metrics')}</h2>
+		<section aria-labelledby="dashboard-metrics-title">
+			<h2 id="dashboard-metrics-title" class="sr-only">{$_('admin.dashboard.metrics')}</h2>
 			<div class="admin-metric-strip">
 				<article class="admin-metric">
 					<div class="flex items-center justify-between gap-3 text-sm font-medium">
-						<span>{$_('admin.overview.users.title')}</span>
+						<span>{$_('admin.dashboard.users.title')}</span>
 						<UsersIcon class="size-4 text-muted-foreground" />
 					</div>
-					<p class="mt-4 text-3xl font-semibold tabular-nums">{formatNumber(overview.users.total)}</p>
+					<p class="mt-4 text-3xl font-semibold tabular-nums">{formatNumber(dashboard.users.total)}</p>
 					<p class="mt-1 text-xs text-muted-foreground">
-						{$_('admin.overview.users.new', { values: { count: overview.users.new_7d } })}
+						{$_('admin.dashboard.users.new', { values: { count: dashboard.users.new_7d } })}
 					</p>
 				</article>
 
 				<article class="admin-metric">
 					<div class="flex items-center justify-between gap-3 text-sm font-medium">
-						<span>{$_('admin.overview.payments.title')}</span>
+						<span>{$_('admin.dashboard.payments.title')}</span>
 						<CircleDollarSignIcon class="size-4 text-muted-foreground" />
 					</div>
-					{#if overview.payments.paid_amounts_30d.length === 0}
+					{#if dashboard.payments.paid_amounts_30d.length === 0}
 						<p class="mt-4 text-3xl font-semibold tabular-nums">0</p>
-						<p class="mt-1 text-xs text-muted-foreground">{$_('admin.overview.payments.none')}</p>
+						<p class="mt-1 text-xs text-muted-foreground">{$_('admin.dashboard.payments.none')}</p>
 					{:else}
 						<div class="mt-4 flex flex-wrap gap-x-4 gap-y-1">
-							{#each overview.payments.paid_amounts_30d as amount}
+							{#each dashboard.payments.paid_amounts_30d as amount}
 								<p class="text-2xl font-semibold tabular-nums">
 									{formatPaidAmount(amount.amount, amount.currency, data.locale)}
 								</p>
 							{/each}
 						</div>
-						<p class="mt-1 text-xs text-muted-foreground">{$_('admin.overview.last30d')}</p>
+						<p class="mt-1 text-xs text-muted-foreground">{$_('admin.dashboard.last30d')}</p>
 					{/if}
 				</article>
 
 				<article class="admin-metric">
 					<div class="flex items-center justify-between gap-3 text-sm font-medium">
-						<span>{$_('admin.overview.ai.title')}</span>
+						<span>{$_('admin.dashboard.ai.title')}</span>
 						<BotIcon class="size-4 text-muted-foreground" />
 					</div>
-					<p class="mt-4 text-3xl font-semibold tabular-nums">{formatPercent(overview.ai_tasks.terminal_completion_rate)}</p>
+					<p class="mt-4 text-3xl font-semibold tabular-nums">{formatPercent(dashboard.ai_tasks.terminal_completion_rate)}</p>
 					<p class="mt-1 text-xs text-muted-foreground">
-						{$_('admin.overview.ai.summary', { values: { total: overview.ai_tasks.total_24h, processing: processingTasks } })}
+						{$_('admin.dashboard.ai.summary', { values: { total: dashboard.ai_tasks.total_24h, processing: processingTasks } })}
 					</p>
 				</article>
 
 				<article class="admin-metric">
 					<div class="flex items-center justify-between gap-3 text-sm font-medium">
-						<span>{$_('admin.overview.feedback.title')}</span>
+						<span>{$_('admin.dashboard.feedback.title')}</span>
 						<MessageSquareTextIcon class="size-4 text-muted-foreground" />
 					</div>
-					<p class="mt-4 text-3xl font-semibold tabular-nums">{formatNumber(overview.feedbacks.new_7d)}</p>
-					<p class="mt-1 text-xs text-muted-foreground">{$_('admin.overview.last7d')}</p>
+					<p class="mt-4 text-3xl font-semibold tabular-nums">{formatNumber(dashboard.feedbacks.new_7d)}</p>
+					<p class="mt-1 text-xs text-muted-foreground">{$_('admin.dashboard.last7d')}</p>
 				</article>
 			</div>
 		</section>
 
-		<div class="admin-overview-grid">
-			<section class="admin-overview-panel" aria-labelledby="overview-attention-title">
-				<header class="admin-overview-panel-header">
-					<h2 id="overview-attention-title" class="text-base font-semibold">{$_('admin.overview.attention.title')}</h2>
+		<div class="admin-dashboard-grid">
+			<section class="admin-dashboard-panel" aria-labelledby="dashboard-attention-title">
+				<header class="admin-dashboard-panel-header">
+					<h2 id="dashboard-attention-title" class="text-base font-semibold">{$_('admin.dashboard.attention.title')}</h2>
 					{#if pendingCount > 0}
 						<Badge variant="secondary">{formatNumber(pendingCount)}</Badge>
 					{/if}
@@ -166,42 +166,42 @@
 					<Empty.Root class="min-h-64">
 						<Empty.Media variant="icon"><CircleCheckIcon /></Empty.Media>
 						<Empty.Header>
-							<Empty.Title>{$_('admin.overview.attention.empty.title')}</Empty.Title>
-							<Empty.Description>{$_('admin.overview.attention.empty.description')}</Empty.Description>
+							<Empty.Title>{$_('admin.dashboard.attention.empty.title')}</Empty.Title>
+							<Empty.Description>{$_('admin.dashboard.attention.empty.description')}</Empty.Description>
 						</Empty.Header>
 					</Empty.Root>
 				{:else}
 					<div class="divide-y">
-						{#if overview.ai_tasks.failed_count_24h > 0}
+						{#if dashboard.ai_tasks.failed_count_24h > 0}
 							<a class="flex min-h-20 items-center gap-3 px-4 transition-colors hover:bg-accent" href={drilldowns.failedTasks}>
 								<TriangleAlertIcon class="size-4 text-destructive" />
 								<div class="min-w-0 flex-1">
-									<p class="text-sm font-medium">{$_('admin.overview.attention.failed')}</p>
-									<p class="text-xs text-muted-foreground">{$_('admin.overview.last24h')}</p>
+									<p class="text-sm font-medium">{$_('admin.dashboard.attention.failed')}</p>
+									<p class="text-xs text-muted-foreground">{$_('admin.dashboard.last24h')}</p>
 								</div>
-								<span class="font-semibold tabular-nums">{formatNumber(overview.ai_tasks.failed_count_24h)}</span>
+								<span class="font-semibold tabular-nums">{formatNumber(dashboard.ai_tasks.failed_count_24h)}</span>
 								<ArrowRightIcon class="size-4 text-muted-foreground" />
 							</a>
 						{/if}
-						{#if overview.redemption_codes.claimed_count > 0}
+						{#if dashboard.redemption_codes.claimed_count > 0}
 							<a class="flex min-h-20 items-center gap-3 px-4 transition-colors hover:bg-accent" href={drilldowns.claimedCodes}>
 								<TicketCheckIcon class="size-4 text-muted-foreground" />
 								<div class="min-w-0 flex-1">
-									<p class="text-sm font-medium">{$_('admin.overview.attention.claimed')}</p>
-									<p class="text-xs text-muted-foreground">{$_('admin.overview.attention.current')}</p>
+									<p class="text-sm font-medium">{$_('admin.dashboard.attention.claimed')}</p>
+									<p class="text-xs text-muted-foreground">{$_('admin.dashboard.attention.current')}</p>
 								</div>
-								<span class="font-semibold tabular-nums">{formatNumber(overview.redemption_codes.claimed_count)}</span>
+								<span class="font-semibold tabular-nums">{formatNumber(dashboard.redemption_codes.claimed_count)}</span>
 								<ArrowRightIcon class="size-4 text-muted-foreground" />
 							</a>
 						{/if}
-						{#if overview.payments.disputed_count > 0}
+						{#if dashboard.payments.disputed_count > 0}
 							<a class="flex min-h-20 items-center gap-3 px-4 transition-colors hover:bg-accent" href={drilldowns.disputedPayments}>
 								<CreditCardIcon class="size-4 text-muted-foreground" />
 								<div class="min-w-0 flex-1">
-									<p class="text-sm font-medium">{$_('admin.overview.attention.disputed')}</p>
-									<p class="text-xs text-muted-foreground">{$_('admin.overview.attention.current')}</p>
+									<p class="text-sm font-medium">{$_('admin.dashboard.attention.disputed')}</p>
+									<p class="text-xs text-muted-foreground">{$_('admin.dashboard.attention.current')}</p>
 								</div>
-								<span class="font-semibold tabular-nums">{formatNumber(overview.payments.disputed_count)}</span>
+								<span class="font-semibold tabular-nums">{formatNumber(dashboard.payments.disputed_count)}</span>
 								<ArrowRightIcon class="size-4 text-muted-foreground" />
 							</a>
 						{/if}
@@ -209,12 +209,12 @@
 				{/if}
 			</section>
 
-			<section class="admin-overview-panel" aria-labelledby="overview-distribution-title">
-				<header class="admin-overview-panel-header">
+			<section class="admin-dashboard-panel" aria-labelledby="dashboard-distribution-title">
+				<header class="admin-dashboard-panel-header">
 					<div>
-						<h2 id="overview-distribution-title" class="text-base font-semibold">{$_('admin.overview.distribution.title')}</h2>
+						<h2 id="dashboard-distribution-title" class="text-base font-semibold">{$_('admin.dashboard.distribution.title')}</h2>
 						<p class="mt-0.5 text-xs text-muted-foreground">
-							{$_('admin.overview.distribution.description', { values: { total: overview.ai_tasks.total_24h } })}
+							{$_('admin.dashboard.distribution.description', { values: { total: dashboard.ai_tasks.total_24h } })}
 						</p>
 					</div>
 				</header>

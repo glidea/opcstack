@@ -54,7 +54,7 @@ describe('admin console operator docs', () => {
 
 	runCases(cases, (): AdminConsoleDocsExpected => {
 		const routes: string[] = [
-			'/admin/overview',
+			'/admin/dashboard',
 			'/admin/users',
 			'/admin/beta-codes',
 			'/admin/credit-codes',

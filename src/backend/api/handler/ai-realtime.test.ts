@@ -9,7 +9,7 @@ import {
 } from '../../ai/realtime'
 import type { AIRuntimeConfig } from '../../ai/config'
 import type { TenantShardDb } from '../../db'
-import { bindAIRealtimeWebSocket } from './ai-realtime'
+import { bindAIRealtimeWebSocket } from './ai'
 
 type ClientCall = {
 	type: string

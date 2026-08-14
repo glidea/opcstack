@@ -14,7 +14,7 @@ type AuthenticationConfig = {
 type EmailConfig = { provider: 'cloudflare' | 'resend' | null }
 type AffiliateConfig = { enabled: boolean }
 type PaymentConfig = { enabled: boolean }
-type AiConfig = {
+type AIConfig = {
 	providers: Record<string, { enabled: boolean }>
 }
 
@@ -50,7 +50,7 @@ describe.skipIf(!firstRun)('first-run user journey', (): void => {
 		const email: EmailConfig = await callAdmin<EmailConfig>('get_email_config')
 		const affiliate: AffiliateConfig = await callAdmin<AffiliateConfig>('get_affiliate_config')
 		const payment: PaymentConfig = await callAdmin<PaymentConfig>('get_payment_config')
-		const ai: AiConfig = await callAdmin<AiConfig>('get_ai_config')
+		const ai: AIConfig = await callAdmin<AIConfig>('get_ai_config')
 		expect({
 			beta: authentication.beta_code_enabled,
 			emailSignup: authentication.registration_enabled,

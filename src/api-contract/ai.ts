@@ -1,11 +1,11 @@
 import { z } from 'zod'
 import { PageRequestSchema, type ApiErrorResult } from './common'
 
-export const AdminAiTaskTypeSchema = z.enum(['image', 'tts', 'video'])
-export type AdminAiTaskType = z.infer<typeof AdminAiTaskTypeSchema>
+export const AITaskTypeSchema = z.enum(['image', 'tts', 'video'])
+export type AITaskType = z.infer<typeof AITaskTypeSchema>
 
-export const ListAdminAiTasksRequestSchema = PageRequestSchema.extend({
-	task_type: AdminAiTaskTypeSchema.optional(),
+export const ListAITasksRequestSchema = PageRequestSchema.extend({
+	task_type: AITaskTypeSchema.optional(),
 	id: z.string().min(1).optional(),
 	user_id: z.string().min(1).optional(),
 	status: z.string().min(1).optional(),
@@ -15,10 +15,10 @@ export const ListAdminAiTasksRequestSchema = PageRequestSchema.extend({
 	created_at_start: z.number().int().optional(),
 	created_at_end: z.number().int().optional()
 })
-export type ListAdminAiTasksRequest = z.infer<typeof ListAdminAiTasksRequestSchema>
+export type ListAITasksRequest = z.infer<typeof ListAITasksRequestSchema>
 
-export const AdminAiTaskSummarySchema = z.object({
-	task_type: AdminAiTaskTypeSchema,
+export const AITaskSummarySchema = z.object({
+	task_type: AITaskTypeSchema,
 	shard_id: z.string(),
 	id: z.string(),
 	user_id: z.string(),
@@ -32,22 +32,22 @@ export const AdminAiTaskSummarySchema = z.object({
 	updated_at: z.number(),
 	completed_at: z.number().nullable()
 })
-export type AdminAiTaskSummary = z.infer<typeof AdminAiTaskSummarySchema>
+export type AITaskSummary = z.infer<typeof AITaskSummarySchema>
 
-export const ListAdminAiTasksResponseSchema = z.object({
-	items: z.array(AdminAiTaskSummarySchema),
+export const ListAITasksResponseSchema = z.object({
+	items: z.array(AITaskSummarySchema),
 	total: z.number()
 })
-export type ListAdminAiTasksResponse = z.infer<typeof ListAdminAiTasksResponseSchema>
+export type ListAITasksResponse = z.infer<typeof ListAITasksResponseSchema>
 
-export const GetAdminAiTaskRequestSchema = z.object({
-	task_type: AdminAiTaskTypeSchema,
+export const GetAITaskRequestSchema = z.object({
+	task_type: AITaskTypeSchema,
 	shard_id: z.string().min(1),
 	id: z.string().min(1)
 })
-export type GetAdminAiTaskRequest = z.infer<typeof GetAdminAiTaskRequestSchema>
+export type GetAITaskRequest = z.infer<typeof GetAITaskRequestSchema>
 
-export const AdminAiImageTaskSchema = AdminAiTaskSummarySchema.extend({
+export const AIImageTaskSchema = AITaskSummarySchema.extend({
 	task_type: z.literal('image'),
 	prompt: z.string(),
 	number_of_images: z.number().nullable(),
@@ -60,9 +60,9 @@ export const AdminAiImageTaskSchema = AdminAiTaskSummarySchema.extend({
 	references_json: z.string(),
 	result_json: z.string().nullable()
 })
-export type AdminAiImageTask = z.infer<typeof AdminAiImageTaskSchema>
+export type AIImageTask = z.infer<typeof AIImageTaskSchema>
 
-export const AdminAiTtsTaskSchema = AdminAiTaskSummarySchema.extend({
+export const AITTSTaskSchema = AITaskSummarySchema.extend({
 	task_type: z.literal('tts'),
 	source_json: z.string().nullable(),
 	instruction: z.string().nullable(),
@@ -71,9 +71,9 @@ export const AdminAiTtsTaskSchema = AdminAiTaskSummarySchema.extend({
 	upload_to_r2: z.boolean(),
 	result_json: z.string().nullable()
 })
-export type AdminAiTtsTask = z.infer<typeof AdminAiTtsTaskSchema>
+export type AITTSTask = z.infer<typeof AITTSTaskSchema>
 
-export const AdminAiVideoTaskSchema = AdminAiTaskSummarySchema.extend({
+export const AIVideoTaskSchema = AITaskSummarySchema.extend({
 	task_type: z.literal('video'),
 	prompt: z.string(),
 	ratio: z.string().nullable(),
@@ -85,23 +85,23 @@ export const AdminAiVideoTaskSchema = AdminAiTaskSummarySchema.extend({
 	provider_task_id: z.string().nullable(),
 	result_json: z.string().nullable()
 })
-export type AdminAiVideoTask = z.infer<typeof AdminAiVideoTaskSchema>
+export type AIVideoTask = z.infer<typeof AIVideoTaskSchema>
 
-export const AdminAiTaskSchema = z.discriminatedUnion('task_type', [
-	AdminAiImageTaskSchema,
-	AdminAiTtsTaskSchema,
-	AdminAiVideoTaskSchema
+export const AITaskSchema = z.discriminatedUnion('task_type', [
+	AIImageTaskSchema,
+	AITTSTaskSchema,
+	AIVideoTaskSchema
 ])
-export type AdminAiTask = z.infer<typeof AdminAiTaskSchema>
+export type AITask = z.infer<typeof AITaskSchema>
 
-export const GetAdminAiTaskResponseSchema = z.object({
-	task: AdminAiTaskSchema
+export const GetAITaskResponseSchema = z.object({
+	task: AITaskSchema
 })
-export type GetAdminAiTaskResponse = z.infer<typeof GetAdminAiTaskResponseSchema>
+export type GetAITaskResponse = z.infer<typeof GetAITaskResponseSchema>
 
-export const ListAdminAiTasksApi = {
-	request: ListAdminAiTasksRequestSchema,
-	response: ListAdminAiTasksResponseSchema,
+export const ListAITasksApi = {
+	request: ListAITasksRequestSchema,
+	response: ListAITasksResponseSchema,
 	errors: {
 		INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
 			return {
@@ -112,9 +112,9 @@ export const ListAdminAiTasksApi = {
 	}
 }
 
-export const GetAdminAiTaskApi = {
-	request: GetAdminAiTaskRequestSchema,
-	response: GetAdminAiTaskResponseSchema,
+export const GetAITaskApi = {
+	request: GetAITaskRequestSchema,
+	response: GetAITaskResponseSchema,
 	errors: {
 		INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
 			return {

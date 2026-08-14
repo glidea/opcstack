@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { client } from '$apiContract/client'
 	import type {
-		ListAdminUsersResponse,
-		ListAdminUsersResponseItem
+		ListUsersResponse,
+		ListUsersResponseItem
 	} from '$apiContract/users'
 	import { _ } from '$frontend/i18n'
 	import { Button } from '$frontend/ui/button'
@@ -18,10 +18,10 @@
 	} from './user-picker'
 
 	type UserSearchState =
-		| { status: 'idle'; users: ListAdminUsersResponseItem[] }
-		| { status: 'loading'; users: ListAdminUsersResponseItem[] }
-		| { status: 'loaded'; users: ListAdminUsersResponseItem[] }
-		| { status: 'error'; users: ListAdminUsersResponseItem[] }
+		| { status: 'idle'; users: ListUsersResponseItem[] }
+		| { status: 'loading'; users: ListUsersResponseItem[] }
+		| { status: 'loaded'; users: ListUsersResponseItem[] }
+		| { status: 'error'; users: ListUsersResponseItem[] }
 
 	let {
 		id,
@@ -32,7 +32,7 @@
 		id: string
 		label: string
 		value?: string
-		selectedUser?: ListAdminUsersResponseItem | null
+		selectedUser?: ListUsersResponseItem | null
 	} = $props()
 
 	let open: boolean = $state(false)
@@ -77,7 +77,7 @@
 	async function resolveUser(userId: string): Promise<void> {
 		const sequence: number = ++requestSequence
 		try {
-			const response: ListAdminUsersResponse = await client.api.listAdminUsers({
+			const response: ListUsersResponse = await client.api.listUsers({
 				search: userId,
 				page: 1,
 				page_size: 20
@@ -96,7 +96,7 @@
 		const sequence: number = ++requestSequence
 		searchState = { status: 'loading', users: [] }
 		try {
-			const response: ListAdminUsersResponse = await client.api.listAdminUsers({
+			const response: ListUsersResponse = await client.api.listUsers({
 				search,
 				page: 1,
 				page_size: 20
@@ -111,7 +111,7 @@
 		}
 	}
 
-	function selectUser(user: ListAdminUsersResponseItem): void {
+	function selectUser(user: ListUsersResponseItem): void {
 		selectedUser = user
 		value = user.id
 		resolvedUserId = user.id

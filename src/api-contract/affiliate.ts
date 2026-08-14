@@ -1,23 +1,23 @@
 import { z } from 'zod'
 import { PageRequestSchema, type ApiErrorResult } from './common'
 
-export const GetAffSummaryRequestSchema = z.object({})
-export type GetAffSummaryRequest = z.infer<typeof GetAffSummaryRequestSchema>
+export const GetAffiliateSummaryRequestSchema = z.object({})
+export type GetAffiliateSummaryRequest = z.infer<typeof GetAffiliateSummaryRequestSchema>
 
-export const GetAffSummaryResponseSchema = z.object({
+export const GetAffiliateSummaryResponseSchema = z.object({
 	aff_enabled: z.boolean(),
 	aff_code: z.string(),
 	invited_count: z.number()
 })
-export type GetAffSummaryResponse = z.infer<typeof GetAffSummaryResponseSchema>
+export type GetAffiliateSummaryResponse = z.infer<typeof GetAffiliateSummaryResponseSchema>
 
-export const BindAffRequestSchema = z.object({
+export const BindAffiliateRequestSchema = z.object({
 	aff_code: z.string().min(1)
 })
-export type BindAffRequest = z.infer<typeof BindAffRequestSchema>
+export type BindAffiliateRequest = z.infer<typeof BindAffiliateRequestSchema>
 
-export const BindAffResponseSchema = z.object({})
-export type BindAffResponse = z.infer<typeof BindAffResponseSchema>
+export const BindAffiliateResponseSchema = z.object({})
+export type BindAffiliateResponse = z.infer<typeof BindAffiliateResponseSchema>
 
 export const ListAdminAffiliateReferralsRequestSchema = PageRequestSchema.extend({
 	search: z.string().min(1).optional(),
@@ -46,9 +46,9 @@ export const ListAdminAffiliateReferralsResponseSchema = z.object({
 })
 export type ListAdminAffiliateReferralsResponse = z.infer<typeof ListAdminAffiliateReferralsResponseSchema>
 
-export const GetAffSummaryApi = {
-	request: GetAffSummaryRequestSchema,
-	response: GetAffSummaryResponseSchema,
+export const GetAffiliateSummaryApi = {
+	request: GetAffiliateSummaryRequestSchema,
+	response: GetAffiliateSummaryResponseSchema,
 	errors: {
 		AFF_USER_NOT_FOUND(): ApiErrorResult<'AFF_USER_NOT_FOUND', 404> {
 			return {
@@ -62,9 +62,9 @@ export const GetAffSummaryApi = {
 	}
 }
 
-export const BindAffApi = {
-	request: BindAffRequestSchema,
-	response: BindAffResponseSchema,
+export const BindAffiliateApi = {
+	request: BindAffiliateRequestSchema,
+	response: BindAffiliateResponseSchema,
 	errors: {
 		INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
 			return {

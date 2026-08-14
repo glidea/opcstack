@@ -1,4 +1,4 @@
-import type { ListAdminUsersRequest } from '$apiContract/users'
+import type { ListUsersRequest } from '$apiContract/users'
 import type { AdminGrantCreditsRequest } from '$apiContract/credits'
 
 export type UserContextLinks = {
@@ -30,7 +30,7 @@ export type GrantConfirmation = {
 	expiresAt: number | null
 }
 
-export function parseUserListQuery(url: URL): ListAdminUsersRequest {
+export function parseUserListQuery(url: URL): ListUsersRequest {
 	const search: string = url.searchParams.get('search')?.trim() ?? ''
 	const rawPage: number = Number(url.searchParams.get('page') ?? '1')
 	return {

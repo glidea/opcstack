@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { ApiEnv } from '..'
 import { createTenantShardAccess } from '../../db/shard-router'
-import { getAdminOverviewHandler } from './overview'
+import { getDashboardHandler } from './dashboard'
 
 vi.mock('../../db/shard-router', () => {
 	return {
@@ -11,13 +11,13 @@ vi.mock('../../db/shard-router', () => {
 })
 
 type CountRow = { total: number }
-type AiStatsRow = {
+type AIStatsRow = {
 	total: number
 	completed: number
 	failed: number
 }
 
-describe('getAdminOverviewHandler', () => {
+describe('getDashboardHandler', () => {
 	afterEach((): void => {
 		vi.restoreAllMocks()
 		vi.clearAllMocks()
@@ -50,7 +50,7 @@ describe('getAdminOverviewHandler', () => {
 			})
 		])
 
-		const response: Response = await getAdminOverviewHandler(createContext(metaDb))
+		const response: Response = await getDashboardHandler(createContext(metaDb))
 
 		expect(await response.json()).toEqual({
 			generated_at: 1_000_000_000,
@@ -91,7 +91,7 @@ describe('getAdminOverviewHandler', () => {
 		})
 		mockShards([])
 
-		const response: Response = await getAdminOverviewHandler(createContext(metaDb))
+		const response: Response = await getDashboardHandler(createContext(metaDb))
 		const payload: {
 			payments: { paid_amounts_30d: unknown[]; disputed_count: number }
 			feedbacks: { new_7d: number }
@@ -160,9 +160,9 @@ function createMetaDb(input: {
 
 function createTenantDb(input: {
 	feedbacks: number
-	image: AiStatsRow
-	tts: AiStatsRow
-	video: AiStatsRow
+	image: AIStatsRow
+	tts: AIStatsRow
+	video: AIStatsRow
 }): Record<string, unknown> {
 	const results: unknown[][] = [
 		[{ total: input.feedbacks } satisfies CountRow],

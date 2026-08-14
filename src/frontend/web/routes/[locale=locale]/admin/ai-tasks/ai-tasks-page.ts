@@ -1,7 +1,7 @@
 import type {
-	AdminAiTaskType,
-	ListAdminAiTasksRequest
-} from '$apiContract/ai-tasks'
+	AITaskType,
+	ListAITasksRequest
+} from '$apiContract/ai'
 import {
 	createCloudflareBucketUrl,
 	createCloudflareDatabaseUrl,
@@ -9,13 +9,13 @@ import {
 	createCloudflareWorkerUrl
 } from '../cloudflare'
 
-export type AiTaskStatusVariant = 'outline' | 'secondary' | 'destructive'
+export type AITaskStatusVariant = 'outline' | 'secondary' | 'destructive'
 
 export type CloudflareResourceContext = {
 	accountId: string
 	workerName: string
 	bucketName: string
-	queues: Record<AdminAiTaskType, string>
+	queues: Record<AITaskType, string>
 }
 
 export type CloudflareTaskLinks = {
@@ -32,7 +32,7 @@ export type R2TaskResult = {
 	openUrl: string | null
 }
 
-export function parseAiTaskListQuery(url: URL): ListAdminAiTasksRequest {
+export function parseAITaskListQuery(url: URL): ListAITasksRequest {
 	const taskType: string = url.searchParams.get('task_type')?.trim() ?? ''
 	const id: string = url.searchParams.get('id')?.trim() ?? ''
 	const userId: string = url.searchParams.get('user_id')?.trim() ?? ''
@@ -42,7 +42,7 @@ export function parseAiTaskListQuery(url: URL): ListAdminAiTasksRequest {
 	const model: string = url.searchParams.get('model')?.trim() ?? ''
 	const rawPage: number = Number(url.searchParams.get('page') ?? '1')
 	return {
-		...(isAiTaskType(taskType) ? { task_type: taskType } : {}),
+		...(isAITaskType(taskType) ? { task_type: taskType } : {}),
 		...(id === '' ? {} : { id }),
 		...(userId === '' ? {} : { user_id: userId }),
 		...(status === '' ? {} : { status }),
@@ -56,7 +56,7 @@ export function parseAiTaskListQuery(url: URL): ListAdminAiTasksRequest {
 	}
 }
 
-export function createAiTaskSearchParams(input: ListAdminAiTasksRequest): URLSearchParams {
+export function createAITaskSearchParams(input: ListAITasksRequest): URLSearchParams {
 	const params: URLSearchParams = new URLSearchParams()
 	const entries: [string, string | number | undefined][] = [
 		['task_type', input.task_type],
@@ -80,7 +80,7 @@ export function createAiTaskSearchParams(input: ListAdminAiTasksRequest): URLSea
 	return params
 }
 
-export function getAiTaskStatusVariant(status: string): AiTaskStatusVariant {
+export function getAITaskStatusVariant(status: string): AITaskStatusVariant {
 	switch (status) {
 		case 'completed':
 			return 'secondary'
@@ -91,14 +91,14 @@ export function getAiTaskStatusVariant(status: string): AiTaskStatusVariant {
 	}
 }
 
-export function createAiTaskUserHref(locale: string, userId: string): string {
+export function createAITaskUserHref(locale: string, userId: string): string {
 	return `/${locale}/admin/users?search=${encodeURIComponent(userId)}`
 }
 
 export function createCloudflareTaskLinks(
 	context: CloudflareResourceContext,
 	databaseId: string | null,
-	taskType: AdminAiTaskType
+	taskType: AITaskType
 ): CloudflareTaskLinks {
 	const queueName: string = context.queues[taskType]
 	return {
@@ -157,7 +157,7 @@ function collectR2Results(value: unknown, results: R2TaskResult[]): void {
 	}
 }
 
-function isAiTaskType(value: string): value is AdminAiTaskType {
+function isAITaskType(value: string): value is AITaskType {
 	switch (value) {
 		case 'image':
 		case 'tts':

@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import type { GetAdminOverviewResponse } from '$apiContract/overview'
+import type { GetDashboardResponse } from '$apiContract/dashboard'
 import {
-	createOverviewDrilldowns,
-	createOverviewInitialState,
+	createDashboardDrilldowns,
+	createDashboardInitialState,
 	createTaskDistribution,
 	formatPaidAmount,
 	getProcessingTaskCount,
-	loadAdminOverview
-} from './overview-page'
+	loadDashboard
+} from './dashboard-page'
 
-const overview: GetAdminOverviewResponse = {
+const dashboard: GetDashboardResponse = {
 	generated_at: 1_786_272_000_000,
 	windows: {
 		last_24_hours: { start_at: 1_786_185_600_000, end_at: 1_786_272_000_000 },
@@ -36,19 +36,19 @@ const overview: GetAdminOverviewResponse = {
 	redemption_codes: { claimed_count: 4 }
 }
 
-describe('admin overview page state', () => {
+describe('admin dashboard page state', () => {
 	test('starts in loading state', (): void => {
-		expect(createOverviewInitialState()).toEqual({ status: 'loading' })
+		expect(createDashboardInitialState()).toEqual({ status: 'loading' })
 	})
 
-	test('returns overview data after a successful request', async (): Promise<void> => {
-		const state = await loadAdminOverview(async (): Promise<GetAdminOverviewResponse> => overview)
+	test('returns dashboard data after a successful request', async (): Promise<void> => {
+		const state = await loadDashboard(async (): Promise<GetDashboardResponse> => dashboard)
 
-		expect(state).toEqual({ status: 'loaded', data: overview })
+		expect(state).toEqual({ status: 'loaded', data: dashboard })
 	})
 
 	test('returns an error state after a failed request', async (): Promise<void> => {
-		const state = await loadAdminOverview(async (): Promise<GetAdminOverviewResponse> => {
+		const state = await loadDashboard(async (): Promise<GetDashboardResponse> => {
 			throw new Error('network failed')
 		})
 
@@ -56,9 +56,9 @@ describe('admin overview page state', () => {
 	})
 })
 
-describe('admin overview presentation', () => {
+describe('admin dashboard presentation', () => {
 	test('builds actionable drilldown filters', (): void => {
-		expect(createOverviewDrilldowns('en', overview)).toEqual({
+		expect(createDashboardDrilldowns('en', dashboard)).toEqual({
 		failedTasks:
 			'/en/admin/ai-tasks?status=failed&created_at_start=1786185600000&created_at_end=1786272000000',
 		claimedCodes: '/en/admin/credit-codes?status=claimed',
@@ -68,8 +68,8 @@ describe('admin overview presentation', () => {
 
 	test('calculates processing tasks and task distribution', (): void => {
 		expect({
-			processing: getProcessingTaskCount(overview),
-			distribution: createTaskDistribution(overview)
+			processing: getProcessingTaskCount(dashboard),
+			distribution: createTaskDistribution(dashboard)
 		}).toEqual({
 			processing: 5,
 			distribution: [
@@ -81,8 +81,8 @@ describe('admin overview presentation', () => {
 	})
 
 	test('keeps zero task data explicit', (): void => {
-		const zeroOverview: GetAdminOverviewResponse = {
-			...overview,
+		const zeroDashboard: GetDashboardResponse = {
+			...dashboard,
 			ai_tasks: {
 				total_24h: 0,
 				terminal_count_24h: 0,
@@ -93,7 +93,7 @@ describe('admin overview presentation', () => {
 			}
 		}
 
-		expect(createTaskDistribution(zeroOverview)).toEqual([
+		expect(createTaskDistribution(zeroDashboard)).toEqual([
 			{ type: 'image', count: 0, percentage: 0 },
 			{ type: 'tts', count: 0, percentage: 0 },
 			{ type: 'video', count: 0, percentage: 0 }

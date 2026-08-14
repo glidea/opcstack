@@ -11,7 +11,7 @@ import {
 export const AFF_CREDIT_SOURCE_INVITER = CREDIT_TRANSACTION_TYPE_AFFILIATE_INVITER
 export const AFF_CREDIT_SOURCE_INVITEE = CREDIT_TRANSACTION_TYPE_AFFILIATE_INVITEE
 
-export interface GetAffSummaryInput {
+export interface GetAffiliateSummaryInput {
 	userId: string
 }
 
@@ -20,13 +20,13 @@ export interface AffSummary {
 	invitedCount: number
 }
 
-export interface BindAffInput {
+export interface BindAffiliateInput {
 	inviteeUserId: string
 	affCode: string
 	nowMs?: number
 }
 
-export interface BindAffResult {
+export interface BindAffiliateResult {
 	affId: string
 	inviterUserId: string
 	inviteeUserId: string
@@ -124,7 +124,7 @@ export class AffService {
 		throw new AffError('AFF_CODE_GENERATE_FAILED')
 	}
 
-	async getSummary(input: GetAffSummaryInput): Promise<AffSummary> {
+	async getSummary(input: GetAffiliateSummaryInput): Promise<AffSummary> {
 		const userRow = await this.db.query.user.findFirst({
 			columns: {
 				affCode: true
@@ -149,7 +149,7 @@ export class AffService {
 		}
 	}
 
-	async bind(input: BindAffInput): Promise<BindAffResult> {
+	async bind(input: BindAffiliateInput): Promise<BindAffiliateResult> {
 		const code: string = input.affCode.trim()
 		if (code === '') {
 			throw new AffError('INVALID_AFF_CODE')

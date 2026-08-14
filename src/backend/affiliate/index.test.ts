@@ -1,6 +1,6 @@
 import { describe } from 'vitest'
 import { runCases, type TestCase } from '../testing/bdd'
-import { AffError, AffService, type BindAffInput } from './index'
+import { AffError, AffService, type BindAffiliateInput } from './index'
 import type { MetaDb } from '../db'
 
 describe('AffService.getSummary', () => {
@@ -232,7 +232,7 @@ describe('AffService.bind', () => {
 			existingInviterUserId: given.existingInviterUserId
 		})
 		const aff = new AffService(db)
-		const input: BindAffInput = {
+		const input: BindAffiliateInput = {
 			inviteeUserId: when.inviteeUserId,
 			affCode: when.affCode,
 			nowMs: 1890000000000

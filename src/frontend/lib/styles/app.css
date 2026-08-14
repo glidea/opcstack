@@ -312,15 +312,15 @@
 		}
 	}
 
-	.admin-overview-grid {
+	.admin-dashboard-grid {
 		@apply grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)];
 	}
 
-	.admin-overview-panel {
+	.admin-dashboard-panel {
 		@apply overflow-hidden rounded-md border bg-background;
 	}
 
-	.admin-overview-panel-header {
+	.admin-dashboard-panel-header {
 		@apply flex min-h-14 items-center justify-between gap-4 border-b px-4;
 	}
 

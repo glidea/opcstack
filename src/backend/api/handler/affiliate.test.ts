@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runCases, type TestCase } from '../../testing/bdd'
-import { AffError, type AffErrorCode } from '../../aff'
-import { bindAffHandler, getAffSummaryHandler, listAdminAffiliateReferralsHandler } from './aff'
+import { AffError, type AffErrorCode } from '../../affiliate'
+import { bindAffiliateHandler, getAffiliateSummaryHandler, listAdminAffiliateReferralsHandler } from './affiliate'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 
@@ -87,8 +87,8 @@ const shardRouterMocks = vi.hoisted(() => {
 	}
 })
 
-vi.mock('../../aff', async () => {
-	const actual = await vi.importActual<typeof import('../../aff')>('../../aff')
+vi.mock('../../affiliate', async () => {
+	const actual = await vi.importActual<typeof import('../../affiliate')>('../../affiliate')
 	return {
 		...actual,
 		AffService: vi.fn().mockImplementation(function AffService() {
@@ -134,7 +134,7 @@ beforeEach(() => {
 	})
 })
 
-describe('getAffSummaryHandler', () => {
+describe('getAffiliateSummaryHandler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 	})
@@ -156,7 +156,7 @@ describe('getAffSummaryHandler', () => {
 		{
 			scenario: 'skip summary when aff is disabled',
 			given: 'aff switch is false',
-			when: 'calling getAffSummaryHandler',
+			when: 'calling getAffiliateSummaryHandler',
 			then: 'returns disabled summary',
 			givenDetail: {
 				enabled: false,
@@ -174,7 +174,7 @@ describe('getAffSummaryHandler', () => {
 		{
 			scenario: 'map summary fields into response',
 			given: 'aff query succeeds',
-			when: 'calling getAffSummaryHandler',
+			when: 'calling getAffiliateSummaryHandler',
 			then: 'returns snake_case response',
 			givenDetail: {
 				enabled: true,
@@ -192,7 +192,7 @@ describe('getAffSummaryHandler', () => {
 		{
 			scenario: 'return 404 when user is missing',
 			given: 'summary query throws AFF_USER_NOT_FOUND',
-			when: 'calling getAffSummaryHandler',
+			when: 'calling getAffiliateSummaryHandler',
 			then: 'returns 404 with code',
 			givenDetail: {
 					enabled: true,
@@ -231,7 +231,7 @@ describe('getAffSummaryHandler', () => {
 			db: {},
 			body: {}
 		})
-		const res = await getAffSummaryHandler(ctx)
+		const res = await getAffiliateSummaryHandler(ctx)
 		const payload = (await res.json()) as {
 			code?: string
 			aff_enabled?: boolean
@@ -248,7 +248,7 @@ describe('getAffSummaryHandler', () => {
 	})
 })
 
-describe('bindAffHandler', () => {
+describe('bindAffiliateHandler', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 	})
@@ -276,7 +276,7 @@ describe('bindAffHandler', () => {
 		{
 			scenario: 'skip bind when aff is disabled',
 			given: 'aff switch is false',
-			when: 'calling bindAffHandler',
+			when: 'calling bindAffiliateHandler',
 			then: 'returns empty response',
 			givenDetail: {
 				enabled: false,
@@ -300,7 +300,7 @@ describe('bindAffHandler', () => {
 		{
 			scenario: 'reject invalid request payload',
 			given: 'body parse failed',
-			when: 'calling bindAffHandler',
+			when: 'calling bindAffiliateHandler',
 			then: 'returns invalid request',
 			givenDetail: {
 				enabled: true,
@@ -324,7 +324,7 @@ describe('bindAffHandler', () => {
 		{
 			scenario: 'reject duplicated aff binding',
 			given: 'core bind throws AFF_ALREADY_BOUND',
-			when: 'calling bindAffHandler',
+			when: 'calling bindAffiliateHandler',
 			then: 'returns conflict code',
 			givenDetail: {
 				enabled: true,
@@ -348,7 +348,7 @@ describe('bindAffHandler', () => {
 		{
 			scenario: 'reject invalid aff code from core',
 			given: 'core bind throws INVALID_AFF_CODE',
-			when: 'calling bindAffHandler',
+			when: 'calling bindAffiliateHandler',
 			then: 'returns bad request code',
 			givenDetail: {
 				enabled: true,
@@ -372,7 +372,7 @@ describe('bindAffHandler', () => {
 		{
 			scenario: 'bind aff successfully',
 			given: 'core bind succeeds',
-			when: 'calling bindAffHandler',
+			when: 'calling bindAffiliateHandler',
 			then: 'returns empty response',
 			givenDetail: {
 				enabled: true,
@@ -396,7 +396,7 @@ describe('bindAffHandler', () => {
 		{
 			scenario: 'resume partially granted aff binding',
 			given: 'inviter reward was already granted',
-			when: 'calling bindAffHandler again',
+			when: 'calling bindAffiliateHandler again',
 			then: 'only grants invitee reward',
 			givenDetail: {
 				enabled: true,
@@ -446,7 +446,7 @@ describe('bindAffHandler', () => {
 			tenantDb: { name: 'current-tenant-db' },
 			body: given.body
 		})
-		const res = await bindAffHandler(ctx)
+		const res = await bindAffiliateHandler(ctx)
 		const payload = (await res.json()) as { code?: string }
 		return {
 			status: res.status,

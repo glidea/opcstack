@@ -1,5 +1,5 @@
 export type AdminSection =
-	| 'overview'
+	| 'dashboard'
 	| 'users'
 	| 'credit-transactions'
 	| 'beta-codes'
@@ -20,7 +20,7 @@ export type AdminNavigationItem = {
 }
 
 const ADMIN_SECTIONS: AdminSection[] = [
-	'overview',
+	'dashboard',
 	'users',
 	'credit-transactions',
 	'beta-codes',

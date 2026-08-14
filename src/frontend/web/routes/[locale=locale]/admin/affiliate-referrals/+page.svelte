@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
 	import { client } from '$apiContract/client'
-	import type { AdminAffiliateReferralItem, ListAdminAffiliateReferralsRequest, ListAdminAffiliateReferralsResponse } from '$apiContract/aff'
+	import type { AdminAffiliateReferralItem, ListAdminAffiliateReferralsRequest, ListAdminAffiliateReferralsResponse } from '$apiContract/affiliate'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'

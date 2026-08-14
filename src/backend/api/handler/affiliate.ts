@@ -1,18 +1,18 @@
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
-import { AFF_CREDIT_SOURCE_INVITEE, AFF_CREDIT_SOURCE_INVITER, AffError, AffService } from '../../aff'
+import { AFF_CREDIT_SOURCE_INVITEE, AFF_CREDIT_SOURCE_INVITER, AffError, AffService } from '../../affiliate'
 import { CreditsService, type CreditTransactionType } from '../../credits'
 import { createTenantShardAccess } from '../../db/shard-router'
 import type { TenantShardDb } from '../../db'
 import { getAffiliateConfig, type AffiliateConfig } from '../../config'
 import { parseRequest } from '../../lib/request'
 import {
-	BindAffApi,
-	GetAffSummaryApi,
+	BindAffiliateApi,
+	GetAffiliateSummaryApi,
 	ListAdminAffiliateReferralsApi,
 	type ListAdminAffiliateReferralsResponse,
-	type GetAffSummaryResponse
-} from '../../../api-contract/aff'
+	type GetAffiliateSummaryResponse
+} from '../../../api-contract/affiliate'
 
 export async function listAdminAffiliateReferralsHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const request = await parseRequest(ctx, ListAdminAffiliateReferralsApi.request)
@@ -41,14 +41,14 @@ export async function listAdminAffiliateReferralsHandler(ctx: Context<ApiEnv>): 
 	} as ListAdminAffiliateReferralsResponse)
 }
 
-export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
+export async function getAffiliateSummaryHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const config: AffiliateConfig = await getAffiliateConfig(ctx.get('metaDb'))
 	if (!config.enabled) {
 		return ctx.json({
 			aff_enabled: false,
 			aff_code: '',
 			invited_count: 0
-		} as GetAffSummaryResponse)
+		} as GetAffiliateSummaryResponse)
 	}
 
 	try {
@@ -60,12 +60,12 @@ export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Respon
 			aff_enabled: true,
 			aff_code: summary.affCode,
 			invited_count: summary.invitedCount
-		} as GetAffSummaryResponse)
+		} as GetAffiliateSummaryResponse)
 	} catch (error) {
 		if (error instanceof AffError) {
 			switch (error.code) {
 				case 'AFF_USER_NOT_FOUND': {
-					const response = GetAffSummaryApi.errors.AFF_USER_NOT_FOUND()
+					const response = GetAffiliateSummaryApi.errors.AFF_USER_NOT_FOUND()
 					return ctx.json(response.body, response.status)
 				}
 				default:
@@ -76,15 +76,15 @@ export async function getAffSummaryHandler(ctx: Context<ApiEnv>): Promise<Respon
 	}
 }
 
-export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
+export async function bindAffiliateHandler(ctx: Context<ApiEnv>): Promise<Response> {
 	const config: AffiliateConfig = await getAffiliateConfig(ctx.get('metaDb'))
 	if (!config.enabled) {
 		return ctx.json({})
 	}
 
-	const request = await parseRequest(ctx, BindAffApi.request)
+	const request = await parseRequest(ctx, BindAffiliateApi.request)
 	if (!request.success) {
-		const error = BindAffApi.errors.INVALID_REQUEST(request.message)
+		const error = BindAffiliateApi.errors.INVALID_REQUEST(request.message)
 		return ctx.json(error.body, error.status)
 	}
 	const req = request.data
@@ -126,11 +126,11 @@ export async function bindAffHandler(ctx: Context<ApiEnv>): Promise<Response> {
 		if (error instanceof AffError) {
 			switch (error.code) {
 				case 'INVALID_AFF_CODE': {
-					const response = BindAffApi.errors.INVALID_AFF_CODE()
+					const response = BindAffiliateApi.errors.INVALID_AFF_CODE()
 					return ctx.json(response.body, response.status)
 				}
 				case 'AFF_ALREADY_BOUND': {
-					const response = BindAffApi.errors.AFF_ALREADY_BOUND()
+					const response = BindAffiliateApi.errors.AFF_ALREADY_BOUND()
 					return ctx.json(response.body, response.status)
 				}
 				default:

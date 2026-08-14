@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ApiClientError, client } from '$apiContract/client'
-	import type { ListAdminUsersResponseItem } from '$apiContract/users'
+	import type { ListUsersResponseItem } from '$apiContract/users'
 	import type { AdminGrantCreditsResponse } from '$apiContract/credits'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
@@ -30,7 +30,7 @@
 		onGranted
 	}: {
 		open?: boolean
-		user: ListAdminUsersResponseItem
+		user: ListUsersResponseItem
 		locale: string
 		onGranted: (balance: string) => void
 	} = $props()

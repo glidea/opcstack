@@ -1,17 +1,17 @@
 import { z } from 'zod'
 import { PageRequestSchema, type ApiErrorResult } from './common'
 
-export const ListAdminUsersRequestSchema = PageRequestSchema.extend({
+export const ListUsersRequestSchema = PageRequestSchema.extend({
 	search: z.string().min(1).optional()
 })
-export type ListAdminUsersRequest = z.infer<typeof ListAdminUsersRequestSchema>
+export type ListUsersRequest = z.infer<typeof ListUsersRequestSchema>
 
-export const AdminUserInviterSchema = z.object({
+export const UserInviterSchema = z.object({
 	name: z.string(),
 	email: z.string()
 })
 
-export const ListAdminUsersResponseItemSchema = z.object({
+export const ListUsersResponseItemSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	email: z.string(),
@@ -19,17 +19,17 @@ export const ListAdminUsersResponseItemSchema = z.object({
 	created_at: z.number(),
 	updated_at: z.number(),
 	credit_balance: z.string(),
-	inviter: AdminUserInviterSchema.nullable()
+	inviter: UserInviterSchema.nullable()
 })
-export type ListAdminUsersResponseItem = z.infer<typeof ListAdminUsersResponseItemSchema>
+export type ListUsersResponseItem = z.infer<typeof ListUsersResponseItemSchema>
 
-export const ListAdminUsersResponseSchema = z.object({
-	items: z.array(ListAdminUsersResponseItemSchema),
+export const ListUsersResponseSchema = z.object({
+	items: z.array(ListUsersResponseItemSchema),
 	total: z.number()
 })
-export type ListAdminUsersResponse = z.infer<typeof ListAdminUsersResponseSchema>
+export type ListUsersResponse = z.infer<typeof ListUsersResponseSchema>
 
-const AdminUserErrors = {
+const UserErrors = {
 	INVALID_REQUEST(message: string): ApiErrorResult<'INVALID_REQUEST', 400> {
 		return {
 			status: 400,
@@ -38,10 +38,10 @@ const AdminUserErrors = {
 	}
 }
 
-export const ListAdminUsersApi = {
-	request: ListAdminUsersRequestSchema,
-	response: ListAdminUsersResponseSchema,
+export const ListUsersApi = {
+	request: ListUsersRequestSchema,
+	response: ListUsersResponseSchema,
 	errors: {
-		...AdminUserErrors
+		...UserErrors
 	}
 }

@@ -42,7 +42,7 @@
 	const navigation: AdminNavigationItem[] = $derived(createAdminNavigation(data.locale))
 	const currentItem: AdminNavigationItem = $derived(navigation.find((item: AdminNavigationItem): boolean => page.url.pathname === item.href || page.url.pathname.startsWith(`${item.href}/`)) ?? navigation[0]!)
 	const sectionIcons: Record<AdminSection, Component> = {
-		overview: LayoutDashboardIcon,
+		dashboard: LayoutDashboardIcon,
 		users: UsersIcon,
 		'credit-transactions': HistoryIcon,
 		'beta-codes': KeyRoundIcon,
@@ -70,7 +70,7 @@
 
 
 <Sidebar.Provider class="admin-shell flex min-h-svh flex-col" style="--sidebar-width: 14rem;">
-	<AppHeader logoHref={`/${data.locale}/admin/overview`} showSidebarTrigger>
+	<AppHeader logoHref={`/${data.locale}/admin/dashboard`} showSidebarTrigger>
 		{#snippet leadingActions()}
 			{#if data.cloudflareWorkerUrl}
 				<a href={data.cloudflareWorkerUrl} target="_blank" rel="noopener" class={buttonVariants({ variant: 'ghost', size: 'sm' })}>

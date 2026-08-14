@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AdminAiTask, AdminAiTaskSummary } from '$apiContract/ai-tasks'
+	import type { AITask, AITaskSummary } from '$apiContract/ai'
 	import { client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
@@ -19,11 +19,11 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import UserIcon from '@lucide/svelte/icons/user'
 	import {
-		createAiTaskUserHref,
+		createAITaskUserHref,
 		createCloudflareTaskLinks,
 		extractR2Results,
 		formatStoredJson,
-		getAiTaskStatusVariant,
+		getAITaskStatusVariant,
 		type CloudflareResourceContext,
 		type CloudflareTaskLinks,
 		type R2TaskResult
@@ -32,7 +32,7 @@
 	type DetailState =
 		| { status: 'idle' }
 		| { status: 'loading' }
-		| { status: 'loaded'; task: AdminAiTask }
+		| { status: 'loaded'; task: AITask }
 		| { status: 'error' }
 
 	let {
@@ -42,7 +42,7 @@
 		cloudflare
 	}: {
 		open?: boolean
-		summary: AdminAiTaskSummary | null
+		summary: AITaskSummary | null
 		locale: string
 		cloudflare: CloudflareResourceContext
 	} = $props()
@@ -50,7 +50,7 @@
 	let detailState: DetailState = $state<DetailState>({ status: 'idle' })
 	let loadedKey: string = $state('')
 	let copiedValue: string = $state('')
-	const task: AdminAiTask | null = $derived(
+	const task: AITask | null = $derived(
 		detailState.status === 'loaded' ? detailState.task : null
 	)
 	const links: CloudflareTaskLinks | null = $derived(
@@ -82,7 +82,7 @@
 		}
 		detailState = { status: 'loading' }
 		try {
-			const taskResponse = await client.api.getAdminAiTask({
+			const taskResponse = await client.api.getAITask({
 				task_type: summary.task_type,
 				shard_id: summary.shard_id,
 				id: summary.id
@@ -139,7 +139,7 @@
 			{:else}
 				<div class="flex-1 space-y-6 overflow-y-auto px-4 pb-6">
 					<div class="flex flex-wrap gap-2">
-						<Button variant="outline" size="sm" href={createAiTaskUserHref(locale, detailState.task.user_id)}>
+						<Button variant="outline" size="sm" href={createAITaskUserHref(locale, detailState.task.user_id)}>
 							<UserIcon />
 							{$_('admin.aiTasks.openUser')}
 						</Button>
@@ -166,7 +166,7 @@
 							<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.aiTasks.user')}</dt><dd class="break-all font-mono text-xs">{detailState.task.user_id}</dd></div>
 							<div class="grid grid-cols-2 gap-3">
 								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.aiTasks.type')}</dt><dd><Badge variant="outline">{detailState.task.task_type}</Badge></dd></div>
-								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.aiTasks.status')}</dt><dd><Badge variant={getAiTaskStatusVariant(detailState.task.status)}>{detailState.task.status}</Badge></dd></div>
+								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.aiTasks.status')}</dt><dd><Badge variant={getAITaskStatusVariant(detailState.task.status)}>{detailState.task.status}</Badge></dd></div>
 							</div>
 							<div class="grid grid-cols-2 gap-3">
 								<div class="grid gap-1"><dt class="text-xs text-muted-foreground">{$_('admin.aiTasks.provider')}</dt><dd>{detailState.task.provider_type}<br><span class="font-mono text-xs text-muted-foreground">{detailState.task.provider_id ?? $_('admin.common.none')}</span></dd></div>

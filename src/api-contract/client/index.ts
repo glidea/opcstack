@@ -1,14 +1,14 @@
 import { createAuthClient } from 'better-auth/svelte'
 import { emailOTPClient, genericOAuthClient } from 'better-auth/client/plugins'
-import type { GetAffSummaryResponse, BindAffRequest, ListAdminAffiliateReferralsRequest, ListAdminAffiliateReferralsResponse } from '../aff'
+import type { GetAffiliateSummaryResponse, BindAffiliateRequest, ListAdminAffiliateReferralsRequest, ListAdminAffiliateReferralsResponse } from '../affiliate'
 import type {
-	GetAdminAiTaskRequest,
-	GetAdminAiTaskResponse,
-	ListAdminAiTasksRequest,
-	ListAdminAiTasksResponse
-} from '../ai-tasks'
-import type { GetAdminOverviewResponse } from '../overview'
-import type { ListAdminUsersRequest, ListAdminUsersResponse } from '../users'
+	GetAITaskRequest,
+	GetAITaskResponse,
+	ListAITasksRequest,
+	ListAITasksResponse
+} from '../ai'
+import type { GetDashboardResponse } from '../dashboard'
+import type { ListUsersRequest, ListUsersResponse } from '../users'
 import type {
 	BindBetaCodeRequest,
 	GenerateBetaCodesRequest,
@@ -156,7 +156,7 @@ export type ApiClient = ApiMethods & {
 }
 
 type ApiMethods = {
-	bindAff(input: BindAffRequest): Promise<Record<string, never>>
+	bindAffiliate(input: BindAffiliateRequest): Promise<Record<string, never>>
 	bindBetaCode(input: BindBetaCodeRequest): Promise<Record<string, never>>
 	archiveNotification(input: ArchiveNotificationRequest): Promise<ArchiveNotificationResponse>
 	cancelSubscription(): Promise<CancelSubscriptionResponse>
@@ -167,9 +167,9 @@ type ApiMethods = {
 	dailyCheckin(): Promise<DailyCheckinResponse>
 	generateBetaCodes(input: GenerateBetaCodesRequest): Promise<GenerateBetaCodesResponse>
 	generateCreditCodes(input: GenerateCreditCodesRequest): Promise<GenerateCreditCodesResponse>
-	getAffSummary(): Promise<GetAffSummaryResponse>
-	getAdminAiTask(input: GetAdminAiTaskRequest): Promise<GetAdminAiTaskResponse>
-	getAdminOverview(): Promise<GetAdminOverviewResponse>
+	getAffiliateSummary(): Promise<GetAffiliateSummaryResponse>
+	getAITask(input: GetAITaskRequest): Promise<GetAITaskResponse>
+	getDashboard(): Promise<GetDashboardResponse>
 	getAIConfig(): Promise<AIConfig>
 	getAffiliateConfig(): Promise<AffiliateConfig>
 	getAuthenticationConfig(): Promise<AuthenticationConfig>
@@ -183,11 +183,11 @@ type ApiMethods = {
 	listAdminPaymentTransactions(
 		input: ListAdminPaymentTransactionsRequest
 	): Promise<ListAdminPaymentTransactionsResponse>
-	listAdminAiTasks(input: ListAdminAiTasksRequest): Promise<ListAdminAiTasksResponse>
+	listAITasks(input: ListAITasksRequest): Promise<ListAITasksResponse>
 	listAdminNotifications(
 		input: ListAdminNotificationsRequest
 	): Promise<ListAdminNotificationsResponse>
-	listAdminUsers(input: ListAdminUsersRequest): Promise<ListAdminUsersResponse>
+	listUsers(input: ListUsersRequest): Promise<ListUsersResponse>
 	listAdminCreditTransactions(input: ListAdminCreditTransactionsRequest): Promise<ListAdminCreditTransactionsResponse>
 	listAdminAffiliateReferrals(input: ListAdminAffiliateReferralsRequest): Promise<ListAdminAffiliateReferralsResponse>
 	listBetaCodes(input: ListBetaCodesRequest): Promise<ListBetaCodesResponse>
@@ -391,8 +391,8 @@ function createApiMethods(
 		archiveNotification(input: ArchiveNotificationRequest): Promise<ArchiveNotificationResponse> {
 			return call({ path: '/api/admin/archive_notification', body: input })
 		},
-		bindAff(input: BindAffRequest): Promise<Record<string, never>> {
-			return call({ path: '/api/bind_aff', body: input })
+		bindAffiliate(input: BindAffiliateRequest): Promise<Record<string, never>> {
+			return call({ path: '/api/bind_affiliate', body: input })
 		},
 		bindBetaCode(input: BindBetaCodeRequest): Promise<Record<string, never>> {
 			return call({ path: '/api/bind_beta_code', body: input })
@@ -421,14 +421,14 @@ function createApiMethods(
 		generateCreditCodes(input: GenerateCreditCodesRequest): Promise<GenerateCreditCodesResponse> {
 			return call({ path: '/api/admin/generate_credit_codes', body: input })
 		},
-		getAffSummary(): Promise<GetAffSummaryResponse> {
-			return call({ path: '/api/get_aff_summary', body: {} })
+		getAffiliateSummary(): Promise<GetAffiliateSummaryResponse> {
+			return call({ path: '/api/get_affiliate_summary', body: {} })
 		},
-		getAdminAiTask(input: GetAdminAiTaskRequest): Promise<GetAdminAiTaskResponse> {
+		getAITask(input: GetAITaskRequest): Promise<GetAITaskResponse> {
 			return call({ path: '/api/admin/get_ai_task', body: input })
 		},
-		getAdminOverview(): Promise<GetAdminOverviewResponse> {
-			return call({ path: '/api/admin/get_overview', body: {} })
+		getDashboard(): Promise<GetDashboardResponse> {
+			return call({ path: '/api/admin/get_dashboard', body: {} })
 		},
 		getAIConfig(): Promise<AIConfig> {
 			return call({ path: '/api/admin/get_ai_config', body: {} })
@@ -465,7 +465,7 @@ function createApiMethods(
 		): Promise<ListAdminPaymentTransactionsResponse> {
 			return call({ path: '/api/admin/list_payment_transactions', body: input })
 		},
-		listAdminAiTasks(input: ListAdminAiTasksRequest): Promise<ListAdminAiTasksResponse> {
+		listAITasks(input: ListAITasksRequest): Promise<ListAITasksResponse> {
 			return call({ path: '/api/admin/list_ai_tasks', body: input })
 		},
 		listAdminNotifications(
@@ -473,7 +473,7 @@ function createApiMethods(
 		): Promise<ListAdminNotificationsResponse> {
 			return call({ path: '/api/admin/list_notifications', body: input })
 		},
-		listAdminUsers(input: ListAdminUsersRequest): Promise<ListAdminUsersResponse> {
+		listUsers(input: ListUsersRequest): Promise<ListUsersResponse> {
 			return call({ path: '/api/admin/list_users', body: input })
 		},
 		listAdminCreditTransactions(input: ListAdminCreditTransactionsRequest): Promise<ListAdminCreditTransactionsResponse> {

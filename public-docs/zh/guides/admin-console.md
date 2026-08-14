@@ -14,7 +14,7 @@ order: 10
 
 1. 运行 `prepare-cloudflare`，保存首次成功初始化后打印的一次性管理员凭据。
 2. 登录后在设置页修改自动生成的密码。
-3. 打开 `/{locale}/admin`，系统会跳转到 `/{locale}/admin/overview`。
+3. 打开 `/{locale}/admin`，系统会跳转到 `/{locale}/admin/dashboard`。
 
 未登录用户会跳转到登录页。已登录账号没有 D1 `admin` 角色时返回 `403 Forbidden`。
 
@@ -26,7 +26,7 @@ order: 10
 
 | 页面 | 路由 | 用途 |
 | --- | --- | --- |
-| 概览 | `/{locale}/admin/overview` | 查看核心指标、待处理异常和 AI 任务分布 |
+| 概览 | `/{locale}/admin/dashboard` | 查看核心指标、待处理异常和 AI 任务分布 |
 | 用户 | `/{locale}/admin/users` | 查找用户、查看业务信息并发放积分 |
 | 积分流水 | `/{locale}/admin/credit-transactions` | 查看指定用户的积分余额变化 |
 | 邀请记录 | `/{locale}/admin/affiliate-referrals` | 查看邀请人与被邀请人的关系及奖励状态 |

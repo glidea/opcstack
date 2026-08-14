@@ -3,9 +3,9 @@ import { alias } from 'drizzle-orm/sqlite-core'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
-	ListAdminUsersApi,
-	type ListAdminUsersResponse,
-	type ListAdminUsersResponseItem
+	ListUsersApi,
+	type ListUsersResponse,
+	type ListUsersResponseItem
 } from '../../../api-contract/users'
 import { user } from '../../db/schema.auth'
 import { affReferral, d1Shard, userShard } from '../../db/schema'
@@ -14,7 +14,7 @@ import { creditBalance } from '../../db/schema.shard'
 import { formatDecimal } from '../../lib/decimal'
 import { parseRequest } from '../../lib/request'
 
-type AdminUserRow = {
+type UserRow = {
 	id: string
 	name: string
 	email: string
@@ -39,10 +39,10 @@ type ShardUsers = {
 
 const inviterUser = alias(user, 'inviter_user')
 
-export async function listAdminUsersHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const request = await parseRequest(ctx, ListAdminUsersApi.request)
+export async function listUsersHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, ListUsersApi.request)
 	if (!request.success) {
-		const error = ListAdminUsersApi.errors.INVALID_REQUEST(request.message)
+		const error = ListUsersApi.errors.INVALID_REQUEST(request.message)
 		return ctx.json(error.body, error.status)
 	}
 
@@ -59,7 +59,7 @@ export async function listAdminUsersHandler(ctx: Context<ApiEnv>): Promise<Respo
 		.select({ total: sql<number>`count(*)` })
 		.from(user)
 		.where(where)
-	const rows: AdminUserRow[] = await db
+	const rows: UserRow[] = await db
 		.select({
 			id: user.id,
 			name: user.name,
@@ -111,17 +111,17 @@ export async function listAdminUsersHandler(ctx: Context<ApiEnv>): Promise<Respo
 		}
 	}
 
-	const items: ListAdminUsersResponseItem[] = rows.map((row: AdminUserRow): ListAdminUsersResponseItem => {
+	const items: ListUsersResponseItem[] = rows.map((row: UserRow): ListUsersResponseItem => {
 		return toResponseItem(row, balancesByUserId.get(row.id) ?? 0)
 	})
 	return ctx.json({
 		items,
 		total: Number(totalRows[0]?.total ?? 0)
-	} as ListAdminUsersResponse)
+	} as ListUsersResponse)
 }
 
-function toResponseItem(row: AdminUserRow, balance: number): ListAdminUsersResponseItem {
-	const inviter: ListAdminUsersResponseItem['inviter'] =
+function toResponseItem(row: UserRow, balance: number): ListUsersResponseItem {
+	const inviter: ListUsersResponseItem['inviter'] =
 		row.inviterName === null || row.inviterEmail === null
 			? null
 			: { name: row.inviterName, email: row.inviterEmail }

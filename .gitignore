@@ -9,6 +9,7 @@ src/frontend/extension/.wxt/
 /docs/
 .vscode/
 .claude/
+.impeccable/
 .DS_Store
 .env
 .env.secret.dev

@@ -10,7 +10,7 @@
 	import UsersIcon from '@lucide/svelte/icons/users'
 	import XIcon from '@lucide/svelte/icons/x'
 	import { client } from '$apiContract/client'
-	import type { ListAdminUsersRequest, ListAdminUsersResponse, ListAdminUsersResponseItem } from '$apiContract/users'
+	import type { ListUsersRequest, ListUsersResponse, ListUsersResponseItem } from '$apiContract/users'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
@@ -25,7 +25,7 @@
 	import UserDetailSheet from './UserDetailSheet.svelte'
 	import { parseUserListQuery } from './users-page'
 
-	type UserListState = { status: 'loading' } | { status: 'loaded'; data: ListAdminUsersResponse } | { status: 'error' }
+	type UserListState = { status: 'loading' } | { status: 'loaded'; data: ListUsersResponse } | { status: 'error' }
 
 	let {
 		data
@@ -35,13 +35,13 @@
 		}
 	} = $props()
 
-	const initialQuery: ListAdminUsersRequest = parseUserListQuery(page.url)
+	const initialQuery: ListUsersRequest = parseUserListQuery(page.url)
 	const initialDetailKey: string = readAdminDetailKey(page.url)
-	let query: ListAdminUsersRequest = $state(initialQuery)
+	let query: ListUsersRequest = $state(initialQuery)
 	let searchInput: string = $state(initialQuery.search ?? '')
 	let currentPage: number = $state(initialQuery.page ?? 1)
 	let listState: UserListState = $state({ status: 'loading' })
-	let selectedUser: ListAdminUsersResponseItem | null = $state(null)
+	let selectedUser: ListUsersResponseItem | null = $state(null)
 	let detailOpen: boolean = $state(false)
 	let initialized: boolean = $state(false)
 	let detailStateReady: boolean = $state(false)
@@ -75,15 +75,15 @@
 	async function loadUsers(): Promise<void> {
 		listState = { status: 'loading' }
 		try {
-			const response: ListAdminUsersResponse = await client.api.listAdminUsers(query)
+			const response: ListUsersResponse = await client.api.listUsers(query)
 			listState = { status: 'loaded', data: response }
 			if (selectedUser !== null) {
-				selectedUser = response.items.find((user: ListAdminUsersResponseItem): boolean => {
+				selectedUser = response.items.find((user: ListUsersResponseItem): boolean => {
 					return user.id === selectedUser?.id
 				}) ?? selectedUser
 			}
 			if (!detailStateReady) {
-				const selected: ListAdminUsersResponseItem | undefined = response.items.find((user: ListAdminUsersResponseItem): boolean => user.id === initialDetailKey)
+				const selected: ListUsersResponseItem | undefined = response.items.find((user: ListUsersResponseItem): boolean => user.id === initialDetailKey)
 				if (selected !== undefined) {
 					selectedUser = selected
 					detailOpen = true
@@ -116,7 +116,7 @@
 		void loadUsers()
 	}
 
-	function updateUrl(input: ListAdminUsersRequest, detailKey: string = ''): void {
+	function updateUrl(input: ListUsersRequest, detailKey: string = ''): void {
 		const params: URLSearchParams = new URLSearchParams()
 		if (input.search) {
 			params.set('search', input.search)
@@ -131,7 +131,7 @@
 		})
 	}
 
-	function openUser(user: ListAdminUsersResponseItem): void {
+	function openUser(user: ListUsersResponseItem): void {
 		selectedUser = user
 		detailOpen = true
 	}
@@ -141,7 +141,7 @@
 			return
 		}
 		const userId: string = selectedUser.id
-		const items: ListAdminUsersResponseItem[] = listState.data.items.map((user: ListAdminUsersResponseItem): ListAdminUsersResponseItem => {
+		const items: ListUsersResponseItem[] = listState.data.items.map((user: ListUsersResponseItem): ListUsersResponseItem => {
 			return user.id === userId ? { ...user, credit_balance: balance } : user
 		})
 		selectedUser = { ...selectedUser, credit_balance: balance }

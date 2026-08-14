@@ -103,8 +103,8 @@ describe('admin console api e2e', () => {
 		expect(payload.total).toBeTypeOf('number')
 	})
 
-	test('overview requires admin authorization', async () => {
-		const response: Response = await fetch(`${appBaseUrl}/api/admin/get_overview`, {
+	test('dashboard requires admin authorization', async () => {
+		const response: Response = await fetch(`${appBaseUrl}/api/admin/get_dashboard`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({})
@@ -117,8 +117,8 @@ describe('admin console api e2e', () => {
 		})
 	})
 
-	test('overview returns explicit metric values', async () => {
-		const response: Response = await fetch(`${appBaseUrl}/api/admin/get_overview`, {
+	test('dashboard returns explicit metric values', async () => {
+		const response: Response = await fetch(`${appBaseUrl}/api/admin/get_dashboard`, {
 			method: 'POST',
 			headers: {
 				cookie: adminSessionCookie,

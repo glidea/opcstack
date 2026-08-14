@@ -14,7 +14,7 @@ The admin console turns the existing Admin APIs into one operator workspace. It 
 
 1. Run `prepare-cloudflare` and retain the one-time administrator credentials printed after the first successful initialization.
 2. Sign in, then replace the generated password under Settings.
-3. Open `/{locale}/admin`. The route redirects to `/{locale}/admin/overview`.
+3. Open `/{locale}/admin`. The route redirects to `/{locale}/admin/dashboard`.
 
 An unauthenticated visitor is redirected to login. A signed-in account without the D1 `admin` role receives `403 Forbidden`.
 
@@ -26,7 +26,7 @@ Run `opc auth connect --name <project> --server <origin> --scopes <scope-list>`.
 
 | Page | Route | Purpose |
 | --- | --- | --- |
-| Overview | `/{locale}/admin/overview` | Review core metrics, actionable exceptions, and AI task distribution |
+| Overview | `/{locale}/admin/dashboard` | Review core metrics, actionable exceptions, and AI task distribution |
 | Users | `/{locale}/admin/users` | Find users, inspect business details, and grant credits |
 | Credit activity | `/{locale}/admin/credit-transactions` | Review one user's credit balance changes |
 | Invitations | `/{locale}/admin/affiliate-referrals` | Review inviter and invited-user relationships |

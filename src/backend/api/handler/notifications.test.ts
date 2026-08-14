@@ -9,7 +9,7 @@ import {
 	listNotificationsHandler,
 	readNotificationHandler,
 	updateNotificationHandler
-} from './notification'
+} from './notifications'
 import type { ListNotificationsResponse } from '../../../api-contract/notifications'
 
 type MockDb = {

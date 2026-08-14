@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
-import { listAdminUsersHandler } from './users'
+import { listUsersHandler } from './users'
 
 const shardRouterMocks = vi.hoisted(() => ({
 	openShardSession: vi.fn()
@@ -17,9 +17,9 @@ beforeEach((): void => {
 	shardRouterMocks.openShardSession.mockReset()
 })
 
-describe('listAdminUsersHandler', () => {
+describe('listUsersHandler', () => {
 	test('rejects invalid pagination', async () => {
-		const response: Response = await listAdminUsersHandler(createContext({
+		const response: Response = await listUsersHandler(createContext({
 			body: { page: 0 },
 			db: {}
 		}))
@@ -32,7 +32,7 @@ describe('listAdminUsersHandler', () => {
 	})
 
 	test('returns the current credit balance from the assigned tenant shard', async () => {
-		const rows: AdminUserRow[] = [
+		const rows: UserRow[] = [
 			{
 				id: 'usr_1',
 				name: 'Maya Chen',
@@ -49,7 +49,7 @@ describe('listAdminUsersHandler', () => {
 		shardRouterMocks.openShardSession.mockReturnValue({
 			db: createBalanceDb([{ userId: 'usr_1', balance: 12_500_000 }])
 		})
-		const response: Response = await listAdminUsersHandler(createContext({
+		const response: Response = await listUsersHandler(createContext({
 			body: { search: 'maya', page: 1, page_size: 20 },
 			db: createListDb(rows, 1)
 		}))
@@ -80,7 +80,7 @@ describe('listAdminUsersHandler', () => {
 
 })
 
-type AdminUserRow = {
+type UserRow = {
 	id: string
 	name: string
 	email: string
@@ -103,7 +103,7 @@ function createBalanceDb(rows: Array<{ userId: string; balance: number }>): Reco
 	}
 }
 
-function createListDb(rows: AdminUserRow[], total: number): Record<string, unknown> {
+function createListDb(rows: UserRow[], total: number): Record<string, unknown> {
 	let selectCall: number = 0
 	return {
 		select: vi.fn((): Record<string, unknown> => {
@@ -124,13 +124,13 @@ function createCountQuery(total: number): Record<string, unknown> {
 	}
 }
 
-function createRowsQuery(rows: AdminUserRow[]): Record<string, unknown> {
+function createRowsQuery(rows: UserRow[]): Record<string, unknown> {
 	const query: Record<string, unknown> = {
 		leftJoin: (): Record<string, unknown> => query,
 		where: (): Record<string, unknown> => query,
 		orderBy: (): Record<string, unknown> => query,
 		limit: (): Record<string, unknown> => query,
-		offset: async (): Promise<AdminUserRow[]> => rows
+		offset: async (): Promise<UserRow[]> => rows
 	}
 	return {
 		from: (): Record<string, unknown> => query

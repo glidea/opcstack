@@ -3,10 +3,10 @@ import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import {
-	GetAdminOverviewApi,
-	type AdminOverviewPaidAmount,
-	type GetAdminOverviewResponse
-} from '../../../api-contract/overview'
+	GetDashboardApi,
+	type DashboardPaidAmount,
+	type GetDashboardResponse
+} from '../../../api-contract/dashboard'
 import { createTenantShardAccess, type TenantShardClient } from '../../db/shard-router'
 import { user } from '../../db/schema.auth'
 import { creditRedemptionCode, paymentTransaction } from '../../db/schema.meta'
@@ -24,16 +24,16 @@ type PaidAmountRow = {
 	amount: number
 }
 
-type AiStats = {
+type AIStats = {
 	total: number
 	completed: number
 	failed: number
 }
 
-export async function getAdminOverviewHandler(ctx: Context<ApiEnv>): Promise<Response> {
-	const request = await parseRequest(ctx, GetAdminOverviewApi.request)
+export async function getDashboardHandler(ctx: Context<ApiEnv>): Promise<Response> {
+	const request = await parseRequest(ctx, GetDashboardApi.request)
 	if (!request.success) {
-		const error = GetAdminOverviewApi.errors.INVALID_REQUEST(request.message)
+		const error = GetDashboardApi.errors.INVALID_REQUEST(request.message)
 		return ctx.json(error.body, error.status)
 	}
 
@@ -71,9 +71,9 @@ export async function getAdminOverviewHandler(ctx: Context<ApiEnv>): Promise<Res
 		.where(eq(creditRedemptionCode.status, 'claimed'))
 
 	let feedbackTotal: number = 0
-	const imageStats: AiStats = { total: 0, completed: 0, failed: 0 }
-	const ttsStats: AiStats = { total: 0, completed: 0, failed: 0 }
-	const videoStats: AiStats = { total: 0, completed: 0, failed: 0 }
+	const imageStats: AIStats = { total: 0, completed: 0, failed: 0 }
+	const ttsStats: AIStats = { total: 0, completed: 0, failed: 0 }
+	const videoStats: AIStats = { total: 0, completed: 0, failed: 0 }
 	const shards: TenantShardClient[] = await createTenantShardAccess(metaDb, ctx.env).listShardDbs()
 	for (const shard of shards) {
 		const shardFeedbackRows: CountRow[] = await shard.db
@@ -82,19 +82,19 @@ export async function getAdminOverviewHandler(ctx: Context<ApiEnv>): Promise<Res
 			.where(and(gte(feedback.createdAt, start7d), lte(feedback.createdAt, now)))
 		feedbackTotal += Number(shardFeedbackRows[0]?.total ?? 0)
 
-		const shardImageRows: AiStats[] = await shard.db
+		const shardImageRows: AIStats[] = await shard.db
 			.select(aiStatsSelection(aiImageTask.status))
 			.from(aiImageTask)
 			.where(and(gte(aiImageTask.createdAt, start24h), lte(aiImageTask.createdAt, now)))
 		addAiStats(imageStats, shardImageRows[0])
 
-		const shardTtsRows: AiStats[] = await shard.db
+		const shardTtsRows: AIStats[] = await shard.db
 			.select(aiStatsSelection(aiTtsTask.status))
 			.from(aiTtsTask)
 			.where(and(gte(aiTtsTask.createdAt, start24h), lte(aiTtsTask.createdAt, now)))
 		addAiStats(ttsStats, shardTtsRows[0])
 
-		const shardVideoRows: AiStats[] = await shard.db
+		const shardVideoRows: AIStats[] = await shard.db
 			.select(aiStatsSelection(aiVideoTask.status))
 			.from(aiVideoTask)
 			.where(and(gte(aiVideoTask.createdAt, start24h), lte(aiVideoTask.createdAt, now)))
@@ -105,14 +105,14 @@ export async function getAdminOverviewHandler(ctx: Context<ApiEnv>): Promise<Res
 	const completedTasks: number = imageStats.completed + ttsStats.completed + videoStats.completed
 	const failedTasks: number = imageStats.failed + ttsStats.failed + videoStats.failed
 	const terminalTasks: number = completedTasks + failedTasks
-	const paidAmounts: AdminOverviewPaidAmount[] = paidAmountRows
-		.map((row: PaidAmountRow): AdminOverviewPaidAmount => {
+	const paidAmounts: DashboardPaidAmount[] = paidAmountRows
+		.map((row: PaidAmountRow): DashboardPaidAmount => {
 			return {
 				currency: row.currency,
 				amount: Number(row.amount)
 			}
 		})
-		.sort((left: AdminOverviewPaidAmount, right: AdminOverviewPaidAmount): number => {
+		.sort((left: DashboardPaidAmount, right: DashboardPaidAmount): number => {
 			return left.currency.localeCompare(right.currency)
 		})
 
@@ -147,7 +147,7 @@ export async function getAdminOverviewHandler(ctx: Context<ApiEnv>): Promise<Res
 		redemption_codes: {
 			claimed_count: Number(claimedCodeRows[0]?.total ?? 0)
 		}
-	} as GetAdminOverviewResponse)
+	} as GetDashboardResponse)
 }
 
 function aiStatsSelection(statusColumn: AnySQLiteColumn): {
@@ -162,7 +162,7 @@ function aiStatsSelection(statusColumn: AnySQLiteColumn): {
 	}
 }
 
-function addAiStats(target: AiStats, source: AiStats | undefined): void {
+function addAiStats(target: AIStats, source: AIStats | undefined): void {
 	target.total += Number(source?.total ?? 0)
 	target.completed += Number(source?.completed ?? 0)
 	target.failed += Number(source?.failed ?? 0)

@@ -7,15 +7,15 @@ type CloudflarePlatform = {
 	env?: Cloudflare.Env
 }
 
-type AiTasksPageEvent = {
+type AITasksPageEvent = {
 	platform?: CloudflarePlatform
 }
 
-type AiTasksPageData = {
+type AITasksPageData = {
 	cloudflare: CloudflareResourceContext
 }
 
-export function load(event: AiTasksPageEvent): AiTasksPageData {
+export function load(event: AITasksPageEvent): AITasksPageData {
 	const env: Cloudflare.Env | undefined = event.platform?.env
 	return {
 		cloudflare: {

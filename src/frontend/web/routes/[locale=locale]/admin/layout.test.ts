@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest'
 const adminDirectory: string = fileURLToPath(new URL('.', import.meta.url))
 const adminLayoutSource: string = readFileSync(`${adminDirectory}+layout.svelte`, 'utf8')
 const pageDirectories: string[] = [
-	'overview',
+	'dashboard',
 	'users',
 	'credit-transactions',
 	'beta-codes',
@@ -19,7 +19,7 @@ const pageDirectories: string[] = [
 	'ai-tasks'
 ]
 const listPageDirectories: string[] = pageDirectories.filter(
-	(pageDirectory: string): boolean => pageDirectory !== 'overview'
+	(pageDirectory: string): boolean => pageDirectory !== 'dashboard'
 )
 
 function readPage(pageDirectory: string): string {
@@ -53,8 +53,8 @@ describe('admin page layout', (): void => {
 		}
 	})
 
-	test('uses a metric strip instead of an identical card grid on overview', (): void => {
-		const source: string = readPage('overview')
+	test('uses a metric strip instead of an identical card grid on dashboard', (): void => {
+		const source: string = readPage('dashboard')
 		expect(source).toContain('admin-metric-strip')
 		expect(source).not.toContain('<Card.Root')
 	})

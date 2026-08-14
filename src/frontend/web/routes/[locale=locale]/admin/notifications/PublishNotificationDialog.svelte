@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { client } from '$apiContract/client'
-	import type { ListAdminUsersResponseItem } from '$apiContract/users'
+	import type { ListUsersResponseItem } from '$apiContract/users'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
@@ -32,7 +32,7 @@
 
 	let scope: NotificationScope = $state('global')
 	let targetUserId: string = $state('')
-	let targetUser: ListAdminUsersResponseItem | null = $state(null)
+	let targetUser: ListUsersResponseItem | null = $state(null)
 	let titleInput: string = $state('')
 	let contentInput: string = $state('')
 	let formError: string = $state('')

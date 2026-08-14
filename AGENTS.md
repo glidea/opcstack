@@ -171,7 +171,7 @@ src/
     web/                # SvelteKit web entrypoint
     extension/          # WXT Chrome extension entrypoint
   backend/
-    aff/                # Affiliate referral logic
+    affiliate/          # Affiliate referral logic
     ai/                 # AI providers and async task helpers
     api/                # Hono API routes, handlers, auth, and middleware
     consumers/          # Queue consumers
@@ -260,6 +260,8 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 ## API Contracts
 
 - Shared JSON API contracts, request types, response types, error responses, and typed client live in `src/api-contract/`.
+- Organize API contracts and handlers by business domain. Public, user, and admin are route access levels, not file or directory boundaries.
+- Do not add `admin/` or `user/` handler directories or actor-prefixed filenames. Keep an actor prefix on an operation only when the same domain has distinct user and administrator variants.
 - API handlers must import the API contract object from `src/api-contract/`, for example `CreateR2UploadUrlApi`.
 - Do not define route request or response contracts inside `src/backend/api/handler/`.
 - Keep one contract file per business area, for example `credits.ts`, `payment.ts`, or `notifications.ts`.
@@ -359,7 +361,7 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - Admin pages use the shared `admin-page`, `admin-page-header`, `admin-filter-bar`, `admin-table-panel`, and `admin-pagination` layout classes from `app.css`; do not create page-specific workspace widths or duplicate table scroll containers.
 - Admin sidebar is one flat ordered list. Payment Products and AI Providers are standalone workspaces; System Settings contains only singleton domain forms, including payment platform credentials and AI routing weights.
 - Payment Products store one `provider`, one `provider_product_id`, and a creation-time `test_mode` snapshot. The environment is derived from the current API key. Provider and environment are immutable after creation; administrators select remote products from configured Provider catalogs and never enter internal IDs, remote IDs, type, price, or currency manually.
-- Admin overview metrics use one divided metric strip. Keep actionable work queues visually primary and avoid identical metric card grids.
+- Admin dashboard metrics use one divided metric strip. Keep actionable work queues visually primary and avoid identical metric card grids.
 - Admin user filters and actions must select users by name or email. Never require operators to type a user ID; pass it internally after selection.
 - Turnstile credentials are initialized during Cloudflare preparation and preserved in D1. The Authentication workspace exposes only the dynamic enabled switch.
 - Known admin enum filters must use select, segmented control, toggle, or checkbox controls instead of free-text inputs.

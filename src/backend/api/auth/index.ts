@@ -11,7 +11,7 @@ import {
 	type WorkerRegionSource
 } from '../../db/shard-router'
 import { createEmailClients, EmailError, type EmailClients } from '../../email'
-import { AffService } from '../../aff'
+import { AffService } from '../../affiliate'
 import { CreditsService } from '../../credits'
 import {
 	OAUTH_API_CLIENT_ID,

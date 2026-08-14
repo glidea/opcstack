@@ -1,13 +1,13 @@
-import type { ListAdminUsersResponseItem } from '$apiContract/users'
+import type { ListUsersResponseItem } from '$apiContract/users'
 
-export function formatAdminUserIdentity(user: ListAdminUsersResponseItem): string {
+export function formatAdminUserIdentity(user: ListUsersResponseItem): string {
 	const name: string = user.name.trim()
 	return name === '' ? user.email : `${name} · ${user.email}`
 }
 
 export function findAdminUserById(
-	users: ListAdminUsersResponseItem[],
+	users: ListUsersResponseItem[],
 	userId: string
-): ListAdminUsersResponseItem | null {
-	return users.find((user: ListAdminUsersResponseItem): boolean => user.id === userId) ?? null
+): ListUsersResponseItem | null {
+	return users.find((user: ListUsersResponseItem): boolean => user.id === userId) ?? null
 }

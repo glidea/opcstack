@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'vitest'
 import {
-	createAiTaskSearchParams,
-	createAiTaskUserHref,
+	createAITaskSearchParams,
+	createAITaskUserHref,
 	createCloudflareTaskLinks,
 	extractR2Results,
 	formatStoredJson,
-	getAiTaskStatusVariant,
-	parseAiTaskListQuery,
+	getAITaskStatusVariant,
+	parseAITaskListQuery,
 	type CloudflareResourceContext
 } from './ai-tasks-page'
 
@@ -27,7 +27,7 @@ describe('admin AI tasks page', (): void => {
 			'https://example.com/en/admin/ai-tasks?task_type=video&id=task-1&user_id=user-1&status=failed&provider_type=video_seedance&provider_id=primary-video&model=v1&created_at_start=100&created_at_end=200&page=2'
 		)
 
-		expect({ query: parseAiTaskListQuery(url) }).toEqual({
+		expect({ query: parseAITaskListQuery(url) }).toEqual({
 			query: {
 				task_type: 'video',
 				id: 'task-1',
@@ -45,7 +45,7 @@ describe('admin AI tasks page', (): void => {
 	})
 
 	test('serializes only active filters', (): void => {
-		const params = createAiTaskSearchParams({
+		const params = createAITaskSearchParams({
 			task_type: 'image',
 			status: 'processing',
 			page: 1,
@@ -59,9 +59,9 @@ describe('admin AI tasks page', (): void => {
 
 	test('distinguishes processing, completed and failed states', (): void => {
 		expect({
-			processing: getAiTaskStatusVariant('processing'),
-			completed: getAiTaskStatusVariant('completed'),
-			failed: getAiTaskStatusVariant('failed')
+			processing: getAITaskStatusVariant('processing'),
+			completed: getAITaskStatusVariant('completed'),
+			failed: getAITaskStatusVariant('failed')
 		}).toEqual({ processing: 'outline', completed: 'secondary', failed: 'destructive' })
 	})
 
@@ -142,7 +142,7 @@ describe('admin AI tasks page', (): void => {
 	})
 
 	test('links a task user to the filtered user directory', (): void => {
-		expect({ href: createAiTaskUserHref('zh', 'user 1') }).toEqual({
+		expect({ href: createAITaskUserHref('zh', 'user 1') }).toEqual({
 			href: '/zh/admin/users?search=user%201'
 		})
 	})

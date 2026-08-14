@@ -102,10 +102,10 @@ describe('admin route protection', () => {
 })
 
 describe('admin navigation', () => {
-	test('redirects the admin root to overview', async (): Promise<void> => {
+	test('redirects the admin root to dashboard', async (): Promise<void> => {
 		await expect(loadAdminIndex({ params: { locale: 'zh' } } as never)).rejects.toMatchObject({
 			status: 302,
-			location: '/zh/admin/overview'
+			location: '/zh/admin/dashboard'
 		})
 	})
 
@@ -113,7 +113,7 @@ describe('admin navigation', () => {
 		const items = createAdminNavigation('zh')
 
 		expect(items.map((item) => ({ id: item.id, href: item.href }))).toEqual([
-			{ id: 'overview', href: '/zh/admin/overview' },
+			{ id: 'dashboard', href: '/zh/admin/dashboard' },
 			{ id: 'users', href: '/zh/admin/users' },
 			{ id: 'credit-transactions', href: '/zh/admin/credit-transactions' },
 			{ id: 'beta-codes', href: '/zh/admin/beta-codes' },

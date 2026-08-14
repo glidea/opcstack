@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import type { ListAdminUsersResponseItem } from '$apiContract/users'
+import type { ListUsersResponseItem } from '$apiContract/users'
 import { findAdminUserById, formatAdminUserIdentity } from './user-picker'
 
-const user: ListAdminUsersResponseItem = {
+const user: ListUsersResponseItem = {
 	id: 'user-1',
 	name: 'Ada Lovelace',
 	email: 'ada@example.com',

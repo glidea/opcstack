@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { ApiEnv } from '..'
 import { createTenantShardAccess } from '../../db/shard-router'
-import { getAdminAiTaskHandler, listAdminAiTasksHandler } from './ai-tasks'
+import { getAITaskHandler, listAITasksHandler } from './ai'
 
 vi.mock('../../db/shard-router', () => {
 	return {
@@ -54,14 +54,14 @@ type MockTaskDb = {
 	}
 }
 
-describe('listAdminAiTasksHandler', () => {
+describe('listAITasksHandler', () => {
 	beforeEach((): void => {
 		vi.clearAllMocks()
 	})
 
 	test('rejects invalid pagination', async (): Promise<void> => {
 		mockShards([])
-		const response: Response = await listAdminAiTasksHandler(createContext({ page_size: 0 }))
+		const response: Response = await listAITasksHandler(createContext({ page_size: 0 }))
 		const payload: { code?: string } = await response.json()
 
 		expect({ status: response.status, code: payload.code }).toEqual({
@@ -98,7 +98,7 @@ describe('listAdminAiTasksHandler', () => {
 			}
 		])
 
-		const response: Response = await listAdminAiTasksHandler(createContext({ page: 1, page_size: 2 }))
+		const response: Response = await listAITasksHandler(createContext({ page: 1, page_size: 2 }))
 		const payload: { items: Array<Record<string, unknown>>; total: number } = await response.json()
 
 		expect({ status: response.status, payload }).toEqual({
@@ -142,7 +142,7 @@ describe('listAdminAiTasksHandler', () => {
 	})
 })
 
-describe('getAdminAiTaskHandler', () => {
+describe('getAITaskHandler', () => {
 	beforeEach((): void => {
 		vi.clearAllMocks()
 	})
@@ -156,7 +156,7 @@ describe('getAdminAiTaskHandler', () => {
 			}
 		])
 
-		const response: Response = await getAdminAiTaskHandler(
+		const response: Response = await getAITaskHandler(
 			createContext({ task_type: 'image', id: 'image-1', shard_id: 'apac-0000' })
 		)
 		const payload: { task: Record<string, unknown> } = await response.json()
@@ -199,7 +199,7 @@ describe('getAdminAiTaskHandler', () => {
 			}
 		])
 
-		const response: Response = await getAdminAiTaskHandler(
+		const response: Response = await getAITaskHandler(
 			createContext({ task_type: 'video', id: 'missing', shard_id: 'apac-0000' })
 		)
 		const payload: { code?: string } = await response.json()
