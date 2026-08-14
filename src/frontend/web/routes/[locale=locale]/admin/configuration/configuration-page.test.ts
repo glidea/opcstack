@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
 	buildSecretMutation,
@@ -16,6 +18,32 @@ import {
 	validateEmailForm
 } from './configuration-page'
 import { ApiClientError } from '$apiContract/client'
+
+const configurationDirectory: string = fileURLToPath(new URL('.', import.meta.url))
+const configurationSectionSource: string = readFileSync(
+	`${configurationDirectory}ConfigurationSection.svelte`,
+	'utf8'
+)
+const fieldErrorSource: string = readFileSync(
+	fileURLToPath(new URL('../../../../../lib/ui/field/field-error.svelte', import.meta.url)),
+	'utf8'
+)
+const formsDemoSource: string = readFileSync(
+	fileURLToPath(new URL('../../demo-design/_sections/Forms.svelte', import.meta.url)),
+	'utf8'
+)
+const appComponentsDemoSource: string = readFileSync(
+	fileURLToPath(new URL('../../demo-design/_sections/AppComponents.svelte', import.meta.url)),
+	'utf8'
+)
+const overlaysDemoSource: string = readFileSync(
+	fileURLToPath(new URL('../../demo-design/_sections/Overlays.svelte', import.meta.url)),
+	'utf8'
+)
+const packageSource: string = readFileSync(
+	fileURLToPath(new URL('../../../../../../../package.json', import.meta.url)),
+	'utf8'
+)
 
 describe('configuration navigation', () => {
 	it('defines stable business domain routes', () => {
@@ -181,5 +209,33 @@ describe('country options', () => {
 		const options = createCountryOptions('en')
 		expect(options).toContainEqual({ code: 'CN', name: 'China' })
 		expect(options.some((option): boolean => option.code === 'ZZ')).toBe(false)
+	})
+})
+
+describe('frontend composition foundations', () => {
+	it('renders field errors only when an error exists', () => {
+		expect(fieldErrorSource).not.toContain('min-h-5')
+		expect(fieldErrorSource).toContain('{#if hasContent}')
+	})
+
+	it('keeps configuration sections content-led instead of forcing fixed columns', () => {
+		expect(configurationSectionSource).toContain('max-w-3xl')
+		expect(configurationSectionSource).not.toContain('lg:grid-cols-[240px_minmax(0,560px)]')
+	})
+
+	it('provides complete form, workspace, and overlay composition references', () => {
+		expect(formsDemoSource).toContain('Complete settings form')
+		expect(appComponentsDemoSource).toContain('Operational workspace')
+		expect(overlaysDemoSource).toContain('Complete side-sheet flow')
+	})
+
+	it('does not keep an unused second form abstraction', () => {
+		const formDirectory: string = fileURLToPath(
+			new URL('../../../../../lib/ui/form', import.meta.url)
+		)
+
+		expect(existsSync(formDirectory)).toBe(false)
+		expect(packageSource).not.toContain('"formsnap"')
+		expect(packageSource).not.toContain('"sveltekit-superforms"')
 	})
 })

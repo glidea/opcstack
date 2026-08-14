@@ -11,6 +11,8 @@ OPCStack has two frontend entrypoints: the SvelteKit web app and the WXT Chrome 
 
 The rule is simple: shared frontend code belongs in `lib/`; entrypoint-specific code stays in `web/` or `extension/`.
 
+`DESIGN.md` is the source of truth for page composition, forms, copy, states, accessibility, and visual acceptance. This guide describes frontend architecture and workflow; it does not duplicate the design rules.
+
 ## Multi-entrypoint Architecture
 
 ```text
@@ -66,6 +68,15 @@ The important aliases:
 | `options/` | Extension options UI |
 
 ## Adding a Page
+
+Before writing the route:
+
+1. Read the approved PRD key-page contract when the project has one
+2. Read `DESIGN.md`, the related product guide, and the nearest comparable page
+3. Make the first user task, information order, primary action, and applicable page states explicit in the current task acceptance
+4. Confirm which existing primitives and composed components will be reused
+
+Do not derive the page from an API request or database record. Internal IDs and raw enums may travel through typed contracts, but normal users should select recognizable business objects or let the server generate internal values.
 
 Add localized business pages under `src/frontend/web/routes/[locale=locale]/`.
 
@@ -154,6 +165,10 @@ Shell UI lives in `src/frontend/lib/app-ui/shell/`:
 | `LocaleSwitcher` | Locale switching |
 
 Business pages should compose these components instead of copying their internals.
+
+The existing `/{locale}/demo-design/{theme}` route contains composition references. Use its complete form, workspace, and overlay examples as implementation references; primitive demos alone do not define page hierarchy.
+
+After implementation, use In App Browser to exercise the real primary flow and relevant initial, empty, loading, error, and success states at desktop and mobile viewports. Check copy, alignment, control widths, overflow, focus order, and duplicated actions. Tests and builds do not replace this acceptance.
 
 ## Typed API Client
 

@@ -347,6 +347,11 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - App-specific composed UI lives under `src/frontend/lib/app-ui/` and uses domain paths such as `$frontend/app-ui/auth/*`.
 - Pages live under `src/frontend/web/routes/`.
 - Pages compose existing primitives. Do not rebuild `Button`, `Card`, `Dialog`, `Alert`, `Empty`, form fields, table primitives, or toast manually.
+- `DESIGN.md` is the source of truth for page composition, action hierarchy, forms, copy, states, accessibility, and visual verification. Do not duplicate those rules here.
+- Before implementing a new page or substantial interaction, read the approved PRD key-page contract when one exists, `DESIGN.md`, the related `template-docs/` guide, and the nearest comparable page in source.
+- Do not start substantial page implementation until the first user task, information order, primary action, and applicable initial/empty/loading/error/success states are explicit in the PRD or current task acceptance.
+- Organize pages around the user task. API request fields, database columns, internal IDs, and raw enums do not define the interface.
+- A frontend task is incomplete until its real primary flow and relevant states have been accepted in In App Browser at desktop and mobile viewports. Unit tests, type checks, builds, and HTTP E2E are supporting evidence only.
 - Put i18n messages in `src/frontend/lib/i18n/messages/`.
 - Set page title, description, and canonical in `<svelte:head>`.
 - Canonical URLs use `APP_DOMAIN` and must not point business pages to the OPCStack website.
@@ -355,20 +360,8 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - Use semantic tokens such as `bg-primary`, `text-muted-foreground`, and `border-input`.
 - The product landing page uses warm paper, graphite, solid orange, and muted green surfaces. Treat the real runtime architecture as a branded visual object, keep pricing to verified cost facts and official sources, and avoid pricing matrices, decorative gradients, or glass effects.
 - Icons come from `lucide-svelte`. Do not introduce other icon libraries.
-- Titles, headings, descriptions, button labels, and placeholders must not end with punctuation.
-- Admin page headers contain only the title and relevant actions. Do not add explanatory subtitles that restate the page purpose or data source.
-- Admin pages use the shared `admin-page`, `admin-page-header`, `admin-filter-bar`, `admin-table-panel`, and `admin-pagination` layout classes from `app.css`; do not create page-specific workspace widths or duplicate table scroll containers.
-- Admin sidebar is one flat ordered list. Payment Products and AI Providers are standalone workspaces; System Settings contains only singleton domain forms, including payment platform credentials and AI routing weights.
-- Payment Products store one `provider`, one `provider_product_id`, and a creation-time `test_mode` snapshot. The environment is derived from the current API key. Provider and environment are immutable after creation; administrators select remote products from configured Provider catalogs and never enter internal IDs, remote IDs, type, price, or currency manually.
-- Admin dashboard metrics use one divided metric strip. Keep actionable work queues visually primary and avoid identical metric card grids.
-- Admin user filters and actions must select users by name or email. Never require operators to type a user ID; pass it internally after selection.
-- Turnstile credentials are initialized during Cloudflare preparation and preserved in D1. The Authentication workspace exposes only the dynamic enabled switch.
-- Known admin enum filters must use select, segmented control, toggle, or checkbox controls instead of free-text inputs.
-- Keep common admin filters visible and place low-frequency technical or date filters behind progressive disclosure.
-- Keep row actions reachable while horizontally scrolling wide admin tables. Show internal IDs as secondary, compact technical references.
-- Put Cloudflare links beside the related admin resource and deep-link to the exact Worker, D1 database, Queue dashboard, or R2 bucket when identifiers are available.
-- Every form field needs a visible label, correct `autocomplete`, `aria-invalid` on error, and a visible actionable error message.
-- Every list, table, or feed that can be empty must use the `Empty` family.
+- Admin pages reuse the existing `admin-page`, `admin-page-header`, `admin-filter-bar`, `admin-table-panel`, and `admin-pagination` classes from `app.css`. Do not add page-specific workspace widths or duplicate table scroll containers.
+- Admin workflow and information-architecture rules live in `template-docs/guides/admin-console.md`; admin visual and interaction rules live in `DESIGN.md`.
 - Browser extension entrypoints live in `src/frontend/extension/entrypoints/`.
 - Extension-specific packaging stays in `src/frontend/extension/wxt.config.ts`.
 - Extension host permissions come from `EXTENSION_HOST_PERMISSIONS` via `clientConfig.extension.hostPermissions`.

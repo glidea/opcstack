@@ -8,7 +8,7 @@
 	import { Textarea } from "$frontend/ui/textarea";
 	import { Label } from "$frontend/ui/label";
 	import * as Select from "$frontend/ui/select";
-import { Checkbox } from "$frontend/ui/checkbox";
+	import { Checkbox } from "$frontend/ui/checkbox";
 	import * as RadioGroup from "$frontend/ui/radio-group";
 	import { Switch } from "$frontend/ui/switch";
 	import { Slider } from "$frontend/ui/slider";
@@ -35,8 +35,15 @@ import { Checkbox } from "$frontend/ui/checkbox";
 	let rangeValue: number[] = $state([20, 80]);
 	let otpValue: string = $state("");
 	let otpLegacy: string = $state("");
-	let agreement: boolean = $state(false);
-	let plan: string = $state("monthly");
+	let registrationEnabled: boolean = $state(true);
+	let registrationDomain: string = $state("");
+	let verificationRequired: boolean = $state(true);
+	let saveAttempted: boolean = $state(false);
+
+	function saveRegistration(event: SubmitEvent): void {
+		event.preventDefault();
+		saveAttempted = true;
+	}
 </script>
 
 <Section
@@ -237,92 +244,82 @@ import { Checkbox } from "$frontend/ui/checkbox";
 		</div>
 	</Block>
 
-	<div class="col-span-12 flex flex-col gap-4 rounded-[var(--radius-lg)] border border-border bg-card p-6">
-		<div class="text-[13px] font-semibold tracking-[-0.13px] text-foreground">
-			Field primitives — Field, FieldSet, FieldLegend, FieldGroup, FieldLabel, FieldDescription, FieldError, FieldSeparator
-		</div>
-		<form class="grid gap-6 md:grid-cols-2" onsubmit={(e) => e.preventDefault()}>
-			<Field.Set>
-				<Field.Legend>Account</Field.Legend>
-				<Field.Group>
-					<Field.Field>
-						<Field.Label for="ff-name">Display name</Field.Label>
-						<Input id="ff-name" placeholder="Jane Doe" />
-						<Field.Description>Visible to your collaborators.</Field.Description>
-					</Field.Field>
-
-					<Field.Field>
-						<Field.Label for="ff-email">Email</Field.Label>
-						<Input id="ff-email" type="email" aria-invalid placeholder="invalid@" />
-						<Field.Error errors={[{ message: "Enter a valid email address." }]} />
-					</Field.Field>
-
-					<Field.Separator />
-
-					<Field.Field orientation="horizontal">
-						<Checkbox bind:checked={agreement} id="ff-agree" />
-						<Field.Content>
-							<Field.Label for="ff-agree">I accept the terms</Field.Label>
-							<Field.Description>You can revoke consent anytime.</Field.Description>
-						</Field.Content>
-					</Field.Field>
-				</Field.Group>
-			</Field.Set>
-
-			<Field.Set>
-				<Field.Legend>Plan</Field.Legend>
-				<Field.Group>
-					<RadioGroup.Root bind:value={plan}>
-						<Field.Field orientation="horizontal">
-							<RadioGroup.Item value="monthly" id="plan-m" />
-							<Field.Content>
-								<Field.Label for="plan-m">Monthly</Field.Label>
-								<Field.Description>$9 per month, cancel anytime.</Field.Description>
-							</Field.Content>
-						</Field.Field>
-						<Field.Field orientation="horizontal">
-							<RadioGroup.Item value="yearly" id="plan-y" />
-							<Field.Content>
-								<Field.Label for="plan-y">Yearly</Field.Label>
-								<Field.Description>$90 per year, save 17%.</Field.Description>
-							</Field.Content>
-						</Field.Field>
-					</RadioGroup.Root>
-
-					<Field.Title>Notifications</Field.Title>
-					<Field.Field orientation="horizontal">
-						<Switch checked id="plan-notify" />
-						<Field.Content>
-							<Field.Label for="plan-notify">Email me on invoices</Field.Label>
-						</Field.Content>
-					</Field.Field>
-				</Field.Group>
-			</Field.Set>
-
-			<div class="md:col-span-2 flex justify-end">
-				<Button type="submit">Save changes</Button>
+	<div class="col-span-12 rounded-[var(--radius-lg)] border border-border bg-card p-6 md:p-8">
+		<div class="max-w-3xl">
+			<div class="max-w-2xl">
+				<p class="text-fine-print uppercase tracking-[0.12em] text-muted-foreground">Complete settings form</p>
+				<h3 class="mt-2 text-lg font-semibold">Registration access</h3>
+				<p class="mt-1 text-sm text-muted-foreground">
+					Group dependent controls under the decision that makes them relevant
+				</p>
 			</div>
-		</form>
-	</div>
 
-	<div class="col-span-12 rounded-[var(--radius-lg)] border border-dashed border-border bg-card p-6">
-		<div class="text-[13px] font-semibold tracking-[-0.13px] text-foreground">Form (formsnap)</div>
-		<p class="text-caption mt-2 text-muted-foreground">
-			<code class="font-mono">$frontend/ui/form/*</code> wraps
-			<code class="font-mono">formsnap</code> and integrates with
-			<code class="font-mono">sveltekit-superforms</code>. The primitives —
-			<code class="font-mono">Form.Field</code>,
-			<code class="font-mono">Form.Control</code>,
-			<code class="font-mono">Form.Label</code>,
-			<code class="font-mono">Form.FieldErrors</code>,
-			<code class="font-mono">Form.Description</code>,
-			<code class="font-mono">Form.Fieldset</code>,
-			<code class="font-mono">Form.Legend</code>,
-			<code class="font-mono">Form.ElementField</code>,
-			<code class="font-mono">Form.Button</code>
-			— require a typed form created in
-			<code class="font-mono">+page.server.ts</code> via
-			<code class="font-mono">superValidate</code>. Visual layout, label/error tone, and spacing match the Field primitives shown above.
-		</p>
+			<form class="mt-8" onsubmit={saveRegistration}>
+				<section class="grid gap-5 border-t py-6 md:grid-cols-[minmax(0,200px)_minmax(0,1fr)]">
+					<div>
+						<h4 class="text-sm font-semibold">Account creation</h4>
+						<p class="mt-1 text-sm text-muted-foreground">Choose who may create an account</p>
+					</div>
+					<div class="max-w-lg space-y-5">
+						<Field.Field orientation="horizontal">
+							<Field.Content>
+								<Field.Label for="registration-enabled">Allow registration</Field.Label>
+								<Field.Description>New visitors can create accounts</Field.Description>
+							</Field.Content>
+							<Switch id="registration-enabled" bind:checked={registrationEnabled} />
+						</Field.Field>
+
+						{#if registrationEnabled}
+							<Field.Field>
+								<Field.Label for="registration-domain">Allowed email domain</Field.Label>
+								<Input
+									id="registration-domain"
+									class="max-w-sm"
+									placeholder="example.com"
+									bind:value={registrationDomain}
+									aria-invalid={saveAttempted && registrationDomain.trim() === ""}
+								/>
+								<Field.Description>Leave unrestricted only when any email domain is acceptable</Field.Description>
+								<Field.Error
+									errors={saveAttempted && registrationDomain.trim() === ""
+										? [{ message: "Add a domain or explicitly allow every domain" }]
+										: []}
+								/>
+							</Field.Field>
+						{/if}
+					</div>
+				</section>
+
+				{#if registrationEnabled}
+					<section class="grid gap-5 border-t py-6 md:grid-cols-[minmax(0,200px)_minmax(0,1fr)]">
+						<div>
+							<h4 class="text-sm font-semibold">Email verification</h4>
+							<p class="mt-1 text-sm text-muted-foreground">Confirm ownership before account use</p>
+						</div>
+						<div class="max-w-lg space-y-5">
+							<Field.Field orientation="horizontal">
+								<Field.Content>
+									<Field.Label for="verification-required">Require email verification</Field.Label>
+									<Field.Description>Available only after an email provider is configured</Field.Description>
+								</Field.Content>
+								<Switch id="verification-required" bind:checked={verificationRequired} />
+							</Field.Field>
+
+							{#if verificationRequired}
+								<Field.Field class="max-w-32">
+									<Field.Label for="verification-cooldown">Retry delay</Field.Label>
+									<Input id="verification-cooldown" type="number" value="60" min="10" />
+									<Field.Description>Seconds</Field.Description>
+								</Field.Field>
+							{/if}
+						</div>
+					</section>
+				{/if}
+
+				<div class="flex justify-end border-t pt-6">
+					<Button type="submit">Save registration settings</Button>
+				</div>
+			</form>
+		</div>
 	</div>
 </Section>

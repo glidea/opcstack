@@ -33,15 +33,16 @@
 	const singleErrorMessage = $derived(errors && errors.length === 1 && errors[0]?.message);
 </script>
 
-<div
-	bind:this={ref}
-	role="alert"
-	aria-live="polite"
-	data-slot="field-error"
-	class={cn("min-h-5 text-destructive text-sm font-normal", className)}
-	{...restProps}
->
-	{#if hasContent}
+
+{#if hasContent}
+	<div
+		bind:this={ref}
+		role="alert"
+		aria-live="polite"
+		data-slot="field-error"
+		class={cn("text-destructive text-sm font-normal", className)}
+		{...restProps}
+	>
 		{#if children}
 			{@render children()}
 		{:else if singleErrorMessage}
@@ -55,5 +56,5 @@
 				{/each}
 			</ul>
 		{/if}
-	{/if}
-</div>
+	</div>
+{/if}

@@ -9,6 +9,8 @@ order: 10
 
 The admin console turns the existing Admin APIs into one operator workspace. It covers users, credits, access codes, announcements, feedback, payments, AI tasks, and dynamic business configuration. Cloudflare remains the place for infrastructure logs, queue backlog, database inspection, and object storage.
 
+This guide owns administrator workflows and product behavior. `DESIGN.md` owns page composition and visual rules, while `AGENTS.md` owns implementation and acceptance discipline.
+
 ## Access
 
 1. Run `prepare-cloudflare` and retain the one-time administrator credentials printed after the first successful initialization.

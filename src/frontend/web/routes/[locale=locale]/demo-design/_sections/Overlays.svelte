@@ -14,6 +14,9 @@
 	import * as Command from "$frontend/ui/command";
 	import { Toaster } from "$frontend/ui/sonner";
 	import { Button } from "$frontend/ui/button";
+	import { Input } from "$frontend/ui/input";
+	import { Label } from "$frontend/ui/label";
+	import * as Select from "$frontend/ui/select";
 	import { Avatar, AvatarFallback } from "$frontend/ui/avatar";
 	import { Badge } from "$frontend/ui/badge";
 
@@ -26,10 +29,10 @@
 	import SearchIcon from "@lucide/svelte/icons/search";
 	import FileTextIcon from "@lucide/svelte/icons/file-text";
 	import CalendarIcon from "@lucide/svelte/icons/calendar";
+	import PlusIcon from "@lucide/svelte/icons/plus";
 
-	type Side = "top" | "right" | "bottom" | "left";
-	const sides: Side[] = ["right", "left", "top", "bottom"];
-	let cmdOpen = $state(false);
+	let cmdOpen: boolean = $state(false);
+	let providerType: string = $state("gemini-image");
 
 	function handleKeydown(e: KeyboardEvent) {
 		if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -99,26 +102,62 @@
 		</AlertDialog.Root>
 	</Block>
 
-	<!-- Sheets -->
-	<Block title="Sheet · 4 sides" span={2}>
-		<div class="flex flex-wrap gap-2">
-			{#each sides as side (side)}
-				<Sheet.Root>
-					<Sheet.Trigger>
-						{#snippet child({ props })}
-							<Button variant="outline" size="sm" {...props}>{side}</Button>
-						{/snippet}
-					</Sheet.Trigger>
-					<Sheet.Content {side}>
-						<Sheet.Header>
-							<Sheet.Title>Sheet · {side}</Sheet.Title>
-							<Sheet.Description>Slides in from the {side}.</Sheet.Description>
-						</Sheet.Header>
-						<div class="p-4 text-caption text-muted-foreground">Sheet content goes here.</div>
-					</Sheet.Content>
-				</Sheet.Root>
-			{/each}
-		</div>
+	<!-- Complete side-sheet -->
+	<Block title="Complete side-sheet flow" description="One task, one primary action, and fields ordered by the user's decision" span={2}>
+		<Sheet.Root>
+			<Sheet.Trigger>
+				{#snippet child({ props })}
+					<Button variant="outline" {...props}>
+						<PlusIcon />
+						Add provider account
+					</Button>
+				{/snippet}
+			</Sheet.Trigger>
+			<Sheet.Content side="right" class="sm:max-w-md">
+				<Sheet.Header class="border-b border-border pb-4">
+					<Sheet.Title>Add provider account</Sheet.Title>
+					<Sheet.Description>Connect one upstream account for image generation</Sheet.Description>
+				</Sheet.Header>
+				<form class="flex min-h-0 flex-1 flex-col" onsubmit={(event: SubmitEvent): void => event.preventDefault()}>
+					<div class="flex-1 space-y-5 overflow-y-auto px-4">
+						<div class="space-y-2">
+							<Label for="sheet-provider">Provider</Label>
+							<Select.Root type="single" bind:value={providerType}>
+								<Select.Trigger id="sheet-provider" class="w-full">
+									{providerType === "gemini-image" ? "Google Gemini for images" : "OpenAI for images"}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="gemini-image">Google Gemini for images</Select.Item>
+									<Select.Item value="openai-image">OpenAI for images</Select.Item>
+								</Select.Content>
+							</Select.Root>
+							<p class="text-sm text-muted-foreground">Choose the upstream implementation this account uses</p>
+						</div>
+
+						<div class="space-y-2">
+							<Label for="sheet-account-name">Account name</Label>
+							<Input id="sheet-account-name" placeholder="Gemini primary" autocomplete="off" />
+							<p class="text-sm text-muted-foreground">Use a name that distinguishes the account or region</p>
+						</div>
+
+						<div class="space-y-2">
+							<Label for="sheet-api-key">API key</Label>
+							<Input id="sheet-api-key" type="password" autocomplete="new-password" />
+							<p class="text-sm text-muted-foreground">Stored encrypted and never shown again</p>
+						</div>
+					</div>
+
+					<Sheet.Footer class="border-t border-border sm:flex-row sm:justify-end">
+						<Sheet.Close>
+							{#snippet child({ props })}
+								<Button variant="outline" type="button" {...props}>Cancel</Button>
+							{/snippet}
+						</Sheet.Close>
+						<Button type="submit">Save provider</Button>
+					</Sheet.Footer>
+				</form>
+			</Sheet.Content>
+		</Sheet.Root>
 	</Block>
 
 	<!-- Drawer -->
