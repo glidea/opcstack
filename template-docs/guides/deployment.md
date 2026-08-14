@@ -183,7 +183,7 @@ Load order:
   -> process.env
 ```
 
-`.env.secret.dev` is generated local state for the three internal root secrets. It is not user configuration and is never part of env loading. Production roots live only in Cloudflare Worker Secrets.
+Generated local root secret state stays inside the ignored `.wrangler/` directory and is managed only by `prepare-cloudflare`. Production roots live only in Cloudflare Worker Secrets.
 
 ## Cloudflare Token
 

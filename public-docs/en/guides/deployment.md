@@ -184,8 +184,6 @@ Load order:
   -> process.env
 ```
 
-`.env.secret.dev` is generated local state for the three internal root secrets. It is not user configuration and is never part of env loading. Production roots live only in Cloudflare Worker Secrets.
-
 ## Cloudflare Token
 
 Remote deploy needs a Cloudflare API token.

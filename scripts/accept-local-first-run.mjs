@@ -10,8 +10,7 @@ const EXCLUDED_NAMES = new Set([
 	'.wrangler',
 	'.svelte-kit',
 	'node_modules',
-	'dist',
-	'.env.secret.dev'
+	'dist'
 ])
 
 async function main() {

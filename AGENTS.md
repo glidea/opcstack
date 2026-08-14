@@ -161,7 +161,6 @@ Key rules:
   wrangler.jsonc.tpl    # Worker config template
   .env.dev              # Public local config, safe to commit
   .env.prod             # Public production config, safe to commit
-  .env.secret.dev       # Generated local root secret state, never user configuration
 
 src/
   index.ts              # Worker entrypoint
@@ -200,13 +199,13 @@ Create `src/backend/do/` only when a real Durable Object is added.
 - `wrangler.jsonc` is the runtime config and should include only secrets required by enabled features.
 - `.wrangler/wrangler.types.jsonc` is type-generation-only config and includes the three generated system secrets so `Env` stays stable.
 - Fixed deployment config lives in `.env.dev` and `.env.prod`. `.env` is a local override.
-- `.env.secret.dev` is generated local state for the three internal root secrets. It is not user configuration and is not part of env loading. Production roots live in Cloudflare Worker Secrets.
-- Agents must not read, print, search, edit, create, or copy generated secret state or token caches: `.env.secret.dev`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
+- Generated local root secret state lives under `.wrangler/`. It is not user configuration and is not part of env loading. Production roots live in Cloudflare Worker Secrets.
+- Agents must not read, print, search, edit, create, or copy generated secret state or token caches: `.wrangler/local-system-secrets.env`, `.wrangler/runtime-secrets.env`, `.wrangler/cloudflare-api-token`, `.wrangler/cloudflare-api-token.permissions`, `.wrangler/r2-s3-token.json`.
 - Third-party credentials are entered through Admin Configuration or an OAuth-authorized API and encrypted in D1. Never add them to env files.
 - Env loading order: `.env.dev` or `.env.prod` -> `.env` -> `process.env`.
 - Env files contain fixed deployment and initialization inputs only and are ordered by shared product identity, domains, frontend exposure, and infrastructure.
 - The fixed ENV set is `APP_NAME`, `APP_VERSION`, `DESIGN_SYSTEM`, `SYSTEM_EMAIL`, `APP_DOMAIN`, `APP_CN_DOMAIN`, `APP_CN_CNAME_TARGET`, `EXTENSION_HOST_PERMISSIONS`, `D1_SHARDS`, `R2_ENABLED`, `R2_USER_UPLOAD_ALLOWED_CONTENT_TYPES`, `R2_USER_UPLOAD_MAX_BYTES`, `R2_TMP_LIFECYCLE_RULES`, `QUEUE_NAMES`, `QUEUE_MAX_CONCURRENCY`, `CRONS`, and `DO_NAMES`.
-- `prepare-cloudflare` owns `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET`. It generates them once, persists local values in `.env.secret.dev`, and uploads production values as Cloudflare Worker Secrets without overwriting existing values.
+- `prepare-cloudflare` owns `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET`. It generates them once, persists local values under `.wrangler/`, and uploads production values as Cloudflare Worker Secrets without overwriting existing values.
 - Existing D1 configuration without the matching generated system secrets is unrecoverable and must fail preparation. Never silently generate replacement roots for initialized data.
 - Dynamic configuration storage lives in `src/backend/config/` and the Meta DB `system_settings` row. Each business domain owns one JSON document, version, and update timestamp.
 - Configuration documents use code-side camelCase and are fully validated on every read and write. Admin API contracts remain snake_case.

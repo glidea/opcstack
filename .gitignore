@@ -12,4 +12,3 @@ src/frontend/extension/.wxt/
 .impeccable/
 .DS_Store
 .env
-.env.secret.dev

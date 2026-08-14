@@ -35,8 +35,7 @@ Secrets must not enter the conversation context.
 
 Agents must follow these rules:
 
-- Do not read `.env.secret.dev`
-- Do not read `.wrangler/runtime-secrets.env`
+- Do not read generated secret state under `.wrangler/`
 - Do not edit generated secret state
 - Do not ask the user to paste secrets into chat
 - Do not print secret values
@@ -132,7 +131,7 @@ Notes:
 
 ## Phase 4: Initialize Local Secrets And Administrator
 
-`prepare-cloudflare` generates `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET` on first initialization. Local development persists them in `.env.secret.dev`; production keeps them only as Cloudflare Worker Secrets. `.env.secret.example` documents this boundary and contains no user-managed values.
+`prepare-cloudflare` generates `BETTER_AUTH_SECRET`, `CONFIG_ENCRYPTION_KEY`, and `R2_ORIGIN_SIGNING_SECRET` on first initialization. Local development keeps this generated state inside the ignored `.wrangler/` directory. Production uploads the values directly as Cloudflare Worker Secrets.
 
 The same initialization creates the unique D1 administrator using `SYSTEM_EMAIL` and a random password. The command prints the credentials only after the first initialization succeeds. Later preparation never changes the D1 email or password. Tell the user to sign in and replace the generated password under Settings. The settings page intentionally does not allow changing the administrator email.
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { decryptConfigSecret } from '../src/backend/config/crypto.ts'
 import {
 	buildDnsCnameRecordPayload,
+	LOCAL_SYSTEM_SECRETS_PATH,
 	buildOAuthClientUpsertSql,
 	buildInitialAdministratorInsertSql,
 	buildRequiredSecretKeys,
@@ -271,6 +272,10 @@ describe('prepare cloudflare configuration initialization', () => {
 })
 
 describe('prepare cloudflare runtime config validation', () => {
+	it('stores generated local roots with Wrangler state', () => {
+		expect(LOCAL_SYSTEM_SECRETS_PATH).toBe('.wrangler/local-system-secrets.env')
+	})
+
 	it('accepts explicit R2 upload policy from ENV', () => {
 		expect(() => validateRuntimeConfig(createRuntimeEnv())).not.toThrow()
 	})

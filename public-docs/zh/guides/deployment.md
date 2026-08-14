@@ -184,8 +184,6 @@ pnpm dev
   -> process.env
 ```
 
-`.env.secret.dev` 只保存脚本生成的三个本地内部根密钥，不是用户配置，也不参与 ENV 加载。生产根密钥只保存在 Cloudflare Worker Secrets。
-
 ## Cloudflare Token
 
 远端部署需要 Cloudflare API token。

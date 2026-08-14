@@ -21,6 +21,7 @@ const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA'
 const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA'
 const CLOUDFLARE_TOKEN_CACHE_PATH = '.wrangler/cloudflare-api-token'
 const CLOUDFLARE_TOKEN_PERMISSION_CACHE_PATH = '.wrangler/cloudflare-api-token.permissions'
+export const LOCAL_SYSTEM_SECRETS_PATH = '.wrangler/local-system-secrets.env'
 const RUNTIME_SECRETS_PATH = '.wrangler/runtime-secrets.env'
 const RUNTIME_SECRETS_MODE_PATH = '.wrangler/runtime-secrets.mode'
 const TYPES_WRANGLER_CONFIG_PATH = '.wrangler/wrangler.types.jsonc'
@@ -316,14 +317,18 @@ function appendLocalSystemSecrets(existing, resolved) {
 		return
 	}
 
-	const path = '.env.secret.dev'
-	const current = existsSync(path) ? readFileSync(path, 'utf-8') : ''
+	mkdirSync('.wrangler', { recursive: true })
+	const current = existsSync(LOCAL_SYSTEM_SECRETS_PATH)
+		? readFileSync(LOCAL_SYSTEM_SECRETS_PATH, 'utf-8')
+		: ''
 	const separator = current === '' || current.endsWith('\n') ? '' : '\n'
 	const lines = generatedKeys.map((key) => {
 		return `${key}=${formatEnvValue(resolved[key])}`
 	})
-	writeFileSync(path, `${current}${separator}${lines.join('\n')}\n`, { mode: 0o600 })
-	console.log(`Generated local system secrets in ${path}`)
+	writeFileSync(LOCAL_SYSTEM_SECRETS_PATH, `${current}${separator}${lines.join('\n')}\n`, {
+		mode: 0o600
+	})
+	console.log('Generated local system secrets')
 }
 
 function writeRuntimeSecrets(env, mode) {
@@ -1435,7 +1440,7 @@ async function main() {
 	let localSystemSecrets = {}
 	let hadLocalEncryptionKey = false
 	if (!isRemote) {
-		existingLocalSystemSecrets = parseEnvFile('.env.secret.dev')
+		existingLocalSystemSecrets = parseEnvFile(LOCAL_SYSTEM_SECRETS_PATH)
 		hadLocalEncryptionKey =
 			String(existingLocalSystemSecrets.CONFIG_ENCRYPTION_KEY ?? '').trim() !== ''
 		localSystemSecrets = resolveLocalSystemSecrets(existingLocalSystemSecrets)
