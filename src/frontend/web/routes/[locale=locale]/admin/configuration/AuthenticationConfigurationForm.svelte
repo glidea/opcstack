@@ -3,13 +3,10 @@
 	import type { AuthenticationConfig } from '$apiContract/configuration'
 	import { ApiClientError, client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down'
-	import { Button } from '$frontend/ui/button'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import { Skeleton } from '$frontend/ui/skeleton'
 	import { Switch } from '$frontend/ui/switch'
-	import { Textarea } from '$frontend/ui/textarea'
 	import { toast } from 'svelte-sonner'
 	import ConfigurationActions from './ConfigurationActions.svelte'
 	import ConfigurationLoadError from './ConfigurationLoadError.svelte'
@@ -17,6 +14,7 @@
 	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
 	import OAuthProviderFieldset from './OAuthProviderFieldset.svelte'
 	import SecretField from './SecretField.svelte'
+	import TagInput from './TagInput.svelte'
 	import {
 		buildSecretMutation,
 		dispatchConfigurationEditorState,
@@ -29,7 +27,7 @@
 	type AuthenticationFields = {
 		betaCodeEnabled: boolean
 		registrationEnabled: boolean
-		emailDomainAllowlist: string
+		emailDomainAllowlist: string[]
 		emailRequireVerification: boolean
 		emailCooldownSeconds: string
 		turnstileEnabled: boolean
@@ -49,7 +47,7 @@
 
 	let betaCodeEnabled: boolean = $state(false)
 	let registrationEnabled: boolean = $state(false)
-	let emailDomainAllowlist: string = $state('')
+	let emailDomainAllowlist: string[] = $state([])
 	let emailRequireVerification: boolean = $state(false)
 	let emailCooldownSeconds: string = $state('60')
 	let turnstileEnabled: boolean = $state(false)
@@ -79,7 +77,6 @@
 	let conflict: boolean = $state(false)
 	let errors: Record<string, string> = $state({})
 	let dirty: boolean = $state(false)
-	let registrationExpanded: boolean = $state(false)
 
 	function fields(): AuthenticationFields {
 		return {
@@ -96,7 +93,7 @@
 	function applyConfig(config: AuthenticationConfig): void {
 		betaCodeEnabled = config.beta_code_enabled
 		registrationEnabled = config.registration_enabled
-		emailDomainAllowlist = config.email_signup_domain_allowlist.join('\n')
+		emailDomainAllowlist = [...config.email_signup_domain_allowlist]
 		emailRequireVerification = config.email_require_verification
 		emailCooldownSeconds = String(config.email_user_action_cooldown_seconds)
 		turnstileEnabled = config.turnstile_enabled
@@ -123,7 +120,6 @@
 		errors = {}
 		error = ''
 		conflict = false
-		registrationExpanded = config.registration_enabled
 	}
 
 	function fieldError(name: string): string {
@@ -156,7 +152,7 @@
 			applyConfig(await client.api.updateAuthenticationConfig({
 				beta_code_enabled: betaCodeEnabled,
 				registration_enabled: registrationEnabled,
-				email_signup_domain_allowlist: emailDomainAllowlist.split(/[\n,]/).map((value: string): string => value.trim()).filter((value: string): boolean => value !== ''),
+				email_signup_domain_allowlist: emailDomainAllowlist,
 				email_require_verification: emailRequireVerification,
 				email_user_action_cooldown_seconds: Number(emailCooldownSeconds),
 				turnstile_enabled: turnstileEnabled,
@@ -211,17 +207,20 @@
 {:else}
 	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
-		<ConfigurationSection title={$_('admin.configuration.authentication.access')}>
-			<div class="flex items-center justify-between gap-3"><Field.Field orientation="horizontal" class="flex-1"><Field.Label for="auth-registration">{$_('admin.configuration.authentication.registration')}</Field.Label><Switch id="auth-registration" bind:checked={registrationEnabled} /></Field.Field><Button type="button" size="icon-sm" variant="ghost" onclick={() => (registrationExpanded = !registrationExpanded)} aria-label={registrationExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={registrationExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}><ChevronDownIcon class={registrationExpanded ? 'rotate-180' : ''} /></Button></div>
-			{#if registrationEnabled || registrationExpanded}
-				<Field.Field><Field.Label for="auth-email-allowlist">{$_('admin.configuration.authentication.domainAllowlist')}</Field.Label><Textarea id="auth-email-allowlist" bind:value={emailDomainAllowlist} /><Field.Description>{$_('admin.configuration.authentication.domainAllowlistDescription')}</Field.Description></Field.Field>
+		<ConfigurationSection title={$_('admin.configuration.authentication.access')} description={$_('admin.configuration.authentication.accessDescription')}>
+			<Field.Field orientation="horizontal">
+				<div class="space-y-1"><Field.Label for="auth-registration">{$_('admin.configuration.authentication.registration')}</Field.Label><Field.Description>{$_('admin.configuration.authentication.registrationDescription')}</Field.Description></div>
+				<Switch id="auth-registration" bind:checked={registrationEnabled} />
+			</Field.Field>
+			{#if registrationEnabled}
+				<Field.Field><Field.Label for="auth-email-allowlist">{$_('admin.configuration.authentication.domainAllowlist')}</Field.Label><TagInput id="auth-email-allowlist" bind:value={emailDomainAllowlist} placeholder={$_('admin.configuration.authentication.domainPlaceholder')} /><Field.Description>{$_('admin.configuration.authentication.domainAllowlistDescription')}</Field.Description></Field.Field>
 				<Field.Field orientation="horizontal"><Field.Label for="auth-beta-code">{$_('admin.configuration.authentication.betaCode')}</Field.Label><Switch id="auth-beta-code" bind:checked={betaCodeEnabled} /></Field.Field>
 				<Field.Field orientation="horizontal"><Field.Label for="auth-email-verification">{$_('admin.configuration.authentication.requireVerification')}</Field.Label><Switch id="auth-email-verification" bind:checked={emailRequireVerification} /></Field.Field>
-				<Field.Field data-invalid={fieldError('emailCooldownSeconds') !== ''}><Field.Label for="auth-email-cooldown">{$_('admin.configuration.authentication.cooldown')}</Field.Label><Input id="auth-email-cooldown" type="number" min="1" inputmode="numeric" bind:value={emailCooldownSeconds} aria-invalid={fieldError('emailCooldownSeconds') !== ''} /><Field.Error>{fieldError('emailCooldownSeconds')}</Field.Error></Field.Field>
+				<Field.Field data-invalid={fieldError('emailCooldownSeconds') !== ''}><Field.Label for="auth-email-cooldown">{$_('admin.configuration.authentication.cooldown')}</Field.Label><Input id="auth-email-cooldown" class="max-w-48" type="number" min="1" inputmode="numeric" bind:value={emailCooldownSeconds} aria-invalid={fieldError('emailCooldownSeconds') !== ''} /><Field.Error>{fieldError('emailCooldownSeconds')}</Field.Error></Field.Field>
 			{/if}
 		</ConfigurationSection>
-		<ConfigurationSection title={$_('admin.configuration.authentication.turnstile')}>
-			<Field.Field orientation="horizontal"><Field.Label for="auth-turnstile-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="auth-turnstile-enabled" bind:checked={turnstileEnabled} /></Field.Field>
+		<ConfigurationSection title={$_('admin.configuration.authentication.turnstile')} description={$_('admin.configuration.authentication.turnstileDescription')}>
+			<Field.Field orientation="horizontal"><Field.Label for="auth-turnstile-enabled">{$_('admin.configuration.authentication.turnstileAction')}</Field.Label><Switch id="auth-turnstile-enabled" bind:checked={turnstileEnabled} /></Field.Field>
 		</ConfigurationSection>
 		<OAuthProviderFieldset id="auth-google" title="Google" bind:enabled={googleEnabled} bind:clientId={googleClientId} secretConfigured={googleSecretConfigured} bind:secretAction={googleSecretAction} bind:secretValue={googleSecretValue} callbackUrl={googleCallbackUrl} clientIdError={fieldError('googleClientId')} secretError={fieldError('googleClientSecret')} />
 		<OAuthProviderFieldset id="auth-github" title="GitHub" bind:enabled={githubEnabled} bind:clientId={githubClientId} secretConfigured={githubSecretConfigured} bind:secretAction={githubSecretAction} bind:secretValue={githubSecretValue} callbackUrl={githubCallbackUrl} clientIdError={fieldError('githubClientId')} secretError={fieldError('githubClientSecret')} />

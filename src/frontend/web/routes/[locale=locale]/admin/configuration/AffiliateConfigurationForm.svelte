@@ -3,8 +3,6 @@
 	import type { AffiliateConfig } from '$apiContract/configuration'
 	import { ApiClientError, client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down'
-	import { Button } from '$frontend/ui/button'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import { Skeleton } from '$frontend/ui/skeleton'
@@ -28,7 +26,6 @@
 	let inviterError: string = $state('')
 	let inviteeError: string = $state('')
 	let dirty: boolean = $state(false)
-	let expanded: boolean = $state(false)
 
 	function snapshot(): string { return JSON.stringify({ enabled, inviterAmount, inviteeAmount }) }
 	function applyConfig(config: AffiliateConfig): void {
@@ -39,7 +36,6 @@
 		savedSnapshot = snapshot()
 		error = ''
 		conflict = false
-		expanded = config.enabled
 	}
 	function validate(): boolean {
 		const pattern: RegExp = /^\d+(?:\.\d{1,6})?$/
@@ -79,11 +75,11 @@
 {:else}
 	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
-		<ConfigurationSection title={$_('admin.configuration.affiliate.referrals')}>
-			<div class="flex items-center justify-between gap-3"><Field.Field orientation="horizontal" class="flex-1"><Field.Label for="affiliate-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="affiliate-enabled" bind:checked={enabled} /></Field.Field><Button type="button" size="icon-sm" variant="ghost" onclick={() => (expanded = !expanded)} aria-label={expanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={expanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}><ChevronDownIcon class={expanded ? 'rotate-180' : ''} /></Button></div>
-			{#if enabled || expanded}
-				<Field.Field data-invalid={inviterError !== ''}><Field.Label for="affiliate-inviter">{$_('admin.configuration.affiliate.inviterAmount')}</Field.Label><Input id="affiliate-inviter" inputmode="decimal" bind:value={inviterAmount} aria-invalid={inviterError !== ''} /><Field.Error>{inviterError}</Field.Error></Field.Field>
-				<Field.Field data-invalid={inviteeError !== ''}><Field.Label for="affiliate-invitee">{$_('admin.configuration.affiliate.inviteeAmount')}</Field.Label><Input id="affiliate-invitee" inputmode="decimal" bind:value={inviteeAmount} aria-invalid={inviteeError !== ''} /><Field.Error>{inviteeError}</Field.Error></Field.Field>
+		<ConfigurationSection title={$_('admin.configuration.affiliate.referrals')} description={$_('admin.configuration.affiliate.description')}>
+			<Field.Field orientation="horizontal"><Field.Label for="affiliate-enabled">{$_('admin.configuration.affiliate.action')}</Field.Label><Switch id="affiliate-enabled" bind:checked={enabled} /></Field.Field>
+			{#if enabled}
+				<Field.Field data-invalid={inviterError !== ''}><Field.Label for="affiliate-inviter">{$_('admin.configuration.affiliate.inviterAmount')}</Field.Label><Input id="affiliate-inviter" class="max-w-48" inputmode="decimal" bind:value={inviterAmount} aria-invalid={inviterError !== ''} /><Field.Error>{inviterError}</Field.Error></Field.Field>
+				<Field.Field data-invalid={inviteeError !== ''}><Field.Label for="affiliate-invitee">{$_('admin.configuration.affiliate.inviteeAmount')}</Field.Label><Input id="affiliate-invitee" class="max-w-48" inputmode="decimal" bind:value={inviteeAmount} aria-invalid={inviteeError !== ''} /><Field.Error>{inviteeError}</Field.Error></Field.Field>
 			{/if}
 		</ConfigurationSection>
 		<ConfigurationActions {dirty} {saving} onSave={saveConfig} onDiscard={discardChanges} />

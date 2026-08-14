@@ -13,7 +13,9 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	const context: BrowserContext = await browser.newContext({
 		permissions: ['clipboard-read', 'clipboard-write']
 	})
+	context.setDefaultTimeout(15_000)
 	const page: Page = await context.newPage()
+	console.log('E2E stage: account settings')
 	await signIn(page, initialEmail, initialPassword)
 
 	await goToHydrated(page, '/en/settings')
@@ -27,6 +29,7 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await page.getByRole('button', { name: 'Change password', exact: true }).click()
 	await expect(page.getByText('Password changed', { exact: true })).toBeVisible()
 
+	console.log('E2E stage: system settings')
 	await goToHydrated(page, '/en/admin/configuration/general')
 	const docsSwitch = page.locator('#configuration-docs-enabled')
 	await expect(docsSwitch).toBeVisible()
@@ -84,8 +87,11 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	await expect(page.getByText('Resend API key is required')).toBeVisible()
 	await page.getByRole('button', { name: 'Discard', exact: true }).click()
 
+	console.log('E2E stage: payment products')
 	await verifyPaymentProductJourney(page, concurrentPage)
+	console.log('E2E stage: AI providers')
 	await verifyAIProviderJourney(page, concurrentPage)
+	console.log('E2E stage: administration workspaces')
 	await verifyAdminBetaCodes(page)
 	await verifyAdminCreditCodes(page)
 	await verifyAdminListLayout(page)
@@ -103,7 +109,9 @@ test('completes the first-run administrator journey in the browser', async ({ br
 	}
 	await context.close()
 
+	console.log('E2E stage: changed password sign-in')
 	const changedContext: BrowserContext = await browser.newContext()
+	changedContext.setDefaultTimeout(15_000)
 	const changedPage: Page = await changedContext.newPage()
 	await signIn(changedPage, initialEmail, nextPassword)
 	await goToHydrated(changedPage, '/en/admin/configuration/general')
@@ -283,7 +291,7 @@ async function openConfigurationTab(page: Page, domain: string): Promise<void> {
 }
 
 async function verifyConfigurationTabs(page: Page): Promise<void> {
-	const domains: string[] = ['general', 'authentication', 'email', 'credits', 'affiliate']
+	const domains: string[] = ['general', 'authentication', 'email', 'credits', 'affiliate', 'payment', 'ai']
 	for (const domain of domains) {
 		await openConfigurationTab(page, domain)
 		await expect(page).toHaveURL(new RegExp(`/admin/configuration/${domain}$`))
@@ -304,11 +312,15 @@ async function verifyConfigurationTabs(page: Page): Promise<void> {
 	await expect(page.locator('#auth-turnstile-site-key')).toHaveCount(0)
 	await expect(page.locator('#auth-turnstile-secret')).toHaveCount(0)
 	const googleSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Google', exact: true }) })
-	await googleSection.getByRole('button', { name: 'Expand configuration', exact: true }).click()
+	await googleSection.locator('#auth-google-enabled').click()
 	await expect(googleSection.getByText('Callback URL', { exact: true })).toBeVisible()
 	await expect(googleSection.locator('#auth-google-callback-url')).toHaveCount(0)
 	await expect(googleSection.locator('#auth-google-callback-copy')).toBeVisible()
 	await page.getByRole('button', { name: 'Discard', exact: true }).click()
+	await goToHydrated(page, '/en/admin/configuration/ai')
+	await expect(page.locator('#ai-routing-error')).toHaveCount(0)
+	await page.locator('#ai-routing-custom').click()
+	await expect(page.locator('#ai-routing-error')).toBeVisible()
 	await expect(page.getByRole('link', { name: 'Account / Security', exact: true })).toHaveCount(0)
 	const workerLogsLink = page.getByRole('link', { name: /Worker logs/ })
 	if (await workerLogsLink.count() > 0) {
@@ -320,13 +332,12 @@ async function verifyConfigurationTabs(page: Page): Promise<void> {
 
 async function verifyPaymentProductJourney(page: Page, concurrentPage: Page): Promise<void> {
 	await goToHydrated(page, '/en/admin/configuration/payment')
-	await page.getByRole('button', { name: 'Expand configuration', exact: true }).click()
 	await page.locator('#payment-dodo-webhook-url').locator('xpath=..').getByRole('button', { name: 'Copy', exact: true }).click()
 	await expect(page.getByText('Copied', { exact: true })).toBeVisible()
 	const dodoSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Dodo Payments', exact: true }) })
-	await dodoSection.getByRole('button', { name: 'Replace value', exact: true }).nth(0).click()
+	await dodoSection.getByRole('button', { name: 'Add value', exact: true }).first().click()
 	await page.locator('#payment-dodo-api-key').fill('browser-dodo-api-key')
-	await dodoSection.getByRole('button', { name: 'Replace value', exact: true }).nth(0).click()
+	await dodoSection.getByRole('button', { name: 'Add value', exact: true }).first().click()
 	await page.locator('#payment-dodo-webhook-secret').fill('browser-dodo-webhook-secret')
 	await page.getByRole('button', { name: 'Save', exact: true }).click()
 	await expect(page.getByText('Configuration saved', { exact: true })).toBeVisible()
@@ -366,6 +377,7 @@ async function verifyPaymentProductJourney(page: Page, concurrentPage: Page): Pr
 
 async function verifyAIProviderJourney(page: Page, concurrentPage: Page): Promise<void> {
 	await goToHydrated(page, '/en/admin/configuration/ai')
+	await page.locator('#ai-routing-custom').click()
 	await expect(page.locator('#ai-routing-error')).toBeVisible()
 	const routingErrorInput = page.locator('#ai-routing-error')
 	const routingErrorOriginal: string = await routingErrorInput.inputValue()

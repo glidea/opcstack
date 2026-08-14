@@ -3,8 +3,6 @@
 	import type { CreditsConfig } from '$apiContract/configuration'
 	import { ApiClientError, client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down'
-	import { Button } from '$frontend/ui/button'
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import { Skeleton } from '$frontend/ui/skeleton'
@@ -39,8 +37,6 @@
 	let dailyCheckinAmountError: string = $state('')
 	let retentionError: string = $state('')
 	let dirty: boolean = $state(false)
-	let signupExpanded: boolean = $state(false)
-	let dailyCheckinExpanded: boolean = $state(false)
 
 	function snapshot(): string {
 		return JSON.stringify({ signupEnabled, signupAmount, dailyCheckinEnabled, dailyCheckinAmount, historyRetentionDays })
@@ -56,8 +52,6 @@
 		savedSnapshot = snapshot()
 		error = ''
 		conflict = false
-		signupExpanded = config.signup_enabled
-		dailyCheckinExpanded = config.daily_checkin_enabled
 	}
 
 	function validCreditAmount(value: string): boolean {
@@ -120,20 +114,20 @@
 {:else}
 	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
-		<ConfigurationSection title={$_('admin.configuration.credits.signup')}>
-			<div class="flex items-center justify-between gap-3"><Field.Field orientation="horizontal" class="flex-1"><Field.Label for="credits-signup-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="credits-signup-enabled" bind:checked={signupEnabled} /></Field.Field><Button type="button" size="icon-sm" variant="ghost" onclick={() => (signupExpanded = !signupExpanded)} aria-label={signupExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={signupExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}><ChevronDownIcon class={signupExpanded ? 'rotate-180' : ''} /></Button></div>
-			{#if signupEnabled || signupExpanded}
-				<Field.Field data-invalid={signupAmountError !== ''}><Field.Label for="credits-signup-amount">{$_('admin.configuration.credits.amount')}</Field.Label><Input id="credits-signup-amount" inputmode="decimal" bind:value={signupAmount} aria-invalid={signupAmountError !== ''} /><Field.Error>{signupAmountError}</Field.Error></Field.Field>
+		<ConfigurationSection title={$_('admin.configuration.credits.signup')} description={$_('admin.configuration.credits.signupDescription')}>
+			<Field.Field orientation="horizontal"><Field.Label for="credits-signup-enabled">{$_('admin.configuration.credits.signupAction')}</Field.Label><Switch id="credits-signup-enabled" bind:checked={signupEnabled} /></Field.Field>
+			{#if signupEnabled}
+				<Field.Field data-invalid={signupAmountError !== ''}><Field.Label for="credits-signup-amount">{$_('admin.configuration.credits.amount')}</Field.Label><Input id="credits-signup-amount" class="max-w-48" inputmode="decimal" bind:value={signupAmount} aria-invalid={signupAmountError !== ''} /><Field.Error>{signupAmountError}</Field.Error></Field.Field>
 			{/if}
 		</ConfigurationSection>
-		<ConfigurationSection title={$_('admin.configuration.credits.dailyCheckin')}>
-			<div class="flex items-center justify-between gap-3"><Field.Field orientation="horizontal" class="flex-1"><Field.Label for="credits-checkin-enabled">{$_('admin.configuration.enabled')}</Field.Label><Switch id="credits-checkin-enabled" bind:checked={dailyCheckinEnabled} /></Field.Field><Button type="button" size="icon-sm" variant="ghost" onclick={() => (dailyCheckinExpanded = !dailyCheckinExpanded)} aria-label={dailyCheckinExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')} title={dailyCheckinExpanded ? $_('admin.configuration.collapse') : $_('admin.configuration.expand')}><ChevronDownIcon class={dailyCheckinExpanded ? 'rotate-180' : ''} /></Button></div>
-			{#if dailyCheckinEnabled || dailyCheckinExpanded}
-				<Field.Field data-invalid={dailyCheckinAmountError !== ''}><Field.Label for="credits-checkin-amount">{$_('admin.configuration.credits.amount')}</Field.Label><Input id="credits-checkin-amount" inputmode="decimal" bind:value={dailyCheckinAmount} aria-invalid={dailyCheckinAmountError !== ''} /><Field.Error>{dailyCheckinAmountError}</Field.Error></Field.Field>
+		<ConfigurationSection title={$_('admin.configuration.credits.dailyCheckin')} description={$_('admin.configuration.credits.dailyCheckinDescription')}>
+			<Field.Field orientation="horizontal"><Field.Label for="credits-checkin-enabled">{$_('admin.configuration.credits.dailyCheckinAction')}</Field.Label><Switch id="credits-checkin-enabled" bind:checked={dailyCheckinEnabled} /></Field.Field>
+			{#if dailyCheckinEnabled}
+				<Field.Field data-invalid={dailyCheckinAmountError !== ''}><Field.Label for="credits-checkin-amount">{$_('admin.configuration.credits.amount')}</Field.Label><Input id="credits-checkin-amount" class="max-w-48" inputmode="decimal" bind:value={dailyCheckinAmount} aria-invalid={dailyCheckinAmountError !== ''} /><Field.Error>{dailyCheckinAmountError}</Field.Error></Field.Field>
 			{/if}
 		</ConfigurationSection>
-		<ConfigurationSection title={$_('admin.configuration.credits.history')}>
-			<Field.Field data-invalid={retentionError !== ''}><Field.Label for="credits-retention">{$_('admin.configuration.credits.retention')}</Field.Label><Input id="credits-retention" type="number" min="1" inputmode="numeric" bind:value={historyRetentionDays} aria-invalid={retentionError !== ''} /><Field.Error>{retentionError}</Field.Error></Field.Field>
+		<ConfigurationSection title={$_('admin.configuration.credits.history')} description={$_('admin.configuration.credits.historyDescription')}>
+			<Field.Field data-invalid={retentionError !== ''}><Field.Label for="credits-retention">{$_('admin.configuration.credits.retention')}</Field.Label><Input id="credits-retention" class="max-w-48" type="number" min="1" inputmode="numeric" bind:value={historyRetentionDays} aria-invalid={retentionError !== ''} /><Field.Error>{retentionError}</Field.Error></Field.Field>
 		</ConfigurationSection>
 		<ConfigurationActions {dirty} {saving} onSave={saveConfig} onDiscard={discardChanges} />
 	</form>

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
 	buildSecretMutation,
+	createCountryOptions,
 	createConfigurationNavigation,
 	createEditorState,
+	getAIRoutingPreset,
+	getAIRoutingWeights,
 	dispatchConfigurationEditorState,
 	isConfigurationConflict,
 	markEditorSaved,
@@ -145,5 +148,27 @@ describe('configuration validation', () => {
 			resendApiKeyAction: 'keep',
 			resendApiKeyValue: ''
 		})).toEqual({})
+	})
+})
+
+describe('AI routing presets', () => {
+	it('maps business presets to concrete router weights', () => {
+		expect(getAIRoutingWeights('balanced')).toEqual({ error: 1, latency: 0.8, price: 0.2 })
+		expect(getAIRoutingWeights('reliability')).toEqual({ error: 1, latency: 0.25, price: 0.1 })
+		expect(getAIRoutingWeights('speed')).toEqual({ error: 0.25, latency: 1, price: 0.1 })
+		expect(getAIRoutingWeights('cost')).toEqual({ error: 0.25, latency: 0.25, price: 1 })
+	})
+
+	it('recognizes known weights and preserves unknown weights as custom', () => {
+		expect(getAIRoutingPreset({ error: 1, latency: 0.8, price: 0.2 })).toBe('balanced')
+		expect(getAIRoutingPreset({ error: 0.7, latency: 0.4, price: 0.3 })).toBe('custom')
+	})
+})
+
+describe('country options', () => {
+	it('exposes localized country names instead of requiring ISO codes', () => {
+		const options = createCountryOptions('en')
+		expect(options).toContainEqual({ code: 'CN', name: 'China' })
+		expect(options.some((option): boolean => option.code === 'ZZ')).toBe(false)
 	})
 })

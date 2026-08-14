@@ -347,7 +347,7 @@ For more detail, inspect `src/backend/consumers/`, `src/backend/jobs/`, and `scr
 - Put i18n messages in `src/frontend/lib/i18n/messages/`.
 - Set page title, description, and canonical in `<svelte:head>`.
 - Canonical URLs use `APP_DOMAIN` and must not point business pages to the OPCStack website.
-- Active style is controlled by the General domain in Meta D1. Valid values are `apple-saas` and `brutalism`.
+- Active style is controlled only by fixed public env config `DESIGN_SYSTEM`. Valid values are `apple-saas` and `brutalism`; changing it requires a new build and deployment.
 - Concrete colors, radii, typography sizes, and animations live in `src/frontend/lib/styles/app.css`.
 - Use semantic tokens such as `bg-primary`, `text-muted-foreground`, and `border-input`.
 - The product landing page uses warm paper, graphite, solid orange, and muted green surfaces. Treat the real runtime architecture as a branded visual object, keep pricing to verified cost facts and official sources, and avoid pricing matrices, decorative gradients, or glass effects.

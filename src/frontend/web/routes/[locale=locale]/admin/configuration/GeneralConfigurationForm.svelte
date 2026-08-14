@@ -86,7 +86,7 @@
 {:else}
 	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
-		<ConfigurationSection title={$_('admin.configuration.general.documentation')}>
+		<ConfigurationSection title={$_('admin.configuration.general.documentation')} description={$_('admin.configuration.general.documentationDescription')}>
 			<Field.Field orientation="horizontal">
 				<div class="flex items-center gap-1">
 					<Field.Label for="configuration-docs-enabled">{$_('admin.configuration.general.docsEnabled')}</Field.Label>

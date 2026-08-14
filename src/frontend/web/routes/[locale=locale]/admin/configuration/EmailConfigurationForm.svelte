@@ -84,11 +84,11 @@
 {:else}
 	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
-		<ConfigurationSection title={$_('admin.configuration.email.delivery')}>
+		<ConfigurationSection title={$_('admin.configuration.email.delivery')} description={$_('admin.configuration.email.deliveryDescription')}>
 			<Field.Field data-invalid={fieldError('provider') !== ''}>
 				<Field.Label for="email-provider">{$_('admin.configuration.email.provider')}</Field.Label>
 				<Select.Root type="single" bind:value={provider}>
-					<Select.Trigger id="email-provider" class="w-full" aria-invalid={fieldError('provider') !== ''}><span>{$_(`admin.configuration.email.providers.${provider}`)}</span></Select.Trigger>
+					<Select.Trigger id="email-provider" class="max-w-sm" aria-invalid={fieldError('provider') !== ''}><span>{$_(`admin.configuration.email.providers.${provider}`)}</span></Select.Trigger>
 					<Select.Content><Select.Item value="none">{$_('admin.configuration.email.providers.none')}</Select.Item><Select.Item value="cloudflare">{$_('admin.configuration.email.providers.cloudflare')}</Select.Item><Select.Item value="resend">Resend</Select.Item></Select.Content>
 				</Select.Root>
 				<Field.Error>{fieldError('provider')}</Field.Error>

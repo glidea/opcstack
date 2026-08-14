@@ -37,15 +37,14 @@
 	}
 </script>
 
-<Field.Field data-invalid={error !== ''}>
-	<div class="flex items-center justify-between gap-3">
-		<Field.Label for={`${id}-action`}>{label}</Field.Label>
-		<span class="text-sm text-muted-foreground">{configured ? $_('admin.configuration.secret.configured') : $_('admin.configuration.secret.notConfigured')}</span>
-	</div>
+<Field.Field class="max-w-md" data-invalid={error !== ''}>
+	<Field.Label for={`${id}-action`}>{label}</Field.Label>
 	{#if action === 'keep'}
-		<div class="flex flex-wrap gap-2">
-			<Button type="button" size="sm" variant="outline" onclick={replaceSecret}>{$_('admin.configuration.secret.replace')}</Button>
+		<div class="flex min-h-9 flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-3 py-1.5">
+			<span class="text-sm text-muted-foreground">{configured ? $_('admin.configuration.secret.configured') : $_('admin.configuration.secret.notConfigured')}</span>
+			<div class="flex items-center gap-1"><Button type="button" size="sm" variant="ghost" onclick={replaceSecret}>{configured ? $_('admin.configuration.secret.replace') : $_('admin.configuration.secret.add')}</Button>
 			{#if configured}<Button type="button" size="sm" variant="ghost" onclick={removeSecret}>{$_('admin.configuration.secret.remove')}</Button>{/if}
+			</div>
 		</div>
 	{:else if action === 'remove'}
 		<div class="flex items-center justify-between gap-3 border border-destructive/40 bg-destructive/5 px-3 py-2">

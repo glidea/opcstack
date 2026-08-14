@@ -112,32 +112,7 @@ async function main() {
 			workspace,
 			viteLogPath
 		)
-		secondWorkerLogPath = join(temporaryRoot, 'second-worker.log')
-		secondWorker = await startServer(
-			'pnpm',
-			[
-				'exec',
-				'wrangler',
-				'dev',
-				'--env-file',
-				'.wrangler/runtime-secrets.env',
-				'--port',
-				'8788',
-				'--inspector-port',
-				'9231'
-			],
-			secondWorkspace,
-			secondWorkerLogPath
-		)
-		secondViteLogPath = join(temporaryRoot, 'second-vite.log')
-		secondVite = await startServer(
-			'pnpm',
-			['exec', 'vite', 'dev', '--mode', 'dev', '--port', '5174', '--strictPort'],
-			secondWorkspace,
-			secondViteLogPath
-		)
 		await waitForHealth('http://localhost:5173/api/health')
-		await waitForHealth('http://localhost:5174/api/health')
 
 		const nextPassword = randomBytes(24).toString('base64url')
 		const initialEnvironment = {
@@ -169,6 +144,31 @@ async function main() {
 			E2E_ADMIN_EMAIL: credentials.email,
 			E2E_ADMIN_PASSWORD: nextPassword
 		})
+		secondWorkerLogPath = join(temporaryRoot, 'second-worker.log')
+		secondWorker = await startServer(
+			'pnpm',
+			[
+				'exec',
+				'wrangler',
+				'dev',
+				'--env-file',
+				'.wrangler/runtime-secrets.env',
+				'--port',
+				'8788',
+				'--inspector-port',
+				'9231'
+			],
+			secondWorkspace,
+			secondWorkerLogPath
+		)
+		secondViteLogPath = join(temporaryRoot, 'second-vite.log')
+		secondVite = await startServer(
+			'pnpm',
+			['exec', 'vite', 'dev', '--mode', 'dev', '--port', '5174', '--strictPort'],
+			secondWorkspace,
+			secondViteLogPath
+		)
+		await waitForHealth('http://localhost:5174/api/health')
 		await runVisible(
 			'pnpm',
 			['exec', 'vitest', '--config', 'vitest.e2e.config.ts', 'e2e/opc-cli.test.ts'],

@@ -6,12 +6,13 @@
 	import * as Field from '$frontend/ui/field'
 	import { Input } from '$frontend/ui/input'
 	import { Skeleton } from '$frontend/ui/skeleton'
+	import * as ToggleGroup from '$frontend/ui/toggle-group'
 	import { toast } from 'svelte-sonner'
 	import ConfigurationActions from './ConfigurationActions.svelte'
 	import ConfigurationLoadError from './ConfigurationLoadError.svelte'
 	import ConfigurationSection from './ConfigurationSection.svelte'
 	import ConfigurationSaveError from './ConfigurationSaveError.svelte'
-	import { dispatchConfigurationEditorState, focusFirstConfigurationError, isConfigurationConflict } from './configuration-page'
+	import { dispatchConfigurationEditorState, focusFirstConfigurationError, getAIRoutingPreset, getAIRoutingWeights, isConfigurationConflict, type AIRoutingPreset, type AIRoutingWeights } from './configuration-page'
 
 	type SavedAIForm = {
 		routingErrorWeight: string
@@ -24,6 +25,7 @@
 	let routingLatencyWeight: string = $state('')
 	let routingPriceWeight: string = $state('')
 	let taskRetentionDays: string = $state('')
+	let routingPreset: AIRoutingPreset = $state('balanced')
 	let version: number = $state(1)
 	let loaded: boolean = $state(false)
 	let saving: boolean = $state(false)
@@ -41,12 +43,22 @@
 		routingErrorWeight = String(config.routing_error_weight)
 		routingLatencyWeight = String(config.routing_latency_weight)
 		routingPriceWeight = String(config.routing_price_weight)
+		routingPreset = getAIRoutingPreset({ error: config.routing_error_weight, latency: config.routing_latency_weight, price: config.routing_price_weight })
 		taskRetentionDays = String(config.task_retention_days)
 		version = config.version
 		errors = {}
 		error = ''
 		conflict = false
 		savedSnapshot = snapshot()
+	}
+
+	function selectRoutingPreset(preset: AIRoutingPreset): void {
+		routingPreset = preset
+		const weights: AIRoutingWeights | null = getAIRoutingWeights(preset)
+		if (weights === null) return
+		routingErrorWeight = String(weights.error)
+		routingLatencyWeight = String(weights.latency)
+		routingPriceWeight = String(weights.price)
 	}
 
 	function validate(): boolean {
@@ -111,17 +123,29 @@
 {:else}
 	{#if error !== ''}<ConfigurationSaveError {error} {conflict} onRefresh={loadConfig} />{/if}
 	<form onsubmit={(event: SubmitEvent): void => { event.preventDefault(); void saveConfig() }}>
-		<ConfigurationSection title={$_('admin.configuration.ai.routing')}>
+		<ConfigurationSection title={$_('admin.configuration.ai.routing')} description={$_('admin.configuration.ai.routingDescription')}>
+			<Field.Field>
+				<Field.Label>{$_('admin.configuration.ai.routingPreset')}</Field.Label>
+				<ToggleGroup.Root type="single" value={routingPreset} variant="outline" class="grid w-full grid-cols-2 sm:grid-cols-5">
+					{#each ['balanced', 'reliability', 'speed', 'cost', 'custom'] as preset}
+						<ToggleGroup.Item id={`ai-routing-${preset}`} value={preset} class="min-w-0" onclick={() => selectRoutingPreset(preset as AIRoutingPreset)}>{$_(`admin.configuration.ai.presets.${preset}`)}</ToggleGroup.Item>
+					{/each}
+				</ToggleGroup.Root>
+				<Field.Description>{$_(`admin.configuration.ai.presetDescriptions.${routingPreset}`)}</Field.Description>
+			</Field.Field>
+			{#if routingPreset === 'custom'}
 			<Field.Field data-invalid={errors['routing'] !== undefined}>
 				<Field.Label>{$_('admin.configuration.ai.routingWeights')}</Field.Label>
-				<div class="grid gap-3 sm:grid-cols-3">
+				<div class="grid max-w-lg gap-3 sm:grid-cols-3">
 					<div class="space-y-1.5"><label class="text-xs text-muted-foreground" for="ai-routing-error">{$_('admin.configuration.ai.errorWeight')}</label><Input id="ai-routing-error" bind:value={routingErrorWeight} inputmode="decimal" autocomplete="off" aria-invalid={errors['routing'] !== undefined} /></div>
 					<div class="space-y-1.5"><label class="text-xs text-muted-foreground" for="ai-routing-latency">{$_('admin.configuration.ai.latencyWeight')}</label><Input id="ai-routing-latency" bind:value={routingLatencyWeight} inputmode="decimal" autocomplete="off" aria-invalid={errors['routing'] !== undefined} /></div>
 					<div class="space-y-1.5"><label class="text-xs text-muted-foreground" for="ai-routing-price">{$_('admin.configuration.ai.priceWeight')}</label><Input id="ai-routing-price" bind:value={routingPriceWeight} inputmode="decimal" autocomplete="off" aria-invalid={errors['routing'] !== undefined} /></div>
 				</div>
 				<Field.Error>{errors['routing'] ?? ''}</Field.Error>
-				<Field.Description>{$_('admin.configuration.ai.routingDescription')}</Field.Description>
 			</Field.Field>
+			{/if}
+		</ConfigurationSection>
+		<ConfigurationSection title={$_('admin.configuration.ai.taskHistory')} description={$_('admin.configuration.ai.retentionDescription')}>
 			<Field.Field data-invalid={errors['retention'] !== undefined}><Field.Label for="ai-task-retention">{$_('admin.configuration.ai.retention')}</Field.Label><Input id="ai-task-retention" class="max-w-48" bind:value={taskRetentionDays} inputmode="numeric" autocomplete="off" aria-invalid={errors['retention'] !== undefined} /><Field.Error>{errors['retention'] ?? ''}</Field.Error></Field.Field>
 		</ConfigurationSection>
 	</form>

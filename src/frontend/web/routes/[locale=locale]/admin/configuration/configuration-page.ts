@@ -31,6 +31,24 @@ export type ConfigurationNavigationDecision =
 	| { action: 'navigate' }
 	| { action: 'confirm'; href: string }
 
+export type AIRoutingPreset = 'balanced' | 'reliability' | 'speed' | 'cost' | 'custom'
+export type AIRoutingWeights = {
+	error: number
+	latency: number
+	price: number
+}
+export type CountryOption = {
+	code: string
+	name: string
+}
+
+const AI_ROUTING_PRESETS: Record<Exclude<AIRoutingPreset, 'custom'>, AIRoutingWeights> = {
+	balanced: { error: 1, latency: 0.8, price: 0.2 },
+	reliability: { error: 1, latency: 0.25, price: 0.1 },
+	speed: { error: 0.25, latency: 1, price: 0.1 },
+	cost: { error: 0.25, latency: 0.25, price: 1 }
+}
+
 export type AuthenticationFormValidationInput = {
 	googleEnabled: boolean
 	googleClientId: string
@@ -60,6 +78,33 @@ export function createConfigurationNavigation(locale: string): ConfigurationNavi
 	return CONFIGURATION_DOMAINS.map((domain: ConfigurationDomain): ConfigurationNavigationItem => {
 		return { id: domain, href: `/${locale}/admin/configuration/${domain}` }
 	})
+}
+
+export function getAIRoutingWeights(preset: AIRoutingPreset): AIRoutingWeights | null {
+	if (preset === 'custom') return null
+	return AI_ROUTING_PRESETS[preset]
+}
+
+export function getAIRoutingPreset(weights: AIRoutingWeights): AIRoutingPreset {
+	const presets: Exclude<AIRoutingPreset, 'custom'>[] = ['balanced', 'reliability', 'speed', 'cost']
+	for (const preset of presets) {
+		if (JSON.stringify(AI_ROUTING_PRESETS[preset]) === JSON.stringify(weights)) return preset
+	}
+	return 'custom'
+}
+
+export function createCountryOptions(locale: string): CountryOption[] {
+	const displayNames: Intl.DisplayNames = new Intl.DisplayNames([locale], { type: 'region' })
+	const unknownRegionName: string | undefined = displayNames.of('ZZ')
+	const options: CountryOption[] = []
+	for (let first: number = 65; first <= 90; first += 1) {
+		for (let second: number = 65; second <= 90; second += 1) {
+			const code: string = String.fromCharCode(first, second)
+			const name: string = displayNames.of(code) ?? code
+			if (name !== code && name !== unknownRegionName) options.push({ code, name })
+		}
+	}
+	return options.sort((left: CountryOption, right: CountryOption): number => left.name.localeCompare(right.name, locale))
 }
 
 export function isConfigurationDomain(value: string): value is ConfigurationDomain {
