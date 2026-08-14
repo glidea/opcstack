@@ -667,7 +667,7 @@ Payment Product 创建流程：
 
 #### AI
 
-AI Provider 统一使用完整 Type：`chat_openai`、`image_gemini`、`image_openai`、`image_seedream`、`image_aliyun`、`tts_gemini`、`tts_seed`、`realtime_doubao`、`video_seedance`。每个 Provider 行包含稳定 ID、名称、Type、模型列表、Base URL、API Key、价格系数和启用状态。同步与异步调用都从该集合选择执行端点。
+AI Provider 统一使用完整 Type：`chat_openai`、`image_gemini`、`image_openai`、`image_seedream`、`image_aliyun`、`tts_gemini`、`tts_seed`、`realtime_doubao`、`video_seedance`。每个 Provider 行包含服务端生成的稳定 ID、名称、Type、模型列表、Base URL、API Key、价格系数和启用状态。官方 Type 的 Base URL 由代码决定，兼容接口 Type 才接收管理员输入。同步与异步调用都从该集合选择执行端点。
 
 AI 通用设置：
 
@@ -815,9 +815,9 @@ Enabled                                           [Toggle]
 校验分两层：
 
 - 功能关闭时允许相关配置保持为空；一旦开始配置某个 Provider，该 Provider 的字段必须组成完整有效配置，不保存只有 Client ID、没有 Client Secret 的半条 Provider 配置
-- 功能开启时除了字段完整性，还校验运行时依赖，例如支付必须存在可用 Provider 和 Product，AI Provider 必须有 Base URL、Model 和 Credential
+- 功能开启时除了字段完整性，还校验运行时依赖，例如支付必须存在可用 Provider 和 Product，AI Provider 必须有 Model 和 Credential，兼容接口还必须有 Base URL
 
-保存时服务端完整校验展开区域的必填配置。缺少 Client ID、Client Secret、Base URL、Model、Product 或其他关联配置时拒绝整个保存，前端保持展开并在具体字段显示错误。
+保存时服务端完整校验展开区域的必填配置。缺少 Client ID、Client Secret、兼容接口 Base URL、Model、Product 或其他关联配置时拒绝整个保存，前端保持展开并在具体字段显示错误。
 
 关闭已经配置的功能时，配置区收起但不删除已保存字段。保存关闭状态后，运行时停止使用该功能；重新打开开关时恢复原配置和密钥的 `Configured` 状态。配置区标题提供独立展开操作，用户需要时可以在保持 `Enabled = false` 的情况下查看或修改已有配置。
 
@@ -1369,7 +1369,7 @@ sequenceDiagram
   participant Crypto as AES-GCM
 
   Agent->>CLI: Create image provider for shop-local
-  CLI->>API: Bearer access_token<br/>{id:"openai-official", type:"image_openai", name:"Official", base_url:"https://api.openai.com/v1", models:["gpt-image-1"], price_multiplier:1, api_key:"sk-...", enabled:true}
+  CLI->>API: Bearer access_token<br/>{type:"image_openai", name:"OpenAI compatible image", base_url:"https://api.openai.com/v1", models:["gpt-image-1"], price_multiplier:1, api_key:"sk-...", enabled:true}
   API->>Auth: Verify token audience, api_access, active Grant and user identity
   Auth->>Meta: Read Grant and user role
   Meta-->>Auth: active Grant, D1 administrator
@@ -1381,14 +1381,14 @@ sequenceDiagram
   Crypto-->>Config: ciphertext and IV
   Config->>Meta: INSERT ai_providers(..., api_key_ciphertext, api_key_iv, version=1)
   Meta-->>Config: Created row and bookmark
-  Config-->>API: {id:"openai-official", ..., api_key_configured:true, version:1}
+  Config-->>API: {id:"generated-uuid", ..., api_key_configured:true, version:1}
   API-->>CLI: 200 redacted provider + x-d1-meta-bookmark
   CLI->>API: Bearer access_token<br/>POST /api/admin/get_ai_config {}
   API-->>CLI: 200 AI config containing redacted provider version 1
   CLI-->>Agent: Configuration verified
 ```
 
-CLI 只能把 Token 发送到 `shop-local` 记录的同一 Origin。更新和删除 Provider 时必须提交该行的 `expected_version`；创建时由稳定 `id` 唯一约束阻止重复实体。
+CLI 只能把 Token 发送到 `shop-local` 记录的同一 Origin。更新和删除 Provider 时必须提交该行的 `expected_version`；创建时由服务端生成 ID，调用方不能指定内部身份。
 
 ### 3.5 Web 首屏读取公开配置
 
@@ -1615,10 +1615,10 @@ Migration 写入可见、可编辑的明确值，而不是运行时代码默认�
 
 | Field | D1 type | Constraints |
 | --- | --- | --- |
-| `id` | TEXT | PK，lowercase slug，创建后不可修改 |
+| `id` | TEXT | PK，服务端生成 UUID，创建后不可修改 |
 | `name` | TEXT | NOT NULL，非空 |
 | `type` | TEXT | 代码声明的完整 Provider Type |
-| `base_url` | TEXT | NOT NULL，合法 URL |
+| `base_url` | TEXT | 官方实现为 NULL 并使用代码内置地址；OpenAI 兼容实现保存管理员提交的合法 URL |
 | `models` | TEXT JSON | 非空唯一 `string[]` |
 | `price_multiplier` | REAL | `> 0` |
 | `api_key_ciphertext` | TEXT | NOT NULL |
@@ -1628,7 +1628,7 @@ Migration 写入可见、可编辑的明确值，而不是运行时代码默认�
 | `created_at` | INTEGER | NOT NULL |
 | `updated_at` | INTEGER | NOT NULL |
 
-索引为 `(enabled, type)`。Provider 是一个完整执行端点，不能保存无密钥的半条记录；替换密钥使用 `keep` 或 `replace`，删除密钥等价于删除 Provider，不提供 `remove` 动作。
+索引为 `(enabled, type)`。Provider 是一个完整执行端点，不能保存无密钥的半条记录；替换密钥使用 `keep` 或 `replace`，删除密钥等价于删除 Provider，不提供 `remove` 动作。创建接口不接收 ID。官方实现的 Base URL 由运行时代码按 Type 解析，D1 不保存副本，管理端也不展示输入框；只有 OpenAI 兼容实现接收并保存自定义 Base URL。
 
 Tenant Shard 的 `ai_provider_metric_buckets.provider_id` 保存 Provider ID，不建立跨 D1 外键。Image、TTS 和 Video 任务使用 `provider_type` 表示调用要求，使用 `provider_id` 表示本次执行选中的具体 Provider。Video 额外保存 `provider_started_at` 和 `failed_provider_ids_json`。删除 Provider 后旧指标自然停止参与候选查询，并由现有保留任务清理。
 
@@ -1843,7 +1843,7 @@ type AIProviderView = {
 	id: string
 	name: string
 	type: 'chat_openai' | 'image_gemini' | 'image_openai' | 'image_seedream' | 'image_aliyun' | 'tts_gemini' | 'tts_seed' | 'realtime_doubao' | 'video_seedance'
-	base_url: string
+	base_url: string | null
 	models: string[]
 	price_multiplier: number
 	api_key_configured: true
@@ -1857,11 +1857,11 @@ type AIProviderView = {
 | `POST /api/admin/create_payment_product` | `PaymentProductView` 去掉 `version` | `PaymentProductView` | `config:payment:write` |
 | `POST /api/admin/update_payment_product` | 全部可编辑字段 + `product_id` + `expected_version` | `PaymentProductView` | `config:payment:write` |
 | `POST /api/admin/delete_payment_product` | `{product_id, expected_version}` | `{product_id}` | `config:payment:write` |
-| `POST /api/admin/create_ai_provider` | `AIProviderView` 去掉 `api_key_configured/version`，增加明文 `api_key` | `AIProviderView` | `config:ai:write` |
+| `POST /api/admin/create_ai_provider` | `AIProviderView` 去掉 `id/api_key_configured/version`，`base_url` 可空，增加明文 `api_key` | `AIProviderView` | `config:ai:write` |
 | `POST /api/admin/update_ai_provider` | 全部可编辑字段 + `id` + `expected_version` + `api_key: keep | replace` | `AIProviderView` | `config:ai:write` |
 | `POST /api/admin/delete_ai_provider` | `{id, expected_version}` | `{id}` | `config:ai:write` |
 
-Product ID 和 Provider ID 只在 Create 接口提交一次，Update 不允许改名。所有成功写入返回 bookmark；前端用返回实体替换对应行，不重新读取整个业务域。
+Product ID 和 Provider ID 都由服务端创建，管理端不显示也不接收内部 ID。Update 使用返回实体中的 ID 定位目标。所有成功写入返回 bookmark；前端用返回实体替换对应行，不重新读取整个业务域。
 
 ### 4.10 OAuth 协议接口
 

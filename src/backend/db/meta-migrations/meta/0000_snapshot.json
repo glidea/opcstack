@@ -131,7 +131,7 @@
           "name": "base_url",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "models": {

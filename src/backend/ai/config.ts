@@ -68,22 +68,22 @@ export interface UpdateAIConfigInput {
 	nowMs: number
 }
 
-export interface WriteAIProviderInput {
-	id: string
+export interface WriteAIProviderFields {
 	name: string
 	type: AIProviderType
-	baseUrl: string
+	baseUrl: string | null
 	models: string[]
 	priceMultiplier: number
 	enabled: boolean
 	nowMs: number
 }
 
-export interface CreateAIProviderInput extends WriteAIProviderInput {
+export interface CreateAIProviderInput extends WriteAIProviderFields {
 	apiKey: string
 }
 
-export interface UpdateAIProviderInput extends WriteAIProviderInput {
+export interface UpdateAIProviderInput extends WriteAIProviderFields {
+	id: string
 	apiKey: Exclude<SecretMutation, { action: 'remove' }>
 	expectedVersion: number
 }
@@ -163,7 +163,7 @@ export async function getAIRuntimeConfig(
 			models: provider.models,
 			priceMultiplier: provider.priceMultiplier,
 			endpoint: {
-				baseURL: provider.baseUrl,
+				baseURL: resolveAIProviderBaseUrl(type, provider.baseUrl),
 				apiKey: await decryptConfigSecret(encryptionKey, {
 					ciphertext: provider.apiKeyCiphertext,
 					iv: provider.apiKeyIv
@@ -216,17 +216,20 @@ export async function createAIProvider(
 	encryptionKey: string,
 	input: CreateAIProviderInput
 ): Promise<AIProviderRow> {
-	parseAIProviderFields(input)
+	const fields: z.infer<typeof AIProviderFieldsSchema> = parseAIProviderFields({
+		...input,
+		id: crypto.randomUUID()
+	})
 	const encrypted = await encryptConfigSecret(encryptionKey, input.apiKey)
 	const rows: AIProviderRow[] = await db
 		.insert(aiProvider)
 		.values({
-			id: input.id,
-			name: input.name,
-			type: input.type,
-			baseUrl: input.baseUrl,
-			models: input.models,
-			priceMultiplier: input.priceMultiplier,
+			id: fields.id,
+			name: fields.name,
+			type: fields.type,
+			baseUrl: fields.baseUrl,
+			models: fields.models,
+			priceMultiplier: fields.priceMultiplier,
 			apiKeyCiphertext: encrypted.ciphertext,
 			apiKeyIv: encrypted.iv,
 			enabled: input.enabled,
@@ -248,7 +251,9 @@ export async function updateAIProvider(
 	encryptionKey: string,
 	input: UpdateAIProviderInput
 ): Promise<AIProviderRow> {
-	parseAIProviderFields(input)
+	const fields: z.infer<typeof AIProviderFieldsSchema> = parseAIProviderFields({
+		...input
+	})
 	const current: AIProviderRow | undefined = await db.query.aiProvider.findFirst({
 		where: eq(aiProvider.id, input.id)
 	})
@@ -265,11 +270,11 @@ export async function updateAIProvider(
 	const rows: AIProviderRow[] = await db
 		.update(aiProvider)
 		.set({
-			name: input.name,
-			type: input.type,
-			baseUrl: input.baseUrl,
-			models: input.models,
-			priceMultiplier: input.priceMultiplier,
+			name: fields.name,
+			type: fields.type,
+			baseUrl: fields.baseUrl,
+			models: fields.models,
+			priceMultiplier: fields.priceMultiplier,
 			apiKeyCiphertext: encrypted.ciphertext,
 			apiKeyIv: encrypted.iv,
 			enabled: input.enabled,
@@ -318,10 +323,56 @@ function parseAISettings(value: unknown): AISettingsDocument {
 function parseAIProviderFields(value: unknown): z.infer<typeof AIProviderFieldsSchema> {
 	const result: z.ZodSafeParseResult<z.infer<typeof AIProviderFieldsSchema>> =
 		AIProviderFieldsSchema.safeParse(value)
-	if (!result.success || new Set(result.data.models).size !== result.data.models.length) {
+	if (
+		!result.success ||
+		new Set(result.data.models).size !== result.data.models.length ||
+		!isValidAIProviderBaseUrl(result.data.type, result.data.baseUrl)
+	) {
 		throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
 	}
 	return result.data
+}
+
+function resolveAIProviderBaseUrl(type: AIProviderType, baseUrl: string | null): string {
+	switch (type) {
+		case 'chat_openai':
+		case 'image_openai':
+			if (baseUrl === null) {
+				throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
+			}
+			return baseUrl
+		case 'image_gemini':
+		case 'tts_gemini':
+			if (baseUrl !== null) throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
+			return 'https://generativelanguage.googleapis.com'
+		case 'image_seedream':
+		case 'video_seedance':
+			if (baseUrl !== null) throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
+			return 'https://ark.cn-beijing.volces.com/api/v3'
+		case 'image_aliyun':
+			if (baseUrl !== null) throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
+			return 'https://dashscope.aliyuncs.com/api/v1'
+		case 'tts_seed':
+		case 'realtime_doubao':
+			if (baseUrl !== null) throw new AIConfigError('AI_PROVIDER_CONFIG_INVALID')
+			return 'https://openspeech.bytedance.com/api/v3'
+	}
+}
+
+function isValidAIProviderBaseUrl(type: AIProviderType, baseUrl: string | null): boolean {
+	switch (type) {
+		case 'chat_openai':
+		case 'image_openai':
+			return baseUrl !== null
+		case 'image_gemini':
+		case 'image_seedream':
+		case 'image_aliyun':
+		case 'tts_gemini':
+		case 'tts_seed':
+		case 'realtime_doubao':
+		case 'video_seedance':
+			return baseUrl === null
+	}
 }
 
 function aiConfigErrorMessage(code: AIConfigErrorCode): string {
@@ -358,7 +409,7 @@ const AIProviderFieldsSchema = z.object({
 	id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
 	name: z.string().trim().min(1),
 	type: AIProviderTypeSchema,
-	baseUrl: z.string().url(),
+	baseUrl: z.string().url().nullable(),
 	models: z.array(z.string().trim().min(1)).min(1),
 	priceMultiplier: z.number().positive().finite()
 })

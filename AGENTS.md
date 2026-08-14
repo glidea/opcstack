@@ -303,6 +303,7 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 - Use a single R2 bucket by default.
 - Payment settings, provider credentials, country routing, and products are read from Meta D1. Enabled providers are Dodo and Creem via `src/backend/payment/`.
 - AI providers live under `src/backend/ai/`; async AI queue payloads carry only task id and user id.
+- Official AI Provider types store a null Base URL and resolve their fixed endpoint in code. Only OpenAI-compatible types persist an administrator-provided Base URL.
 - Every AI execution targets one Provider Type and model. The configuration module filters enabled `ai_providers` by `type + model`; Provider Router only ranks that candidate list using Tenant Shard metrics and D1 routing weights.
 - Image and TTS may try ranked Providers within one queue attempt. Video selects a Provider only when creating a remote task and polls that task through the persisted Provider ID until the provider reports a terminal failure.
 - Provider implementations receive an explicit endpoint and never perform routing or retry another Provider themselves.

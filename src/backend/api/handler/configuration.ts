@@ -490,7 +490,6 @@ export async function createAIProviderHandler(ctx: Context<ApiEnv>): Promise<Res
 			ctx.get('metaDb'),
 			ctx.env.CONFIG_ENCRYPTION_KEY,
 			{
-				id: request.data.id,
 				name: request.data.name,
 				type: request.data.type,
 				baseUrl: request.data.base_url,

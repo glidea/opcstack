@@ -32,6 +32,50 @@ describe('AI D1 configuration', (): void => {
 		).rejects.toEqual(new AIConfigError('AI_PROVIDER_CONFIG_INVALID'))
 	})
 
+	test('generates provider ID without storing a copy of the official endpoint', async (): Promise<void> => {
+		let inserted: Partial<AIProvider> | undefined
+		const db: MetaDb = {
+			insert: (): Record<string, unknown> => ({
+				values: (values: Partial<AIProvider>): Record<string, unknown> => {
+					inserted = values
+					return {
+						onConflictDoNothing: (): Record<string, unknown> => ({
+							returning: async (): Promise<AIProvider[]> => [values as AIProvider]
+						})
+					}
+				}
+			})
+		} as unknown as MetaDb
+
+		await createAIProvider(db, createEncryptionKey(), {
+			name: 'Google Gemini image',
+			type: 'image_gemini',
+			baseUrl: null,
+			models: ['gemini-2.5-flash-image'],
+			priceMultiplier: 1,
+			apiKey: 'provider-secret',
+			enabled: true,
+			nowMs: 1000
+		} as Parameters<typeof createAIProvider>[2])
+
+		expect({
+			id: inserted?.id,
+			baseUrl: inserted?.baseUrl
+		}).toEqual({
+			id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+			baseUrl: null
+		})
+	})
+
+	test('requires a base URL for OpenAI-compatible providers', async (): Promise<void> => {
+		await expect(
+			createAIProvider({} as MetaDb, createEncryptionKey(), {
+				...createProviderInput('provider-secret'),
+				baseUrl: null
+			} as Parameters<typeof createAIProvider>[2])
+		).rejects.toEqual(new AIConfigError('AI_PROVIDER_CONFIG_INVALID'))
+	})
+
 	test('encrypts a provider credential before inserting it', async (): Promise<void> => {
 		let inserted: Partial<AIProvider> | undefined
 		const db: MetaDb = {

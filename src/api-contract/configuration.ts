@@ -382,7 +382,7 @@ export const AIProviderSchema = z.object({
 	id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
 	name: z.string().min(1),
 	type: AIProviderTypeSchema,
-	base_url: z.string().url(),
+	base_url: z.string().url().nullable(),
 	models: z.array(z.string().min(1)).min(1),
 	price_multiplier: z.number().positive(),
 	api_key_configured: z.literal(true),
@@ -411,21 +411,26 @@ export const UpdateAIConfigRequestSchema = z.object({
 })
 export type UpdateAIConfigRequest = z.infer<typeof UpdateAIConfigRequestSchema>
 
-const AIProviderWriteFieldsSchema = AIProviderSchema.omit({
-	api_key_configured: true,
-	version: true
-})
+const AIProviderWriteFieldsSchema = z.object({
+	name: z.string().trim().min(1),
+	type: AIProviderTypeSchema,
+	base_url: z.string().url().nullable(),
+	models: z.array(z.string().trim().min(1)).min(1),
+	price_multiplier: z.number().positive(),
+	enabled: z.boolean()
+}).strict()
 export const CreateAIProviderRequestSchema = AIProviderWriteFieldsSchema.extend({
 	api_key: z.string().min(1)
-})
+}).strict()
 export type CreateAIProviderRequest = z.infer<typeof CreateAIProviderRequestSchema>
 export const UpdateAIProviderRequestSchema = AIProviderWriteFieldsSchema.extend({
+	id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
 	api_key: z.discriminatedUnion('action', [
 		z.object({ action: z.literal('keep') }),
 		z.object({ action: z.literal('replace'), value: z.string().min(1) })
 	]),
 	expected_version: z.number().int().min(1)
-})
+}).strict()
 export type UpdateAIProviderRequest = z.infer<typeof UpdateAIProviderRequestSchema>
 export const DeleteAIProviderRequestSchema = z.object({
 	id: z.string().min(1),

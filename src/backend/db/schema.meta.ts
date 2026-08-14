@@ -171,7 +171,7 @@ export const aiProvider = sqliteTable(
 		id: text('id').primaryKey(),
 		name: text('name').notNull(),
 		type: text('type').notNull(),
-		baseUrl: text('base_url').notNull(),
+		baseUrl: text('base_url'),
 		models: text('models', { mode: 'json' }).$type<string[]>().notNull(),
 		priceMultiplier: real('price_multiplier').notNull(),
 		apiKeyCiphertext: text('api_key_ciphertext').notNull(),

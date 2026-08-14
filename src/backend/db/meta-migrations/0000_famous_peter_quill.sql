@@ -16,7 +16,7 @@ CREATE TABLE `ai_providers` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`type` text NOT NULL,
-	`base_url` text NOT NULL,
+	`base_url` text,
 	`models` text NOT NULL,
 	`price_multiplier` real NOT NULL,
 	`api_key_ciphertext` text NOT NULL,
