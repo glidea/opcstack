@@ -22,7 +22,7 @@
 	import { _ } from '$frontend/i18n'
 	import { buttonVariants } from '$frontend/ui/button'
 	import * as Sidebar from '$frontend/ui/sidebar'
-	import { createAdminNavigation, type AdminNavigationItem, type AdminSection } from './admin-navigation'
+	import { createAdminNavigation, type AdminNavigationItem, type AdminSection } from './navigation'
 
 	type AdminLayoutData = {
 		locale: string

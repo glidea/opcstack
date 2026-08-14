@@ -3,7 +3,7 @@
 	import type {
 		ListAdminUsersResponse,
 		ListAdminUsersResponseItem
-	} from '$apiContract/admin-users'
+	} from '$apiContract/users'
 	import { _ } from '$frontend/i18n'
 	import { Button } from '$frontend/ui/button'
 	import * as Command from '$frontend/ui/command'
@@ -15,7 +15,7 @@
 	import {
 		findAdminUserById,
 		formatAdminUserIdentity
-	} from './admin-user-picker'
+	} from './user-picker'
 
 	type UserSearchState =
 		| { status: 'idle'; users: ListAdminUsersResponseItem[] }

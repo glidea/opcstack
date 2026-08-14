@@ -23,10 +23,10 @@
 	import TicketIcon from '@lucide/svelte/icons/ticket'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
-	import AdminAdvancedFilters from '../AdminAdvancedFilters.svelte'
-	import AdminUserReference from '../AdminUserReference.svelte'
-	import AdminUserPicker from '../AdminUserPicker.svelte'
-	import { formatCreditAmount } from '../admin-presentation'
+	import AdvancedFilters from '../AdvancedFilters.svelte'
+	import UserReference from '../UserReference.svelte'
+	import UserPicker from '../UserPicker.svelte'
+	import { formatCreditAmount } from '../presentation'
 	import GenerateCreditCodesDialog from './GenerateCreditCodesDialog.svelte'
 	import { createCreditCodeSearchParams, getCreditCodeStatusVariant, parseCreditCodeListQuery } from './credit-codes-page'
 
@@ -207,7 +207,7 @@
 				<Field.Label for="credit-code-filter">{$_('admin.creditCodes.code')}</Field.Label>
 				<Input id="credit-code-filter" bind:value={codeInput} autocomplete="off" placeholder={$_('admin.creditCodes.codePlaceholder')} />
 			</Field.Field>
-			<AdminUserPicker id="credit-user-filter" label={$_('admin.creditCodes.claimedBy')} bind:value={claimedByInput} />
+			<UserPicker id="credit-user-filter" label={$_('admin.creditCodes.claimedBy')} bind:value={claimedByInput} />
 			<Field.Field>
 				<Field.Label for="credit-status-filter">{$_('admin.creditCodes.status')}</Field.Label>
 				<Select.Root type="single" bind:value={statusInput}>
@@ -229,7 +229,7 @@
 				{/if}
 			</div>
 		</div>
-		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-5">
+		<AdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-5">
 			<Field.Field>
 				<Field.Label for="credit-amount-filter">{$_('admin.creditCodes.amount')}</Field.Label>
 				<Input id="credit-amount-filter" bind:value={amountInput} inputmode="decimal" autocomplete="off" placeholder="10" />
@@ -250,7 +250,7 @@
 				<Field.Label for="credit-expires-end">{$_('admin.creditCodes.expiresEnd')}</Field.Label>
 				<Input id="credit-expires-end" bind:value={expiresEndInput} type="date" />
 			</Field.Field>
-		</AdminAdvancedFilters>
+		</AdvancedFilters>
 	</form>
 
 	{#if listState.status === 'error'}
@@ -301,7 +301,7 @@
 								<Table.Cell>{formatCreditAmount(item.amount, data.locale)}</Table.Cell>
 								<Table.Cell><Badge variant={getCreditCodeStatusVariant(item.status)}>{statusLabel(item.status)}</Badge></Table.Cell>
 								<Table.Cell>
-									{#if item.claimed_by}<AdminUserReference userId={item.claimed_by} href={userHref(item)} />{:else}{$_('admin.common.none')}{/if}
+									{#if item.claimed_by}<UserReference userId={item.claimed_by} href={userHref(item)} />{:else}{$_('admin.common.none')}{/if}
 								</Table.Cell>
 								<Table.Cell>{formatDate(item.claimed_at)}</Table.Cell>
 								<Table.Cell>{formatDate(item.granted_at)}</Table.Cell>

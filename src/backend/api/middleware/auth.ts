@@ -1,9 +1,9 @@
 import type { Context, MiddlewareHandler } from 'hono'
 import type { ApiEnv } from '..'
 import { authCore } from '../auth'
-import { OAUTH_API_CLIENT_ID, getOAuthGrant } from '../../oauth-api-access'
+import { OAUTH_API_CLIENT_ID, getOAuthGrant } from '../auth/oauth-api-access'
 import { getAuthRuntimeConfig, type AuthRuntimeConfig } from '../../config'
-import { isAdministrator } from '../../auth/administrator'
+import { isAdministrator } from '../auth/administrator'
 import type { ApiScope } from '../scopes'
 
 export type OAuthAuthorization = {

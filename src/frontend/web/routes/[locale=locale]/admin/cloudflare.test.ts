@@ -3,7 +3,7 @@ import {
 	createCloudflareDatabaseUrl,
 	createCloudflareQueuesUrl,
 	createCloudflareWorkerUrl
-} from './admin-cloudflare'
+} from './cloudflare'
 
 const accountId: string = '1234567890abcdef1234567890abcdef'
 

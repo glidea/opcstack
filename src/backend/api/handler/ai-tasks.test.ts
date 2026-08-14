@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { ApiEnv } from '..'
 import { createTenantShardAccess } from '../../db/shard-router'
-import { getAdminAiTaskHandler, listAdminAiTasksHandler } from './admin-ai-tasks'
+import { getAdminAiTaskHandler, listAdminAiTasksHandler } from './ai-tasks'
 
 vi.mock('../../db/shard-router', () => {
 	return {

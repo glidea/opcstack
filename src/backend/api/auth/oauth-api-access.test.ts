@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { MetaDb } from '../db'
+import type { MetaDb } from '../../db'
 import {
 	OAuthApiAccessError,
 	POLL_INTERVAL_SECONDS,
@@ -9,7 +9,7 @@ import {
 	createProtocolSecret,
 	getAuthorizationStatus,
 	pollAuthorization
-} from './index'
+} from './oauth-api-access'
 
 describe('OAuth API access domain', () => {
 	it('sorts and removes duplicate registered scopes', () => {

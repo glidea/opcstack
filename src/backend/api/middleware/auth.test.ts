@@ -10,7 +10,7 @@ import { authCore } from '../auth'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
 import type { AuthRuntimeConfig } from '../../config'
-import { isAdministrator } from '../../auth/administrator'
+import { isAdministrator } from '../auth/administrator'
 
 vi.mock('../auth', () => {
 	return {
@@ -18,7 +18,7 @@ vi.mock('../auth', () => {
 	}
 })
 
-vi.mock('../../auth/administrator', () => {
+vi.mock('../auth/administrator', () => {
 	return {
 		isAdministrator: vi.fn()
 	}

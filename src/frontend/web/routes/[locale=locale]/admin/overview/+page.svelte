@@ -14,7 +14,7 @@
 	import UsersIcon from '@lucide/svelte/icons/users'
 	import VideoIcon from '@lucide/svelte/icons/video'
 	import { client } from '$apiContract/client'
-	import type { GetAdminOverviewResponse } from '$apiContract/admin-overview'
+	import type { GetAdminOverviewResponse } from '$apiContract/overview'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Badge } from '$frontend/ui/badge'

@@ -57,9 +57,9 @@ import {
 import {
 	getAdminAiTaskHandler,
 	listAdminAiTasksHandler
-} from './handler/admin-ai-tasks'
-import { getAdminOverviewHandler } from './handler/admin-overview'
-import { listAdminUsersHandler } from './handler/admin-users'
+} from './handler/ai-tasks'
+import { getAdminOverviewHandler } from './handler/overview'
+import { listAdminUsersHandler } from './handler/users'
 import {
 	createAIProviderHandler,
 	createPaymentProductHandler,

@@ -16,8 +16,8 @@
 	import PencilIcon from '@lucide/svelte/icons/pencil'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import UserIcon from '@lucide/svelte/icons/user'
-	import AdminUserPicker from '../AdminUserPicker.svelte'
-	import AdminUserReference from '../AdminUserReference.svelte'
+	import UserPicker from '../UserPicker.svelte'
+	import UserReference from '../UserReference.svelte'
 	import type { NotificationScope } from './notifications-page'
 
 	let {
@@ -167,7 +167,7 @@
 							</ToggleGroup.Root>
 						</Field.Field>
 						{#if scope === 'user'}
-							<AdminUserPicker id="notification-edit-target-user" label={$_('admin.notifications.targetUser')} bind:value={targetUserId} />
+							<UserPicker id="notification-edit-target-user" label={$_('admin.notifications.targetUser')} bind:value={targetUserId} />
 						{/if}
 						<Field.Field>
 							<Field.Label for="notification-edit-type">{$_('admin.notifications.type')}</Field.Label>
@@ -206,7 +206,7 @@
 						{#if notification.target_user_id}
 							<div class="grid gap-1">
 								<dt class="text-xs text-muted-foreground">{$_('admin.notifications.targetUser')}</dt>
-								<dd><AdminUserReference userId={notification.target_user_id} href={`/${locale}/admin/users?search=${encodeURIComponent(notification.target_user_id)}`} /></dd>
+								<dd><UserReference userId={notification.target_user_id} href={`/${locale}/admin/users?search=${encodeURIComponent(notification.target_user_id)}`} /></dd>
 							</div>
 						{/if}
 						<div class="grid grid-cols-2 gap-3">

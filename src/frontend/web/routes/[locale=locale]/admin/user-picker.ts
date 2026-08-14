@@ -1,4 +1,4 @@
-import type { ListAdminUsersResponseItem } from '$apiContract/admin-users'
+import type { ListAdminUsersResponseItem } from '$apiContract/users'
 
 export function formatAdminUserIdentity(user: ListAdminUsersResponseItem): string {
 	const name: string = user.name.trim()

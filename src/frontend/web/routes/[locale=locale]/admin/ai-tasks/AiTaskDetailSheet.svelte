@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AdminAiTask, AdminAiTaskSummary } from '$apiContract/admin-ai-tasks'
+	import type { AdminAiTask, AdminAiTaskSummary } from '$apiContract/ai-tasks'
 	import { client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'

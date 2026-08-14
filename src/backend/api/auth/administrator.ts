@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import type { MetaDb } from '../db'
-import { user } from '../db/schema.auth'
+import type { MetaDb } from '../../db'
+import { user } from '../../db/schema.auth'
 
 export type Administrator = {
 	id: string

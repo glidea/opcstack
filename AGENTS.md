@@ -288,6 +288,7 @@ For more database detail, inspect `src/backend/db/` and the related tests.
 ## Auth, Credits, Storage, Payment, AI
 
 - Better Auth lives in `src/backend/api/auth/index.ts`.
+- Administrator lookup and OAuth API access authentication logic live beside Better Auth in `src/backend/api/auth/`. Do not create separate top-level backend auth domains for them.
 - `authMiddleware` injects `userId` into `ctx.variables`.
 - Protected JSON API routes accept Better Auth browser sessions or OAuth Bearer tokens. Every route is registered in `src/backend/api/scopes.ts`; OAuth access must pass `requireApiScope(scope)`, while protocol and byte-stream routes reject OAuth tokens.
 - The generic credential client is `opc auth connect` plus `opc api request`; it injects tokens and must not contain business API types or route-specific methods.
@@ -411,6 +412,7 @@ Dynamic params require an `entries()` function. Include parent params such as `[
 - Bug fixes should start with a failing test that reproduces the bug.
 - Remote E2E must only call HTTP APIs against an already deployed environment.
 - Remote E2E must not run deploy, migrations, resource creation, shard count changes, direct remote DB writes, or `d1_shards` writes.
+- Use Vitest for repeatable E2E and In App Browser for real browser acceptance. Do not add a separate browser automation framework.
 
 ### Commands
 

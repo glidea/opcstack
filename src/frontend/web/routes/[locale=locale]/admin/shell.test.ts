@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import { load as loadAdminLayout } from './+layout.server'
 import { load as loadAdminIndex } from './+page.server'
-import { createAdminNavigation } from './admin-navigation'
+import { createAdminNavigation } from './navigation'
 
 const { getRuntimeSession } = vi.hoisted(() => {
 	return { getRuntimeSession: vi.fn() }

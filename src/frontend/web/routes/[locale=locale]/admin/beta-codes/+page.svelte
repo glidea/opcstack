@@ -23,9 +23,9 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
-	import AdminAdvancedFilters from '../AdminAdvancedFilters.svelte'
-	import AdminUserReference from '../AdminUserReference.svelte'
-	import AdminUserPicker from '../AdminUserPicker.svelte'
+	import AdvancedFilters from '../AdvancedFilters.svelte'
+	import UserReference from '../UserReference.svelte'
+	import UserPicker from '../UserPicker.svelte'
 	import GenerateBetaCodesDialog from './GenerateBetaCodesDialog.svelte'
 	import { createBetaCodeSearchParams, parseBetaCodeListQuery } from './beta-codes-page'
 
@@ -185,7 +185,7 @@
 				<Field.Label for="beta-code-filter">{$_('admin.betaCodes.code')}</Field.Label>
 				<Input id="beta-code-filter" bind:value={codeInput} autocomplete="off" placeholder={$_('admin.betaCodes.codePlaceholder')} />
 			</Field.Field>
-			<AdminUserPicker id="beta-user-filter" label={$_('admin.betaCodes.usedBy')} bind:value={usedByInput} />
+			<UserPicker id="beta-user-filter" label={$_('admin.betaCodes.usedBy')} bind:value={usedByInput} />
 			<Field.Field>
 				<Field.Label for="beta-status-filter">{$_('admin.betaCodes.status')}</Field.Label>
 				<Select.Root type="single" bind:value={usedFilter}>
@@ -206,7 +206,7 @@
 				{/if}
 			</div>
 		</div>
-		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2">
+		<AdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2">
 			<Field.Field>
 				<Field.Label for="beta-created-start">{$_('admin.betaCodes.createdStart')}</Field.Label>
 				<Input id="beta-created-start" bind:value={createdStartInput} type="date" />
@@ -215,7 +215,7 @@
 				<Field.Label for="beta-created-end">{$_('admin.betaCodes.createdEnd')}</Field.Label>
 				<Input id="beta-created-end" bind:value={createdEndInput} type="date" />
 			</Field.Field>
-		</AdminAdvancedFilters>
+		</AdvancedFilters>
 	</form>
 
 	{#if listState.status === 'error'}
@@ -276,7 +276,7 @@
 								</Table.Cell>
 								<Table.Cell>
 									{#if item.used_by}
-										<AdminUserReference userId={item.used_by} href={userHref(item)} />
+										<UserReference userId={item.used_by} href={userHref(item)} />
 									{:else}
 										{$_('admin.common.none')}
 									{/if}

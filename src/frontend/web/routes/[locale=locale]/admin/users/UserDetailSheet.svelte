@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ListAdminUsersResponseItem } from '$apiContract/admin-users'
+	import type { ListAdminUsersResponseItem } from '$apiContract/users'
 	import BellIcon from '@lucide/svelte/icons/bell'
 	import BotIcon from '@lucide/svelte/icons/bot'
 	import CheckIcon from '@lucide/svelte/icons/check'

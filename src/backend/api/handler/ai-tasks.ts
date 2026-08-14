@@ -12,7 +12,7 @@ import {
 	ListAdminAiTasksApi,
 	type ListAdminAiTasksRequest,
 	type ListAdminAiTasksResponse
-} from '../../../api-contract/admin-ai-tasks'
+} from '../../../api-contract/ai-tasks'
 import { createTenantShardAccess, type TenantShardClient } from '../../db/shard-router'
 import {
 	aiImageTask,

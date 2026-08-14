@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Context } from 'hono'
 import type { ApiEnv } from '..'
-import { listAdminUsersHandler } from './admin-users'
+import { listAdminUsersHandler } from './users'
 
 const shardRouterMocks = vi.hoisted(() => ({
 	openShardSession: vi.fn()

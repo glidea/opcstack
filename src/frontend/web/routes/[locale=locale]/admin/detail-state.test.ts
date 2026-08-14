@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { createAdminPageSearch, readAdminDetailKey } from './admin-detail-state'
+import { createAdminPageSearch, readAdminDetailKey } from './detail-state'
 
 describe('admin detail state', (): void => {
 	test('reads the selected detail key from the current URL', (): void => {

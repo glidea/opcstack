@@ -2,7 +2,7 @@ import { error, redirect } from '@sveltejs/kit'
 import { authCore } from '$backend/api/auth'
 import { getMetaDb } from '$backend/db'
 import { getAuthRuntimeConfig } from '$backend/config'
-import { createCloudflareWorkerUrl } from './admin-cloudflare'
+import { createCloudflareWorkerUrl } from './cloudflare'
 
 type AdminSession = {
 	user: {

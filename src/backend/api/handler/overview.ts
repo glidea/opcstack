@@ -6,7 +6,7 @@ import {
 	GetAdminOverviewApi,
 	type AdminOverviewPaidAmount,
 	type GetAdminOverviewResponse
-} from '../../../api-contract/admin-overview'
+} from '../../../api-contract/overview'
 import { createTenantShardAccess, type TenantShardClient } from '../../db/shard-router'
 import { user } from '../../db/schema.auth'
 import { creditRedemptionCode, paymentTransaction } from '../../db/schema.meta'

@@ -5,7 +5,7 @@
 	import { Button } from '$frontend/ui/button'
 	import * as Sheet from '$frontend/ui/sheet'
 	import UserIcon from '@lucide/svelte/icons/user'
-	import { formatCreditAmount } from '../admin-presentation'
+	import { formatCreditAmount } from '../presentation'
 	import {
 		createPaymentUserHref,
 		formatPaymentAmount,

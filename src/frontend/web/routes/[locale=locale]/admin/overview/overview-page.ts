@@ -1,4 +1,4 @@
-import type { GetAdminOverviewResponse } from '$apiContract/admin-overview'
+import type { GetAdminOverviewResponse } from '$apiContract/overview'
 
 export type AdminOverviewState =
 	| { status: 'loading' }

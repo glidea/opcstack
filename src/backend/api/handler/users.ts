@@ -6,7 +6,7 @@ import {
 	ListAdminUsersApi,
 	type ListAdminUsersResponse,
 	type ListAdminUsersResponseItem
-} from '../../../api-contract/admin-users'
+} from '../../../api-contract/users'
 import { user } from '../../db/schema.auth'
 import { affReferral, d1Shard, userShard } from '../../db/schema'
 import { createTenantShardAccess, type TenantShardAccess } from '../../db/shard-router'

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { GetAdminOverviewResponse } from '$apiContract/admin-overview'
+import type { GetAdminOverviewResponse } from '$apiContract/overview'
 import {
 	createOverviewDrilldowns,
 	createOverviewInitialState,

@@ -10,7 +10,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check'
 	import CopyIcon from '@lucide/svelte/icons/copy'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
-	import { formatCreditAmount } from '../admin-presentation'
+	import { formatCreditAmount } from '../presentation'
 	import {
 		joinCreditCodes,
 		validateCreditCodeAmount,

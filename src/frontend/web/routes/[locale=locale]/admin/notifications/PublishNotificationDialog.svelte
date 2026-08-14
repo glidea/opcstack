@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { client } from '$apiContract/client'
-	import type { ListAdminUsersResponseItem } from '$apiContract/admin-users'
+	import type { ListAdminUsersResponseItem } from '$apiContract/users'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
 	import { Button } from '$frontend/ui/button'
@@ -12,8 +12,8 @@
 	import GlobeIcon from '@lucide/svelte/icons/globe'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import UserIcon from '@lucide/svelte/icons/user'
-	import AdminUserPicker from '../AdminUserPicker.svelte'
-	import { formatAdminUserIdentity } from '../admin-user-picker'
+	import UserPicker from '../UserPicker.svelte'
+	import { formatAdminUserIdentity } from '../user-picker'
 	import {
 		buildNotificationRequest,
 		validateNotificationDraft,
@@ -144,7 +144,7 @@
 					</ToggleGroup.Root>
 				</Field.Field>
 				{#if scope === 'user'}
-					<AdminUserPicker
+					<UserPicker
 						id="notification-target-user"
 						label={$_('admin.notifications.targetUser')}
 						bind:value={targetUserId}

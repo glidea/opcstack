@@ -9,7 +9,7 @@ import {
 	RevokeOAuthGrantApi,
 	type ListOAuthGrantsResponse
 } from '../../../api-contract/oauth-api-access'
-import { isAdministrator } from '../../auth/administrator'
+import { isAdministrator } from '../auth/administrator'
 import { oauthGrant } from '../../db/schema'
 import { parseRequest } from '../../lib/request'
 import {
@@ -25,7 +25,7 @@ import {
 	resolveAuthorizationByState,
 	resolveAuthorizationByUserCode,
 	revokeOAuthGrant
-} from '../../oauth-api-access'
+} from '../auth/oauth-api-access'
 import { isAdministratorScope } from '../scopes'
 import type { ApiEnv } from '..'
 import { authCore } from '../auth'

@@ -2,7 +2,6 @@
 import { cp, mkdtemp, open, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join, relative, resolve } from 'node:path'
-import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
 
 const SOURCE_ROOT = resolve(import.meta.dirname, '..')
@@ -114,35 +113,23 @@ async function main() {
 		)
 		await waitForHealth('http://localhost:5173/api/health')
 
-		const nextPassword = randomBytes(24).toString('base64url')
 		const initialEnvironment = {
 			...process.env,
 			E2E_FIRST_RUN: '1',
 			E2E_ADMIN_EMAIL: credentials.email,
-			E2E_ADMIN_PASSWORD: credentials.password,
-			E2E_NEW_ADMIN_PASSWORD: nextPassword
+			E2E_ADMIN_PASSWORD: credentials.password
 		}
-		await runVisible(
-			'pnpm',
-			['exec', 'playwright', 'test', 'e2e-browser/first-run.spec.ts'],
-			workspace,
-			initialEnvironment
-		)
 		await runVisible(
 			'pnpm',
 			['exec', 'vitest', '--config', 'vitest.e2e.config.ts', 'e2e/first-run.test.ts'],
 			workspace,
-			{
-				...initialEnvironment,
-				E2E_ADMIN_EMAIL: credentials.email,
-				E2E_ADMIN_PASSWORD: nextPassword
-			}
+			initialEnvironment
 		)
 		await runVisible('pnpm', ['test:e2e'], workspace, {
 			...process.env,
 			E2E_FIRST_RUN: '0',
 			E2E_ADMIN_EMAIL: credentials.email,
-			E2E_ADMIN_PASSWORD: nextPassword
+			E2E_ADMIN_PASSWORD: credentials.password
 		})
 		secondWorkerLogPath = join(temporaryRoot, 'second-worker.log')
 		secondWorker = await startServer(
@@ -177,7 +164,7 @@ async function main() {
 				...process.env,
 				E2E_FIRST_RUN: '1',
 				E2E_ADMIN_EMAIL: credentials.email,
-				E2E_ADMIN_PASSWORD: nextPassword,
+				E2E_ADMIN_PASSWORD: credentials.password,
 				E2E_SECOND_APP_BASE_URL: 'http://localhost:5174',
 				E2E_SECOND_ADMIN_EMAIL: secondProjectCredentials.email,
 				E2E_SECOND_ADMIN_PASSWORD: secondProjectCredentials.password

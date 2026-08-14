@@ -6,9 +6,9 @@ import type {
 	GetAdminAiTaskResponse,
 	ListAdminAiTasksRequest,
 	ListAdminAiTasksResponse
-} from '../admin-ai-tasks'
-import type { GetAdminOverviewResponse } from '../admin-overview'
-import type { ListAdminUsersRequest, ListAdminUsersResponse } from '../admin-users'
+} from '../ai-tasks'
+import type { GetAdminOverviewResponse } from '../overview'
+import type { ListAdminUsersRequest, ListAdminUsersResponse } from '../users'
 import type {
 	BindBetaCodeRequest,
 	GenerateBetaCodesRequest,

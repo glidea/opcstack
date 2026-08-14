@@ -18,7 +18,7 @@ import {
 	mutateConfigSecret,
 	type SecretMutation
 } from './crypto'
-import { getAdministrator } from '../auth/administrator'
+import { getAdministrator } from '../api/auth/administrator'
 
 export type ConfigStoreErrorCode =
 	| 'SETTINGS_NOT_FOUND'

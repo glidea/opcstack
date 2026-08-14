@@ -19,10 +19,10 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
-	import AdminUserReference from '../AdminUserReference.svelte'
-	import AdminUserPicker from '../AdminUserPicker.svelte'
-	import { formatCreditAmount } from '../admin-presentation'
-	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
+	import UserReference from '../UserReference.svelte'
+	import UserPicker from '../UserPicker.svelte'
+	import { formatCreditAmount } from '../presentation'
+	import { createAdminPageSearch, readAdminDetailKey } from '../detail-state'
 	import PaymentDetailSheet from './PaymentDetailSheet.svelte'
 	import { createPaymentSearchParams, createPaymentUserHref, formatPaymentAmount, getPaymentStatusVariant, PAYMENT_TRANSACTION_STATUSES, PAYMENT_TRANSACTION_TYPES, parsePaymentListQuery } from './payments-page'
 
@@ -185,7 +185,7 @@
 	</header>
 
 	<form class="admin-filter-bar sm:grid-cols-2 xl:grid-cols-[minmax(15rem,1.3fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto] xl:items-end" onsubmit={applyFilters}>
-		<AdminUserPicker id="payment-user-filter" label={$_('admin.payments.user')} bind:value={userInput} />
+		<UserPicker id="payment-user-filter" label={$_('admin.payments.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="payment-type-filter">{$_('admin.payments.type')}</Field.Label>
 			<Select.Root type="single" bind:value={typeInput}>
@@ -264,7 +264,7 @@
 						{#each listState.data.items as item (item.id)}
 							<Table.Row class={`group ${item.status === 'refunded' || item.status === 'disputed' ? 'bg-destructive/5' : ''}`}>
 								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
-								<Table.Cell><AdminUserReference userId={item.user_id} href={createPaymentUserHref(data.locale, item.user_id)} /></Table.Cell>
+								<Table.Cell><UserReference userId={item.user_id} href={createPaymentUserHref(data.locale, item.user_id)} /></Table.Cell>
 								<Table.Cell>{item.product_id}</Table.Cell>
 								<Table.Cell>{paymentTypeLabel(item.type)}</Table.Cell>
 								<Table.Cell>{formatPaymentAmount(item.amount, item.currency, data.locale)}</Table.Cell>

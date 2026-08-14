@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
-	import type { AdminAiTaskSummary, AdminAiTaskType, ListAdminAiTasksRequest, ListAdminAiTasksResponse } from '$apiContract/admin-ai-tasks'
+	import type { AdminAiTaskSummary, AdminAiTaskType, ListAdminAiTasksRequest, ListAdminAiTasksResponse } from '$apiContract/ai-tasks'
 	import { client } from '$apiContract/client'
 	import { _ } from '$frontend/i18n'
 	import * as Alert from '$frontend/ui/alert'
@@ -21,11 +21,11 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
-	import AdminAdvancedFilters from '../AdminAdvancedFilters.svelte'
-	import AdminUserReference from '../AdminUserReference.svelte'
-	import AdminUserPicker from '../AdminUserPicker.svelte'
-	import { createCloudflareQueuesUrl } from '../admin-cloudflare'
-	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
+	import AdvancedFilters from '../AdvancedFilters.svelte'
+	import UserReference from '../UserReference.svelte'
+	import UserPicker from '../UserPicker.svelte'
+	import { createCloudflareQueuesUrl } from '../cloudflare'
+	import { createAdminPageSearch, readAdminDetailKey } from '../detail-state'
 	import AiTaskDetailSheet from './AiTaskDetailSheet.svelte'
 	import { createAiTaskSearchParams, createAiTaskUserHref, getAiTaskStatusVariant, parseAiTaskListQuery, type CloudflareResourceContext } from './ai-tasks-page'
 
@@ -257,7 +257,7 @@
 					</Select.Content>
 				</Select.Root>
 			</Field.Field>
-			<AdminUserPicker id="ai-task-user-filter" label={$_('admin.aiTasks.user')} bind:value={userInput} />
+			<UserPicker id="ai-task-user-filter" label={$_('admin.aiTasks.user')} bind:value={userInput} />
 			<Field.Field>
 				<Field.Label for="ai-task-status-filter">{$_('admin.aiTasks.status')}</Field.Label>
 				<Select.Root type="single" bind:value={statusInput}>
@@ -275,7 +275,7 @@
 				{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.aiTasks.reset')}</Button>{/if}
 			</div>
 		</div>
-		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-6">
+		<AdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-2 xl:grid-cols-6">
 			<Field.Field>
 				<Field.Label for="ai-task-id-filter">{$_('admin.aiTasks.id')}</Field.Label>
 				<Input id="ai-task-id-filter" bind:value={idInput} autocomplete="off" placeholder={$_('admin.aiTasks.idPlaceholder')} />
@@ -300,7 +300,7 @@
 				<Field.Label for="ai-task-created-end">{$_('admin.aiTasks.createdEnd')}</Field.Label>
 				<Input id="ai-task-created-end" type="datetime-local" bind:value={createdEndInput} />
 			</Field.Field>
-		</AdminAdvancedFilters>
+		</AdvancedFilters>
 	</form>
 
 	{#if listState.status === 'error'}
@@ -351,7 +351,7 @@
 								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
 								<Table.Cell><Badge variant="outline">{taskTypeLabel(item.task_type)}</Badge></Table.Cell>
 								<Table.Cell class="max-w-44 truncate font-mono text-xs" title={item.id}>{item.id}</Table.Cell>
-								<Table.Cell><AdminUserReference userId={item.user_id} href={createAiTaskUserHref(data.locale, item.user_id)} /></Table.Cell>
+								<Table.Cell><UserReference userId={item.user_id} href={createAiTaskUserHref(data.locale, item.user_id)} /></Table.Cell>
 								<Table.Cell><div>{item.provider_type}</div><div class="font-mono text-xs text-muted-foreground">{item.provider_id ?? $_('admin.common.none')}</div></Table.Cell>
 								<Table.Cell>{item.model ?? $_('admin.common.none')}</Table.Cell>
 								<Table.Cell><Badge variant={getAiTaskStatusVariant(item.status)}>{taskStatusLabel(item.status)}</Badge></Table.Cell>

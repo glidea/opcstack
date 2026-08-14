@@ -1,13 +1,13 @@
 import type {
 	AdminAiTaskType,
 	ListAdminAiTasksRequest
-} from '$apiContract/admin-ai-tasks'
+} from '$apiContract/ai-tasks'
 import {
 	createCloudflareBucketUrl,
 	createCloudflareDatabaseUrl,
 	createCloudflareQueuesUrl,
 	createCloudflareWorkerUrl
-} from '../admin-cloudflare'
+} from '../cloudflare'
 
 export type AiTaskStatusVariant = 'outline' | 'secondary' | 'destructive'
 

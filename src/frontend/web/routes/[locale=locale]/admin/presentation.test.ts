@@ -3,7 +3,7 @@ import {
 	compactTechnicalId,
 	createFilterOptions,
 	formatCreditAmount
-} from './admin-presentation'
+} from './presentation'
 
 describe('admin presentation', (): void => {
 	test('formats credit amounts without meaningless trailing zeroes', (): void => {

@@ -22,8 +22,8 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
-	import AdminUserPicker from '../AdminUserPicker.svelte'
-	import { formatCreditAmount } from '../admin-presentation'
+	import UserPicker from '../UserPicker.svelte'
+	import { formatCreditAmount } from '../presentation'
 
 	type CreditTransactionKind =
 		| 'signup'
@@ -164,7 +164,7 @@
 	</header>
 
 	<form class="admin-filter-bar sm:grid-cols-[minmax(16rem,1fr)_minmax(13rem,0.7fr)_auto] sm:items-end" onsubmit={applyFilters}>
-		<AdminUserPicker id="credit-transaction-user" label={$_('admin.creditTransactions.user')} bind:value={userInput} />
+		<UserPicker id="credit-transaction-user" label={$_('admin.creditTransactions.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="credit-transaction-type">{$_('admin.creditTransactions.type')}</Field.Label>
 			<Select.Root type="single" bind:value={typeInput}>

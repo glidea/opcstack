@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { compactTechnicalId } from './admin-presentation'
+	import { compactTechnicalId } from './presentation'
 
 	let {
 		userId,

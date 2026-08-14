@@ -20,10 +20,10 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
-	import AdminUserReference from '../AdminUserReference.svelte'
-	import AdminUserPicker from '../AdminUserPicker.svelte'
-	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
-	import { createFilterOptions } from '../admin-presentation'
+	import UserReference from '../UserReference.svelte'
+	import UserPicker from '../UserPicker.svelte'
+	import { createAdminPageSearch, readAdminDetailKey } from '../detail-state'
+	import { createFilterOptions } from '../presentation'
 	import FeedbackDetailSheet from './FeedbackDetailSheet.svelte'
 	import { createFeedbackSearchParams, createFeedbackUserHref, parseFeedbackListQuery, summarizeFeedback } from './feedback-page'
 
@@ -181,7 +181,7 @@
 	</header>
 
 	<form class="admin-filter-bar sm:grid-cols-2 xl:grid-cols-[minmax(15rem,1.3fr)_minmax(10rem,0.7fr)_minmax(10rem,0.8fr)_minmax(10rem,0.8fr)_auto] xl:items-end" onsubmit={applyFilters}>
-		<AdminUserPicker id="feedback-user-filter" label={$_('admin.feedback.user')} bind:value={userInput} />
+		<UserPicker id="feedback-user-filter" label={$_('admin.feedback.user')} bind:value={userInput} />
 		<Field.Field>
 			<Field.Label for="feedback-type-filter">{$_('admin.feedback.type')}</Field.Label>
 			<Select.Root type="single" bind:value={typeInput}>
@@ -252,7 +252,7 @@
 					{:else}
 						{#each listState.data.items as item (item.id)}
 							<Table.Row class="group">
-								<Table.Cell><AdminUserReference userId={item.user_id} href={createFeedbackUserHref(data.locale, item.user_id)} /></Table.Cell>
+								<Table.Cell><UserReference userId={item.user_id} href={createFeedbackUserHref(data.locale, item.user_id)} /></Table.Cell>
 								<Table.Cell><Badge variant="outline">{item.type}</Badge></Table.Cell>
 								<Table.Cell><p class="max-w-2xl text-sm text-muted-foreground">{summarizeFeedback(item.content)}</p></Table.Cell>
 								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>

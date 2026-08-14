@@ -17,8 +17,7 @@
 		"test": "pnpm exec tsc --noEmit -p tsconfig.tsc.json && pnpm exec svelte-check --tsconfig ./tsconfig.json && vitest",
 		"test:e2e": "vitest --config vitest.e2e.config.ts",
 		"test:e2e:remote": "E2E_REMOTE=1 vitest --config vitest.e2e.config.ts",
-		"test:e2e:first-run": "node scripts/accept-local-first-run.mjs",
-		"test:e2e:browser:first-run": "playwright test e2e-browser/first-run.spec.ts"
+		"test:e2e:first-run": "node scripts/accept-local-first-run.mjs"
 	},
 	"devDependencies": {
 		"@better-auth/cli": "^1.4.21",
@@ -26,7 +25,6 @@
 		"@fontsource-variable/inter": "^5.2.8",
 		"@internationalized/date": "^3.12.0",
 		"@lucide/svelte": "^1.8.0",
-		"@playwright/test": "^1.62.1",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/vite": "^4.2.2",

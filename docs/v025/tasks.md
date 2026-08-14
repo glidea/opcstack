@@ -350,7 +350,7 @@
 1. 登录后台进入认证设置，确认开放注册下的子项层级正确，Turnstile 凭据不可编辑，OAuth 回调可复制但不是输入框
 2. 确认配置页没有账号/安全重复入口，Worker 日志位于顶栏左侧首个操作
 3. 创建、编辑、归档通知并查看用户、积分、内测码、兑换码页面，确认技术字段和小徽标已移除且布局一致
-4. 从空本地数据执行 `pnpm test:e2e:first-run`，确认真实浏览器和 HTTP 验收通过
+4. 从空本地数据执行 `pnpm test:e2e:first-run` 确认 HTTP 验收通过，并使用 In App Browser 完成真实浏览器验收
 
 # Task-014: 收口管理员账号与存储策略来源
 
@@ -370,7 +370,7 @@
 2. 登录设置页，确认没有修改邮箱入口，可修改密码、关联或解除 OAuth 账号，并可查看或撤销 API Grant
 3. 打开 System Settings，确认不存在 Storage Tab；修改上传策略只能通过 ENV 并在重启或部署后生效
 4. 全仓搜索 Storage 动态配置和管理员邮箱修改契约，确认没有兼容路由、D1 字段或双重来源
-5. 执行 `pnpm test:e2e:first-run`，确认真实浏览器与 HTTP 流程通过且未触发线上部署
+5. 执行 `pnpm test:e2e:first-run` 确认 HTTP 流程通过，使用 In App Browser 完成真实浏览器验收且不触发线上部署
 
 # Task-015: 完善后台业务工作区与统一操作布局
 
@@ -459,7 +459,7 @@ AI Provider 工作区隐藏内部 ID 和内部类型枚举，以“用途 + 实�
 在 Task-015 至 Task-018 全部通过后提交并推送，部署真实 Cloudflare 实例。通过公开页面、浏览器 Session 和 HTTP API 验证首次登录、账号安全、设置、业务工作区、OAuth API Access、用户侧文档及关键业务流程，不使用直接远程数据库写入代替用户操作。
 
 ## TODO 清单
-- [x] 1. 执行完整类型检查、单元测试、构建、本地 HTTP E2E 和本地真实浏览器 E2E
+- [x] 1. 执行完整类型检查、单元测试、构建、本地 HTTP E2E，并使用 In App Browser 完成本地真实浏览器验收
 - [x] 2. 检查固定 ENV、Secret、Migration、废弃字段和旧命名残留，确保配置来源唯一
 - [x] 3. 按任务逐一提交并推送 `main`，执行 Cloudflare 生产部署
 - [x] 4. 使用 In App Browser 验证管理员登录、设置保存、用户管理、通知、支付商品、AI Provider、积分流水和邀请记录

@@ -21,11 +21,11 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw'
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert'
 	import { onMount } from 'svelte'
-	import AdminAdvancedFilters from '../AdminAdvancedFilters.svelte'
-	import AdminUserReference from '../AdminUserReference.svelte'
-	import AdminUserPicker from '../AdminUserPicker.svelte'
-	import { createFilterOptions } from '../admin-presentation'
-	import { createAdminPageSearch, readAdminDetailKey } from '../admin-detail-state'
+	import AdvancedFilters from '../AdvancedFilters.svelte'
+	import UserReference from '../UserReference.svelte'
+	import UserPicker from '../UserPicker.svelte'
+	import { createFilterOptions } from '../presentation'
+	import { createAdminPageSearch, readAdminDetailKey } from '../detail-state'
 	import NotificationDetailSheet from './NotificationDetailSheet.svelte'
 	import PublishNotificationDialog from './PublishNotificationDialog.svelte'
 	import { createNotificationSearchParams, parseNotificationComposer, parseNotificationListQuery, type NotificationComposerState } from './notifications-page'
@@ -235,7 +235,7 @@
 
 	<form class="admin-filter-bar" onsubmit={applyFilters}>
 		<div class="admin-filter-primary md:grid-cols-2 xl:grid-cols-[minmax(15rem,1.3fr)_minmax(10rem,0.8fr)_minmax(10rem,0.8fr)_auto] xl:items-end">
-			<AdminUserPicker id="notification-user-filter" label={$_('admin.notifications.targetUser')} bind:value={targetInput} />
+			<UserPicker id="notification-user-filter" label={$_('admin.notifications.targetUser')} bind:value={targetInput} />
 			<Field.Field>
 				<Field.Label for="notification-scope-filter">{$_('admin.notifications.scope')}</Field.Label>
 				<Select.Root type="single" bind:value={scopeInput}>
@@ -268,7 +268,7 @@
 				{#if hasFilters()}<Button type="button" variant="ghost" onclick={resetFilters}>{$_('admin.notifications.reset')}</Button>{/if}
 			</div>
 		</div>
-		<AdminAdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-3">
+		<AdvancedFilters bind:open={advancedOpen} count={advancedFilterCount} label={$_('admin.filters.advanced')} contentClass="md:grid-cols-3">
 			<Field.Field>
 				<Field.Label for="notification-id-filter">{$_('admin.notifications.id')}</Field.Label>
 				<Input id="notification-id-filter" bind:value={idInput} autocomplete="off" placeholder={$_('admin.notifications.idPlaceholder')} />
@@ -281,7 +281,7 @@
 				<Field.Label for="notification-created-end">{$_('admin.notifications.createdEnd')}</Field.Label>
 				<Input id="notification-created-end" bind:value={createdEndInput} type="date" />
 			</Field.Field>
-		</AdminAdvancedFilters>
+		</AdvancedFilters>
 	</form>
 
 	{#if listState.status === 'error'}
@@ -330,7 +330,7 @@
 								<Table.Cell><p class="max-w-lg truncate font-medium">{item.title}</p></Table.Cell>
 								<Table.Cell>{notificationTypeLabel(item.type)}</Table.Cell>
 								<Table.Cell>
-									{#if item.target_user_id}<AdminUserReference userId={item.target_user_id} href={`/${data.locale}/admin/users?search=${encodeURIComponent(item.target_user_id)}`} />{:else}{$_('admin.common.none')}{/if}
+									{#if item.target_user_id}<UserReference userId={item.target_user_id} href={`/${data.locale}/admin/users?search=${encodeURIComponent(item.target_user_id)}`} />{:else}{$_('admin.common.none')}{/if}
 								</Table.Cell>
 								<Table.Cell>{formatDate(item.created_at)}</Table.Cell>
 								<Table.Cell><Badge variant={item.archived_at === null ? 'secondary' : 'outline'}>{item.archived_at === null ? $_('admin.notifications.active') : $_('admin.notifications.archived')}</Badge></Table.Cell>

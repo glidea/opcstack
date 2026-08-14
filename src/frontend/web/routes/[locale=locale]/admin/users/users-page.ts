@@ -1,4 +1,4 @@
-import type { ListAdminUsersRequest } from '$apiContract/admin-users'
+import type { ListAdminUsersRequest } from '$apiContract/users'
 import type { AdminGrantCreditsRequest } from '$apiContract/credits'
 
 export type UserContextLinks = {

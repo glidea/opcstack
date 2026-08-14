@@ -1117,7 +1117,7 @@ flowchart LR
     Auth["src/backend/api/auth/index.ts<br/>src/backend/api/middleware/auth.ts"]
     MetaSession["src/backend/api/middleware/meta-db-session.ts"]
     WebRuntime["src/frontend/web/hooks.server.ts<br/>src/frontend/web/routes/+layout.server.ts"]
-    AdminNav["admin-navigation.ts<br/>admin +layout.svelte"]
+    AdminNav["navigation.ts<br/>admin +layout.svelte"]
     Domains["auth / email / r2 / credits / aff<br/>payment / ai / consumers / jobs"]
     PrepareScripts["prepare-cloudflare.mjs<br/>prepare-public.mjs<br/>opc.mjs"]
     EnvFiles["env templates<br/>wrangler.jsonc.tpl<br/>generated Env types"]
